@@ -60,3 +60,8 @@ scripts/l10n_ar/verify_decisiones.py
 # legacy compose backup
 compose.yaml.bak-*
 
+
+# automatic backups, their log and the maintenance lock (scripts/respaldo-diario.sh)
+backups-auto/
+logs/
+run/
