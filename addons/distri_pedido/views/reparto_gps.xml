@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Location of the driver's app (19.0.1.35.0, models/reparto_gps.py) -->
+<odoo>
+
+  <!-- ===================================================== route form -->
+
+  <record id="view_route_form_gps" model="ir.ui.view">
+    <field name="name">distri.route.form.gps</field>
+    <field name="model">distri.route</field>
+    <field name="inherit_id" ref="distri_pedido.view_route_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header/field[@name='state']" position="before">
+        <button name="action_gps_override" type="object" string="Sin GPS – autorizado"
+                groups="distri_pedido.grupo_administracion"
+                invisible="gps_override or state not in ('draft', 'on_route')"/>
+      </xpath>
+      <xpath expr="//div[hasclass('oe_title')]" position="before">
+        <div class="alert alert-warning" role="alert" invisible="not gps_override"
+             groups="distri_pedido.grupo_administracion">
+          <b>Sin GPS – autorizado</b> por <field name="gps_override_user_id" readonly="1"
+            class="oe_inline"/>: <field name="gps_override_reason" readonly="1" class="oe_inline"/>
+        </div>
+      </xpath>
+      <xpath expr="//notebook" position="inside">
+        <page string="Ubicación (GPS)" name="distri_gps" groups="distri_pedido.grupo_administracion">
+          <p class="text-muted">La app toma la ubicación solo al salir, al tocar «Llegué», al
+            cerrar cada visita y al cerrar la ruta. Las coordenadas se borran pasado el plazo de
+            conservación y quedan los horarios.</p>
+          <group>
+            <field name="gps_override"/>
+            <field name="gps_override_date" invisible="not gps_override"/>
+            <field name="gps_flag_count"/>
+          </group>
+          <field name="gps_point_ids" readonly="1">
+            <list decoration-warning="low_accuracy or far" decoration-danger="missing"
+                  create="0" delete="0">
+              <field name="device_time"/>
+              <field name="kind"/>
+              <field name="partner_id"/>
+              <field name="accuracy"/>
+              <field name="distance_m"/>
+              <field name="flags"/>
+              <field name="received_at" optional="hide"/>
+              <field name="map_url" widget="url" string="Mapa"/>
+              <field name="missing" column_invisible="1"/>
+              <field name="low_accuracy" column_invisible="1"/>
+              <field name="far" column_invisible="1"/>
+              <field name="can_save_location" column_invisible="1"/>
+              <button name="action_save_customer_location" type="object"
+                      string="Guardar como ubicación del cliente"
+                      invisible="not can_save_location"
+                      confirm="Reemplaza la ubicación guardada del cliente, si tenía una. ¿Guardar?"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_route_gps_override_form" model="ir.ui.view">
+    <field name="name">distri.route.gps.override.form</field>
+    <field name="model">distri.route.gps.override</field>
+    <field name="arch" type="xml">
+      <form string="Sin GPS – autorizado">
+        <p>La app deja seguir esta ruta sin la ubicación del celular. El motivo queda en la ruta y
+          en «Tiempos de reparto». El repartidor actualiza la ruta desde la app (o toca
+          «Reintentar» con señal).</p>
+        <group>
+          <field name="route_id" readonly="1"/>
+          <field name="reason" placeholder="Ej.: el GPS del celular está roto"/>
+        </group>
+        <footer>
+          <button name="action_confirm" type="object" string="Autorizar sin GPS" class="btn-primary"/>
+          <button string="Cancelar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- ===================================================== settings -->
+
+  <record id="view_gps_config" model="ir.ui.view">
+    <field name="name">distri.gps.config.form</field>
+    <field name="model">distri.gps.config</field>
+    <field name="arch" type="xml">
+      <form string="Ubicación (GPS)">
+        <group>
+          <field name="gps_required"/>
+          <field name="accuracy_m"/>
+          <field name="distance_m"/>
+          <field name="retention_months"/>
+        </group>
+        <div class="text-muted">
+          <p>La app pide una ubicación nueva solo en cuatro momentos de una ruta en curso: al salir,
+            al tocar «Llegué», al cerrar cada visita y al cerrar la ruta. Nunca sigue al repartidor
+            ni registra nada fuera del trabajo.</p>
+          <p><b>Obligatoria:</b> sin ubicación la app no deja hacer esas acciones y explica cómo
+            activarla. Administración puede autorizar una ruta «Sin GPS» con un motivo.</p>
+          <p>La precisión baja y la distancia al cliente solo marcan el punto: nunca bloquean.</p>
+        </div>
+        <footer>
+          <button name="action_save" type="object" string="Guardar" class="btn-primary"/>
+          <button string="Cerrar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_gps_config" model="ir.actions.act_window">
+    <field name="name">Ubicación (GPS)</field>
+    <field name="res_model">distri.gps.config</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <!-- ===================================================== report -->
+
+  <record id="view_reparto_tiempos_form" model="ir.ui.view">
+    <field name="name">distri.reparto.tiempos.form</field>
+    <field name="model">distri.reparto.tiempos</field>
+    <field name="arch" type="xml">
+      <form string="Tiempos de reparto">
+        <group>
+          <group>
+            <field name="date_from"/>
+            <field name="date_to"/>
+          </group>
+          <group>
+            <field name="driver_id" options="{'no_create': True}"/>
+          </group>
+        </group>
+        <p class="text-muted">Por ruta: salida, cierre, tiempo en cada cliente (de «Llegué» al
+          cierre de la visita), tiempo entre visitas y total. Cada punto trae un enlace al mapa.</p>
+        <footer>
+          <button name="action_view" type="object" string="Ver" class="btn-primary"/>
+          <button name="action_pdf" type="object" string="PDF"/>
+          <button string="Cerrar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_reparto_tiempos" model="ir.actions.act_window">
+    <field name="name">Tiempos de reparto</field>
+    <field name="res_model">distri.reparto.tiempos</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <record id="report_tiempos_reparto" model="ir.actions.report">
+    <field name="name">Tiempos de reparto</field>
+    <field name="model">distri.reparto.tiempos</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.tiempos_reparto_documento</field>
+    <field name="report_file">distri_pedido.tiempos_reparto_documento</field>
+    <field name="print_report_name">'Tiempos de reparto'</field>
+    <field name="group_ids" eval="[(6, 0, [ref('distri_pedido.grupo_administracion')])]"/>
+  </record>
+
+  <record id="report_tiempos_reparto_html" model="ir.actions.report">
+    <field name="name">Tiempos de reparto (pantalla)</field>
+    <field name="model">distri.reparto.tiempos</field>
+    <field name="report_type">qweb-html</field>
+    <field name="report_name">distri_pedido.tiempos_reparto_html</field>
+    <field name="report_file">distri_pedido.tiempos_reparto_html</field>
+    <field name="group_ids" eval="[(6, 0, [ref('distri_pedido.grupo_administracion')])]"/>
+  </record>
+
+  <template id="tiempos_reparto_punto">
+    <t t-if="p">
+      <span t-out="p['time']"/>
+      <a t-if="p['map']" t-att-href="p['map']" target="_blank" rel="noopener">mapa</a>
+      <small t-if="p['accuracy'] is not None" class="text-muted"> ±<t t-out="p['accuracy']"/> m</small>
+    </t>
+    <t t-else="">—</t>
+  </template>
+
+  <template id="tiempos_reparto_cuerpo">
+    <t t-foreach="docs" t-as="doc">
+      <div class="page" style="font-size: 12px;">
+        <h3>Tiempos de reparto</h3>
+        <p>
+          <t t-out="date_label(doc.date_from)"/> a <t t-out="date_label(doc.date_to)"/>
+          · <t t-out="doc.driver_id.name or 'Todos los repartidores'"/>
+          · Impreso el <t t-out="printed_at"/>
+        </p>
+        <t t-set="routes" t-value="data_of(doc)"/>
+        <p t-if="not routes">No hay rutas en esas fechas.</p>
+        <t t-foreach="routes" t-as="r">
+          <div style="page-break-inside: avoid; margin-top: 14px;">
+            <h5 style="margin-bottom: 2px;">
+              <t t-out="r['route']"/>
+            </h5>
+            <div>
+              Salida: <t t-call="distri_pedido.tiempos_reparto_punto"><t t-set="p" t-value="r['start_point']"/></t>
+              <t t-if="not r['start_point'] and r['start']"> <t t-out="r['start']"/> (sin ubicación)</t>
+              · Cierre: <t t-call="distri_pedido.tiempos_reparto_punto"><t t-set="p" t-value="r['end_point']"/></t>
+              <t t-if="not r['end_point'] and r['end']"> <t t-out="r['end']"/> (sin ubicación)</t>
+              · Total: <b t-out="r['total'] or '—'"/>
+              · Avisos: <t t-out="r['flag_count']"/>
+            </div>
+            <div t-if="r['start_point'] and r['start_point']['flags']" style="color: #9a6700;">
+              Salida: <t t-out="r['start_point']['flags']"/>
+            </div>
+            <div t-if="r['end_point'] and r['end_point']['flags']" style="color: #9a6700;">
+              Cierre: <t t-out="r['end_point']['flags']"/>
+            </div>
+            <div t-if="r['override']" style="color: #b42318;">
+              <b>Sin GPS – autorizado</b> por <t t-out="r['override_by']"/>: <t t-out="r['override_reason']"/>
+            </div>
+            <div class="text-muted">
+              Aviso de ubicación aceptado: <t t-out="r['notice'] or 'todavía no'"/>
+              <t t-if="r['purged']"> · Coordenadas borradas por antigüedad: quedan los horarios.</t>
+            </div>
+            <table class="table table-sm" style="margin-top: 4px;">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Llegó</th>
+                  <th>Cerró</th>
+                  <th>En el cliente</th>
+                  <th>Desde la anterior</th>
+                  <th>Avisos</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr t-foreach="r['rows']" t-as="v">
+                  <td><t t-out="v['name']"/><br/><small class="text-muted"><t t-out="v['order']"/> · <t t-out="v['state']"/></small></td>
+                  <td><t t-call="distri_pedido.tiempos_reparto_punto"><t t-set="p" t-value="v['arrive']"/></t></td>
+                  <td><t t-call="distri_pedido.tiempos_reparto_punto"><t t-set="p" t-value="v['close']"/></t></td>
+                  <td t-out="v['at_customer'] or '—'"/>
+                  <td t-out="v['gap'] or '—'"/>
+                  <td style="color: #9a6700;" t-out="v['flags']"/>
+                </tr>
+                <tr t-if="not r['rows']">
+                  <td colspan="6" class="text-muted">Sin visitas registradas con hora.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </t>
+      </div>
+    </t>
+  </template>
+
+  <template id="tiempos_reparto_documento">
+    <t t-call="web.html_container">
+      <t t-call="web.internal_layout">
+        <t t-call="distri_pedido.tiempos_reparto_cuerpo"/>
+      </t>
+    </t>
+  </template>
+
+  <template id="tiempos_reparto_html">
+    <t t-call="web.html_container">
+      <t t-call="web.internal_layout">
+        <t t-call="distri_pedido.tiempos_reparto_cuerpo"/>
+      </t>
+    </t>
+  </template>
+
+  <!-- ===================================================== retention -->
+
+  <record id="cron_gps_purge" model="ir.cron">
+    <field name="name">Reparto: borrar coordenadas GPS vencidas</field>
+    <field name="model_id" ref="model_distri_route_gps"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_purge()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">1</field>
+    <field name="interval_type">days</field>
+    <field name="active">True</field>
+  </record>
+
+  <!-- ===================================================== menus -->
+
+  <menuitem id="menu_reparto_tiempos" name="Tiempos de reparto" parent="menu_reparto_root"
+            action="action_reparto_tiempos" sequence="37"
+            groups="distri_pedido.grupo_administracion"/>
+  <menuitem id="menu_reparto_settings" name="Ajustes" parent="menu_reparto_root" sequence="80"
+            groups="distri_pedido.grupo_administracion"/>
+  <menuitem id="menu_reparto_gps_config" name="Ubicación (GPS)" parent="menu_reparto_settings"
+            action="action_gps_config" sequence="10"/>
+
+</odoo>

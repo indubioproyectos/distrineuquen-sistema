@@ -11,6 +11,10 @@
  * - Photos (expense receipts, parcel guides) are compressed on the phone and
  *   travel inside their outbox event, so they are kept in IndexedDB until the
  *   server has them. Only a small thumbnail stays in the local state.
+ * - Location (19.0.1.35.0, models/reparto_gps.py): one fresh position only at
+ *   «Salir a repartir», «Llegué», closing a visit and «Cerrar la ruta», and
+ *   only while the route is active. It travels inside the event as "gps".
+ *   Never a watch, never in the background.
  */
 (function () {
   "use strict";
@@ -174,7 +178,7 @@
 
   function emptyLocal(routeId) {
     return { routeId: routeId, visits: {}, loaded: {}, departed: false, closed: false,
-             customers: {}, whatsapp: {}, rejected: [], expenses: {} };
+             customers: {}, whatsapp: {}, rejected: [], expenses: {}, arrivals: {} };
   }
   function saveLocal() { return kvSet("local", S.local); }
   function stops() { return S.route ? S.route.stops : []; }
@@ -722,15 +726,17 @@
 
   // online only: first the pending ticks, then the departure itself, and
   // the answer decides (the server rejects it without the double check)
-  function departNow(reverse) {
+  function departNow(reverse, gps) {
     if (S.departing) return;
     S.departing = true; S.departError = null; rerender();
     syncNow().then(function () {
       if (S.outbox.some(function (e) { return e.type === "load"; })) {
         throw new Error("No se pudieron enviar tus tildes de carga. Conectate a internet y probá de nuevo.");
       }
+      var payload = { reverse_load_order: !!reverse };
+      if (gps !== undefined) payload.gps = gps;
       var ev = { uuid: uuid(), type: "depart", route_id: S.route.id, captured_at: new Date().toISOString(),
-                 payload: { reverse_load_order: !!reverse } };
+                 payload: payload };
       return fetchWithTimeout(API_SYNC, {
         method: "POST", credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -953,6 +959,115 @@
     return parts.join(", ");
   }
 
+  // --- location at the key moments of the route (19.0.1.35.0)
+
+  var GPS_TIMEOUT_MS = 20000, GPS_MAX_AGE_MS = 60000;
+  var GPS_ERRORS = { 1: "denied", 2: "unavailable", 3: "timeout" };
+  var gpsState = null; // the sheet: notice, searching or blocked
+  function gpsConf() { return (S.route && S.route.gps) || null; }
+  // only during the route: «Salir» starts it, «Cerrar la ruta» is its end
+  function gpsActive(kind) {
+    if (!S.local) return false;
+    return kind === "start" ? !S.local.departed : S.local.departed && !S.local.closed;
+  }
+  function noticeAccepted() {
+    var c = gpsConf();
+    return !c || c.notice_accepted || S.gpsNotice === c.notice_version;
+  }
+  // one position, fresh (at most a minute old), never a watch
+  function readPosition() {
+    return new Promise(function (resolve, reject) {
+      if (!navigator.geolocation) return reject("unsupported");
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude,
+                  acc: Math.round(pos.coords.accuracy || 0),
+                  at: new Date(pos.timestamp || Date.now()).toISOString() });
+      }, function (e) { reject(GPS_ERRORS[e && e.code] || "unavailable"); },
+      { enableHighAccuracy: true, timeout: GPS_TIMEOUT_MS, maximumAge: GPS_MAX_AGE_MS });
+    });
+  }
+  // Runs fn(gps) with a fresh position. gps is undefined when nothing is
+  // captured (outside the route, or an older server), {error} when the GPS
+  // is not required and failed. Required and failed: the action waits.
+  function withGps(kind, label, fn) {
+    var conf = gpsConf();
+    if (!conf || !gpsActive(kind)) return fn(undefined);
+    if (!noticeAccepted()) {
+      gpsState = { notice: true, kind: kind, label: label, fn: fn };
+      return paintGps();
+    }
+    gpsState = { busy: true, label: label }; paintGps();
+    readPosition().then(function (gps) {
+      gpsState = null; paintGps(); fn(gps);
+    }, function (code) {
+      if (!conf.required) { gpsState = null; paintGps(); return fn({ error: code }); }
+      gpsState = { error: code, kind: kind, label: label, fn: fn }; paintGps();
+    });
+  }
+  function gpsHelp(code) {
+    if (code === "denied") {
+      return "El celular no le da la ubicación a la app. 1) Activá la Ubicación del celular: bajá la barra " +
+        "de arriba y tocá «Ubicación». 2) En Chrome tocá el candado junto a la dirección › Permisos › " +
+        "Ubicación › Permitir. Después tocá «Reintentar».";
+    }
+    if (code === "unsupported") return "Este celular no da la ubicación a la app.";
+    return "No se pudo tomar la ubicación. Activá la Ubicación del celular (bajá la barra de arriba y tocá " +
+      "«Ubicación»). Bajo techo tarda más: acercate a una puerta o ventana y tocá «Reintentar».";
+  }
+  function noticeText() {
+    var c = gpsConf() || {};
+    return "Mientras la ruta está en curso, la app registra tu ubicación solo en cuatro momentos: al salir a " +
+      "repartir, al tocar «Llegué» en un cliente, al cerrar cada visita y al cerrar la ruta. No te sigue " +
+      "durante el día ni registra nada fuera del trabajo. La empresa usa estos datos para los tiempos de " +
+      "reparto y para confirmar las entregas. Las coordenadas se borran a los " + (c.retention_months || 12) +
+      " meses. Podés pedirle a administración ver tus datos. Más detalle en la política de privacidad.";
+  }
+  function paintGps() {
+    var el = document.getElementById("gps-sheet");
+    if (!el) {
+      el = document.createElement("div"); el.id = "gps-sheet";
+      document.body.appendChild(el);
+    }
+    var g = gpsState, inner = "";
+    if (g && g.notice) {
+      inner = "<h2>Aviso de ubicación</h2><p class=\"sheet-text\">" + h(noticeText()) + "</p>" +
+        '<a class="link" href="/privacidad" target="_blank" rel="noopener">Política de privacidad</a>' +
+        '<div class="grid2"><button class="btn outline" data-a="gps-cancel">Ahora no</button>' +
+        '<button class="btn" data-a="gps-accept">Acepto</button></div>';
+    } else if (g && g.busy) {
+      inner = "<h2>Tomando tu ubicación…</h2><p class=\"sheet-text\">Para " + h(g.label) +
+        " se registra dónde estás. Tarda unos segundos.</p>";
+    } else if (g) {
+      inner = "<h2>Falta la ubicación</h2><p class=\"sheet-text\">Para " + h(g.label) +
+        " la app necesita tu ubicación. " + h(gpsHelp(g.error)) + "</p>" +
+        '<p class="sheet-text small">Si no se puede, avisá a administración: puede autorizar la ruta sin GPS.</p>' +
+        '<div class="grid2"><button class="btn outline" data-a="gps-cancel">Cancelar</button>' +
+        '<button class="btn" data-a="gps-retry">Reintentar</button></div>';
+    }
+    el.innerHTML = inner ? '<div class="sheet-bg"><div class="sheet" role="alertdialog" aria-modal="true">' +
+      inner + "</div></div>" : "";
+  }
+
+  // «Llegué»: the first thing at a customer, before the visit form
+  function needsArrival(stop) {
+    return !!gpsConf() && !stop.parcel && !!S.local.departed && !S.local.closed && !visitOf(stop) &&
+      !(S.local.arrivals || {})[stop.id];
+  }
+  function viewArrive(stop) {
+    var c = customerOf(stop);
+    return '<div class="head"><a class="back" href="#visitas">‹ Visitas</a><h1>' + h(stop.name) + "</h1>" +
+      '<div class="sub">' + h([stop.address, stop.order, (stop.parcels || 0) + (stop.parcels === 1 ? " bulto" : " bultos")]
+        .filter(Boolean).join(" · ")) + "</div></div>" +
+      '<div id="status">' + statusBanner() + "</div>" +
+      '<a class="place" href="#cliente/' + stop.id + '">' + ICON_PIN +
+      '<span class="txt"><b>Ubicación y horarios</b><span>' +
+      h([daysHoursText(c), (c.note || "").split("\n")[0]].filter(Boolean).join(" · ") || "Sin datos cargados") +
+      '</span></span><span class="chev">›</span></a>' + noticeHtml(stop, "place-notice") +
+      '<div class="intro"><h2>¿Ya estás en el cliente?</h2><p>Tocá «Llegué» al llegar: se registran la hora ' +
+      "y tu ubicación. Después cargás la visita.</p></div>" +
+      '<div class="foot"><button class="btn teal" data-a="arrive">Llegué</button></div>';
+  }
+
   // --- one visit
 
   function newDraft(stop) {
@@ -967,6 +1082,7 @@
   }
 
   function viewVisit(stop) {
+    if (needsArrival(stop)) return viewArrive(stop);
     if (!draft || draft.stop_id !== stop.id) {
       draft = newDraft(stop);
       draft.adding = !draft.returns.length;
@@ -1174,7 +1290,7 @@
     };
   }
 
-  function storeVisit(stop, d) {
+  function storeVisit(stop, d, gps) {
     var visit = {
       visit_uuid: d.visit_uuid, stop_id: stop.id, outcome: d.outcome, reason: d.reason || "",
       returns_answer: d.returns_answer, returns: d.returns, code: d.code_ok ? d.code : "", code_ok: !!d.code_ok,
@@ -1185,8 +1301,10 @@
       comment: d.comment || "", saved_at: new Date().toISOString(), synced: false, error: null,
     };
     S.local.visits[stop.id] = visit;
+    var payload = visitPayload(visit);
+    if (gps !== undefined) payload.gps = gps;
     return saveLocal().then(function () {
-      return enqueue("visit", visitPayload(visit), "visit:" + stop.id);
+      return enqueue("visit", payload, "visit:" + stop.id);
     });
   }
 
@@ -1268,7 +1386,7 @@
     return out;
   }
 
-  function storeParcel(stop, d) {
+  function storeParcel(stop, d, gps) {
     var visit = {
       visit_uuid: d.visit_uuid, stop_id: stop.id, outcome: d.outcome, reason: d.reason || "",
       guide_number: (d.guide_number || "").trim(), cost: d.cost || 0, packages: d.packages || 0,
@@ -1281,6 +1399,7 @@
       guide_number: visit.guide_number, cost: visit.cost, packages: visit.packages, comment: visit.comment,
     };
     if (d.photo) payload.photo = d.photo;
+    if (gps !== undefined) payload.gps = gps;
     return saveLocal().then(function () { return enqueue("parcel", payload, "visit:" + stop.id); });
   }
 
@@ -1588,7 +1707,10 @@
       S.departError = null;
       syncNow().then(pollLoad).then(function () { go("#salida"); });
     },
-    "depart-go": function (el) { departNow(el.getAttribute("data-v") === "1"); },
+    "depart-go": function (el) {
+      var reverse = el.getAttribute("data-v") === "1";
+      withGps("start", "salir a repartir", function (gps) { departNow(reverse, gps); });
+    },
     "all-lines": function () { draft.showAll = true; rerender(); },
     "ret-none": function () { draft.returns_answer = "none"; rerender(); },
     "ret-yes": function () { draft.returns_answer = "yes"; draft.adding = !draft.returns.length; rerender(); },
@@ -1637,15 +1759,19 @@
       d.packages = parseInt(d.packages, 10);
       if (!pays) d.cost = 0;
       d.outcome = "dispatched";
-      storeParcel(stop, d).then(function () { toast("Encomienda guardada en el celular."); });
-      go("#visitas");
+      withGps("close_visit", "guardar la encomienda", function (gps) {
+        storeParcel(stop, d, gps).then(function () { toast("Encomienda guardada en el celular."); });
+        go("#visitas");
+      });
     },
     "parcel-nd-save": function (el, stop) {
       var d = draft, lost = parcelDiscardedText(d);
       var save = function () {
         d.cost = 0; d.guide_number = "";
-        storeParcel(stop, d).then(function () { toast("Guardado en el celular: no se despachó."); });
-        go("#visitas");
+        withGps("close_visit", "guardar la visita", function (gps) {
+          storeParcel(stop, d, gps).then(function () { toast("Guardado en el celular: no se despachó."); });
+          go("#visitas");
+        });
       };
       if (!lost) return save();
       askConfirm({ title: "No se despachó", danger: true, ok: "Sí, no se despachó",
@@ -1686,8 +1812,10 @@
       var save = function () {
         d.returns_answer = null; d.returns = []; d.code = ""; d.code_ok = false; d.without_code = false;
         d.cash = 0; d.transfer = "no"; d.transfer_amount = 0; d.receipt_answer = null; d.no_payment = false;
-        storeVisit(stop, d).then(function () { toast("Guardado en el celular: no se entregó."); });
-        go("#visitas");
+        withGps("close_visit", "guardar la visita", function (gps) {
+          storeVisit(stop, d, gps).then(function () { toast("Guardado en el celular: no se entregó."); });
+          go("#visitas");
+        });
       };
       if (!lost) return save();
       // «Volver: sí se entregó» keeps everything: only saving throws it away
@@ -1707,8 +1835,10 @@
           "de mañana, se carga a tu cuenta.",
         onOk: function () {
           d.no_payment = true;
-          storeVisit(stop, d).then(function () { toast("Guardado: no pagó nada."); });
-          go("#visitas");
+          withGps("close_visit", "guardar la visita", function (gps) {
+            storeVisit(stop, d, gps).then(function () { toast("Guardado: no pagó nada."); });
+            go("#visitas");
+          });
         },
       });
     },
@@ -1727,12 +1857,14 @@
       if (err) return toast(err, true);
       draft.no_payment = false;
       var d = draft, cwa = whatsappOf(stop);
-      // «Al guardar la visita se abre WhatsApp con el pedido escrito»
-      if (d.transfer === "yes" && d.receipt_answer === "not_yet" && cwa.number) {
-        window.open(waLink(waDigits(cwa.number), visitClaim(stop, d.transfer_amount)), "_blank", "noopener");
-      }
-      storeVisit(stop, d).then(function () { toast("Visita guardada en el celular."); });
-      go("#visitas");
+      withGps("close_visit", "guardar la visita", function (gps) {
+        // «Al guardar la visita se abre WhatsApp con el pedido escrito»
+        if (d.transfer === "yes" && d.receipt_answer === "not_yet" && cwa.number) {
+          window.open(waLink(waDigits(cwa.number), visitClaim(stop, d.transfer_amount)), "_blank", "noopener");
+        }
+        storeVisit(stop, d, gps).then(function () { toast("Visita guardada en el celular."); });
+        go("#visitas");
+      });
     },
     "wa-ok": function (el, stop) {
       var wa = whatsappOf(stop);
@@ -1789,6 +1921,35 @@
       go("#visita/" + stop.id);
     },
     close: function () { closeRoute(); },
+    arrive: function (el, stop) {
+      if (!stop) return;
+      withGps("arrive", "marcar «Llegué»", function (gps) {
+        S.local.arrivals[stop.id] = { at: new Date().toISOString() };
+        var payload = { stop_id: stop.id };
+        if (gps !== undefined) payload.gps = gps;
+        saveLocal().then(function () { return enqueue("arrive", payload, "arrive:" + stop.id); });
+        render(); window.scrollTo(0, 0);
+      });
+    },
+    "gps-retry": function () {
+      var g = gpsState;
+      if (!g) return;
+      gpsState = { busy: true, label: g.label }; paintGps();
+      // with signal, the route comes again: administración may have
+      // authorized it «Sin GPS» in the meantime
+      var refresh = navigator.onLine ? download(false) : Promise.resolve();
+      refresh.then(function () { gpsState = null; withGps(g.kind, g.label, g.fn); });
+    },
+    "gps-cancel": function () { gpsState = null; paintGps(); },
+    "gps-accept": function () {
+      var g = gpsState, conf = gpsConf();
+      if (!g || !conf) return;
+      S.gpsNotice = conf.notice_version;
+      kvSet("gpsNotice", conf.notice_version);
+      enqueue("gps_notice", { version: conf.notice_version }, "gps_notice");
+      gpsState = null;
+      withGps(g.kind, g.label, g.fn);
+    },
     "next-route": function () {
       if (S.outbox.length) return toast("Primero hay que enviar lo guardado. Buscá señal.", true);
       S.local.routeId = null;
@@ -1812,13 +1973,17 @@
     if (missing.length) return toast("Falta el motivo de lo no entregado.", true);
     if (r.noGuide.length) return toast("Falta la foto de la guía de " + r.noGuide[0].name + ".", true);
     if (r.unsynced) return toast("Hay visitas o gastos que el servidor rechazó. Abrilos y guardalos de nuevo.", true);
+    withGps("end", "cerrar la ruta", sendClose);
+  }
+
+  function sendClose(gps) {
     toast("Enviando…");
     syncNow().then(function () {
       if (S.outbox.length) {
         throw new Error(S.auth ? "Sin señal: quedan cambios sin enviar. Buscá señal y probá de nuevo." :
           "Tu sesión venció. Entrá de nuevo para cerrar la ruta.");
       }
-      return enqueue("close", {}, "close");
+      return enqueue("close", gps !== undefined ? { gps: gps } : {}, "close");
     }).then(function () { return syncNow(); }).then(function () {
       if (S.outbox.length) throw new Error("Sin señal: la ruta se cierra cuando se envíe todo.");
       // a rejected close is redone from this screen (the server closes it
@@ -1915,11 +2080,13 @@
     navigator.storage.persist().catch(function () {});
   }
 
-  Promise.all([kvGet("route"), kvGet("local"), outboxAll()]).then(function (res) {
+  Promise.all([kvGet("route"), kvGet("local"), outboxAll(), kvGet("gpsNotice")]).then(function (res) {
+    S.gpsNotice = res[3] || null;
     S.route = res[0] || null;
     S.local = res[1] || emptyLocal(S.route ? S.route.id : null);
     S.local.rejected = S.local.rejected || [];
     S.local.expenses = S.local.expenses || {};
+    S.local.arrivals = S.local.arrivals || {};
     S.outbox = (res[2] || []).sort(function (a, b) { return a.captured_at < b.captured_at ? -1 : 1; });
     render();
     return syncNow().then(function () { return download(false); });

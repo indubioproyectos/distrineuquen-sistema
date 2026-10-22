@@ -37,3 +37,4 @@ from . import deudas_empleados
 from . import retiro_deposito
 from . import mayoristas
 from . import etiquetas
+from . import reparto_gps

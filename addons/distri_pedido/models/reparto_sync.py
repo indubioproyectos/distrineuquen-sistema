@@ -31,6 +31,9 @@ EVENT_TYPES = [
     ("close", "Cierre de la ruta"),
     ("expense", "Gasto"),
     ("parcel", "Encomienda despachada"),
+    # 19.0.1.35.0 (reparto_gps.py): «Llegué» and the location notice
+    ("arrive", "Llegada al cliente"),
+    ("gps_notice", "Aviso de ubicación aceptado"),
 ]
 
 UUID_RE = re.compile(r"^[0-9a-fA-F-]{16,64}$")
@@ -183,7 +186,8 @@ class DistriSyncEvent(models.Model):
         captured = parse_phone_time(event.get("captured_at")) or fields.Datetime.now()
         if route.state == "settled":
             raise UserError("La ruta ya se rindió.")
-        if kind in ("load", "depart", "visit", "expense", "parcel") and route.state == "closed":
+        if kind in ("load", "depart", "visit", "expense", "parcel", "arrive") \
+                and route.state == "closed":
             raise UserError("La ruta ya está cerrada.")
         return getattr(self, "_apply_%s" % kind)(user, route, payload, captured)
 
@@ -727,6 +731,10 @@ def _without_photo(payload):
     payload = dict(payload or {}) if isinstance(payload, dict) else {}
     if payload.get("photo"):
         payload["photo"] = "(foto de %s caracteres)" % len(str(payload["photo"]))
+    # the coordinates live only in distri.route.gps, purged after the
+    # retention period (reparto_gps.py); the log never keeps them
+    if "gps" in payload:
+        payload["gps"] = "(ubicación)"
     return payload
 
 

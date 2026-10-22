@@ -23,3 +23,4 @@ from . import test_seguridad
 from . import test_deudas_catriel
 from . import test_mayoristas
 from . import test_etiquetas
+from . import test_reparto_gps

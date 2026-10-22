@@ -942,7 +942,12 @@ class TomaDePedidos(http.Controller):
     @http.route("/privacidad", type="http", auth="public", website=True, sitemap=False)
     def privacidad(self, **kw):
         """Politica de privacidad publica; Meta la pide para publicar la app de WhatsApp."""
-        return request.render("distri_pedido.privacidad", {"empresa": request.env.company})
+        from ..models.reparto_gps import gps_settings
+        return request.render("distri_pedido.privacidad", {
+            "empresa": request.env.company,
+            # 19.0.1.35.0: how long the drivers' coordinates are kept
+            "gps_meses": gps_settings(request.env)["retention"],
+        })
 
     @http.route("/mi-clave", type="http", auth="user", website=True, sitemap=False)
     def mi_clave(self, **post):

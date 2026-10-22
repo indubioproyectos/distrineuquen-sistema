@@ -27,7 +27,7 @@
 <body>
   <div class="marco">
     <h1>Política de privacidad</h1>
-    <p class="nota">Distri Neuquén · Actualizada el 25 de septiembre de 2026</p>
+    <p class="nota">Distri Neuquén · Actualizada el 22 de octubre de 2026</p>
 
     <h2>Qué datos usamos</h2>
     <p>Cuando nos escribís por WhatsApp o hacés un pedido, guardamos:</p>
@@ -49,6 +49,16 @@
     <h2>Cuánto tiempo los guardamos</h2>
     <p>Mientras seas cliente y durante los plazos que exige la ley para la
        documentación comercial y contable.</p>
+
+    <h2>Ubicación del personal de reparto</h2>
+    <p>La app de reparto registra la ubicación del celular del repartidor solo en
+       cuatro momentos de una ruta en curso: al salir a repartir, al llegar a cada
+       cliente, al cerrar cada visita y al cerrar la ruta. No sigue al repartidor
+       durante el día ni registra nada fuera del horario de trabajo. Se usa para
+       calcular los tiempos de reparto y confirmar las entregas, y la ven solo
+       administración y gerencia. El repartidor acepta un aviso antes de la primera
+       vez. Las coordenadas se borran a los <t t-out="gps_meses"/> meses; los
+       horarios quedan.</p>
 
     <h2>Tus derechos</h2>
     <p>Podés pedirnos ver, corregir o borrar tus datos en cualquier momento, según

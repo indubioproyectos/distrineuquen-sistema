@@ -92,3 +92,11 @@ acceso_wholesale_mark_sistema,distri.mp.wholesale.mark sistema,model_distri_mp_w
 acceso_package_armador,distri.package armador,model_distri_package,distri_pedido.grupo_armador,1,1,1,0
 acceso_package_admin,distri.package administracion,model_distri_package,distri_pedido.grupo_administracion,1,1,1,0
 acceso_package_sistema,distri.package sistema,model_distri_package,base.group_system,1,1,1,1
+acceso_route_gps_admin,distri.route.gps administracion,model_distri_route_gps,distri_pedido.grupo_administracion,1,0,0,0
+acceso_route_gps_sistema,distri.route.gps sistema,model_distri_route_gps,base.group_system,1,1,1,1
+acceso_route_gps_override_admin,distri.route.gps.override administracion,model_distri_route_gps_override,distri_pedido.grupo_administracion,1,1,1,0
+acceso_route_gps_override_sistema,distri.route.gps.override sistema,model_distri_route_gps_override,base.group_system,1,1,1,1
+acceso_gps_config_admin,distri.gps.config administracion,model_distri_gps_config,distri_pedido.grupo_administracion,1,1,1,1
+acceso_gps_config_sistema,distri.gps.config sistema,model_distri_gps_config,base.group_system,1,1,1,1
+acceso_reparto_tiempos_admin,distri.reparto.tiempos administracion,model_distri_reparto_tiempos,distri_pedido.grupo_administracion,1,1,1,1
+acceso_reparto_tiempos_sistema,distri.reparto.tiempos sistema,model_distri_reparto_tiempos,base.group_system,1,1,1,1

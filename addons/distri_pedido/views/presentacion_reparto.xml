@@ -532,6 +532,7 @@
           {'id': 'cliente', 'n': '5', 't': 'Ubicación', 'l': 'Paso 5 · Ubicación y horarios', 'acts': {'repartidor': 'Carga ubicación y horarios'}},
           {'id': 'gastos', 'n': '5b', 't': 'Gastos', 'l': 'Paso 5b · Gastos del repartidor', 'acts': {'repartidor': 'Carga el gasto con foto', 'sistema': 'Lee el importe'}},
           {'id': 'cierre', 'n': '6', 't': 'Cierre', 'l': 'Paso 6 · Cerrar la ruta', 'acts': {'repartidor': 'Cierra la ruta'}},
+          {'id': 'tiempos', 'n': '6b', 't': 'Tiempos', 'l': 'Paso 6b · Ubicación y tiempos de reparto', 'acts': {'repartidor': 'Toca «Llegué» en cada cliente', 'administrador': 'Revisa los tiempos', 'gerente': 'Revisa los tiempos'}},
           {'id': 'rendicion', 'n': '7', 't': 'Rendición', 'l': 'Paso 7 · Rendición de caja', 'acts': {'administrador': 'Cuenta y controla', 'repartidor': 'Rinde efectivo y papeles'}},
           {'id': 'devoluciones', 'n': '7b', 't': 'Devoluciones', 'l': 'Paso 7b · Devoluciones', 'acts': {'cliente': 'Ve la devolución en su cuenta', 'administrador': 'Marca si volvió', 'sistema': 'Nota de crédito y stock'}},
           {'id': 'deposito', 'n': '8', 't': 'Depósito', 'l': 'Alternativa · Retiro en el depósito', 'acts': {'cliente': 'Retira en el depósito', 'administrador': 'Registra la entrega', 'gerente': 'Venta en mostrador'}},
@@ -1398,6 +1399,80 @@
           </div>
         </div>
       </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 6b · Ubicación y tiempos de reparto (19.0.1.35.0) -->
+  <section id="tiempos" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['repartidor', 'administrador', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 6b · Durante la ruta</p>
+      <h2>Ubicación y tiempos de reparto</h2>
+      <p class="bajada">La app registra la ubicación del celular en cuatro momentos: al salir a
+         repartir, al tocar <b>«Llegué»</b> en cada cliente, al cerrar cada visita y al cerrar la
+         ruta. Con esos puntos, administración y gerencia ven cuánto tarda cada recorrido.</p>
+      <div class="etapa">
+        <div class="cols">
+          <div class="telefono" data-vista="Llegué" data-num="6b" data-ir="tiempos">
+            <div class="sb"><span>10:12</span><span>Sin servicio · 63%</span></div>
+            <div class="cel">
+              <div class="head"><span class="back">‹ Visitas</span><h1>Despensa de ejemplo</h1>
+                <div class="sub">Calle de ejemplo 300 · S00103 · 2 bultos</div></div>
+              <div class="body">
+                <div class="intro"><h2>¿Ya estás en el cliente?</h2><p>Tocá «Llegué» al llegar: se
+                  registran la hora y tu ubicación. Después cargás la visita.</p></div>
+                <div class="card" style="gap:8px">
+                  <div class="q">Falta la ubicación</div>
+                  <div class="small">Si el GPS está apagado, la app no avanza y explica cómo
+                    activarlo, con un botón «Reintentar».</div>
+                </div>
+              </div>
+              <div class="foot"><span class="btn teal">Llegué</span>
+                <div class="hint">Funciona sin señal: la ubicación viaja con la visita.</div></div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor', 'administrador', 'gerente']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li><b>Solo en cuatro momentos y con la ruta en curso.</b> La app nunca sigue al
+                repartidor durante el día ni registra nada fuera del trabajo.</li>
+              <li>La primera vez, el repartidor <b>acepta un aviso</b> que explica qué se registra y
+                para qué. Queda guardada la fecha.</li>
+              <li><b>Sin ubicación, la acción espera</b> y la app explica cómo activarla. Si el
+                celular no puede, administración autoriza la ruta <b>«Sin GPS»</b> con un motivo,
+                que figura en el reporte.</li>
+              <li>Una ubicación imprecisa o lejos del cliente <b>queda marcada</b>, sin bloquear la
+                visita.</li>
+              <li>La ubicación guardada del cliente <b>nunca cambia sola</b>: administración puede
+                copiar un punto bueno con «Guardar como ubicación del cliente».</li>
+              <li>Las coordenadas se borran a los 12 meses (se puede ajustar); los horarios quedan.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="marco ancho">
+      <div class="pc" data-vista="Tiempos de reparto" data-num="6b" data-ir="tiempos">
+        <div class="pc-barra"><i></i><i></i><i></i><em>distrineuquen.piadevs.com/odoo · Tiempos de reparto</em></div>
+        <div class="pc-scroll"><div class="od">
+          <div class="od-nav"><b>Reparto</b><span>Rutas</span><span class="on">Tiempos de reparto</span><span>Ajustes</span></div>
+          <div class="od-sheet">
+            <h1>Tiempos de reparto</h1>
+            <p class="od-muted">22/10/2026 · Repartidor de ejemplo · Salida 08:40 · Cierre 13:05 · Total 4 h 25 min · Avisos: 1</p>
+            <table>
+              <tr><th>Cliente</th><th>Llegó</th><th>Cerró</th><th>En el cliente</th><th>Desde la anterior</th><th>Avisos</th></tr>
+              <tr><td>Despensa de ejemplo</td><td>09:05 <span class="od-lnk">mapa</span></td><td>09:18 <span class="od-lnk">mapa</span></td><td>13 min</td><td>25 min</td><td></td></tr>
+              <tr><td>Kiosco de ejemplo</td><td>09:40 <span class="od-lnk">mapa</span></td><td>09:47 <span class="od-lnk">mapa</span></td><td>7 min</td><td>22 min</td><td><span class="od-badge warn">Lejos del cliente (450 m)</span></td></tr>
+              <tr><td>Almacén de ejemplo</td><td>10:12 <span class="od-lnk">mapa</span></td><td>10:30 <span class="od-lnk">mapa</span></td><td>18 min</td><td>25 min</td><td></td></tr>
+            </table>
+            <p class="od-muted">Filtros por repartidor y fechas, PDF y un enlace al mapa en cada punto.
+              Lo ven solo administración y gerencia.</p>
+          </div>
+        </div></div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos de ejemplo.</p>
       <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
     </div>
   </section>
