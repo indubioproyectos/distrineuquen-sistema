@@ -24,7 +24,8 @@ MP_CURRENCY = "ARS"
 STATEMENT_DESCRIPTOR = "DISTRINEUQUEN"
 
 PARAM_TOKEN = "distri_pedido.mp_access_token"
-PARAM_PUBLIC_KEY = "distri_pedido.mp_public_key"
+# distri_pedido.mp_public_key is not used: Checkout Pro is created on the
+# server with the access token (19.0.1.37.0, T9). The parameter can be deleted.
 PARAM_WEBHOOK_SECRET = "distri_pedido.mp_webhook_secret"
 PARAM_ENABLED = "distri_pedido.mp_enabled"
 # The Checkout Pro link charges a commission, so it is off unless this is set

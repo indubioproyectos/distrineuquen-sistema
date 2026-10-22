@@ -28,6 +28,10 @@ _logger = logging.getLogger(__name__)
 PARAM_VERIFY_TOKEN = "distri_pedido.wa_verify_token"
 PARAM_APP_SECRET = "distri_pedido.wa_app_secret"
 PARAM_ACCESS_TOKEN = "distri_pedido.wa_access_token"
+# Reserved, not read today (19.0.1.37.0, T9): the number and the business
+# account of the Cloud API. Odoo only receives; they are needed the day Odoo
+# sends messages or checks which number a notification is for (the real
+# number, cobranza/README.md «Día de conexión del número real»).
 PARAM_PHONE_NUMBER_ID = "distri_pedido.wa_phone_number_id"
 PARAM_WABA_ID = "distri_pedido.wa_waba_id"
 

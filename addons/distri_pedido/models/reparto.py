@@ -592,6 +592,18 @@ class DistriRoute(models.Model):
                   ("company_id", "=", company.id)]
         route = self.sudo().search(domain, order="id", limit=1)
         if not route:
+            # One cash box at a time (19.0.1.37.0): a box of a day before that
+            # was never closed would run in parallel with today's and its
+            # cash would never be counted. It is closed first.
+            old = self.sudo().search([
+                ("kind", "=", "depot"), ("driver_id", "=", user.id),
+                ("date", "<", today_ar()), ("state", "!=", "settled"),
+                ("company_id", "=", company.id)], order="date", limit=1)
+            if old:
+                raise UserError(
+                    "La caja depósito de %s del %s sigue abierta. Cerrala primero en Reparto › "
+                    "Cierre de caja depósito (efectivo contado y «Cerrar caja depósito»); "
+                    "después se abre la de hoy." % (user.name, old.date.strftime("%d/%m/%Y")))
             route = self.sudo().create({
                 "kind": "depot",
                 "driver_id": user.id,

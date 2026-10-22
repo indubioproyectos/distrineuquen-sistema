@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from odoo import Command, fields
 from odoo.exceptions import UserError
 from odoo.tests import HttpCase, new_test_user, tagged
@@ -380,6 +382,22 @@ class TestManagersAsDrivers(RepartoMixin, HttpCase):
             "taxes_id": [Command.clear()]})
         cls.order = cls._order(partner, product, qty=2, price=100)
         cls.order2 = cls._order(partner, product, qty=1, price=100)
+
+    def test_depot_box_of_a_day_before_must_be_closed_first(self):
+        """19.0.1.37.0 (T6): never two depot boxes of the same user open."""
+        Route = self.env["distri.route"]
+        user = self.admin_driver
+        old = Route._depot_route_for(user)
+        old.sudo().write({"date": old.date - timedelta(days=1)})
+        with self.assertRaisesRegex(UserError, "sigue abierta"):
+            Route._depot_route_for(user)
+        old.sudo().write({"state": "settled"})
+        today = Route._depot_route_for(user)
+        self.assertNotEqual(today, old)
+        self.assertEqual(today.state, "on_route")
+        # other users are not blocked by it
+        old.sudo().write({"state": "on_route"})
+        self.assertTrue(Route._depot_route_for(self.manager_driver))
 
     def test_driver_domain_includes_admin_and_manager(self):
         Route = self.env["distri.route"]

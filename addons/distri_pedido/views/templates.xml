@@ -1376,21 +1376,6 @@
 </html>
   </template>
 
-  <template id="cerrado" name="Pedido cerrado">
-    <t t-call="website.layout">
-      <div id="wrap" class="oe_structure">
-        <div class="container" style="max-width:40rem;padding:3rem 0">
-          <h1>Este pedido ya se cerró</h1>
-          <p class="lead">
-            El pedido <strong t-esc="pedido.name"/> ya se está armando.
-          </p>
-          <p class="text-muted">Si necesitás algo más, armá un pedido nuevo.</p>
-          <a href="/pedido" class="btn btn-primary">Armar otro pedido</a>
-        </div>
-      </div>
-    </t>
-  </template>
-
   <!-- «Datos para la entrega» (controllers/main.py entrega, models/datos_entrega.py) -->
   <template id="datos_entrega" name="Datos para la entrega">&lt;!DOCTYPE html&gt;
 <html lang="es">

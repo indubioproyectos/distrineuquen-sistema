@@ -47,6 +47,12 @@ def numerar_remitos(env):
     """Entregas al cliente como R-NNNNN: la secuencia y las entregas viejas.
 
     Devuelve cuántas entregas se renombraron. Se puede correr más de una vez.
+
+    Todos los almacenes usan el mismo prefijo R-. Hoy hay un solo almacén
+    (revisado el 22/10/2026, 19.0.1.37.0, T11), así que los números no se
+    repiten. Con un segundo almacén, cada tipo de entrega tiene su propia
+    secuencia y los números R- se repetirían: ese día, usar una secuencia
+    compartida o un prefijo por almacén (por ejemplo R1-, R2-).
     """
     tipos = env["stock.picking.type"].sudo().with_context(active_test=False).search(
         [("code", "=", "outgoing")])
