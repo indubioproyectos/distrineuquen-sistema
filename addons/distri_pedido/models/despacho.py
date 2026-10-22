@@ -192,6 +192,9 @@ class DistriRouteStopDispatch(models.Model):
             "name": partner._distri_app_name(),
             "address": address,
             "order": self.order_id.name,
+            # «Etiquetas» (19.0.1.33.0): the labels of this order
+            "order_id": self.order_id.id,
+            "packed": bool(self.order_id.distri_armado == "armado" and self.order_id.distri_bultos),
             "parcels": self.parcels,
             "loaded": self.loaded,
             "load_sequence": self.load_sequence if self.loaded else 0,

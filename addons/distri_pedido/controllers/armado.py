@@ -147,7 +147,7 @@ class Armado(http.Controller):
     # --------------------------------------------------------------- rutas
 
     @http.route("/armado", type="http", auth="user", website=True, sitemap=False)
-    def lista(self, dejado="", **kw):
+    def lista(self, dejado="", terminado="", **kw):
         self._exigir_armador()
         pedidos = self._pedidos_del_dia()
         return request.render("distri_pedido.armado_lista", self._base(
@@ -155,7 +155,50 @@ class Armado(http.Controller):
             cuantos=len(pedidos),
             hoy=self._hoy(),
             dejado=self._dejado(dejado),
+            terminado=self._terminado(terminado),
         ))
+
+    def _terminado(self, pedido_id):
+        """The order just finished, for «Imprimir etiquetas»."""
+        try:
+            pedido = request.env["sale.order"].sudo().browse(int(pedido_id or 0)).exists()
+        except ValueError:
+            return None
+        if not pedido or pedido.distri_armado != "armado" or not pedido.distri_bultos:
+            return None
+        return pedido
+
+    def _pdf(self, report, ids, nombre):
+        pdf, _tipo = request.env["ir.actions.report"].sudo()._render_qweb_pdf(report, ids)
+        return request.make_response(pdf, headers=[
+            ("Content-Type", "application/pdf"),
+            ("Content-Disposition", 'inline; filename="%s.pdf"' % nombre),
+            ("Cache-Control", "no-store"),
+        ])
+
+    @http.route("/armado/pedido/<int:pedido_id>/etiquetas", type="http", auth="user",
+                methods=["GET"], sitemap=False)
+    def etiquetas(self, pedido_id, **kw):
+        """PDF of the package labels: 100 x 50 mm, one page per package
+        (models/etiquetas.py). Opened in the browser and printed with the
+        label printer at «tamaño real»."""
+        self._exigir_armador()
+        pedido = self._pedido(pedido_id)
+        try:
+            paquetes = pedido._distri_packages()
+        except UserError as exc:
+            return self._volver(pedido, str(exc))
+        paquetes._mark_printed()
+        return self._pdf("distri_pedido.report_etiquetas_bultos", paquetes.ids,
+                         "Etiquetas %s" % pedido.name)
+
+    @http.route("/armado/etiquetas/prueba", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def etiqueta_prueba(self, **kw):
+        """Test page: a 100 x 50 mm frame with rulers (calibration)."""
+        self._exigir_armador()
+        return self._pdf("distri_pedido.report_etiqueta_prueba", request.env.company.ids,
+                         "Etiqueta de prueba")
 
     def _dejado(self, pedido_id):
         """El pedido que se acaba de dejar para más tarde, para el aviso."""
@@ -386,7 +429,8 @@ class Armado(http.Controller):
             error = str(exc)
         if error:
             return self._volver(pedido, error, ancla="#terminar")
-        return request.redirect("/armado")
+        # «Imprimir etiquetas» right after finishing (19.0.1.33.0)
+        return request.redirect("/armado?" + urlencode({"terminado": pedido.id}))
 
     @http.route("/armado/pedido/<int:pedido_id>/mas-tarde", type="http", auth="user",
                 methods=["POST"], website=True, sitemap=False)

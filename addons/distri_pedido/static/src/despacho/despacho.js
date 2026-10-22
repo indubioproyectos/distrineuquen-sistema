@@ -175,7 +175,9 @@
       "</div>" + '<div class="st ' + stCls + '">' + h(s.message) + "</div>" +
       (route.editable ? '<button class="leave" data-a="leave" data-id="' + s.id + '"' + (can ? "" : " disabled") +
         ">Queda en el depósito</button>" : "") + "</div>" +
-      '<div class="side"><span class="n">' + plural(s.parcels || 0, "bulto", "bultos") + "</span></div></div>";
+      '<div class="side"><span class="n">' + plural(s.parcels || 0, "bulto", "bultos") + "</span>" +
+      (s.packed ? '<a class="link" target="_blank" rel="noopener" href="/armado/pedido/' + s.order_id +
+        '/etiquetas">Etiquetas</a>' : "") + "</div></div>";
   }
 
   function viewRoute() {

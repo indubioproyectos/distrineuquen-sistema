@@ -36,3 +36,4 @@ from . import limites
 from . import deudas_empleados
 from . import retiro_deposito
 from . import mayoristas
+from . import etiquetas

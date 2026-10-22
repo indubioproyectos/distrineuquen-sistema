@@ -89,3 +89,6 @@ acceso_payer_bucket_admin,distri.mp.payer.bucket administracion,model_distri_mp_
 acceso_payer_bucket_sistema,distri.mp.payer.bucket sistema,model_distri_mp_payer_bucket,base.group_system,1,0,0,0
 acceso_wholesale_mark_admin,distri.mp.wholesale.mark administracion,model_distri_mp_wholesale_mark,distri_pedido.grupo_administracion,1,1,1,1
 acceso_wholesale_mark_sistema,distri.mp.wholesale.mark sistema,model_distri_mp_wholesale_mark,base.group_system,1,1,1,1
+acceso_package_armador,distri.package armador,model_distri_package,distri_pedido.grupo_armador,1,1,1,0
+acceso_package_admin,distri.package administracion,model_distri_package,distri_pedido.grupo_administracion,1,1,1,0
+acceso_package_sistema,distri.package sistema,model_distri_package,base.group_system,1,1,1,1

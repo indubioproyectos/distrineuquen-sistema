@@ -167,6 +167,12 @@
   <t t-set="titulo" t-value="'Pedidos para armar'"/>
   <t t-set="seccion" t-value="'lista'"/>
   <t t-call="distri_pedido.armado_cabecera"/>
+  <div class="banner ok" t-if="terminado" role="status">
+    <span><b><t t-esc="terminado.name"/></b> quedó armado en
+      <t t-esc="terminado.distri_bultos"/> <t t-esc="'bulto' if terminado.distri_bultos == 1 else 'bultos'"/>.</span>
+    <a class="btn teal" target="_blank" rel="noopener"
+       t-att-href="'/armado/pedido/%s/etiquetas' % terminado.id">Imprimir etiquetas</a>
+  </div>
   <div class="banner ok" t-if="dejado" role="status">
     <span>Dejaste <b><t t-esc="dejado.name"/></b> para más tarde. Quedó para armar
     y lo puede tomar cualquiera.</span>
@@ -330,6 +336,7 @@
     a las <t t-esc="hora(pedido.distri_armado_fin)"/>.
     <t t-if="pedido.distri_bultos">
       <b><t t-esc="pedido.distri_bultos"/> <t t-esc="'bulto' if pedido.distri_bultos == 1 else 'bultos'"/></b>.
+      <a target="_blank" rel="noopener" t-att-href="'/armado/pedido/%s/etiquetas' % pedido.id">Imprimir etiquetas</a>
     </t>
   </div>
 

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Etiquetas de bultos (models/etiquetas.py): 100 x 50 mm, sin márgenes,
+       una página por bulto, para la Nexuspos Z-NX 461/418 (203 dpi) por el
+       driver de Windows con «tamaño real». Nunca precios ni importes. -->
+
+  <record id="paperformat_etiqueta_100x50" model="report.paperformat">
+    <field name="name">Etiqueta de bulto 100 x 50 mm</field>
+    <field name="format">custom</field>
+    <field name="page_width">100</field>
+    <field name="page_height">50</field>
+    <field name="orientation">Portrait</field>
+    <field name="margin_top">0</field>
+    <field name="margin_bottom">0</field>
+    <field name="margin_left">0</field>
+    <field name="margin_right">0</field>
+    <field name="header_line" eval="False"/>
+    <field name="header_spacing">0</field>
+    <field name="disable_shrinking" eval="True"/>
+    <field name="dpi">96</field>
+  </record>
+
+  <record id="report_etiquetas_bultos" model="ir.actions.report">
+    <field name="name">Etiquetas de bultos</field>
+    <field name="model">distri.package</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.etiquetas_bultos_documento</field>
+    <field name="report_file">distri_pedido.etiquetas_bultos_documento</field>
+    <field name="paperformat_id" ref="paperformat_etiqueta_100x50"/>
+    <field name="print_report_name">'Etiquetas'</field>
+  </record>
+
+  <record id="report_etiqueta_prueba" model="ir.actions.report">
+    <field name="name">Etiqueta de prueba (100 x 50 mm)</field>
+    <field name="model">res.company</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.etiqueta_prueba_documento</field>
+    <field name="report_file">distri_pedido.etiqueta_prueba_documento</field>
+    <field name="paperformat_id" ref="paperformat_etiqueta_100x50"/>
+    <field name="print_report_name">'Etiqueta de prueba'</field>
+  </record>
+
+  <template id="etiqueta_estilo">
+    <meta charset="utf-8"/>
+    <style>
+      html, body { margin: 0; padding: 0; }
+      .etq { width: 100mm; height: 50mm; box-sizing: border-box; padding: 2.5mm 3mm 2mm 3mm;
+             overflow: hidden; position: relative; font-family: "DejaVu Sans", Arial, sans-serif;
+             color: #000; page-break-after: always; }
+      .etq:last-child { page-break-after: auto; }
+      .etq .cli { font-size: 15pt; font-weight: bold; line-height: 1.05; max-height: 11.5mm;
+                  overflow: hidden; }
+      .etq .loc { font-size: 9pt; margin-top: .6mm; }
+      .etq .fila { display: block; font-size: 9pt; margin-top: .8mm; white-space: nowrap;
+                   overflow: hidden; }
+      .etq .bulto { position: absolute; right: 3mm; top: 2.5mm; text-align: right;
+                    font-size: 8pt; line-height: 1.1; }
+      .etq .bulto b { display: block; font-size: 15pt; }
+      .etq .dest { font-size: 10pt; font-weight: bold; margin-top: .8mm; white-space: nowrap;
+                   overflow: hidden; }
+      .etq .cod { position: absolute; left: 3mm; right: 3mm; bottom: 2mm; text-align: center; }
+      .etq .cod img { width: 80mm; height: 10mm; display: block; margin: 0 auto; }
+      .etq .cod span { font-size: 8pt; letter-spacing: .5px; }
+    </style>
+  </template>
+
+  <template id="etiquetas_bultos_documento">
+    <t t-call="web.html_container">
+      <t t-call="distri_pedido.etiqueta_estilo"/>
+      <div t-foreach="labels" t-as="e" class="etq">
+        <div class="bulto">Bulto<b><t t-esc="e['number']"/> de <t t-esc="e['total']"/></b></div>
+        <div class="cli" style="margin-right:22mm" t-esc="e['name']"/>
+        <div class="loc"><t t-if="e['prefix']"><b t-esc="e['prefix']"/> · </t><t t-esc="e['town']"/></div>
+        <div class="fila">Pedido <b t-esc="e['order']"/><t t-if="e['remito']"> · Remito <b t-esc="e['remito']"/></t></div>
+        <div class="dest"><t t-esc="e['destination']"/><t t-if="e['detail']"> · <t t-esc="e['detail']"/></t></div>
+        <div class="fila">Entrega: <b t-esc="e['date']"/></div>
+        <div class="cod">
+          <img t-att-src="'data:image/png;base64,%s' % e['barcode']" alt=""/>
+          <span t-esc="e['code']"/>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- Página de prueba: marco de 100 x 50 mm y reglas cada 5 mm, para ver la
+       orientación y calibrar el espacio entre etiquetas en la impresora real -->
+  <template id="etiqueta_prueba_documento">
+    <t t-call="web.html_container">
+      <t t-call="distri_pedido.etiqueta_estilo"/>
+      <div class="etq" style="padding:0">
+        <div style="position:absolute;left:0;top:0;width:100mm;height:50mm;box-sizing:border-box;
+                    border:.4mm solid #000"/>
+        <t t-foreach="range(5, 100, 5)" t-as="x">
+          <div t-attf-style="position:absolute;left:{{x}}mm;top:0;width:0;height:{{5 if x % 10 == 0 else 3}}mm;border-left:.35mm solid #000"/>
+          <div t-attf-style="position:absolute;left:{{x}}mm;bottom:0;width:0;height:{{5 if x % 10 == 0 else 3}}mm;border-left:.35mm solid #000"/>
+          <div t-if="x % 10 == 0" t-attf-style="position:absolute;left:{{x - 2}}mm;top:5.5mm;font-size:6pt" t-esc="x"/>
+        </t>
+        <t t-foreach="range(5, 50, 5)" t-as="y">
+          <div t-attf-style="position:absolute;top:{{y}}mm;left:0;height:0;width:{{5 if y % 10 == 0 else 3}}mm;border-top:.35mm solid #000"/>
+          <div t-attf-style="position:absolute;top:{{y}}mm;right:0;height:0;width:{{5 if y % 10 == 0 else 3}}mm;border-top:.35mm solid #000"/>
+        </t>
+        <div style="position:absolute;left:8mm;right:8mm;top:12mm;text-align:center;font-size:8pt;line-height:1.3">
+          <b style="font-size:11pt">Etiqueta de prueba · 100 x 50 mm</b><br/>
+          ▲ ARRIBA<br/>
+          El marco tiene que entrar entero en la etiqueta.<br/>
+          Marcas cada 5 mm; los números son milímetros.
+        </div>
+        <div style="position:absolute;left:7mm;top:30mm;font-size:7pt">◀ izquierda</div>
+        <div style="position:absolute;right:7mm;top:30mm;font-size:7pt">derecha ▶</div>
+      </div>
+    </t>
+  </template>
+
+  <!-- Botones -->
+  <record id="view_order_form_etiquetas" model="ir.ui.view">
+    <field name="name">sale.order.form.etiquetas</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button name="action_distri_print_labels" type="object" string="Imprimir etiquetas"
+                groups="distri_pedido.grupo_armador"
+                invisible="distri_armado != 'armado' or not distri_bultos"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_route_form_etiquetas" model="ir.ui.view">
+    <field name="name">distri.route.form.etiquetas</field>
+    <field name="model">distri.route</field>
+    <field name="inherit_id" ref="distri_pedido.view_route_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button name="action_distri_print_labels" type="object" string="Imprimir etiquetas"
+                invisible="kind != 'route' or not stop_ids"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="action_etiqueta_prueba" model="ir.actions.server">
+    <field name="name">Etiqueta de prueba (100 x 50 mm)</field>
+    <field name="model_id" ref="base.model_res_company"/>
+    <field name="state">code</field>
+    <field name="code">action = env.ref("distri_pedido.report_etiqueta_prueba").report_action(env.company, config=False)</field>
+  </record>
+
+  <menuitem id="menu_reparto_etiqueta_prueba" name="Etiqueta de prueba"
+            parent="menu_reparto_root" action="action_etiqueta_prueba" sequence="95"
+            groups="distri_pedido.grupo_administracion"/>
+</odoo>
