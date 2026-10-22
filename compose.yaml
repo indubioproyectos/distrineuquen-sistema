@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+      POSTGRES_DB: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  odoo:
+    # odoo:19 plus Tesseract (Spanish) for reading payment receipts on this
+    # server: image/Dockerfile. Rebuild: docker compose build odoo
+    image: distri-odoo:19-ocr
+    build: ./image
+    depends_on: [db]
+    ports:
+      # Solo loopback: nginx entra por ahí. Igual que el resto de los
+      # proyectos del servidor, para no depender de la regla DROP de
+      # DOCKER-USER como única protección.
+      - "127.0.0.1:8069:8069"
+      - "127.0.0.1:8072:8072"
+    volumes:
+      - odoo-data:/var/lib/odoo
+      - ./config:/etc/odoo
+      - ./addons:/mnt/extra-addons
+      - ./oca-addons:/mnt/oca-addons
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: odoo
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  odoo-data:

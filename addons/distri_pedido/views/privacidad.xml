@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Politica de privacidad publica. Meta la exige para publicar la app de
+       WhatsApp (Configuracion de la app -> Basica). Borrador del lab: la
+       empresa tiene que revisarla antes de usar el numero real. -->
+  <template id="privacidad" name="Politica de privacidad">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Política de privacidad · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa.id"/>
+  <style>
+    :root{--azul:#10243f;--claro:#f7f8f7;--texto:#42505f;--tenue:#7a8794;--borde:#e2e7ec}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--claro);color:var(--texto);
+         font:16px/1.6 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:44rem;margin:0 auto;padding:2.5rem 1.15rem 3rem}
+    h1,h2{color:var(--azul);line-height:1.25}
+    h1{font-size:1.8rem;margin:0 0 .3rem}
+    h2{font-size:1.15rem;margin:2rem 0 .5rem}
+    .nota{font-size:.85rem;color:var(--tenue);margin:0}
+    ul{padding-left:1.2rem}
+  </style>
+</head>
+<body>
+  <div class="marco">
+    <h1>Política de privacidad</h1>
+    <p class="nota">Distri Neuquén · Actualizada el 25 de septiembre de 2026</p>
+
+    <h2>Qué datos usamos</h2>
+    <p>Cuando nos escribís por WhatsApp o hacés un pedido, guardamos:</p>
+    <ul>
+      <li>tu número de teléfono y el nombre de tu perfil de WhatsApp;</li>
+      <li>los mensajes que nos enviás y el estado de los que te enviamos (entregado, leído);</li>
+      <li>los datos de tus pedidos, pagos y cuenta corriente.</li>
+    </ul>
+
+    <h2>Para qué los usamos</h2>
+    <p>Solo para tomar tus pedidos, coordinar la entrega, registrar tus pagos y
+       responder tus consultas. No enviamos publicidad sin tu consentimiento.</p>
+
+    <h2>Con quién los compartimos</h2>
+    <p>No vendemos ni cedemos tus datos. Los procesan únicamente los servicios
+       que necesitamos para operar: WhatsApp (Meta), para recibir y enviar
+       mensajes, y Mercado Pago, para los cobros.</p>
+
+    <h2>Cuánto tiempo los guardamos</h2>
+    <p>Mientras seas cliente y durante los plazos que exige la ley para la
+       documentación comercial y contable.</p>
+
+    <h2>Tus derechos</h2>
+    <p>Podés pedirnos ver, corregir o borrar tus datos en cualquier momento, según
+       la Ley 25.326 de Protección de Datos Personales. Para pedir que borremos
+       tus datos, escribinos por WhatsApp o
+       <t t-if="empresa.email">al correo <a t-att-href="'mailto:%s' % empresa.email" t-out="empresa.email"/></t>
+       <t t-else="">por los canales de contacto de la empresa</t>
+       y lo resolvemos en un plazo máximo de 10 días hábiles.</p>
+    <p class="nota">La Agencia de Acceso a la Información Pública, órgano de control
+       de la Ley 25.326, atiende las denuncias por incumplimiento.</p>
+  </div>
+</body>
+</html>
+  </template>
+
+</odoo>

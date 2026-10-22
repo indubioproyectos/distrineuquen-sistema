@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="categoria_form_foto" model="ir.ui.view">
+    <field name="name">product.category.form.foto</field>
+    <field name="model">product.category</field>
+    <field name="inherit_id" ref="product.product_category_form_view"/>
+    <field name="arch" type="xml">
+      <field name="parent_id" position="after">
+        <field name="distri_producto_id" options="{'no_create': True}"/>
+        <field name="distri_imagen" widget="image" class="oe_avatar"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="accion_fotos_secciones" model="ir.actions.act_window">
+    <field name="name">Fotos de las secciones</field>
+    <field name="res_model">product.category</field>
+    <field name="view_mode">kanban,list,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Elegí la foto de cada sección</p>
+      <p>Es la imagen que ve el cliente en la portada. Si no cargás ninguna,
+         se usa la foto de alguno de sus productos.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_fotos_secciones"
+            name="Fotos de las secciones"
+            action="accion_fotos_secciones"
+            parent="menu_transicion_app"
+            sequence="40"/>
+
+</odoo>

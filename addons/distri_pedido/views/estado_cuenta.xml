@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Contact: «Estado de cuenta» button and tab (models/estado_cuenta.py) -->
+  <record id="view_partner_form_estado_cuenta" model="ir.ui.view">
+    <field name="name">res.partner.form.estado.cuenta</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+      <div name="button_box" position="inside">
+        <field name="distri_generic_partner" invisible="1"/>
+        <button class="oe_stat_button" type="object" name="action_distri_estado_cuenta"
+                icon="fa-file-text-o" invisible="not id or distri_generic_partner"
+                groups="distri_pedido.grupo_vendedor,distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia">
+          <div class="o_stat_info">
+            <span class="o_stat_value"><field name="distri_statement_balance" widget="monetary"/></span>
+            <span class="o_stat_text">Estado de cuenta</span>
+          </div>
+        </button>
+      </div>
+      <xpath expr="//notebook" position="inside">
+        <page string="Estado de cuenta" name="distri_estado_cuenta" invisible="not id or distri_generic_partner"
+              groups="distri_pedido.grupo_vendedor,distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia">
+          <p class="text-muted">
+            Historia completa: Odoo Online, este Odoo y las devoluciones informadas por el
+            repartidor (a controlar hasta la rendición). Lo más nuevo arriba. Para filtrar por
+            fecha o imprimir, tocá «Estado de cuenta» arriba.
+          </p>
+          <field name="distri_statement_html" nolabel="1" readonly="1"/>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_estado_cuenta_form" model="ir.ui.view">
+    <field name="name">distri.estado.cuenta.form</field>
+    <field name="model">distri.estado.cuenta</field>
+    <field name="arch" type="xml">
+      <form string="Estado de cuenta">
+        <group>
+          <group>
+            <field name="partner_id"/>
+            <field name="date_from"/>
+            <field name="date_to"/>
+          </group>
+          <group>
+            <field name="currency_id" invisible="1"/>
+            <field name="opening" invisible="not date_from"/>
+            <field name="closing"/>
+            <field name="balance"/>
+          </group>
+        </group>
+        <field name="statement_html" nolabel="1" readonly="1"/>
+        <footer>
+          <button name="action_print" type="object" string="Imprimir / PDF" class="btn-primary"/>
+          <button special="cancel" string="Cerrar"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="report_estado_cuenta" model="ir.actions.report">
+    <field name="name">Estado de cuenta</field>
+    <field name="model">distri.estado.cuenta</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.estado_cuenta_documento</field>
+    <field name="report_file">distri_pedido.estado_cuenta_documento</field>
+    <field name="print_report_name">'Estado de cuenta - %s' % object.partner_id.name</field>
+  </record>
+
+  <template id="estado_cuenta_documento">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="o">
+        <t t-set="v" t-value="values[o.id]"/>
+        <t t-call="web.basic_layout">
+          <div class="page" style="font-size:10px">
+            <h3 style="margin-bottom:2px">Estado de cuenta</h3>
+            <div><b t-esc="v['partner'].name"/>
+              <t t-if="v['partner'].vat"> · CUIT <t t-esc="v['partner'].vat"/></t></div>
+            <div>
+              <t t-if="v['date_from'] or v['date_to']">
+                Del <t t-esc="v['date_from'].strftime('%d/%m/%Y') if v['date_from'] else 'primer movimiento'"/>
+                al <t t-esc="v['date_to'].strftime('%d/%m/%Y') if v['date_to'] else 'día de hoy'"/>
+              </t>
+              <t t-else="">Historia completa, desde el primer movimiento</t>
+              · Impreso el <t t-esc="v['printed']"/>
+            </div>
+            <table class="table table-sm" style="margin-top:8px">
+              <thead>
+                <tr>
+                  <th>Fecha</th><th>Tipo</th><th>Comprobante</th><th>Remito</th><th>Concepto</th>
+                  <th>Origen</th><th class="text-end">Debe</th><th class="text-end">Haber</th>
+                  <th class="text-end">Saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr t-if="v['date_from']">
+                  <td colspan="8"><i>Saldo anterior</i></td>
+                  <td class="text-end" t-esc="v['money'](v['data']['opening'])"/>
+                </tr>
+                <tr t-foreach="v['data']['rows']" t-as="r">
+                  <td t-esc="r['date'].strftime('%d/%m/%Y') if r['date'] else ''"/>
+                  <td><t t-esc="r['doc_type']"/><t t-if="r['provisional']"> (a controlar)</t></td>
+                  <td t-esc="r['number']"/>
+                  <td t-esc="r['remito']"/>
+                  <td t-esc="r['concept']"/>
+                  <td t-esc="v['sources'][r['source']]"/>
+                  <td class="text-end"><t t-if="r['debit']" t-esc="v['money'](r['debit'])"/></td>
+                  <td class="text-end"><t t-if="r['credit']" t-esc="v['money'](r['credit'])"/></td>
+                  <td class="text-end" t-esc="v['money'](r['balance'])"/>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th colspan="6">Totales del período</th>
+                  <th class="text-end" t-esc="v['money'](v['data']['debit'])"/>
+                  <th class="text-end" t-esc="v['money'](v['data']['credit'])"/>
+                  <th class="text-end" t-esc="v['money'](v['data']['closing'])"/>
+                </tr>
+              </tfoot>
+            </table>
+            <p t-if="v['data']['provisional']">
+              El saldo incluye devoluciones informadas por el repartidor, a controlar en la
+              rendición, por <t t-esc="v['money'](v['data']['provisional'])"/>.
+            </p>
+          </div>
+        </t>
+      </t>
+    </t>
+  </template>
+
+</odoo>

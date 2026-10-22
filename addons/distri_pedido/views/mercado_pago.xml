@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_mp_payment_list" model="ir.ui.view">
+    <field name="name">distri.mp.payment.list</field>
+    <field name="model">distri.mp.payment</field>
+    <field name="arch" type="xml">
+      <list string="Pagos Mercado Pago" create="false" delete="false"
+            decoration-success="status == 'approved' and amount_ok"
+            decoration-danger="status in ('rejected', 'refunded', 'charged_back', 'cancelled') or (status == 'approved' and not amount_ok)"
+            decoration-warning="status in ('pending', 'in_process', 'authorized')">
+        <field name="create_date" string="Recibido"/>
+        <field name="order_id"/>
+        <field name="payment_id"/>
+        <field name="status"/>
+        <field name="status_detail" optional="hide"/>
+        <field name="amount" sum="Total"/>
+        <field name="currency" optional="hide"/>
+        <field name="amount_ok" optional="show"/>
+        <field name="payment_method" optional="show"/>
+        <field name="payer_email" optional="show"/>
+        <field name="date_approved" optional="show"/>
+        <field name="source" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_mp_payment_form" model="ir.ui.view">
+    <field name="name">distri.mp.payment.form</field>
+    <field name="model">distri.mp.payment</field>
+    <field name="arch" type="xml">
+      <form string="Pago Mercado Pago" create="false" delete="false" edit="false">
+        <sheet>
+          <div class="oe_title">
+            <h1>Pago <field name="payment_id" class="oe_inline"/></h1>
+          </div>
+          <group>
+            <group string="Pedido">
+              <field name="order_id"/>
+              <field name="external_reference"/>
+              <field name="preference_id"/>
+              <field name="source"/>
+              <field name="last_source"/>
+            </group>
+            <group string="Pago">
+              <field name="status"/>
+              <field name="status_detail"/>
+              <field name="amount"/>
+              <field name="expected_amount"/>
+              <field name="currency"/>
+              <field name="amount_ok"/>
+              <field name="payment_method"/>
+              <field name="payment_type"/>
+              <field name="installments"/>
+            </group>
+            <group string="Pagador">
+              <field name="payer_name"/>
+              <field name="payer_email"/>
+              <field name="payer_identification"/>
+            </group>
+            <group string="Fechas">
+              <field name="date_created_mp"/>
+              <field name="date_approved"/>
+              <field name="create_date" string="Recibido"/>
+              <field name="write_date" string="Actualizado"/>
+            </group>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_mp_payment_search" model="ir.ui.view">
+    <field name="name">distri.mp.payment.search</field>
+    <field name="model">distri.mp.payment</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="order_id"/>
+        <field name="payment_id"/>
+        <field name="payer_email"/>
+        <filter name="aprobados" string="Aprobados" domain="[('status', '=', 'approved')]"/>
+        <filter name="a_revisar" string="Importe a revisar"
+                domain="[('status', '=', 'approved'), ('amount_ok', '=', False)]"/>
+        <filter name="devueltos" string="Devueltos / contracargos"
+                domain="[('status', 'in', ('refunded', 'charged_back'))]"/>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_mp_payment" model="ir.actions.act_window">
+    <field name="name">Pagos Mercado Pago</field>
+    <field name="res_model">distri.mp.payment</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <menuitem id="menu_mp_payment"
+            name="Pagos Mercado Pago"
+            parent="sale.sale_order_menu"
+            action="action_mp_payment"
+            groups="base.group_system,sales_team.group_sale_manager"
+            sequence="40"/>
+
+</odoo>

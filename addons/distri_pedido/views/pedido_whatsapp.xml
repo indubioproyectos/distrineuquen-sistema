@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Web orders that wait for the customer's WhatsApp
+       (models/pedido_whatsapp.py). Nothing cancels them by itself. -->
+
+  <record id="view_order_list_sin_whatsapp" model="ir.ui.view">
+    <field name="name">sale.order.list.sin.whatsapp</field>
+    <field name="model">sale.order</field>
+    <field name="priority">40</field>
+    <field name="arch" type="xml">
+      <list string="Pedidos sin WhatsApp" create="0" delete="0" default_order="create_date"
+            decoration-warning="distri_wa_age_level == 'amber'"
+            decoration-danger="distri_wa_age_level == 'red'">
+        <field name="distri_wa_age_level" column_invisible="1"/>
+        <field name="distri_wa_proposal_id" column_invisible="1"/>
+        <field name="name" string="Pedido"/>
+        <field name="create_date" string="Entró" optional="hide"/>
+        <field name="distri_wa_age" string="Espera"/>
+        <field name="distri_nombre" string="Comercio"/>
+        <field name="distri_telefono" string="Teléfono"/>
+        <field name="distri_wa_code" string="Código"/>
+        <field name="amount_total" string="Total" sum="Total" optional="show"/>
+        <field name="distri_wa_reminded_at" optional="hide"/>
+        <field name="distri_wa_proposal_text" string="Mensaje sin código" optional="show" width="140px"/>
+        <button name="action_distri_wa_accept_proposal" type="object" icon="fa-check-circle"
+                string="Usar mensaje" title="Confirmar con este mensaje sin código" class="btn-link text-success"
+                invisible="not distri_wa_proposal_id"/>
+        <button name="action_distri_wa_open_chat" type="object" icon="fa-whatsapp"
+                string="Llamar / abrir WhatsApp" class="btn-link"/>
+        <button name="action_distri_wa_confirm_manual" type="object" icon="fa-check"
+                string="Confirmar a mano" class="btn-link"/>
+        <button name="action_distri_wa_cancel" type="object" icon="fa-times"
+                string="Cancelar" class="btn-link text-danger"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_pedidos_sin_whatsapp" model="ir.actions.act_window">
+    <field name="name">Pedidos sin WhatsApp</field>
+    <field name="res_model">sale.order</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('distri_wa_state', '=', 'waiting'), ('state', '!=', 'cancel')]</field>
+    <field name="context">{}</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_order_list_sin_whatsapp')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('sale.view_order_form')})]"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No hay pedidos esperando el WhatsApp.</p>
+      <p>Un pedido de la página entra a la operación cuando llega el WhatsApp del cliente
+         con el código. Mientras tanto aparece acá: en ámbar pasadas 2 horas y en rojo pasadas
+         24. Ningún pedido se cancela solo.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_pedidos_sin_whatsapp"
+            name="Pedidos sin WhatsApp"
+            parent="sale.sale_order_menu"
+            action="action_pedidos_sin_whatsapp"
+            groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager"
+            sequence="2"/>
+
+  <record id="view_order_search_sin_whatsapp" model="ir.ui.view">
+    <field name="name">sale.order.search.sin.whatsapp</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <separator/>
+        <filter name="distri_sin_whatsapp" string="Esperando el WhatsApp"
+                domain="[('distri_wa_state', '=', 'waiting'), ('state', '!=', 'cancel')]"/>
+        <field name="distri_wa_code"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ pedido -->
+
+  <record id="view_order_form_whatsapp" model="ir.ui.view">
+    <field name="name">sale.order.form.whatsapp</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="priority">25</field>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <field name="distri_wa_state" invisible="1"/>
+        <field name="distri_wa_proposal_id" invisible="1"/>
+        <button name="action_distri_wa_accept_proposal" type="object"
+                string="Confirmar con el mensaje sin código" class="btn-primary"
+                groups="distri_pedido.grupo_administracion"
+                invisible="distri_wa_state != 'waiting' or not distri_wa_proposal_id or state == 'cancel'"/>
+        <button name="action_distri_wa_open_chat" type="object" string="Abrir WhatsApp del cliente"
+                icon="fa-whatsapp" groups="distri_pedido.grupo_administracion"
+                invisible="distri_wa_state != 'waiting' or state == 'cancel'"/>
+        <button name="action_distri_wa_confirm_manual" type="object" string="Confirmar a mano"
+                groups="distri_pedido.grupo_administracion"
+                invisible="distri_wa_state != 'waiting' or state == 'cancel'"/>
+        <button name="action_distri_wa_cancel" type="object" string="Cancelar sin WhatsApp"
+                groups="distri_pedido.grupo_administracion"
+                invisible="distri_wa_state != 'waiting' or state == 'cancel'"/>
+      </xpath>
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-warning mb-0 text-center" role="alert"
+             invisible="distri_wa_state != 'waiting' or state == 'cancel'">
+          Este pedido espera el WhatsApp del cliente con el código
+          <b><field name="distri_wa_code" readonly="1" class="oe_inline"/></b>. Hasta que
+          llegue no se arma, no se asigna a una ruta ni se factura.
+        </div>
+      </xpath>
+      <xpath expr="//notebook" position="inside">
+        <page string="WhatsApp" name="distri_whatsapp" invisible="not distri_wa_state">
+          <group>
+            <group>
+              <field name="distri_wa_state" readonly="1"/>
+              <field name="distri_wa_code"/>
+              <field name="distri_wa_phone"/>
+              <field name="distri_telefono_verificado"/>
+              <field name="distri_wa_message_id"/>
+              <field name="distri_wa_proposal_id" invisible="not distri_wa_proposal_id"/>
+            </group>
+            <group>
+              <field name="distri_wa_confirmed_at"/>
+              <field name="distri_wa_confirmed_by_id"/>
+              <field name="distri_wa_reason"/>
+              <field name="distri_wa_reminded_at"/>
+              <field name="distri_wa_reminded_by_id"/>
+              <field name="distri_wa_cancel_reason" invisible="not distri_wa_cancel_reason"/>
+              <field name="distri_wa_cancelled_by_id" invisible="not distri_wa_cancelled_by_id"/>
+            </group>
+          </group>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_order_quotation_list_whatsapp" model="ir.ui.view">
+    <field name="name">sale.order.quotation.list.whatsapp</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_quotation_tree_with_onboarding"/>
+    <field name="arch" type="xml">
+      <field name="state" position="before">
+        <field name="distri_wa_state" string="WhatsApp" widget="badge" optional="show"
+               decoration-warning="distri_wa_state == 'waiting'"
+               decoration-success="distri_wa_state in ('received', 'manual')"/>
+      </field>
+    </field>
+  </record>
+
+  <!-- ============================================ asistente: confirmar o cancelar -->
+
+  <record id="view_pedido_whatsapp_wizard" model="ir.ui.view">
+    <field name="name">distri.pedido.whatsapp.wizard.form</field>
+    <field name="model">distri.pedido.whatsapp.wizard</field>
+    <field name="arch" type="xml">
+      <form>
+        <field name="mode" invisible="1"/>
+        <p invisible="mode != 'confirm'">
+          El pedido entra a la operación sin el WhatsApp del cliente. Queda registrado quién lo
+          confirmó, cuándo y por qué.
+        </p>
+        <p invisible="mode != 'cancel'">
+          El pedido se cancela. Queda registrado quién lo canceló, cuándo y por qué.
+        </p>
+        <group>
+          <field name="order_id"/>
+          <field name="reason" placeholder="Ej.: el cliente llamó por teléfono"/>
+        </group>
+        <footer>
+          <button name="action_apply" type="object" string="Confirmar a mano" class="btn-primary"
+                  invisible="mode != 'confirm'"/>
+          <button name="action_apply" type="object" string="Cancelar el pedido" class="btn-danger"
+                  invisible="mode != 'cancel'"/>
+          <button string="Volver" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- ============================================ ajuste: WhatsApp de pedidos -->
+
+  <record id="view_pedido_whatsapp_config" model="ir.ui.view">
+    <field name="name">distri.pedido.whatsapp.config.form</field>
+    <field name="model">distri.pedido.whatsapp.config</field>
+    <field name="arch" type="xml">
+      <form string="WhatsApp de pedidos">
+        <group>
+          <field name="requiere"/>
+          <field name="numero"/>
+        </group>
+        <div class="text-muted">
+          <p><b>Activado:</b> un pedido de la página espera el WhatsApp del cliente con el
+            código antes de entrar a la operación (lista «Pedidos sin WhatsApp»).</p>
+          <p><b>Desactivado:</b> el pedido entra directo, como antes. El botón «Enviar por
+            WhatsApp» sigue y, si el mensaje con el código llega a Odoo, el teléfono del
+            cliente queda verificado.</p>
+          <p>Se activa el día que el número de la empresa queda conectado a Odoo. Con el
+            número de prueba de Meta solo pueden escribir hasta 5 teléfonos registrados.</p>
+        </div>
+        <footer>
+          <button name="action_save" type="object" string="Guardar" class="btn-primary"/>
+          <button string="Cerrar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_pedido_whatsapp_config" model="ir.actions.act_window">
+    <field name="name">WhatsApp de pedidos</field>
+    <field name="res_model">distri.pedido.whatsapp.config</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <menuitem id="menu_pedido_whatsapp_config"
+            name="WhatsApp de pedidos"
+            action="action_pedido_whatsapp_config"
+            parent="menu_transicion"
+            groups="distri_pedido.grupo_administracion"
+            sequence="40"/>
+
+  <menuitem id="menu_app_pedido_whatsapp_config"
+            name="WhatsApp de pedidos"
+            action="action_pedido_whatsapp_config"
+            parent="menu_transicion_app"
+            groups="distri_pedido.grupo_administracion"
+            sequence="40"/>
+
+  <!-- Also in the PRESUPUESTOS app of distri_tema, when that module is
+       installed (this module does not depend on it). -->
+  <function model="sale.order" name="_distri_ensure_presupuestos_menu"/>
+
+  <!-- ============================================ usuario: WhatsApp del vendedor -->
+
+  <record id="view_users_form_vendedor" model="ir.ui.view">
+    <field name="name">res.users.form.distri.vendedor</field>
+    <field name="model">res.users</field>
+    <field name="inherit_id" ref="base.view_users_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//notebook" position="inside">
+        <page string="Vendedor y repartidor" name="distri_vendedor">
+          <group>
+            <field name="distri_whatsapp_vendedor" placeholder="Ej.: 2995123456"/>
+            <field name="etiqueta_cartera_id"/>
+          </group>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ mensaje: pedido del código -->
+
+  <record id="view_whatsapp_message_form_pedido" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.form.pedido</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="inherit_id" ref="view_whatsapp_message_form"/>
+    <field name="arch" type="xml">
+      <field name="body" position="after">
+        <field name="distri_order_id" invisible="not distri_order_id"/>
+        <field name="distri_forwarded_by_id" invisible="not distri_forwarded_by_id"/>
+      </field>
+    </field>
+  </record>
+
+</odoo>

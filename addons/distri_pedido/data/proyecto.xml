@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Project status. noupdate: edits made in Odoo survive upgrades.
+       Sources: docs/distrineuquen-modulo (migracion-catalogo, armado,
+       cobranza, whatsapp, prueba-integral) and the module code, as of
+       27/09/2026; the collections record (conciliacion) as of 30/09/2026.
+       The live records are updated in Odoo; this file only seeds a fresh
+       install. -->
+  <data noupdate="1">
+
+    <record id="project_catalogo" model="distri.project.module">
+      <field name="code">catalogo</field>
+      <field name="sequence">10</field>
+      <field name="name">Catálogo y listas de precios</field>
+      <field name="description">Productos con su unidad de venta (bulto, cartón), la lista General (pública), la lista oculta Distribuidoras y las de los diez revendedores, y descuentos por cantidad.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Cargar los precios reales de los diez revendedores de cigarrillos, decidir los 43 productos sin par y cuáles de los ocultos ya no se reponen.</field>
+      <field name="presentation_url">/presentacion/migracion</field>
+    </record>
+
+    <record id="project_sitio_web" model="distri.project.module">
+      <field name="code">sitio_web</field>
+      <field name="sequence">15</field>
+      <field name="name">Sitio web para Google</field>
+      <field name="description">La página de inicio pensada para aparecer en las búsquedas de Google: distribuidora mayorista en Neuquén y Alto Valle, con enlace directo a la pantalla de pedidos.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Publicarla con el dominio definitivo y darla de alta en Google Search Console.</field>
+      <field name="presentation_url">/</field>
+    </record>
+
+    <record id="project_pedidos" model="distri.project.module">
+      <field name="code">pedidos</field>
+      <field name="sequence">20</field>
+      <field name="name">Toma de pedidos</field>
+      <field name="description">La pantalla tipo AgilPedido dentro de Odoo, sin registro, en /pedido, con la lista mayorista general. Las distribuidoras y los revendedores autorizados entran con su usuario y ven además su lista. El pedido entra como presupuesto, el cliente lo confirma con un mensaje de WhatsApp que lleva el código del pedido, y el administrador le asigna el cliente comparando lo que escribió el comprador con la ficha de cada candidato.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Día de prueba con clientes reales, con AgilPedido todavía encendido. El gerente decide el precio de la lista oculta cuando el cliente asignado tiene otra lista y la compra mínima (consulta pendiente). «Confirmar pedidos por WhatsApp» se activa el día que se conecte el número real de la empresa, al final del proyecto.</field>
+      <field name="presentation_url">/presentacion</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_catalogo')])]"/>
+    </record>
+
+    <record id="project_armado" model="distri.project.module">
+      <field name="code">armado</field>
+      <field name="sequence">30</field>
+      <field name="name">Armado de pedidos</field>
+      <field name="description">El armador toma el pedido en el celular, marca solo lo que falta y carga los bultos. Al terminar salen solos el remito y la factura por lo entregado, y el código de recibido. Tiene su propia aplicación «Armado» en Odoo, y el pedido de venta tiene el botón «Armar este pedido».</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Probarlo en el día de prueba con el armador real en el depósito y confirmar con el gerente las zonas, los días y los viajes.</field>
+      <field name="presentation_url">/presentacion#armador</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_pedidos')])]"/>
+    </record>
+
+    <record id="project_cuenta" model="distri.project.module">
+      <field name="code">cuenta</field>
+      <field name="sequence">40</field>
+      <field name="name">Cuenta corriente y «Cómo pagar»</field>
+      <field name="description">El cliente ve su saldo y toda su historia desde el enlace del pedido: remitos, pagos y devoluciones, sin números de factura. El personal ve el estado de cuenta completo de cada cliente, con la historia de Odoo Online, filtro por fechas y PDF. Con la factura emitida, «Cómo pagar» muestra el importe final y el alias para transferir.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Probar el importe copiado en las apps de los bancos y de Mercado Pago el día de prueba.</field>
+      <field name="presentation_url">/presentacion#cliente</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_armado')])]"/>
+    </record>
+
+    <record id="project_contabilidad" model="distri.project.module">
+      <field name="code">contabilidad</field>
+      <field name="sequence">45</field>
+      <field name="name">Contabilidad y apariencia de Odoo</field>
+      <field name="description">Plan de cuentas argentino para Monotributo, como en Odoo Online, sin factura electrónica de ARCA. Las facturas siguen la numeración de Online. Menús con los nombres y colores de Online, la aplicación PRESUPUESTOS y la hora de Argentina en todos los usuarios.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Revisar con el contador el plan de cuentas y las cuentas de los gastos del repartidor.</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_cuenta')])]"/>
+    </record>
+
+    <record id="project_whatsapp" model="distri.project.module">
+      <field name="code">whatsapp</field>
+      <field name="sequence">50</field>
+      <field name="name">WhatsApp entrante y comprobantes</field>
+      <field name="description">Los mensajes, las fotos y los PDF que llegan al WhatsApp de la empresa entran solos a Odoo. Odoo lee en el propio servidor el importe, el número de operación y el CUIT de cada comprobante; si el importe no es seguro, queda «Revisar importe».</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Probar un PDF real. El número de la empresa se conecta a Odoo al final del proyecto, cuando se apruebe; hasta entonces funciona con el número de prueba de Meta.</field>
+      <field name="presentation_url">/presentacion/cobranza#whatsapp</field>
+    </record>
+
+    <record id="project_reparto" model="distri.project.module">
+      <field name="code">reparto</field>
+      <field name="sequence">60</field>
+      <field name="name">Reparto</field>
+      <field name="description">App del repartidor que funciona sin señal: carga de la camioneta, visitas, devoluciones, código de recibido, gastos, encomiendas y cierre de la ruta. Administración controla la carga en «Salida de viajes». Administración y gerencia también pueden ser repartidores de una ruta.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Probarla en el día de prueba, en el celular del repartidor. El código de recibido se manda a mano por WhatsApp hasta que Odoo envíe mensajes.</field>
+      <field name="presentation_url">/presentacion/reparto</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_armado'), ref('project_cuenta')])]"/>
+    </record>
+
+    <record id="project_deposito" model="distri.project.module">
+      <field name="code">deposito</field>
+      <field name="sequence">65</field>
+      <field name="name">Entrega en depósito y venta en mostrador</field>
+      <field name="description">Cuando el cliente retira en el depósito, administración o gerencia registran la entrega con las mismas preguntas que la app del repartidor. La venta en mostrador confirma, arma, factura y entrega en un solo paso. El efectivo entra en «Caja depósito», que se cuenta y se cierra cada día.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Usarlo el día de prueba con un cliente que retira y una venta en mostrador.</field>
+      <field name="presentation_url">/presentacion/reparto#deposito</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_armado'), ref('project_cuenta')])]"/>
+    </record>
+
+    <record id="project_cobranza" model="distri.project.module">
+      <field name="code">cobranza</field>
+      <field name="sequence">70</field>
+      <field name="name">Cobranza en ruta</field>
+      <field name="description">El cobro se marca en la puerta del cliente y la rendición de caja compara el efectivo contado con el esperado, ya sin los gastos del día. En la rendición se controlan las devoluciones y se emite su nota de crédito. Los cobros se aplican a la factura más vieja.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Usarla el día de prueba con una ruta real: efectivo, devoluciones y gastos con su papel.</field>
+      <field name="presentation_url">/presentacion/cobranza</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_reparto'), ref('project_cuenta')])]"/>
+    </record>
+
+    <record id="project_gastos" model="distri.project.module">
+      <field name="code">gastos</field>
+      <field name="sequence">72</field>
+      <field name="name">Gastos del repartidor</field>
+      <field name="description">«Cargar gasto» en la app, con la foto del comprobante: nafta, repuestos, estacionamiento, encomienda u otro. Se descuenta del efectivo a rendir. En la rendición, con el papel recibido, el gasto se registra en la contabilidad; sin papel, abre un caso contra la ruta.</field>
+      <field name="stage">programmed</field>
+      <field name="next_step">Probarlo el día de prueba con un comprobante real y revisar las cuentas contables con el contador.</field>
+      <field name="presentation_url">/presentacion/reparto#gastos</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_reparto'), ref('project_cobranza')])]"/>
+    </record>
+
+    <record id="project_encomiendas" model="distri.project.module">
+      <field name="code">encomiendas</field>
+      <field name="sequence">74</field>
+      <field name="name">Encomiendas al interior</field>
+      <field name="description">Los pedidos de Zapala y Cutral Có salen desde la terminal de ómnibus. El pedido sabe quién paga el envío, el cliente escribe en /pedido quién retira, y el repartidor despacha con la foto de la guía. El vendedor recibe el aviso y el cliente descarga la guía desde su pedido.</field>
+      <field name="stage">programmed</field>
+      <field name="next_step">Probarla el día de prueba con un cliente del interior. Catriel retira en el depósito (decisión de la gerencia del 22/10/2026).</field>
+      <field name="presentation_url">/presentacion/reparto#encomiendas</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_reparto'), ref('project_pedidos')])]"/>
+    </record>
+
+    <record id="project_prometidas" model="distri.project.module">
+      <field name="code">prometidas</field>
+      <field name="sequence">80</field>
+      <field name="name">Comprobantes pendientes</field>
+      <field name="description">El repartidor reclama el comprobante de cada transferencia en la entrega y lo reenvía a la empresa. Vendedor, administración y gerencia ven los comprobantes pendientes y los reclaman por WhatsApp. El que no llega para la rendición del día siguiente vence y se carga a la cuenta del repartidor, salvo que el reporte de Mercado Pago traiga la transferencia.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Usarlas con el reporte diario de la cuenta de Mercado Pago de la empresa.</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_cobranza')])]"/>
+    </record>
+
+    <record id="project_conciliacion" model="distri.project.module">
+      <field name="code">conciliacion</field>
+      <field name="sequence">90</field>
+      <field name="name">Cobros por transferencia y conciliación con Mercado Pago (en exploración)</field>
+      <field name="description">Módulo en exploración. Regla «Sin reporte, no hay pago»: un cobro por transferencia se registra solo cuando el reporte de Mercado Pago trae la transferencia. El tablero tiene cinco columnas: «Confirmado contra reporte MP», «Esperando reporte MP», «Revisar», «Asignar cliente» y «Sin transferencia»; solo la primera, la tercera y la cuarta registran pagos. «Visto en MP: autorizar entrega» autoriza la entrega de forma provisoria, sin registrar el pago. Odoo lee en el propio servidor los comprobantes en foto y en PDF y los une con su transferencia por el número de operación y por la fecha y hora del comprobante. Reconoce los comprobantes repetidos, manda a «Revisar» el mismo comprobante presentado por dos clientes y avisa cada hora lo que sigue sin resolver. Prueba con datos reales del 25 al 28/09, más lo pendiente del 14 al 24/09: 49 comprobantes y 220 transferencias; los 31 comprobantes con número de operación quedaron unidos a su transferencia exacta. Cruce histórico de 21 meses: 13.062 transferencias y 5.893 comprobantes vinculados; al menos 76 cobros hasta el 24/09 no figuran cargados en Odoo Online.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Fase 2 del reporte: que Mercado Pago lo deje programado en la carpeta del servidor, con la clave de acceso y el horario a definir. Mientras tanto, el reporte se sube a mano con «Importar reporte». Queda por decidir si la conciliación sigue en este módulo o se separa en varios, y si se apoya en módulos de la OCA o en desarrollo propio.</field>
+      <field name="presentation_url">/presentacion/cobranza#conciliacion</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_whatsapp'), ref('project_cuenta')])]"/>
+    </record>
+
+    <record id="project_vendedor" model="distri.project.module">
+      <field name="code">vendedor</field>
+      <field name="sequence">100</field>
+      <field name="name">Pedidos y comprobantes del vendedor</field>
+      <field name="description">El vendedor toma el pedido con su usuario, elige el cliente y se lo manda con «Enviar al cliente». El cliente manda su comprobante con «Mandar comprobante»; la foto que reenvía un vendedor va a «Revisar». Los pedidos de la página se confirman con el WhatsApp del cliente.</field>
+      <field name="stage">programmed</field>
+      <field name="next_step">Probarlo el día de prueba. Cargar el WhatsApp de cada vendedor y la etiqueta de su cartera. Activar «Confirmar pedidos por WhatsApp» cuando el número real de la empresa esté conectado a Odoo.</field>
+      <field name="presentation_url">/presentacion/cobranza#vendedor</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_pedidos'), ref('project_whatsapp')])]"/>
+    </record>
+
+    <record id="project_agotados" model="distri.project.module">
+      <field name="code">agotados</field>
+      <field name="sequence">110</field>
+      <field name="name">Productos agotados</field>
+      <field name="description">Lo que el armador marca como «faltan todas» se junta en una lista, y el administrador confirma qué se oculta del catálogo.</field>
+      <field name="stage">designed</field>
+      <field name="next_step">Programar «Verificar faltantes del día» y «Volver a mostrar».</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_armado')])]"/>
+    </record>
+
+    <record id="project_etiquetas" model="distri.project.module">
+      <field name="code">etiquetas</field>
+      <field name="sequence">120</field>
+      <field name="name">Etiquetas de bultos</field>
+      <field name="description">Etiquetas con la cantidad de bultos y el nombre de cada cliente.</field>
+      <field name="stage">pending</field>
+      <field name="next_step">El gerente confirma qué sistema o impresora de etiquetas usa.</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_armado')])]"/>
+    </record>
+
+    <record id="project_stock" model="distri.project.module">
+      <field name="code">stock</field>
+      <field name="sequence">130</field>
+      <field name="name">Stock e inventario</field>
+      <field name="description">Compras cargadas, un conteo inicial del depósito y cada entrega que descuenta lo entregado.</field>
+      <field name="stage">pending</field>
+      <field name="next_step">Arranca cuando todos los pedidos entren por Odoo. Solo el gerente carga las compras y ajusta el stock.</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_pedidos'), ref('project_armado')])]"/>
+    </record>
+
+    <record id="project_migracion" model="distri.project.module">
+      <field name="code">migracion</field>
+      <field name="sequence">140</field>
+      <field name="name">Migración desde AgilPedido</field>
+      <field name="description">Catálogo, contactos, listas de precios y saldos al Odoo propio, con AgilPedido funcionando en paralelo hasta que los clientes se muden.</field>
+      <field name="stage">programmed</field>
+      <field name="next_step">Ensayada en el lab con datos reales: el catálogo reorganizado y los 21.011 movimientos de cuenta corriente cargados. Falta el servidor de producción y la pasada definitiva, con los saldos controlados cliente por cliente.</field>
+      <field name="presentation_url">/presentacion/migracion</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_catalogo')])]"/>
+    </record>
+
+    <!-- Added 28/09/2026. New noupdate records are still created on an
+         upgrade (forcecreate defaults to True); existing ones are left as
+         they were edited in Odoo. -->
+    <record id="project_precios_costo" model="distri.project.module">
+      <field name="code">precios_costo</field>
+      <field name="sequence">12</field>
+      <field name="name">Listas de precios desde el costo</field>
+      <field name="description">La lista General, pública, y listas ocultas para distribuidoras y revendedores (costo más 1 a 5 %, cigarrillos), con escalas por caja cerrada. Cada precio sale del costo.</field>
+      <field name="stage">designed</field>
+      <field name="next_step">Que el gerente confirme el margen de cada lista y las escalas por caja cerrada.</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_catalogo')])]"/>
+    </record>
+
+    <record id="project_normalizacion" model="distri.project.module">
+      <field name="code">normalizacion</field>
+      <field name="sequence">14</field>
+      <field name="name">Normalización del catálogo</field>
+      <field name="description">Un producto por variedad y unidades de venta que dicen qué traen adentro. Cada cambio queda pendiente hasta que el gerente lo aprueba.</field>
+      <field name="stage">designed</field>
+      <field name="next_step">Que el gerente revise y apruebe la propuesta, producto por producto.</field>
+      <field name="presentation_url">/presentacion/migracion</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_catalogo')])]"/>
+    </record>
+
+    <record id="project_agilpedido_wa" model="distri.project.module">
+      <field name="code">agilpedido_wa</field>
+      <field name="sequence">25</field>
+      <field name="name">Pedidos de AgilPedido por WhatsApp</field>
+      <field name="description">Los mensajes de AgilPedido que llegan por WhatsApp se convierten solos en pedidos en borrador, con la tabla de equivalencias entre los productos de AgilPedido y los de Odoo.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Probarlo el día de prueba con mensajes reales y completar la tabla de equivalencias con lo que se corrija.</field>
+      <field name="presentation_url">/presentacion#transicion</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_pedidos'), ref('project_whatsapp')])]"/>
+    </record>
+
+    <record id="project_despacho" model="distri.project.module">
+      <field name="code">despacho</field>
+      <field name="sequence">62</field>
+      <field name="name">Despacho con doble control de carga</field>
+      <field name="description">El despachante y el repartidor tildan cada pedido. La salida y «Controlado» quedan bloqueados hasta que todo tenga los dos controles.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Usarlo el día de prueba con dos rutas: cada repartidor en su celular y administración en «Despacho».</field>
+      <field name="presentation_url">/presentacion/reparto#salida</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_reparto')])]"/>
+    </record>
+
+    <record id="project_datos_entrega" model="distri.project.module">
+      <field name="code">datos_entrega</field>
+      <field name="sequence">63</field>
+      <field name="name">Datos para la entrega y estado del pedido</field>
+      <field name="description">El cliente ve en qué parte del recorrido está su pedido y actualiza sus horarios, su ubicación y los avisos para la entrega.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Probarlo el día de prueba con clientes reales, desde el enlace de su pedido.</field>
+      <field name="presentation_url">/presentacion/reparto#cliente</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_reparto')])]"/>
+    </record>
+
+    <record id="project_compras" model="distri.project.module">
+      <field name="code">compras</field>
+      <field name="sequence">135</field>
+      <field name="name">Módulo de compras</field>
+      <field name="description">Se escanean las facturas y los remitos de los proveedores, y Odoo propone los precios nuevos para que el gerente los apruebe.</field>
+      <field name="stage">pending</field>
+      <field name="next_step">Arranca después de las listas de precios desde el costo.</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_precios_costo'), ref('project_stock')])]"/>
+    </record>
+
+    <record id="project_cambios_producto" model="distri.project.module">
+      <field name="code">cambios_producto</field>
+      <field name="sequence">145</field>
+      <field name="name">Cambios de producto aprobados por el gerente</field>
+      <field name="description">Un panel donde el gerente aprueba los cambios de productos y Odoo los aplica en AgilPedido mientras los dos sistemas conviven.</field>
+      <field name="stage">designed</field>
+      <field name="next_step">Programar el panel y el archivo para AgilPedido con los cambios aprobados.</field>
+      <field name="presentation_url">/presentacion/migracion#transicion</field>
+      <field name="depends_on_ids" eval="[(6, 0, [ref('project_normalizacion'), ref('project_migracion')])]"/>
+    </record>
+
+    <record id="project_presupuesto" model="distri.project.module">
+      <field name="code">presupuesto</field>
+      <field name="sequence">900</field>
+      <field name="name">Presupuesto</field>
+      <field name="description">Odoo Online (la versión alquilada de hoy) contra un Odoo Community propio, las licencias por usuario y qué incluye el servicio mensual, todo junto.</field>
+      <field name="stage">designed</field>
+      <field name="next_step">Que la gerencia lo revise y apruebe.</field>
+      <field name="presentation_url">/presentacion/presupuesto</field>
+    </record>
+
+  </data>
+</odoo>

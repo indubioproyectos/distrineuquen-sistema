@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tablero de cobros: column header with count, total and the «i» of each
+     column (static/src/js/cobros_board.js). -->
+<templates xml:space="preserve">
+
+    <t t-name="distri_pedido.CobrosKanbanHeader" t-inherit="web.KanbanHeader" t-inherit-mode="primary">
+        <xpath expr="//div[@t-if='!group.isFolded']/span[contains(@t-esc, 'group.count')]" position="replace">
+            <span t-if="!props.list.model.useSampleModel" class="o_distri_col_count"
+                  t-att-aria-label="group.count + ' tarjetas'" t-esc="group.count"/>
+        </xpath>
+        <xpath expr="//div[@t-if='!group.isFolded']/span[hasclass('text-truncate')]" position="before">
+            <i t-if="columnIcon" t-attf-class="fa {{ columnIcon }} o_distri_col_icon" aria-hidden="true"/>
+        </xpath>
+        <xpath expr="//div[@t-if='!group.isFolded']" position="inside">
+            <button t-if="columnHelp" type="button" class="o_distri_col_info btn btn-link"
+                    t-att-class="{ 'o_distri_col_info_open': helpState.open }"
+                    t-att-data-tooltip="helpState.open ? '' : columnHelp"
+                    data-tooltip-position="bottom"
+                    t-att-aria-label="'Qué hacer en ' + group.displayName"
+                    t-att-aria-expanded="helpState.open ? 'true' : 'false'"
+                    t-on-click="onHelpClick">
+                <i class="fa fa-info-circle" aria-hidden="true"/>
+            </button>
+        </xpath>
+        <xpath expr="//div[hasclass('o_kanban_header_title')]" position="after">
+            <div t-if="!group.isFolded and !props.list.model.useSampleModel" class="o_distri_col_sub">
+                <span class="o_distri_col_total" t-esc="columnTotal"/>
+                <span t-if="isPriority" class="o_distri_col_priority_badge">
+                    <i class="fa fa-flag" aria-hidden="true"/> Prioridad
+                </span>
+            </div>
+        </xpath>
+    </t>
+
+    <t t-name="distri_pedido.ColumnHelpPopover">
+        <div class="o_distri_col_help" role="dialog" t-att-aria-label="props.title">
+            <div class="o_distri_col_help_title" t-esc="props.title"/>
+            <p class="o_distri_col_help_text" t-esc="props.text"/>
+        </div>
+    </t>
+
+    <t t-name="distri_pedido.CobrosKanbanView" t-inherit="web.KanbanView" t-inherit-mode="primary">
+        <xpath expr="//t[@t-component='props.Renderer']" position="before">
+            <CobrosCounters t-if="model.isReady" list="model.root"/>
+        </xpath>
+    </t>
+
+    <t t-name="distri_pedido.CobrosCounters">
+        <div t-if="state.data" class="o_distri_counters" role="region" aria-label="Resumen del tablero">
+            <span class="o_distri_counter o_distri_counter_act">
+                <b>Para actuar</b>
+                <t t-esc="state.data.act.count"/> · <t t-esc="money(state.data.act.total)"/>
+                <small>últimos <t t-esc="state.data.window_days"/> días</small>
+            </span>
+            <span t-if="state.data.older.count" class="o_distri_counter o_distri_counter_older">
+                Más viejos sin resolver: <t t-esc="state.data.older.count"/> ·
+                <t t-esc="money(state.data.older.total)"/>
+            </span>
+            <button type="button" class="btn btn-link o_distri_counter o_distri_counter_unknown"
+                    t-on-click="() => this.open('action_open_unknown_payers')">
+                <i class="fa fa-users" aria-hidden="true"/>
+                Sin identificar (<t t-esc="state.data.unknown.count"/> ·
+                <t t-esc="money(state.data.unknown.total)"/>)
+                <small><t t-esc="state.data.unknown.payers"/> pagadores</small>
+            </button>
+            <button type="button" class="btn btn-link o_distri_counter o_distri_counter_apart"
+                    t-on-click="() => this.open('action_open_apartados')">
+                <i class="fa fa-archive" aria-hidden="true"/>
+                Mayoristas apartados (<t t-esc="state.data.apartados.count"/> ·
+                <t t-esc="money(state.data.apartados.total)"/>)
+            </button>
+        </div>
+    </t>
+
+</templates>

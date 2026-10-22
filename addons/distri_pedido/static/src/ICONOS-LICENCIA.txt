@@ -1,0 +1,17 @@
+Iconos embebidos en views/templates.xml
+=======================================
+
+Origen : Font Awesome Free 5.13.0 - https://fontawesome.com
+Licencia: CC BY 4.0 (iconos) - https://creativecommons.org/licenses/by/4.0/
+
+Se embebieron como sprite SVG inline, en lugar de cargar la hoja de estilos
+completa desde un CDN, para que la pantalla de pedidos no dependa de un
+tercero y no pague una descarga extra en el celular del cliente.
+
+Iconos usados (8):
+  map-marker-alt, clock, bullhorn, phone, times,
+  book-open, caret-left, hand-pointer
+
+Para agregar otro, bajar el SVG de:
+  https://use.fontawesome.com/releases/v5.13.0/svgs/<estilo>/<nombre>.svg
+y sumarlo como <symbol id="ic-<nombre>"> al sprite del template.

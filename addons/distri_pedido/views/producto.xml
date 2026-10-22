@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="producto_destacado" model="ir.ui.view">
+    <field name="name">product.template.form.destacado</field>
+    <field name="model">product.template</field>
+    <field name="inherit_id" ref="product.product_template_form_view"/>
+    <field name="arch" type="xml">
+      <field name="sale_ok" position="after">
+        <field name="destacado"/>
+        <field name="destacado_vence" invisible="not destacado"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="producto_lista_destacado" model="ir.ui.view">
+    <field name="name">product.template.list.destacado</field>
+    <field name="model">product.template</field>
+    <field name="inherit_id" ref="product.product_template_tree_view"/>
+    <field name="arch" type="xml">
+      <field name="name" position="after">
+        <!-- El interruptor de la transicion: mientras no haya stock numerico,
+             publicado/oculto es lo unico que decide si el cliente lo ve.
+             Editable desde la lista para poder marcar varios de una. -->
+        <field name="is_published" string="Visible en la página" optional="show" widget="boolean_toggle"/>
+        <field name="destacado" optional="show"/>
+        <field name="destacado_vence" optional="hide"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="producto_busqueda_visibles" model="ir.ui.view">
+    <field name="name">product.template.search.visibles</field>
+    <field name="model">product.template</field>
+    <field name="inherit_id" ref="product.product_template_search_view"/>
+    <field name="arch" type="xml">
+      <filter name="filter_to_sell" position="after">
+        <separator/>
+        <filter name="distri_visibles" string="Visibles en la página"
+                domain="[('is_published', '=', True)]"/>
+        <filter name="distri_ocultos" string="Ocultos"
+                domain="[('is_published', '=', False)]"/>
+        <filter name="distri_destacados" string="Destacados"
+                domain="[('destacado', '=', True)]"/>
+      </filter>
+    </field>
+  </record>
+
+  <record id="producto_visibilidad_accion" model="ir.actions.act_window">
+    <field name="name">Visibilidad en la página</field>
+    <field name="res_model">product.template</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'search_default_distri_ocultos': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todos los productos están visibles</p>
+      <p>Acá aparecen los que hoy el cliente NO ve. Cuando la mercadería entra
+         al depósito, marcalos como visibles.</p>
+    </field>
+  </record>
+
+</odoo>

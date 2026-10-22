@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- AgilPedido orders that arrive by WhatsApp and load themselves as draft
+       quotations (models/agilpedido_wa.py). -->
+
+  <!-- ============================================ lista -->
+
+  <record id="view_order_list_agilpedido_wa" model="ir.ui.view">
+    <field name="name">sale.order.list.agilpedido.wa</field>
+    <field name="model">sale.order</field>
+    <field name="priority">40</field>
+    <field name="arch" type="xml">
+      <list string="Pedidos de AgilPedido (WhatsApp)" create="0" default_order="create_date desc"
+            decoration-danger="distri_agil_por_corregir and state in ('draft', 'sent')"
+            decoration-muted="state == 'cancel'">
+        <field name="currency_id" column_invisible="1"/>
+        <field name="distri_partner_generic" column_invisible="1"/>
+        <field name="name" string="Pedido" decoration-bf="1"/>
+        <field name="create_date" string="Entró" widget="datetime"/>
+        <field name="distri_nombre" string="Nombre en AgilPedido"/>
+        <field name="distri_telefono" string="Teléfono" optional="show"/>
+        <field name="distri_agil_cliente" string="Cliente"
+               decoration-warning="distri_partner_generic"/>
+        <field name="state" string="Estado" widget="badge"
+               decoration-info="state in ('draft', 'sent')" decoration-success="state == 'sale'"/>
+        <field name="distri_agil_por_corregir" string="A corregir"
+               decoration-danger="distri_agil_por_corregir" decoration-bf="distri_agil_por_corregir"/>
+        <field name="distri_agil_total" string="Total AgilPedido" sum="Total"/>
+        <field name="amount_total" string="Total Odoo" sum="Total"/>
+        <field name="distri_agil_diferencia" string="Diferencia" sum="Total"
+               decoration-warning="distri_agil_diferencia"/>
+        <field name="distri_agil_cierra" string="Suma OK" optional="hide"/>
+        <field name="distri_armado" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_order_search_agilpedido_wa" model="ir.ui.view">
+    <field name="name">sale.order.search.agilpedido.wa</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <separator/>
+        <filter name="distri_agilpedido_wa" string="Entró por WhatsApp (AgilPedido)"
+                domain="[('distri_origen', '=', 'agilpedido_wa')]"/>
+        <filter name="distri_agilpedido_corregir"
+                string="Pedidos AgilPedido con productos para corregir"
+                domain="[('distri_origen', '=', 'agilpedido_wa'), ('distri_agil_por_corregir', '>', 0), ('state', '!=', 'cancel')]"/>
+        <filter name="distri_agilpedido_diferencia" string="AgilPedido: el total no coincide"
+                domain="[('distri_origen', '=', 'agilpedido_wa'), ('distri_agil_diferencia', '!=', 0)]"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="action_pedidos_agilpedido_wa" model="ir.actions.act_window">
+    <field name="name">Pedidos de AgilPedido (WhatsApp)</field>
+    <field name="res_model">sale.order</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('distri_origen', '=', 'agilpedido_wa')]</field>
+    <field name="context">{}</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_order_list_agilpedido_wa')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('sale.view_order_form')})]"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todavía no llegó ningún pedido de AgilPedido por WhatsApp.</p>
+      <p>Cada WhatsApp con el pedido de AgilPedido entra solo como presupuesto en borrador,
+         a nombre de «a asignar». Corregí los productos marcados, asigná el cliente y aprobalo.
+         Al cliente no se le responde nada.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_pedidos_agilpedido_wa"
+            name="Pedidos de AgilPedido (WhatsApp)"
+            parent="sale.sale_order_menu"
+            action="action_pedidos_agilpedido_wa"
+            groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager"
+            sequence="4"/>
+
+  <menuitem id="menu_transicion_agilpedido_wa"
+            name="Pedidos de AgilPedido (WhatsApp)"
+            parent="menu_transicion"
+            action="action_pedidos_agilpedido_wa"
+            sequence="5"/>
+
+  <menuitem id="menu_app_agilpedido_wa"
+            name="Pedidos de AgilPedido (WhatsApp)"
+            parent="menu_transicion_app"
+            action="action_pedidos_agilpedido_wa"
+            sequence="5"/>
+
+  <!-- ============================================ pedido -->
+
+  <record id="view_order_form_agilpedido_wa" model="ir.ui.view">
+    <field name="name">sale.order.form.agilpedido.wa</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="priority">30</field>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="before">
+        <field name="distri_origen" invisible="1"/>
+        <field name="distri_agil_por_corregir" invisible="1"/>
+        <div class="alert alert-info mb-0" role="status" invisible="not distri_origen">
+          <strong>Entró por WhatsApp (AgilPedido).</strong>
+          Total de AgilPedido <field name="distri_agil_total" readonly="1" class="d-inline"/>
+          · diferencia con Odoo <field name="distri_agil_diferencia" readonly="1" class="d-inline"/>
+          <span invisible="not distri_agil_cliente_sugerido_id or not distri_partner_generic">
+            · por el teléfono parece ser <strong><field name="distri_agil_cliente_sugerido_id"
+            readonly="1" class="d-inline" options="{'no_open': True}"/></strong></span>
+          <div invisible="distri_agil_cierra or not distri_agil_total" class="small">
+            Ojo: la suma de los renglones del mensaje no da el total de AgilPedido. Puede faltar
+            un renglón: mirá el mensaje original en la pestaña «AgilPedido».</div>
+        </div>
+        <div class="alert alert-danger mb-0" role="alert"
+             invisible="not distri_agil_por_corregir or state not in ('draft', 'sent')">
+          <strong><field name="distri_agil_por_corregir" readonly="1" class="d-inline"/>
+            renglones para corregir.</strong>
+          Están en rojo: tocá «Corregir producto» (elegís el producto y cómo viene en
+          AgilPedido, por ejemplo por bulto), o «Está bien» si el propuesto es el correcto.
+          Lo que corregís queda aprendido para los próximos pedidos. Hasta entonces el pedido
+          no se arma ni se aprueba.
+        </div>
+      </xpath>
+      <xpath expr="//field[@name='order_line']/list" position="attributes">
+        <attribute name="decoration-danger">distri_agil_corregir</attribute>
+      </xpath>
+      <xpath expr="//field[@name='order_line']/list/field[@name='product_template_id']" position="before">
+        <field name="distri_agil_corregir" column_invisible="1"/>
+        <field name="distri_agil_sin_producto" column_invisible="1"/>
+        <field name="distri_agil_texto" string="Como vino en AgilPedido" width="230px"
+               optional="show" column_invisible="not parent.distri_origen"/>
+      </xpath>
+      <xpath expr="//field[@name='order_line']/list/field[@name='name']" position="after">
+        <field name="distri_agil_motivo" string="Qué revisar" optional="show" width="150px"
+               column_invisible="not parent.distri_origen"/>
+        <field name="distri_agil_importe" string="Subtotal AgilPedido" optional="hide"
+               column_invisible="not parent.distri_origen"/>
+        <button name="action_distri_agil_renglon_ok" type="object" string="Está bien"
+                icon="fa-check" class="btn-link text-success"
+                title="El producto propuesto es el correcto"
+                column_invisible="not parent.distri_origen"
+                invisible="not distri_agil_corregir or distri_agil_sin_producto or parent.state not in ('draft', 'sent')"/>
+        <button name="action_distri_agil_corregir" type="object" string="Corregir producto"
+                icon="fa-exchange" class="btn-link text-danger"
+                title="Elegir el producto y cómo viene en AgilPedido; queda aprendido"
+                groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager"
+                column_invisible="not parent.distri_origen"
+                invisible="not distri_agil_corregir or parent.state not in ('draft', 'sent')"/>
+        <button name="action_distri_agil_corregir" type="object"
+                icon="fa-exchange" class="btn-link text-muted"
+                title="Corregir producto: elegir otro producto o cómo viene en AgilPedido"
+                groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager"
+                column_invisible="not parent.distri_origen"
+                invisible="distri_agil_corregir or not distri_agil_texto or parent.state not in ('draft', 'sent')"/>
+        <field name="distri_agil_nota" string="Equivalencia" optional="show" width="150px"
+               column_invisible="not parent.distri_origen"/>
+      </xpath>
+      <xpath expr="//notebook" position="inside">
+        <page string="AgilPedido" name="distri_agilpedido" invisible="not distri_origen">
+          <group>
+            <group>
+              <field name="distri_origen" readonly="1"/>
+              <field name="distri_agil_message_id"
+                     groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager,base.group_system"/>
+              <field name="distri_agil_cliente_sugerido_id"/>
+            </group>
+            <group>
+              <field name="distri_agil_total"/>
+              <field name="distri_agil_diferencia"/>
+              <field name="distri_agil_cierra"/>
+            </group>
+          </group>
+          <separator string="Mensaje original"/>
+          <field name="distri_agil_texto" nolabel="1" class="font-monospace w-100"/>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ asignar cliente: la sugerencia -->
+
+  <record id="view_asignar_cliente_form_agilpedido" model="ir.ui.view">
+    <field name="name">distri.asignar.cliente.form.agilpedido</field>
+    <field name="model">distri.asignar.cliente</field>
+    <field name="inherit_id" ref="view_asignar_cliente_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='modo']" position="after">
+        <field name="agil_origen" invisible="1"/>
+        <field name="agil_sugerido_id" invisible="1"/>
+        <div class="alert alert-info py-2" role="status" invisible="not agil_sugerido_id">
+          Entró por WhatsApp (AgilPedido). Por el teléfono parece ser
+          <strong><field name="agil_sugerido_id" readonly="1" class="d-inline"
+          options="{'no_open': True}"/></strong>: quedó elegido, confirmalo o elegí otro.
+        </div>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ ajuste: el interruptor -->
+
+  <record id="view_pedido_whatsapp_config_agilpedido" model="ir.ui.view">
+    <field name="name">distri.pedido.whatsapp.config.form.agilpedido</field>
+    <field name="model">distri.pedido.whatsapp.config</field>
+    <field name="inherit_id" ref="view_pedido_whatsapp_config"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='numero']" position="after">
+        <field name="agilpedido_auto"/>
+      </xpath>
+      <xpath expr="//div[hasclass('text-muted')]" position="inside">
+        <p><b>Cargar solos los pedidos de AgilPedido:</b> cada WhatsApp con el pedido de
+          AgilPedido entra como presupuesto en borrador en «Pedidos de AgilPedido (WhatsApp)».
+          No se le responde nada al cliente. Apagado, los mensajes se guardan igual pero no
+          crean pedidos.</p>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ mensaje -->
+
+  <record id="view_whatsapp_message_form_agilpedido" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.form.agilpedido</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="inherit_id" ref="view_whatsapp_message_form"/>
+    <field name="arch" type="xml">
+      <field name="body" position="after">
+        <field name="distri_agil_order_id" invisible="not distri_agil_order_id"/>
+      </field>
+    </field>
+  </record>
+
+</odoo>

@@ -1,0 +1,91 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_cuenta_vendedor,cuenta.vendedor,model_distri_cuenta_movimiento,distri_pedido.grupo_vendedor,1,0,0,0
+access_cuenta_admin,cuenta.admin,model_distri_cuenta_movimiento,distri_pedido.grupo_administracion,1,1,1,1
+access_cuenta_gerencia,cuenta.gerencia,model_distri_cuenta_movimiento,distri_pedido.grupo_gerencia,1,1,1,1
+acceso_importar_pedido,distri.importar.pedido,model_distri_importar_pedido,distri_pedido.grupo_administracion,1,1,1,1
+acceso_importar_pedido_gerencia,distri.importar.pedido gerencia,model_distri_importar_pedido,distri_pedido.grupo_gerencia,1,1,1,1
+acceso_importar_linea,distri.importar.pedido.linea,model_distri_importar_pedido_linea,distri_pedido.grupo_administracion,1,1,1,1
+acceso_importar_linea_gerencia,distri.importar.pedido.linea gerencia,model_distri_importar_pedido_linea,distri_pedido.grupo_gerencia,1,1,1,1
+acceso_exportar_agil,distri.exportar.agilpedido,model_distri_exportar_agilpedido,distri_pedido.grupo_administracion,1,1,1,1
+acceso_exportar_agil_ger,distri.exportar.agilpedido gerencia,model_distri_exportar_agilpedido,distri_pedido.grupo_gerencia,1,1,1,1
+acceso_mp_pago_sistema,distri.mp.payment sistema,model_distri_mp_payment,base.group_system,1,1,0,0
+acceso_mp_pago_gerente_ventas,distri.mp.payment gerente ventas,model_distri_mp_payment,sales_team.group_sale_manager,1,0,0,0
+acceso_wa_mensaje_sistema,distri.whatsapp.message sistema,model_distri_whatsapp_message,base.group_system,1,1,0,0
+acceso_wa_mensaje_gerente_ventas,distri.whatsapp.message gerente ventas,model_distri_whatsapp_message,sales_team.group_sale_manager,1,0,0,0
+acceso_zona_usuario,distri.zona usuario,model_distri_zona,base.group_user,1,0,0,0
+acceso_zona_admin,distri.zona administracion,model_distri_zona,distri_pedido.grupo_administracion,1,1,1,1
+acceso_zona_gerente_ventas,distri.zona gerente ventas,model_distri_zona,sales_team.group_sale_manager,1,1,1,1
+acceso_zona_sistema,distri.zona sistema,model_distri_zona,base.group_system,1,1,1,1
+acceso_route_admin,distri.route administracion,model_distri_route,distri_pedido.grupo_administracion,1,1,1,1
+acceso_route_sistema,distri.route sistema,model_distri_route,base.group_system,1,1,1,1
+acceso_stop_admin,distri.route.stop administracion,model_distri_route_stop,distri_pedido.grupo_administracion,1,1,1,1
+acceso_stop_sistema,distri.route.stop sistema,model_distri_route_stop,base.group_system,1,1,1,1
+acceso_return_admin,distri.route.return administracion,model_distri_route_return,distri_pedido.grupo_administracion,1,1,0,0
+acceso_return_sistema,distri.route.return sistema,model_distri_route_return,base.group_system,1,1,1,1
+acceso_case_admin,distri.route.case administracion,model_distri_route_case,distri_pedido.grupo_administracion,1,1,1,1
+acceso_case_sistema,distri.route.case sistema,model_distri_route_case,base.group_system,1,1,1,1
+acceso_promise_admin,distri.promised.transfer administracion,model_distri_promised_transfer,distri_pedido.grupo_administracion,1,1,0,0
+acceso_promise_vendedor,distri.promised.transfer vendedor,model_distri_promised_transfer,distri_pedido.grupo_vendedor,1,0,0,0
+acceso_promise_sistema,distri.promised.transfer sistema,model_distri_promised_transfer,base.group_system,1,1,1,1
+acceso_sync_event_admin,distri.sync.event administracion,model_distri_sync_event,distri_pedido.grupo_administracion,1,0,0,0
+acceso_sync_event_sistema,distri.sync.event sistema,model_distri_sync_event,base.group_system,1,1,1,1
+acceso_proyecto_admin,distri.project.module administracion,model_distri_project_module,distri_pedido.grupo_administracion,1,1,1,1
+acceso_proyecto_sistema,distri.project.module sistema,model_distri_project_module,base.group_system,1,1,1,1
+access_asignar_cliente_admin,distri.asignar.cliente admin,model_distri_asignar_cliente,distri_pedido.grupo_administracion,1,1,1,1
+access_asignar_cliente_sale_manager,distri.asignar.cliente sale manager,model_distri_asignar_cliente,sales_team.group_sale_manager,1,1,1,1
+access_depot_delivery_admin,distri.depot.delivery admin,model_distri_depot_delivery,distri_pedido.grupo_administracion,1,1,1,1
+access_depot_delivery_return_admin,distri.depot.delivery.return admin,model_distri_depot_delivery_return,distri_pedido.grupo_administracion,1,1,1,1
+access_mp_collection_admin,distri.mp.collection admin,model_distri_mp_collection,distri_pedido.grupo_administracion,1,1,0,0
+access_mp_collection_sistema,distri.mp.collection sistema,model_distri_mp_collection,base.group_system,1,1,1,1
+access_mp_report_admin,distri.mp.report admin,model_distri_mp_report,distri_pedido.grupo_administracion,1,0,0,0
+access_mp_report_sistema,distri.mp.report sistema,model_distri_mp_report,base.group_system,1,1,1,1
+access_mp_day_admin,distri.mp.day admin,model_distri_mp_day,distri_pedido.grupo_administracion,1,1,0,0
+access_mp_day_sistema,distri.mp.day sistema,model_distri_mp_day,base.group_system,1,1,1,1
+access_payer_identity_admin,distri.payer.identity admin,model_distri_payer_identity,distri_pedido.grupo_administracion,1,1,1,1
+access_payer_identity_vendedor,distri.payer.identity vendedor,model_distri_payer_identity,distri_pedido.grupo_vendedor,1,0,0,0
+access_mp_assign_admin,distri.mp.assign admin,model_distri_mp_assign,distri_pedido.grupo_administracion,1,1,1,1
+access_mp_ignore_admin,distri.mp.ignore admin,model_distri_mp_ignore,distri_pedido.grupo_administracion,1,1,1,1
+access_mp_import_admin,distri.mp.import admin,model_distri_mp_import,distri_pedido.grupo_administracion,1,1,1,1
+acceso_wa_mensaje_admin,distri.whatsapp.message administracion,model_distri_whatsapp_message,distri_pedido.grupo_administracion,1,1,0,0
+acceso_mp_pago_admin,distri.mp.payment administracion,model_distri_mp_payment,distri_pedido.grupo_administracion,1,0,0,0
+access_asignar_candidato_admin,distri.asignar.cliente.candidato admin,model_distri_asignar_cliente_candidato,distri_pedido.grupo_administracion,1,1,1,1
+access_asignar_candidato_sale_manager,distri.asignar.cliente.candidato sale manager,model_distri_asignar_cliente_candidato,sales_team.group_sale_manager,1,1,1,1
+access_estado_cuenta_vendedor,distri.estado.cuenta vendedor,model_distri_estado_cuenta,distri_pedido.grupo_vendedor,1,1,1,0
+access_estado_cuenta_admin,distri.estado.cuenta admin,model_distri_estado_cuenta,distri_pedido.grupo_administracion,1,1,1,1
+access_estado_cuenta_gerencia,distri.estado.cuenta gerencia,model_distri_estado_cuenta,distri_pedido.grupo_gerencia,1,1,1,1
+access_expense_admin,distri.route.expense admin,model_distri_route_expense,distri_pedido.grupo_administracion,1,1,0,0
+access_expense_sistema,distri.route.expense sistema,model_distri_route_expense,base.group_system,1,1,1,1
+access_parcel_admin,distri.parcel admin,model_distri_parcel,distri_pedido.grupo_administracion,1,1,0,0
+access_parcel_vendedor,distri.parcel vendedor,model_distri_parcel,distri_pedido.grupo_vendedor,1,0,0,0
+access_parcel_sistema,distri.parcel sistema,model_distri_parcel,base.group_system,1,1,1,1
+access_carrier_user,distri.carrier usuario,model_distri_carrier,base.group_user,1,0,0,0
+access_carrier_admin,distri.carrier admin,model_distri_carrier,distri_pedido.grupo_administracion,1,1,1,1
+access_carrier_sistema,distri.carrier sistema,model_distri_carrier,base.group_system,1,1,1,1
+access_pedido_wa_wizard_admin,distri.pedido.whatsapp.wizard admin,model_distri_pedido_whatsapp_wizard,distri_pedido.grupo_administracion,1,1,1,1
+access_pedido_wa_config_admin,distri.pedido.whatsapp.config admin,model_distri_pedido_whatsapp_config,distri_pedido.grupo_administracion,1,1,1,1
+acceso_left_order_admin,distri.route.left.order administracion,model_distri_route_left_order,distri_pedido.grupo_administracion,1,1,1,1
+acceso_left_order_sistema,distri.route.left.order sistema,model_distri_route_left_order,base.group_system,1,1,1,1
+access_agil_equivalencia_admin,distri.agil.equivalencia administracion,model_distri_agil_equivalencia,distri_pedido.grupo_administracion,1,1,1,0
+access_agil_equivalencia_gerente_ventas,distri.agil.equivalencia gerente ventas,model_distri_agil_equivalencia,sales_team.group_sale_manager,1,1,1,0
+access_agil_equivalencia_gerencia,distri.agil.equivalencia gerencia,model_distri_agil_equivalencia,distri_pedido.grupo_gerencia,1,1,1,1
+access_agil_equivalencia_sistema,distri.agil.equivalencia sistema,model_distri_agil_equivalencia,base.group_system,1,1,1,1
+access_agil_corregir_admin,distri.agil.corregir.renglon administracion,model_distri_agil_corregir_renglon,distri_pedido.grupo_administracion,1,1,1,1
+access_agil_corregir_gerente_ventas,distri.agil.corregir.renglon gerente ventas,model_distri_agil_corregir_renglon,sales_team.group_sale_manager,1,1,1,1
+access_mp_outgoing_admin,distri.mp.outgoing admin,model_distri_mp_outgoing,distri_pedido.grupo_administracion,1,0,0,0
+access_mp_outgoing_sistema,distri.mp.outgoing sistema,model_distri_mp_outgoing,base.group_system,1,1,1,1
+acceso_comprobantes_config_admin,distri.comprobantes.config administracion,model_distri_comprobantes_config,distri_pedido.grupo_administracion,1,1,1,1
+acceso_comprobantes_config_sistema,distri.comprobantes.config sistema,model_distri_comprobantes_config,base.group_system,1,1,1,1
+acceso_promise_history_admin,distri.promised.transfer.history administracion,model_distri_promised_transfer_history,distri_pedido.grupo_administracion,1,0,0,0
+acceso_promise_history_vendedor,distri.promised.transfer.history vendedor,model_distri_promised_transfer_history,distri_pedido.grupo_vendedor,1,0,0,0
+acceso_promise_history_sistema,distri.promised.transfer.history sistema,model_distri_promised_transfer_history,base.group_system,1,1,1,1
+acceso_rate_hit_sistema,distri.rate.hit sistema,model_distri_rate_hit,base.group_system,1,1,1,1
+acceso_sync_rejection_admin,distri.sync.rejection administracion,model_distri_sync_rejection,distri_pedido.grupo_administracion,1,1,0,0
+acceso_sync_rejection_sistema,distri.sync.rejection sistema,model_distri_sync_rejection,base.group_system,1,1,1,1
+acceso_employee_debt_admin,distri.employee.debt administracion,model_distri_employee_debt,distri_pedido.grupo_administracion,1,0,0,0
+acceso_employee_debt_sistema,distri.employee.debt sistema,model_distri_employee_debt,base.group_system,1,0,0,0
+acceso_wholesale_rule_admin,distri.mp.wholesale.rule administracion,model_distri_mp_wholesale_rule,distri_pedido.grupo_administracion,1,1,1,0
+acceso_wholesale_rule_sistema,distri.mp.wholesale.rule sistema,model_distri_mp_wholesale_rule,base.group_system,1,1,1,1
+acceso_payer_bucket_admin,distri.mp.payer.bucket administracion,model_distri_mp_payer_bucket,distri_pedido.grupo_administracion,1,0,0,0
+acceso_payer_bucket_sistema,distri.mp.payer.bucket sistema,model_distri_mp_payer_bucket,base.group_system,1,0,0,0
+acceso_wholesale_mark_admin,distri.mp.wholesale.mark administracion,model_distri_mp_wholesale_mark,distri_pedido.grupo_administracion,1,1,1,1
+acceso_wholesale_mark_sistema,distri.mp.wholesale.mark sistema,model_distri_mp_wholesale_mark,base.group_system,1,1,1,1

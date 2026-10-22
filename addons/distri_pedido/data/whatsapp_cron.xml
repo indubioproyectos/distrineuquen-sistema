@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Baja las fotos y PDF recibidos por WhatsApp. El aviso de Meta solo trae
+       el ID del archivo; bajarlo dentro del aviso haria pasar los 5 s. -->
+  <record id="cron_whatsapp_media" model="ir.cron">
+    <field name="name">WhatsApp: descargar comprobantes recibidos</field>
+    <field name="model_id" ref="model_distri_whatsapp_message"/>
+    <field name="state">code</field>
+    <field name="code">model._wa_cron_download_media()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">1</field>
+    <field name="interval_type">minutes</field>
+    <field name="active">True</field>
+  </record>
+
+</odoo>

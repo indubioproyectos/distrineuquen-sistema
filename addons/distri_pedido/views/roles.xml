@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Shared "who does what" system for the presentations.
+       Usage, once per page inside <body>:
+         <t t-call="distri_pedido.roles_base"/>
+       Then, anywhere:
+         rol_chips  roles=['administrador', ...]  (optional: mini=True)
+         rol_cab    roles=[...]  (optional: cliente=True adds "Lo que ve el cliente")
+                    Place it as the first child of a <section>: it draws the
+                    colored band and the badge row.
+         rol_mapa   mapa_pasos=[{'id': anchor, 'n': '1', 't': short title,
+                            'acts': {rol: short label}}, ...]
+                    Swimlane on wide screens, vertical timeline on phones.
+       Role keys: cliente, vendedor, administrador, armador, repartidor,
+       gerente, sistema (automatic steps: Odoo or Mercado Pago). Each has three CSS tokens: r-KEY (band / edge),
+       r-KEY-tx (text, at least 6:1 on white and on its tint) and r-KEY-bg (tint). -->
+
+  <template id="roles_base" name="Roles: estilos e iconos">
+    <style>
+      :root{
+        --r-cliente:#00b89c;       --r-cliente-tx:#00695a;       --r-cliente-bg:#e3f8f4;
+        --r-vendedor:#9b6ae0;      --r-vendedor-tx:#5b2fa8;      --r-vendedor-bg:#f1ebfb;
+        --r-administrador:#2563c9; --r-administrador-tx:#1d4f9f; --r-administrador-bg:#e7effb;
+        --r-armador:#f0a020;       --r-armador-tx:#8a4b00;       --r-armador-bg:#fff2dc;
+        --r-repartidor:#17613d;    --r-repartidor-tx:#17613d;    --r-repartidor-bg:#e4f3eb;
+        --r-gerente:#10243f;       --r-gerente-tx:#10243f;       --r-gerente-bg:#e3e8ef;
+        --r-sistema:#8a96a3;       --r-sistema-tx:#4f5b66;       --r-sistema-bg:#eef1f4;
+      }
+      .rol-cliente{--c:var(--r-cliente);--c-tx:var(--r-cliente-tx);--c-bg:var(--r-cliente-bg)}
+      .rol-vendedor{--c:var(--r-vendedor);--c-tx:var(--r-vendedor-tx);--c-bg:var(--r-vendedor-bg)}
+      .rol-administrador{--c:var(--r-administrador);--c-tx:var(--r-administrador-tx);--c-bg:var(--r-administrador-bg)}
+      .rol-armador{--c:var(--r-armador);--c-tx:var(--r-armador-tx);--c-bg:var(--r-armador-bg)}
+      .rol-repartidor{--c:var(--r-repartidor);--c-tx:var(--r-repartidor-tx);--c-bg:var(--r-repartidor-bg)}
+      .rol-gerente{--c:var(--r-gerente);--c-tx:var(--r-gerente-tx);--c-bg:var(--r-gerente-bg)}
+      .rol-sistema{--c:var(--r-sistema);--c-tx:var(--r-sistema-tx);--c-bg:var(--r-sistema-bg)}
+
+      .rol{display:inline-flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:700;line-height:1.2;
+           color:var(--c-tx);background:var(--c-bg);border-left:4px solid var(--c);border-radius:6px;
+           padding:.28rem .6rem .28rem .45rem;letter-spacing:0;text-transform:none;vertical-align:middle}
+      .rol-ic{width:1.05em;height:1.05em;flex:none;fill:none;stroke:currentColor;stroke-width:2;
+              stroke-linecap:round;stroke-linejoin:round}
+      .rol.mini{font-size:.7rem;padding:.14rem .45rem .14rem .35rem;border-left-width:3px}
+      .rol.cliente-exp{background:var(--r-cliente-tx);color:#fff;border-left-color:var(--r-cliente)}
+      .rol-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 0 .45rem}
+      .rol-chips.mini{gap:.25rem;margin:0 0 .3rem}
+
+      /* Section header: colored band on top, then the badge row. */
+      section.rol-sec{position:relative}
+      .rol-banda{display:flex;height:7px;margin:-2.4rem 0 1.5rem}
+      .rol-banda i{flex:1}
+      .rol-fila{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin-bottom:.9rem}
+      .rol-fila .rol{font-size:.86rem;padding:.35rem .7rem .35rem .5rem}
+      .rol-fila-t{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+                  color:#5f6b76;margin-right:.15rem}
+      section.oscuro .rol-fila-t{color:#9fb3c8}
+      section.rol-sec-cliente{background:#effaf7;box-shadow:inset 6px 0 0 var(--r-cliente)}
+      .vista{display:flex;justify-content:center;margin:1.3rem 0 -.7rem}
+      .vista .rol{font-size:.74rem}
+
+      /* Map: legend, swimlane (wide) and timeline (phone). */
+      .rmapa{padding:2.2rem 0 2.4rem;background:#fff;border-bottom:1px solid #e2e7ec}
+      .rmapa .marco-ancho{max-width:78rem;margin:0 auto;padding:0 1.15rem}
+      .rmapa-ley{display:flex;flex-wrap:wrap;gap:.35rem;margin:1rem 0 1.2rem}
+      .rmapa-grid{display:none}
+      .rmapa-lista{list-style:none;margin:0;padding:0;border-left:3px solid #e2e7ec;margin-left:.85rem}
+      .rmapa-lista li{position:relative;padding:0 0 1.1rem 1.35rem}
+      .rmapa-lista li:last-child{padding-bottom:0}
+      .rmapa-n{position:absolute;left:-1.02rem;top:0;width:1.7rem;height:1.7rem;border-radius:50%;
+               background:#10243f;color:#fff;font-size:.75rem;font-weight:700;display:flex;
+               align-items:center;justify-content:center}
+      .rmapa-t{display:block;font-weight:700;color:#10243f;text-decoration:none;font-size:.98rem;
+               line-height:1.3;padding-top:.2rem;margin-bottom:.45rem}
+      .rmapa-t:after{content:" →";color:#00a58c}
+      .rmapa-acts{display:flex;flex-wrap:wrap;gap:.3rem}
+      .rmapa-nota{font-size:.84rem;color:#5f6b76;margin:1.1rem 0 0;max-width:44rem}
+      .rmapa-acts .rol{font-weight:600;font-size:.76rem}
+      .rmapa-acts .rol b{font-weight:800}
+      .rmapa-acts .rol.rol-cliente{outline:2px dashed var(--r-cliente);outline-offset:1px}
+      @media (min-width:1180px){
+        .rmapa-lista{display:none}
+        .rmapa-grid{display:grid;grid-template-columns:7.4rem repeat(var(--n),minmax(0,1fr));
+                    border:1px solid #e2e7ec;border-radius:12px;overflow:hidden;background:#fff}
+        .rmapa-grid > *{border-bottom:1px solid #eef1f4;min-width:0}
+        .rmapa-h{padding:.5rem .25rem;font-size:.68rem;font-weight:700;color:#10243f;line-height:1.2;
+                 text-decoration:none;background:#f7f8f7;text-align:center;border-left:1px solid #eef1f4}
+        .rmapa-h span{display:block;color:#7a8794;font-size:.7rem}
+        .rmapa-h:hover{background:#e9fbf8}
+        .rmapa-esq{background:#f7f8f7}
+        .rmapa-carril{display:flex;align-items:center;padding:.4rem .5rem;background:#fff}
+        .rmapa-carril .rol{font-size:.74rem;width:100%}
+        .rmapa-c{padding:.3rem .14rem;border-left:1px solid #eef1f4;display:flex;align-items:center}
+        .rmapa-p{display:block;width:100%;font-size:.63rem;letter-spacing:-.01em;font-weight:700;line-height:1.2;
+                 color:var(--c-tx);background:var(--c-bg);border-left:3px solid var(--c);border-radius:5px;
+                 padding:.3rem .28rem;text-decoration:none;hyphens:manual;overflow-wrap:break-word}
+        .rmapa-p:hover{filter:brightness(.95)}
+        .rmapa-fila-cli{background:#effaf7}
+        .rmapa-fila-cli.rmapa-carril{background:#effaf7}
+        .rmapa-sep{grid-column:1 / -1;font-size:.7rem;font-weight:700;letter-spacing:.1em;
+                   text-transform:uppercase;padding:.35rem .6rem;background:#f7f8f7;color:#5f6b76}
+        .rmapa-sep.cli{background:#00695a;color:#fff}
+      }
+    </style>
+    <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+      <symbol id="rol-ic-cliente" viewBox="0 0 24 24"><path d="M3 9l1.6-5h14.8L21 9M3 9h18M3 9a3 3 0 0 0 6 0a3 3 0 0 0 6 0a3 3 0 0 0 6 0M5 12v8h14v-8M10 20v-5h4v5"/></symbol>
+      <symbol id="rol-ic-vendedor" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.5h6V4M8.5 10h7M8.5 14h7M8.5 18h4"/></symbol>
+      <symbol id="rol-ic-administrador" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M8.5 10l2.2 2.2L15.5 7.5"/></symbol>
+      <symbol id="rol-ic-armador" viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></symbol>
+      <symbol id="rol-ic-repartidor" viewBox="0 0 24 24"><path d="M2 6h12v10H2zM14 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="17.5" cy="18" r="2"/></symbol>
+      <symbol id="rol-ic-gerente" viewBox="0 0 24 24"><path d="M3 20h18M6 20v-7M11 20V9M16 20V5M20 8l-4-3"/></symbol>
+      <symbol id="rol-ic-sistema" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3M18 3v4h-4M6 21v-4h4"/></symbol>
+    </svg>
+  </template>
+
+  <!-- One chip per role in `roles`. `mini` makes them smaller (tables, rows). -->
+  <template id="rol_chips" name="Roles: chips">
+    <t t-set="nombres" t-value="{'cliente': 'Cliente', 'vendedor': 'Vendedor', 'administrador': 'Administrador', 'armador': 'Armador', 'repartidor': 'Repartidor', 'gerente': 'Gerente', 'sistema': 'Sistema'}"/>
+    <span t-attf-class="rol-chips #{'mini' if mini else ''}">
+      <span t-foreach="roles" t-as="r" t-attf-class="rol rol-#{r} #{'mini' if mini else ''}"><svg class="rol-ic" aria-hidden="true"><use t-attf-href="#rol-ic-#{r}"/></svg><t t-esc="nombres[r]"/></span>
+    </span>
+  </template>
+
+  <!-- Section header: band in the colors of `roles` + badge row. -->
+  <template id="rol_cab" name="Roles: cabecera de seccion">
+    <t t-set="nombres" t-value="{'cliente': 'Cliente', 'vendedor': 'Vendedor', 'administrador': 'Administrador', 'armador': 'Armador', 'repartidor': 'Repartidor', 'gerente': 'Gerente', 'sistema': 'Sistema'}"/>
+    <div class="rol-banda" aria-hidden="true"><i t-foreach="roles" t-as="r" t-attf-style="background:var(--r-#{r})"/></div>
+    <div class="marco rol-fila">
+      <span t-if="cliente" class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que ve el cliente</span>
+      <span class="rol-fila-t">Quién actúa</span>
+      <span t-foreach="roles" t-as="r" t-attf-class="rol rol-#{r}"><svg class="rol-ic" aria-hidden="true"><use t-attf-href="#rol-ic-#{r}"/></svg><t t-esc="nombres[r]"/></span>
+    </div>
+  </template>
+
+  <!-- "Quien hace que" map. `mapa_pasos` as documented above (optional per step: href, l = long title); `titulo`/`bajada` optional. -->
+  <template id="rol_mapa" name="Roles: mapa quien hace que">
+    <t t-set="nombres" t-value="{'cliente': 'Cliente', 'vendedor': 'Vendedor', 'administrador': 'Administrador', 'armador': 'Armador', 'repartidor': 'Repartidor', 'gerente': 'Gerente', 'sistema': 'Sistema'}"/>
+    <t t-set="empresa" t-value="['vendedor', 'administrador', 'armador', 'repartidor', 'gerente', 'sistema']"/>
+    <t t-set="orden" t-value="['cliente'] + empresa"/>
+    <div class="rmapa" t-att-id="mapa_id or 'quien-hace-que'">
+      <div class="marco-ancho">
+        <p class="eyebrow">Quién hace qué</p>
+        <h2 t-esc="titulo or 'Cada paso y quién lo hace'"/>
+        <p t-if="bajada" class="bajada" t-esc="bajada"/>
+        <div class="rmapa-ley">
+          <span t-foreach="orden" t-as="r" t-attf-class="rol rol-#{r}"><svg class="rol-ic" aria-hidden="true"><use t-attf-href="#rol-ic-#{r}"/></svg><t t-esc="nombres[r]"/></span>
+        </div>
+
+        <div class="rmapa-grid" t-attf-style="--n:#{len(mapa_pasos)}">
+          <span class="rmapa-esq"/>
+          <a t-foreach="mapa_pasos" t-as="p" class="rmapa-h" t-att-href="p.get('href') or '#' + p['id']" t-att-title="p.get('l') or p['t']"><span t-esc="p['n']"/><t t-esc="p['t']"/></a>
+          <span class="rmapa-sep cli">Lo que ve el cliente</span>
+          <span class="rmapa-carril rmapa-fila-cli"><span class="rol rol-cliente"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Cliente</span></span>
+          <t t-foreach="mapa_pasos" t-as="p">
+            <span class="rmapa-c rmapa-fila-cli rol-cliente"><a t-if="'cliente' in p['acts']" class="rmapa-p" t-att-href="p.get('href') or '#' + p['id']" t-esc="p['acts']['cliente']"/></span>
+          </t>
+          <span class="rmapa-sep">La empresa</span>
+          <t t-foreach="empresa" t-as="r">
+            <span class="rmapa-carril"><span t-attf-class="rol rol-#{r}"><svg class="rol-ic" aria-hidden="true"><use t-attf-href="#rol-ic-#{r}"/></svg><t t-esc="nombres[r]"/></span></span>
+            <t t-foreach="mapa_pasos" t-as="p">
+              <span t-attf-class="rmapa-c rol-#{r}"><a t-if="r in p['acts']" class="rmapa-p" t-att-href="p.get('href') or '#' + p['id']" t-esc="p['acts'][r]"/></span>
+            </t>
+          </t>
+        </div>
+
+        <ol class="rmapa-lista">
+          <li t-foreach="mapa_pasos" t-as="p">
+            <span class="rmapa-n" t-esc="p['n']"/>
+            <a class="rmapa-t" t-att-href="p.get('href') or '#' + p['id']" t-esc="p.get('l') or p['t']"/>
+            <div class="rmapa-acts">
+              <span t-foreach="p['acts']" t-as="r" t-attf-class="rol rol-#{r}"><svg class="rol-ic" aria-hidden="true"><use t-attf-href="#rol-ic-#{r}"/></svg><span><b t-esc="nombres[r]"/> · <t t-esc="p['acts'][r]"/></span></span>
+            </div>
+          </li>
+        </ol>
+        <p t-if="nota" class="rmapa-nota" t-esc="nota"/>
+      </div>
+    </div>
+  </template>
+
+</odoo>

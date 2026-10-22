@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Nombres y accesos como en el Odoo Online de Distri Neuquén (19.0+e, es_ES). -->
+
+  <!-- Acceso directo "PRESUPUESTOS" en la pantalla de aplicaciones, igual al
+       que tienen en Online: abre Ventas > Pedidos > Presupuestos. -->
+  <menuitem id="menu_presupuestos_raiz" name="PRESUPUESTOS" sequence="31"
+            action="sale.action_quotations_with_onboarding"
+            groups="sales_team.group_sale_salesman"
+            web_icon="sale_management,static/description/icon.png"/>
+  <menuitem id="menu_presupuestos" name="PRESUPUESTOS" sequence="1"
+            parent="menu_presupuestos_raiz"
+            action="sale.action_quotations_with_onboarding"
+            groups="sales_team.group_sale_salesman"/>
+
+  <!-- En Enterprise la app se llama "Contabilidad" (la instala
+       account_accountant). En Community es la misma app con otro nombre:
+       solo se cambia el texto en español de España, el idioma de los
+       usuarios internos. -->
+  <record id="account.menu_finance" model="ir.ui.menu" context="{'lang': 'es_ES'}">
+    <field name="name">Contabilidad</field>
+  </record>
+
+  <!-- Online dice "Facturas rectificativas" también del lado de proveedores. -->
+  <record id="account.menu_action_move_in_refund_type" model="ir.ui.menu" context="{'lang': 'es_ES'}">
+    <field name="name">Facturas rectificativas</field>
+  </record>
+</odoo>

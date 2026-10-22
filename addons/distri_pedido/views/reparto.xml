@@ -1,0 +1,791 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ================================================ routes (asignación) -->
+
+  <record id="view_route_list" model="ir.ui.view">
+    <field name="name">distri.route.list</field>
+    <field name="model">distri.route</field>
+    <field name="arch" type="xml">
+      <list string="Rutas de reparto" decoration-muted="state == 'settled'"
+            decoration-warning="state == 'closed'">
+        <field name="date"/>
+        <field name="trip"/>
+        <field name="driver_id"/>
+        <field name="zone_ids" widget="many2many_tags"/>
+        <field name="stop_count" sum="Total"/>
+        <field name="parcel_count" sum="Total"/>
+        <field name="cash_expected" sum="Total"/>
+        <field name="cash_difference" optional="show"/>
+        <field name="currency_id" column_invisible="1"/>
+        <field name="state" widget="badge" decoration-info="state == 'on_route'"
+               decoration-warning="state == 'closed'" decoration-success="state == 'settled'"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_route_form" model="ir.ui.view">
+    <field name="name">distri.route.form</field>
+    <field name="model">distri.route</field>
+    <field name="arch" type="xml">
+      <form string="Ruta de reparto">
+        <header>
+          <button name="action_assign_orders" type="object" class="btn-primary"
+                  string="Asignar pedidos armados de las zonas" invisible="state not in ('draft', 'on_route')"/>
+          <button name="action_settle" type="object" class="btn-primary"
+                  string="Cerrar rendición" invisible="state != 'closed'"
+                  confirm="Se registran los cobros en efectivo en la contabilidad. ¿Cerrar la rendición?"/>
+          <button name="action_reopen" type="object" string="Reabrir para el repartidor"
+                  invisible="state != 'closed'"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="alert alert-danger" role="alert" invisible="rejection_open_count == 0">
+            <b>La app rechazó cambios de esta ruta que siguen sin resolver
+              (<field name="rejection_open_count" readonly="1" class="oe_inline"/>).</b>
+            Pueden traer efectivo que todavía no figura en la rendición. La rendición no se cierra
+            hasta que el repartidor los reenvíe corregidos o administración los marque resueltos.
+            <button name="action_open_rejections" type="object" string="Ver los cambios rechazados"
+                    class="btn-link"/>
+          </div>
+          <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+          <group>
+            <group>
+              <field name="driver_id" readonly="state != 'draft'" options="{'no_create': True}"/>
+              <field name="date" readonly="state != 'draft'"/>
+              <field name="trip" readonly="state != 'draft'"/>
+              <field name="zone_ids" widget="many2many_tags" readonly="state not in ('draft', 'on_route')"/>
+            </group>
+            <group>
+              <field name="stop_count"/>
+              <field name="parcel_count"/>
+              <field name="parcel_loaded_count"/>
+              <field name="checked_stop_count"/>
+              <field name="parcel_checked_count"/>
+              <field name="departed_at"/>
+              <field name="closed_at"/>
+              <field name="departure_controlled_by_id" invisible="not departure_controlled_by_id"/>
+              <field name="departure_controlled_at" invisible="not departure_controlled_by_id"/>
+              <field name="departure_note"/>
+              <field name="company_id" invisible="1"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="Visitas" name="stops">
+              <field name="stop_ids" readonly="state not in ('draft', 'on_route')">
+                <list editable="bottom" decoration-muted="state == 'not_delivered'">
+                  <field name="sequence" widget="handle"/>
+                  <field name="order_id" readonly="state != 'pending'" options="{'no_create': True}"/>
+                  <field name="partner_id"/>
+                  <field name="zone_id" optional="show"/>
+                  <field name="parcels"/>
+                  <field name="customer_notice" optional="show" decoration-warning="customer_notice"/>
+                  <field name="loaded" optional="show"/>
+                  <field name="load_state" optional="show" widget="badge"
+                         decoration-success="load_state == 'both'"
+                         decoration-warning="load_state in ('driver', 'dispatch')"/>
+                  <field name="load_sequence" optional="hide"/>
+                  <field name="dispatch_checked_by_id" optional="hide"/>
+                  <field name="state" widget="badge" decoration-success="state == 'paid'"
+                         decoration-danger="state == 'not_paid'"/>
+                  <field name="delivery_state" optional="show" widget="badge"
+                         decoration-warning="delivery_state == 'delivered_no_code'"
+                         decoration-success="delivery_state == 'delivered_code'"/>
+                  <field name="expected_balance" optional="show"/>
+                  <field name="cash_amount" sum="Total"/>
+                  <field name="transfer" optional="show"/>
+                  <field name="transfer_amount" optional="show"/>
+                  <field name="receipt_answer" optional="show"/>
+                  <field name="red" optional="hide"/>
+                  <field name="red_breach" optional="show" decoration-danger="red_breach"/>
+                  <field name="comment" optional="hide"/>
+                  <field name="not_delivered_reason" optional="hide"/>
+                  <field name="visit_captured_at" optional="hide"/>
+                  <field name="visit_received_at" optional="hide"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+            </page>
+            <!-- models/despacho.py: taken off the route at the depot -->
+            <page string="Quedaron en el depósito" name="left_orders" invisible="not left_order_ids">
+              <field name="left_order_ids" readonly="1">
+                <list>
+                  <field name="order_id"/>
+                  <field name="partner_id"/>
+                  <field name="zone_id" optional="show"/>
+                  <field name="parcels"/>
+                  <field name="reason"/>
+                  <field name="user_id"/>
+                  <field name="left_at"/>
+                  <button name="action_undo" type="object" string="Volver a subir" icon="fa-undo"
+                          groups="distri_pedido.grupo_administracion"
+                          confirm="El pedido vuelve a la ruta y hay que controlarlo de nuevo. ¿Seguir?"/>
+                </list>
+              </field>
+            </page>
+            <page string="Rendición" name="settlement" invisible="state not in ('closed', 'settled')">
+              <field name="rejection_ids" readonly="1" invisible="not rejection_ids"
+                    >
+                <list decoration-danger="state == 'open'" decoration-muted="state != 'open'">
+                  <field name="rejected_at"/>
+                  <field name="summary"/>
+                  <field name="cash" sum="Total"/>
+                  <field name="error"/>
+                  <field name="state" widget="badge" decoration-danger="state == 'open'"
+                         decoration-success="state != 'open'"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+              <group>
+                <group string="Efectivo">
+                  <field name="cash_expected"/>
+                  <field name="cash_counted" readonly="state == 'settled'"/>
+                  <field name="cash_count_done" invisible="1"/>
+                  <field name="cash_difference" invisible="not cash_count_done"
+                         decoration-danger="cash_difference &lt; 0" decoration-warning="cash_difference &gt; 0"/>
+                  <field name="journal_id" readonly="state == 'settled'" options="{'no_create': True}"/>
+                </group>
+                <group string="Si hay diferencia" invisible="not cash_count_done or cash_difference == 0">
+                  <field name="cash_candidates" nolabel="1" colspan="2"/>
+                  <field name="driver_explanation" readonly="state == 'settled'"/>
+                  <button name="action_open_cash_case" type="object" string="Abrir caso por la diferencia"
+                          colspan="2" class="btn-secondary"/>
+                </group>
+              </group>
+              <separator string="Devoluciones"/>
+              <div class="text-muted mb-2">Declaradas por el repartidor en la visita. Controlá que la
+                mercadería volvió. Las dos marcas emiten la nota de crédito al cerrar la rendición:
+                "Recibido en el depósito" devuelve la mercadería al stock y "No volvió" abre un caso
+                contra la ruta.</div>
+              <field name="return_ids" readonly="1">
+                <list decoration-success="settlement_state == 'received'"
+                      decoration-danger="settlement_state == 'missing'">
+                  <field name="partner_id"/>
+                  <field name="order_id"/>
+                  <field name="product_id"/>
+                  <field name="quantity"/>
+                  <field name="reason"/>
+                  <field name="amount" sum="Total"/>
+                  <field name="settlement_state" widget="badge"/>
+                  <field name="credit_note_id" optional="show"/>
+                  <field name="currency_id" column_invisible="1"/>
+                  <button name="action_received" type="object" string="Recibido en el depósito"
+                          icon="fa-check" invisible="settlement_state == 'received' or parent.state == 'settled'"/>
+                  <button name="action_missing" type="object" string="No volvió"
+                          icon="fa-times" invisible="settlement_state == 'missing' or parent.state == 'settled'"/>
+                </list>
+              </field>
+              <separator string="Pedidos sin entregar"/>
+              <div class="text-muted mb-2">Hasta que se reasigna, el pedido figura como pendiente de entrega.</div>
+              <field name="undelivered_stop_ids">
+                <list editable="bottom" create="0" delete="0">
+                  <field name="order_id" readonly="1"/>
+                  <field name="partner_id"/>
+                  <field name="parcels"/>
+                  <field name="not_delivered_reason"/>
+                  <field name="route_id" column_invisible="1"/>
+                  <field name="state" column_invisible="1"/>
+                  <field name="unloaded" readonly="reassigned_stop_id"/>
+                  <field name="reassign_route_id" readonly="reassigned_stop_id"
+                         options="{'no_create': True}"/>
+                  <button name="action_reassign" type="object" string="Pasar a la ruta" icon="fa-truck"
+                          invisible="reassigned_stop_id or not unloaded or not reassign_route_id"/>
+                  <field name="reassigned_stop_id" optional="show"/>
+                </list>
+              </field>
+            </page>
+            <page string="Casos" name="cases">
+              <field name="case_ids" context="{'default_route_id': id}">
+                <list>
+                  <field name="kind"/>
+                  <field name="amount"/>
+                  <field name="candidates" optional="hide"/>
+                  <field name="replenished"/>
+                  <field name="state" widget="badge" decoration-danger="state == 'open'"
+                         decoration-success="state == 'closed'"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+            </page>
+            <page string="Comprobantes pendientes" name="promises">
+              <field name="promise_ids" readonly="1">
+                <list decoration-danger="state == 'overdue'"
+                      decoration-muted="state in ('fulfilled', 'cancelled')">
+                  <field name="partner_id"/>
+                  <field name="order_id"/>
+                  <field name="amount"/>
+                  <field name="receipt_answer"/>
+                  <field name="state" widget="badge" decoration-warning="state == 'open'"
+                         decoration-danger="state == 'overdue'"
+                         decoration-success="state == 'fulfilled'"/>
+                  <field name="status_label"/>
+                  <field name="comment" optional="hide"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+            </page>
+            <page string="Cobros registrados" name="payments" invisible="state != 'settled'">
+              <group>
+                <field name="settled_at"/>
+                <field name="settled_by_id"/>
+              </group>
+              <field name="payment_ids"/>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_route_search" model="ir.ui.view">
+    <field name="name">distri.route.search</field>
+    <field name="model">distri.route</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="driver_id"/>
+        <field name="date"/>
+        <filter name="open" string="En curso" domain="[('state', 'in', ('draft', 'on_route'))]"/>
+        <filter name="to_settle" string="Para rendir" domain="[('state', '=', 'closed')]"/>
+        <filter name="settled" string="Rendidas" domain="[('state', '=', 'settled')]"/>
+        <separator/>
+        <filter name="today" string="Hoy" domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+        <group>
+          <filter name="by_driver" string="Repartidor" context="{'group_by': 'driver_id'}"/>
+          <filter name="by_date" string="Fecha" context="{'group_by': 'date'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_route" model="ir.actions.act_window">
+    <field name="name">Rutas de reparto</field>
+    <field name="res_model">distri.route</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('kind', '=', 'route')]</field>
+    <field name="context">{'search_default_open': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Asigná los pedidos del día a un repartidor</p>
+      <p>Creá la ruta con el repartidor, la fecha, el viaje y las zonas, y tocá "Asignar pedidos
+         armados de las zonas": entran los pedidos confirmados y armados, el más viejo primero.
+         El repartidor la descarga en el celular desde /reparto.</p>
+    </field>
+  </record>
+
+  <record id="action_route_settle" model="ir.actions.act_window">
+    <field name="name">Rendición de caja</field>
+    <field name="res_model">distri.route</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('kind', '=', 'route')]</field>
+    <field name="context">{'search_default_to_settle': 1}</field>
+  </record>
+
+  <!-- =============================================================== cases -->
+
+  <record id="view_case_list" model="ir.ui.view">
+    <field name="name">distri.route.case.list</field>
+    <field name="model">distri.route.case</field>
+    <field name="arch" type="xml">
+      <list string="Casos">
+        <field name="date"/>
+        <field name="driver_id"/>
+        <field name="route_id"/>
+        <field name="kind"/>
+        <field name="amount" sum="Total"/>
+        <field name="replenished"/>
+        <field name="state" widget="badge" decoration-danger="state == 'open'"
+               decoration-success="state == 'closed'"/>
+        <field name="currency_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_case_form" model="ir.ui.view">
+    <field name="name">distri.route.case.form</field>
+    <field name="model">distri.route.case</field>
+    <field name="arch" type="xml">
+      <form string="Caso">
+        <header>
+          <button name="action_close" type="object" string="Cerrar caso" class="btn-primary"
+                  invisible="state != 'open'"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+          <group>
+            <group>
+              <field name="route_id" options="{'no_create': True}"/>
+              <field name="driver_id"/>
+              <field name="kind"/>
+            </group>
+            <group>
+              <field name="amount"/>
+              <field name="replenished"/>
+              <field name="return_id" invisible="not return_id"/>
+              <field name="stop_id" invisible="not stop_id"/>
+              <field name="promise_id" invisible="not promise_id"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+          <group>
+            <field name="candidates"/>
+            <field name="driver_explanation"/>
+            <field name="investigation"/>
+            <field name="resolution"/>
+          </group>
+          <group string="Historial del importe" invisible="kind != 'unpaid'">
+            <field name="amount_history_ids" readonly="1" nolabel="1" colspan="2">
+                <list create="0" delete="0">
+                  <field name="date"/>
+                  <field name="old_amount"/>
+                  <field name="new_amount"/>
+                  <field name="move_id"/>
+                  <field name="cause"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+          </group>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_case_search" model="ir.ui.view">
+    <field name="name">distri.route.case.search</field>
+    <field name="model">distri.route.case</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="driver_id"/>
+        <filter name="open" string="Abiertos" domain="[('state', '=', 'open')]"/>
+        <filter name="not_replenished" string="Faltantes sin reponer"
+                domain="[('amount', '&lt;', 0), ('replenished', '=', False)]"/>
+        <group>
+          <filter name="by_driver" string="Repartidor" context="{'group_by': 'driver_id'}"/>
+          <filter name="by_month" string="Mes" context="{'group_by': 'date:month'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_case" model="ir.actions.act_window">
+    <field name="name">Casos de reparto</field>
+    <field name="res_model">distri.route.case</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'search_default_open': 1}</field>
+    <field name="help" type="html">
+      <p>Diferencias de caja y devoluciones que no volvieron. Para el resumen mensual por
+         repartidor: filtro "Faltantes sin reponer", agrupado por repartidor y mes.</p>
+    </field>
+  </record>
+
+  <!-- ================================================ pending receipts -->
+  <!-- «Comprobantes pendientes» (models/comprobante_pendiente.py). The model
+       keeps the technical name of the old «Transferencias prometidas». -->
+
+  <record id="view_promise_list" model="ir.ui.view">
+    <field name="name">distri.promised.transfer.list</field>
+    <field name="model">distri.promised.transfer</field>
+    <field name="arch" type="xml">
+      <list string="Comprobantes pendientes" create="0" edit="0"
+            decoration-muted="state in ('fulfilled', 'cancelled')"
+            decoration-danger="state == 'overdue'">
+        <field name="partner_id"/>
+        <field name="order_id"/>
+        <field name="kind"/>
+        <field name="amount" sum="Total"/>
+        <field name="original_amount" optional="hide"/>
+        <field name="driver_id"/>
+        <field name="captured_at"/>
+        <field name="state" widget="badge" decoration-warning="state == 'open'"
+               decoration-danger="state == 'overdue'"
+               decoration-success="state == 'fulfilled'"/>
+        <field name="overdue_since" optional="show"/>
+        <field name="resolved_by_label" optional="show"/>
+        <field name="resolved_at" optional="show"/>
+        <field name="resolved_via" optional="show"/>
+        <field name="receipt_answer" optional="hide"/>
+        <field name="partial_note" optional="show"/>
+        <field name="reminded_at" optional="hide"/>
+        <field name="reminded_by_id" optional="hide"/>
+        <field name="comment" optional="hide"/>
+        <field name="currency_id" column_invisible="1"/>
+        <button name="action_remind_whatsapp" type="object" string="Reclamar por WhatsApp"
+                icon="fa-whatsapp" invisible="state not in ('open', 'overdue')"/>
+        <button name="action_mark_arrived" type="object" string="Marcar llegó el comprobante"
+                icon="fa-check" class="btn-primary"
+                invisible="state not in ('open', 'overdue') or kind == 'unpaid'"
+                confirm="¿Llegó el comprobante a la empresa? Queda registrado a tu nombre."/>
+        <button name="action_mark_arrived" type="object" string="Marcar cobrado"
+                icon="fa-check" class="btn-primary"
+                invisible="state not in ('open', 'overdue') or kind != 'unpaid'"
+                confirm="¿El cliente pagó este pedido? Queda registrado a tu nombre."/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_promise_form" model="ir.ui.view">
+    <field name="name">distri.promised.transfer.form</field>
+    <field name="model">distri.promised.transfer</field>
+    <field name="arch" type="xml">
+      <form string="Comprobante pendiente" create="0" edit="0">
+        <header>
+          <button name="action_remind_whatsapp" type="object" string="Reclamar por WhatsApp"
+                  icon="fa-whatsapp" invisible="state not in ('open', 'overdue')"/>
+          <button name="action_mark_arrived" type="object" string="Marcar llegó el comprobante"
+                  class="btn-primary" invisible="state not in ('open', 'overdue') or kind == 'unpaid'"
+                  confirm="¿Llegó el comprobante a la empresa? Queda registrado a tu nombre."/>
+          <button name="action_mark_arrived" type="object" string="Marcar cobrado"
+                  class="btn-primary" invisible="state not in ('open', 'overdue') or kind != 'unpaid'"
+                  confirm="¿El cliente pagó este pedido? Queda registrado a tu nombre."/>
+          <button name="action_cancel" type="object" string="Anular"
+                  invisible="state not in ('open', 'overdue')"
+                  groups="distri_pedido.grupo_administracion"
+                  confirm="Anular deja de reclamarlo y no lo carga al repartidor. ¿Seguir?"/>
+          <field name="state" widget="statusbar" statusbar_visible="open,overdue,fulfilled"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="partner_id"/>
+              <field name="order_id"/>
+              <field name="kind"/>
+              <field name="amount"/>
+              <field name="original_amount" invisible="kind != 'unpaid'"/>
+              <field name="driver_id"/>
+              <field name="captured_at"/>
+              <field name="receipt_answer"/>
+              <field name="comment"/>
+            </group>
+            <group>
+              <field name="status_label"/>
+              <field name="overdue_since" invisible="not overdue_since"/>
+              <field name="charge_case_id" invisible="not charge_case_id"
+                     groups="distri_pedido.grupo_administracion"/>
+              <field name="resolved_by_label" invisible="state != 'fulfilled'"/>
+              <field name="resolved_at" invisible="state != 'fulfilled'"/>
+              <field name="resolved_via" invisible="state != 'fulfilled'"/>
+              <field name="receipt_id" invisible="not receipt_id"
+                     groups="distri_pedido.grupo_administracion"/>
+              <field name="fulfilled_by_id" invisible="not fulfilled_by_id"
+                     groups="distri_pedido.grupo_administracion"/>
+              <field name="partial_note" invisible="not partial_note"/>
+              <field name="reminded_at" invisible="not reminded_at"/>
+              <field name="reminded_by_id" invisible="not reminded_by_id"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+          <notebook invisible="kind != 'unpaid'">
+            <page string="Historial del importe" name="amount_history">
+              <div class="text-muted mb-2">El importe sigue lo que falta pagar de la factura del
+                pedido, sin pasar nunca del importe original. Cada cambio queda acá con el pago que lo
+                causó.</div>
+              <field name="amount_history_ids" readonly="1">
+                <list create="0" delete="0">
+                  <field name="date"/>
+                  <field name="old_amount"/>
+                  <field name="new_amount"/>
+                  <field name="move_id"/>
+                  <field name="cause"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_promise_search" model="ir.ui.view">
+    <field name="name">distri.promised.transfer.search</field>
+    <field name="model">distri.promised.transfer</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="partner_id"/>
+        <field name="order_id"/>
+        <field name="driver_id"/>
+        <filter name="open" string="Sin resolver" domain="[('state', 'in', ('open', 'overdue'))]"/>
+        <filter name="open_or_today" string="Sin resolver o resueltas hoy"
+                domain="['|', ('state', 'in', ('open', 'overdue')),
+                         '&amp;', ('state', '=', 'fulfilled'),
+                         ('resolved_at', '&gt;=', (context_today() - relativedelta(days=1)).strftime('%Y-%m-%d 03:00:00'))]"/>
+        <separator/>
+        <filter name="st_open" string="Pendientes" domain="[('state', '=', 'open')]"/>
+        <filter name="st_overdue" string="Vencidas" domain="[('state', '=', 'overdue')]"/>
+        <filter name="st_fulfilled" string="Resueltas" domain="[('state', '=', 'fulfilled')]"/>
+        <separator/>
+        <filter name="k_done" string="Transferencias sin comprobante" domain="[('kind', '=', 'done')]"/>
+        <filter name="k_unpaid" string="Pedidos sin cobrar" domain="[('kind', '=', 'unpaid')]"/>
+        <group>
+          <filter name="by_driver" string="Por repartidor" context="{'group_by': 'driver_id'}"/>
+          <filter name="by_state" string="Estado" context="{'group_by': 'state'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_promise" model="ir.actions.act_window">
+    <field name="name">Comprobantes pendientes</field>
+    <field name="res_model">distri.promised.transfer</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'search_default_open_or_today': 1}</field>
+    <field name="help" type="html">
+      <p>Cada transferencia que cobra el repartidor deja su comprobante pendiente a su nombre
+         hasta que llega a la empresa, y cada pedido que no se cobró («No pagó nada») queda
+         pendiente a su nombre hasta que se paga. Lo resuelve el comprobante que llega por WhatsApp, el
+         vendedor, administración o gerencia con «Marcar llegó el comprobante», o el reporte de
+         Mercado Pago. El que no llegó para la rendición del día siguiente vence y se carga en la
+         cuenta del repartidor.</p>
+    </field>
+  </record>
+
+  <record id="action_driver_charges" model="ir.actions.act_window">
+    <field name="name">Cargos al repartidor</field>
+    <field name="res_model">distri.route.case</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('kind', 'in', ('receipt', 'short', 'unpaid'))]</field>
+    <field name="context">{'search_default_open': 1, 'search_default_by_driver': 1}</field>
+    <field name="help" type="html">
+      <p>Comprobantes de transferencia que no llegaron para la rendición del día siguiente,
+         transferencias menores al total y pedidos que no se cobraron («No pagó nada»). El cargo
+         de un comprobante se cierra solo cuando el reporte de Mercado Pago trae la transferencia;
+         el de un pedido sin cobrar, también cuando se registra el pago o llega el comprobante.</p>
+    </field>
+  </record>
+
+  <!-- ====================================== rejected changes (19.0.1.29.0) -->
+
+  <record id="view_sync_rejection_list" model="ir.ui.view">
+    <field name="name">distri.sync.rejection.list</field>
+    <field name="model">distri.sync.rejection</field>
+    <field name="arch" type="xml">
+      <list string="Cambios rechazados de la app" create="0" delete="0"
+            decoration-danger="state == 'open'" decoration-muted="state != 'open'">
+        <field name="rejected_at"/>
+        <field name="user_id"/>
+        <field name="route_id"/>
+        <field name="summary"/>
+        <field name="cash" sum="Total"/>
+        <field name="error"/>
+        <field name="attempts" optional="hide"/>
+        <field name="state" widget="badge" decoration-danger="state == 'open'"
+               decoration-success="state != 'open'"/>
+        <field name="currency_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_sync_rejection_form" model="ir.ui.view">
+    <field name="name">distri.sync.rejection.form</field>
+    <field name="model">distri.sync.rejection</field>
+    <field name="arch" type="xml">
+      <form string="Cambio rechazado de la app" create="0" delete="0">
+        <header>
+          <button name="action_resolve" type="object" string="Marcar resuelto"
+                  class="btn-primary" invisible="state != 'open'"
+                  confirm="Queda resuelto a tu nombre con la resolución escrita. ¿Seguir?"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="oe_title"><h1><field name="summary" readonly="1"/></h1></div>
+          <group>
+            <group>
+              <field name="user_id"/>
+              <field name="route_id"/>
+              <field name="stop_id"/>
+              <field name="partner_id"/>
+              <field name="order_id"/>
+              <field name="cash"/>
+              <field name="amount"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+            <group>
+              <field name="event_type"/>
+              <field name="error"/>
+              <field name="captured_at"/>
+              <field name="rejected_at"/>
+              <field name="attempts"/>
+              <field name="uuid"/>
+              <field name="last_uuid"/>
+              <field name="resolved_by_id" invisible="not resolved_by_id"/>
+              <field name="resolved_at" invisible="not resolved_at"/>
+            </group>
+          </group>
+          <group string="Resolución">
+            <field name="resolution" readonly="state != 'open'" nolabel="1" colspan="2"
+                   placeholder="Qué se hizo: se cargó a mano, se descartó porque…, el repartidor lo reenvió…"/>
+          </group>
+          <group string="Datos enviados por el celular">
+            <field name="payload" nolabel="1" colspan="2"/>
+          </group>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_sync_rejection_search" model="ir.ui.view">
+    <field name="name">distri.sync.rejection.search</field>
+    <field name="model">distri.sync.rejection</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="user_id"/>
+        <field name="route_id"/>
+        <filter name="open" string="Sin resolver" domain="[('state', '=', 'open')]"/>
+        <filter name="with_cash" string="Con efectivo" domain="[('cash', '&gt;', 0)]"/>
+        <group>
+          <filter name="by_driver" string="Repartidor" context="{'group_by': 'user_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_sync_rejection" model="ir.actions.act_window">
+    <field name="name">Cambios rechazados de la app</field>
+    <field name="res_model">distri.sync.rejection</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'search_default_open': 1}</field>
+    <field name="help" type="html">
+      <p>Lo que el servidor no aceptó de la app del repartidor: una visita, un gasto, una
+         encomienda. Queda acá con sus datos hasta que el repartidor lo reenvía corregido o
+         administración lo marca resuelto. La rendición de la ruta no se cierra con uno pendiente.</p>
+    </field>
+  </record>
+
+  <!-- ========================================================= sync log -->
+
+  <record id="view_sync_event_list" model="ir.ui.view">
+    <field name="name">distri.sync.event.list</field>
+    <field name="model">distri.sync.event</field>
+    <field name="arch" type="xml">
+      <list string="Sincronización" create="0" edit="0">
+        <field name="received_at"/>
+        <field name="captured_at"/>
+        <field name="user_id"/>
+        <field name="route_id"/>
+        <field name="event_type"/>
+        <field name="note"/>
+        <field name="uuid" optional="hide"/>
+        <field name="payload" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_sync_event" model="ir.actions.act_window">
+    <field name="name">Sincronización del reparto</field>
+    <field name="res_model">distri.sync.event</field>
+    <field name="view_mode">list</field>
+  </record>
+
+  <!-- ============================================================== menus -->
+
+  <menuitem id="menu_reparto_root" name="Reparto" sequence="45"
+            web_icon="distri_pedido,static/src/reparto/icon-192.png"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_reparto_routes" name="Rutas" parent="menu_reparto_root"
+            action="action_route" sequence="10"/>
+  <menuitem id="menu_reparto_settle" name="Rendición de caja" parent="menu_reparto_root"
+            action="action_route_settle" sequence="20"/>
+  <menuitem id="menu_reparto_promises" name="Comprobantes pendientes" parent="menu_reparto_root"
+            action="action_promise" sequence="30"/>
+  <menuitem id="menu_reparto_charges" name="Cargos al repartidor" parent="menu_reparto_root"
+            action="action_driver_charges" sequence="35"/>
+  <menuitem id="menu_reparto_rejections" name="Cambios rechazados de la app"
+            parent="menu_reparto_root" action="action_sync_rejection" sequence="38"/>
+  <menuitem id="menu_reparto_cases" name="Casos" parent="menu_reparto_root"
+            action="action_case" sequence="40"/>
+  <menuitem id="menu_reparto_zones" name="Zonas" parent="menu_reparto_root"
+            action="action_zona" sequence="50"/>
+  <menuitem id="menu_reparto_sync" name="Sincronización" parent="menu_reparto_root"
+            action="action_sync_event" sequence="90" groups="base.group_system"/>
+
+  <!-- ============================================== contact: delivery data -->
+
+  <record id="view_partner_form_reparto" model="ir.ui.view">
+    <field name="name">res.partner.form.reparto</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//notebook" position="inside">
+        <page string="Reparto" name="distri_reparto">
+          <group>
+            <group string="WhatsApp">
+              <field name="distri_whatsapp"/>
+              <field name="distri_whatsapp_confirmed"/>
+              <field name="distri_whatsapp_date"/>
+              <field name="distri_whatsapp_user_id"/>
+            </group>
+            <group string="Ubicación exacta">
+              <field name="partner_latitude"/>
+              <field name="partner_longitude"/>
+              <field name="distri_location_user_id"/>
+              <field name="distri_location_date"/>
+            </group>
+            <group string="Ubicación enviada por el cliente"
+                   invisible="not distri_customer_location_date">
+              <field name="distri_customer_location_url" widget="url" string="Ver en el mapa"/>
+              <field name="distri_customer_location_accuracy"/>
+              <field name="distri_customer_location_date"/>
+              <field name="distri_customer_location_order_id"/>
+            </group>
+            <group string="Horarios en que recibe">
+              <field name="distri_delivery_days"/>
+              <field name="distri_delivery_hours"/>
+              <field name="distri_delivery_text"/>
+              <field name="distri_customer_hours_date" invisible="not distri_customer_hours_date"/>
+            </group>
+            <group string="Para los repartidores">
+              <field name="distri_driver_note" nolabel="1" colspan="2"/>
+            </group>
+          </group>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ================================================= order: delivery -->
+
+  <record id="view_order_form_reparto" model="ir.ui.view">
+    <field name="name">sale.order.form.reparto</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button name="action_distri_new_receipt_code" type="object" string="Nuevo código de recibido"
+                groups="distri_pedido.grupo_administracion" invisible="state != 'sale'"
+                confirm="Se genera un código nuevo y el anterior deja de valer. ¿Seguir?"/>
+      </xpath>
+      <xpath expr="//page[@name='distri_armado']" position="after">
+        <page string="Reparto" name="distri_reparto">
+          <group>
+            <group>
+              <field name="distri_delivery_state"/>
+              <field name="distri_receipt_date"/>
+            </group>
+            <group string="Aviso del cliente" invisible="not distri_customer_notice_date">
+              <field name="distri_customer_notice_text" string="Aviso"/>
+              <field name="distri_customer_notice_date"/>
+            </group>
+          </group>
+          <field name="distri_stop_ids">
+            <list>
+              <field name="route_id"/>
+              <field name="route_kind" optional="show"/>
+              <field name="state" widget="badge"/>
+              <field name="delivery_state"/>
+              <field name="no_code_reason" optional="show"/>
+              <field name="cash_amount"/>
+              <field name="transfer"/>
+              <field name="not_delivered_reason"/>
+              <field name="unloaded"/>
+              <field name="currency_id" column_invisible="1"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

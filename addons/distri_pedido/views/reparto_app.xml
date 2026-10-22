@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- The delivery driver's app shell. No user data here: the service worker
+       caches it so the app opens without signal. -->
+  <template id="reparto_app" name="Reparto: app del repartidor">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#10243f"/>
+  <title>Reparto · <t t-esc="empresa"/></title>
+  <link rel="manifest" href="/reparto/manifest.webmanifest"/>
+  <link rel="icon" t-att-href="static + 'icon-192.png?v=' + version"/>
+  <link rel="apple-touch-icon" t-att-href="static + 'icon-192.png?v=' + version"/>
+  <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
+  <link rel="stylesheet" t-att-href="static + 'app.css?v=' + version"/>
+</head>
+<body>
+  <div id="app"><div class="cargando">Cargando…</div></div>
+  <div id="toast" hidden="hidden"></div>
+  <script t-att-src="static + 'claim.js?v=' + version" defer="defer"></script>
+  <script t-att-src="static + 'app.js?v=' + version" defer="defer"></script>
+</body>
+</html>
+  </template>
+
+</odoo>

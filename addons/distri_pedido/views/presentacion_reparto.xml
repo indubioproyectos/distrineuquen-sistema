@@ -1,0 +1,1747 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Presentacion de la app para los repartidores. Mismo formato que
+       /presentacion y /presentacion/cobranza: una sola pagina, pensada para
+       leer en el celular. Las pantallas copian la app real
+       (static/src/reparto/app.js y app.css) con datos de ejemplo; la pagina es
+       publica, no usar datos de clientes reales. -->
+  <template id="presentacion_reparto" name="La app del repartidor, en una pagina">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>La app del repartidor · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&amp;display=swap"/>
+  <style>
+    :root{
+      --azul:#10243f; --azul2:#19334f; --claro:#f7f8f7; --blanco:#fff;
+      --texto:#42505f; --tenue:#7a8794; --turq:#00d1b2; --borde:#e2e7ec; --ambar:#b08900;
+    }
+    *{box-sizing:border-box}
+    html,body{overflow-x:hidden}
+    body{margin:0;background:var(--claro);color:var(--texto);
+         font:16px/1.6 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:44rem;margin:0 auto;padding:0 1.15rem}
+    h1,h2,h3{color:var(--azul);line-height:1.25;margin:0}
+
+    .tapa{background:var(--azul);color:#e8eef5;padding:2.5rem 0 2.2rem}
+    .tapa .rotulo{color:var(--turq);font-size:.78rem;letter-spacing:.14em;
+                  text-transform:uppercase;margin:0 0 .5rem;font-weight:700}
+    .tapa h1{color:#fff;font-size:1.95rem;font-weight:700}
+    .tapa p{color:#9fb3c8;font-size:1.02rem;margin:.75rem 0 0}
+    .tapa b{color:#fff}
+
+    .cta{display:block;background:var(--turq);color:#fff;text-align:center;font-weight:700;
+         font-size:1.05rem;padding:1rem;border-radius:10px;text-decoration:none;margin:1.5rem 0 .4rem}
+    .nota{font-size:.82rem;color:var(--tenue);text-align:center;margin:0}
+
+    section{padding:2.4rem 0;border-top:1px solid var(--borde);scroll-margin-top:.5rem}
+    section.oscuro{background:var(--azul);border-top:0}
+    section.oscuro h2{color:#fff}
+    section.oscuro p{color:#c3d3e3}
+    .eyebrow{color:var(--turq);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
+             font-weight:700;margin:0 0 .5rem}
+    h2{font-size:1.5rem}
+    .bajada{font-size:1.02rem;margin:.7rem 0 0}
+
+    .cifras{display:flex;gap:.7rem;margin-top:1.3rem}
+    .cifra{flex:1;background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+           padding:1rem .8rem;text-align:center}
+    .cifra b{display:block;font-size:1.45rem;color:var(--turq);line-height:1.1;white-space:nowrap}
+    .cifra span{display:block;font-size:.8rem;margin-top:.35rem;color:var(--texto)}
+
+    .lista-p{margin:.9rem 0 0;padding-left:1.1rem}
+    .lista-p li{margin-bottom:.5rem;font-size:.97rem}
+
+    .cadena{margin:1.2rem 0 0;padding:0;list-style:none;counter-reset:paso}
+    .cadena li{position:relative;padding:.95rem 0 .95rem 2.7rem;border-bottom:1px solid var(--borde);
+               font-size:.96rem;line-height:1.5}
+    .cadena li:last-child{border-bottom:0}
+    .cadena li:before{counter-increment:paso;content:counter(paso);position:absolute;left:0;top:.9rem;
+                      width:1.8rem;height:1.8rem;border-radius:50%;background:var(--azul);color:#fff;
+                      font-size:.82rem;font-weight:700;display:flex;align-items:center;
+                      justify-content:center}
+    .cadena li b{color:var(--azul)}
+    .quien{display:block;font-size:.74rem;font-weight:700;color:var(--tenue);
+           text-transform:uppercase;letter-spacing:.08em;margin:0 0 .35rem;line-height:1.2}
+
+    .dato{background:var(--azul2);border-radius:12px;padding:1.1rem;margin-top:1.2rem}
+    .dato p{margin:0;color:#c3d3e3;font-size:.95rem}
+    .dato b{color:#fff}
+
+    .flujo{display:flex;flex-direction:column;gap:.55rem;margin-top:1.2rem}
+    .caja{background:var(--azul2);border-radius:12px;padding:1rem}
+    .caja h3{color:#fff;font-size:1.05rem;margin-bottom:.3rem}
+    .caja p{margin:0;font-size:.92rem;color:#c3d3e3}
+
+    .rendir{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:1rem;
+            margin-top:1.1rem;font-size:.95rem}
+    .rendir .r{display:flex;justify-content:space-between;gap:.8rem;padding:.45rem 0;
+               border-bottom:1px solid var(--borde)}
+    .rendir .r:last-child{border-bottom:0}
+    .rendir .r b{color:var(--azul);text-align:right}
+    .rendir .et{font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+                color:var(--tenue);display:block;margin:.8rem 0 .1rem}
+    .rendir .et:first-child{margin-top:0}
+    .rendir .ok{color:#1f7a4d}
+
+    .paso-celu{text-align:center;font-size:.85rem;font-weight:700;color:var(--turq);margin:1.4rem 0 0}
+    .pie{background:var(--azul);color:#7f95ad;padding:2rem 0 2.6rem;text-align:center;font-size:.85rem}
+
+    /* Cajas por etapa */
+    .etapa{margin-top:1.4rem}
+    .etapa + .etapa{margin-top:2.2rem}
+    .etapa > h3{font-size:1.15rem;margin-bottom:.4rem}
+    .etapa > p{margin:0;font-size:.97rem}
+    .hacer{background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--turq);
+           border-radius:12px;padding:1rem 1.1rem;margin-top:1.2rem}
+    .hacer h3{font-size:1rem;margin-bottom:.45rem}
+    .hacer ul{margin:0;padding-left:1.1rem}
+    .hacer li{font-size:.95rem;margin-bottom:.45rem}
+    .hacer li:last-child{margin-bottom:0}
+    .hacer li b{color:var(--azul)}
+    .hacer.ojo{border-left-color:var(--ambar)}
+    .volver{display:inline-block;margin-top:1.4rem;font-size:.85rem;font-weight:700;color:var(--tenue);
+            text-decoration:none}
+    @media (min-width:760px){
+      .etapa .cols{display:grid;grid-template-columns:340px 1fr;gap:1.6rem;align-items:start}
+      .etapa .cols .telefono{margin-top:0}
+      .etapa .cols .hacer{margin-top:0}
+    }
+
+    /* Marco de celular */
+    .telefono{width:100%;max-width:340px;margin:1.2rem auto 0;border:9px solid #1b2430;border-radius:34px;
+              overflow:hidden;background:#f7f8f7;box-shadow:0 10px 28px rgba(16,36,63,.18)}
+    .telefono .sb{display:flex;justify-content:space-between;background:#10243f;color:#fff;
+                  font:600 11px/1 system-ui,-apple-system,sans-serif;padding:8px 16px 5px}
+    .telefono .sb.claro{background:#fff;color:#22303d}
+
+    /* Todas las pantallas juntas */
+    .galeria{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.2rem .6rem;margin-top:1.3rem}
+    @media (min-width:640px){.galeria{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    .gal{display:flex;flex-direction:column;align-items:center;gap:.55rem;text-decoration:none}
+    .gal .telefono{zoom:.44;width:340px;max-width:none;height:700px;margin:0;pointer-events:none}
+    @media (min-width:640px){.gal .telefono{zoom:.52}}
+    .gal .rot{font-size:.86rem;font-weight:700;color:var(--azul);text-align:center;line-height:1.3}
+    .gal .rot span{display:block;font-size:.72rem;color:var(--turq);letter-spacing:.1em}
+
+    /* Pantallas de la app: copia de static/src/reparto/app.css, limitada a .cel */
+    .cel{--navy:#10243f; --navy-2:#2b4262; --teal:#0a6b5c; --teal-dark:#084f44; --mint:#5fe0c9; --amber:#b08900; --amber-text:#6b5200; --amber-bg:#fff4d1; --amber-bg-2:#fff8e1; --amber-border:#d7b44a; --red:#8f2d1c; --red-bg:#fbe6e1; --red-border:#e3a597; --green:#1f6b45; --green-bg:#e3f3ea; --text:#22303d; --muted:#55636f; --soft:#3c4a57; --line:#d6dde3; --line-2:#e3e8ec; --input:#b9c4cd; --bg:#f7f8f7; --card:#fff; --chip:#e8ecef; --tint:#f1f4f6; --head-sub:#b9c7d6; --navy-bg:#e4eaf2;}
+    .cel .head{background:var(--navy);color:#fff;padding:18px 20px 16px;display:flex;flex-direction:column;gap:6px}
+    .cel .head .kicker{font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mint);font-weight:700}
+    .cel .head h1{margin:0;font-size:24px;font-weight:800;line-height:1.15}
+    .cel .head .sub{font-size:14px;color:var(--head-sub)}
+    .cel .head .back{color:var(--mint);font-size:14px;font-weight:700;text-decoration:none;align-self:flex-start; background:none;border:0;padding:0;cursor:pointer}
+    .cel .head .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+    .cel .bar{height:8px;background:var(--navy-2);border-radius:99px;display:flex;overflow:hidden}
+    .cel .bar > span{background:var(--mint);border-radius:99px}
+    .cel .banner{padding:10px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+    .cel .banner.warn{background:var(--amber-bg);color:var(--amber-text)}
+    .cel .banner.err{background:var(--red-bg);color:var(--red)}
+    .cel .banner.ok{background:var(--green-bg);color:var(--green)}
+    .cel .banner a,.cel .banner button.link{color:inherit;font-weight:800}
+    .cel .banner svg{flex:none}
+    .cel .body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;flex-grow:1}
+    .cel .intro{padding:18px 20px 4px;display:flex;flex-direction:column;gap:4px}
+    .cel .intro h2{margin:0;font-size:19px;font-weight:700}
+    .cel .intro p{margin:0;font-size:14px;color:var(--muted)}
+    .cel .label{font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;padding-top:4px}
+    .cel .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex; flex-direction:column;gap:10px}
+    .cel .card.strong{border:2px solid var(--navy)}
+    .cel .card.warn{background:var(--amber-bg-2);border:2px solid var(--amber)}
+    .cel .muted{color:var(--muted)}
+    .cel .small{font-size:13px}
+    .cel .note{font-size:13px;color:var(--muted);background:var(--tint);border-radius:8px;padding:8px 10px}
+    .cel .amber{color:var(--amber-text)}
+    .cel .foot{padding:14px 20px 18px;background:#fff;border-top:1px solid var(--line); display:flex;flex-direction:column;gap:8px;position:static}
+    .cel .foot .hint{font-size:13px;color:var(--muted);text-align:center}
+    .cel .split{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+    .cel .btn{display:block;width:100%;text-align:center;border:0;border-radius:12px;padding:16px;font-size:18px; font-weight:700;background:var(--navy);color:#fff;cursor:pointer;text-decoration:none}
+    .cel .btn.outline{background:#fff;color:var(--navy);border:2px solid var(--navy);padding:14px;font-size:17px}
+    .cel .btn.dis{background:#c9d1d8;color:#fff;border-color:#c9d1d8;cursor:default}
+    .cel .btn.outline.dis{background:#fff;color:#9aa6b1;border-color:#c9d1d8}
+    .cel .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+    .cel .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .cel .grid7{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+    .cel .opt{text-align:center;background:#fff;color:var(--soft);border:1px solid var(--input);font-size:14px;font-weight:700; border-radius:10px;padding:12px 4px;min-height:48px;cursor:pointer}
+    .cel .opt.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .cel .opt.teal.on{background:var(--teal);border-color:var(--teal)}
+    .cel .opt.amberopt{color:var(--amber-text);border-color:var(--amber-border)}
+    .cel .opt.amberopt.on{background:var(--amber);color:#fff;border-color:var(--amber)}
+    .cel .opt.primary{background:var(--teal);color:#fff;border-color:var(--teal);font-size:15px}
+    .cel .opt.second{background:#fff;color:var(--teal);border-color:var(--teal);font-size:15px}
+    .cel .opt.dis{opacity:.45;cursor:default}
+    .cel .opt.day{border-radius:8px;padding:12px 0;min-height:44px}
+    .cel .big{border-radius:12px;padding:12px 6px;min-height:52px;font-size:15px;border-width:2px}
+    .cel .big.red{color:var(--red);border-color:var(--red-border)}
+    .cel .big.red.on{background:var(--red);color:#fff;border-color:var(--red)}
+    .cel .big.grey{color:var(--soft);border-color:var(--input)}
+    .cel .big.grey.on{background:var(--soft);color:#fff;border-color:var(--soft)}
+    .cel .link{background:none;border:0;padding:0;color:var(--teal);font-size:15px;font-weight:700;cursor:pointer;text-align:left}
+    .cel .link.red{color:var(--red)}
+    .cel .field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:17px;font-weight:700}
+    .cel .inp{box-sizing:border-box;border:1px solid var(--input);border-radius:10px;padding:10px;background:#fff;font-size:15px;width:100%}
+    .cel .inp.money{width:160px;font-size:19px;font-weight:700;text-align:right}
+    .cel .inp.code{width:130px;font-size:22px;font-weight:800;letter-spacing:6px;text-align:center;padding:8px}
+    .cel .inp.time{width:118px;padding:10px 6px;font-weight:700;text-align:center}
+    .cel .inp.dis{background:#eef1f3;color:#9aa6b1}
+    .cel .stack{display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted)}
+    .cel textarea.inp{resize:none}
+    .cel .load{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px; padding:14px;min-height:60px;cursor:pointer;width:100%;text-align:left}
+    .cel .load .box{width:28px;height:28px;border-radius:8px;border:2px solid var(--input);display:flex;align-items:center; justify-content:center;flex:none;color:#fff}
+    .cel .load.on .box{background:var(--teal);border-color:var(--teal)}
+    .cel .load .who{flex-grow:1;display:flex;flex-direction:column;min-width:0}
+    .cel .load .who b{font-size:16px}
+    .cel .load .who span{font-size:13px;color:var(--muted)}
+    .cel .load .n{font-size:16px;font-weight:700;white-space:nowrap}
+    /* doble control de la carga (app del repartidor y «Despacho») */
+    .cel .load .who span.dsp{font-size:13px;font-weight:700}
+    .cel .load .who span.dsp.ok{color:var(--green)}
+    .cel .load .who span.dsp.warn{color:var(--amber-text)}
+    .cel .load.mismatch{background:var(--amber-bg);border:2px solid var(--amber-border)}
+    .cel .dsp-cnt{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 16px 0}
+    .cel .dsp-cnt div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column}
+    .cel .dsp-cnt span{font-size:12px;color:var(--muted);font-weight:700}
+    .cel .dsp-cnt b{font-size:20px}
+    .cel .dsp-zone{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:800}
+    .cel .dsp-row{display:flex;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}
+    .cel .dsp-row.mismatch{background:var(--amber-bg);border:2px solid var(--amber-border)}
+    .cel .dsp-row .tick{width:36px;height:36px;flex:none;border-radius:9px;border:2px solid var(--input);display:flex;
+                        align-items:center;justify-content:center;color:#fff}
+    .cel .dsp-row .tick.on{background:var(--teal);border-color:var(--teal)}
+    .cel .dsp-row .who{flex-grow:1;display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted)}
+    .cel .dsp-row .who b{font-size:15px;color:var(--text)}
+    .cel .dsp-row .who .st{font-weight:700;color:var(--green)}
+    .cel .dsp-row.mismatch .who .st{color:var(--amber-text)}
+    .cel .dsp-row .who .leave{color:var(--red);font-weight:700}
+    .cel .dsp-row .n{font-weight:800;color:var(--text);white-space:nowrap;font-size:14px}
+    .cel .alt-opt{min-height:40px;padding:8px 6px;font-size:13px;font-weight:600;color:var(--muted);border-color:var(--line);
+                  background:transparent}
+    .cel .visit{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column; gap:6px;color:var(--text);text-decoration:none}
+    .cel .visit.done{opacity:.72}
+    .cel .visit.next{border:2px solid var(--navy)}
+    .cel .visit .t{font-size:16px;font-weight:700}
+    .cel .visit.next .t{font-size:17px;font-weight:800}
+    .cel .visit .d{font-size:13px;color:var(--muted)}
+    .cel .visit.next .d{font-size:14px}
+    .cel .visit .e{font-size:13px;color:var(--red);font-weight:700}
+    .cel .pill{font-size:12px;font-weight:700;border-radius:99px;padding:3px 10px;white-space:nowrap;align-self:flex-start; background:var(--chip);color:var(--soft)}
+    .cel .pill.paid{color:var(--green);background:var(--green-bg)}
+
+    .cel .pill.not_paid{color:var(--red);background:var(--red-bg)}
+    .cel .pill.not_delivered{color:var(--soft);background:#dfe4e8}
+    .cel .place{text-decoration:none;color:var(--text);background:#fff;border-bottom:1px solid var(--line);padding:12px 20px; display:flex;align-items:center;gap:12px}
+    .cel .place .txt{flex-grow:1;display:flex;flex-direction:column;gap:2px}
+    .cel .place .txt b{font-size:15px}
+    .cel .place .txt span{font-size:13px;color:var(--muted)}
+    .cel .place .chev{font-size:20px;color:var(--teal);font-weight:700}
+    .cel .lines{display:flex;flex-direction:column;gap:6px;font-size:15px;border-top:1px solid var(--line-2);padding-top:10px}
+    .cel .lines div{display:flex;gap:10px}
+    .cel .lines b{width:34px;text-align:right;flex:none}
+    .cel .sep{border-top:1px solid var(--line-2);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+    .cel .q{font-size:15px;font-weight:800}
+    .cel .q small{font-size:13px;font-weight:600;color:var(--amber-text)}
+    .cel .ret{background:var(--tint);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+    .cel .ret .split{font-size:15px}
+    .cel .ret .split b{white-space:nowrap}
+    .cel .okline{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--green)}
+    .cel .badline{font-size:14px;font-weight:700;color:var(--red)}
+    .cel .money-row{display:flex;justify-content:space-between;font-size:15px}
+    .cel .money-row.total{font-size:19px;font-weight:800;border-top:1px solid var(--line-2);padding-top:8px}
+    .cel .phone{font-size:19px;font-weight:800}
+    .cel .locked{opacity:.5;pointer-events:none}
+    .cel .map{height:150px;background:#e4ebe6;display:flex;flex-direction:column;align-items:center;justify-content:center; gap:4px;color:var(--muted);font-size:13px;text-align:center;padding:10px}
+    .cel .map b{color:var(--teal);font-size:15px}
+    .cel .hours{display:flex;align-items:center;gap:8px;font-size:15px}
+    .cel .hours span.l{width:64px;color:var(--muted)}
+    .cel .sum{display:flex;justify-content:space-between;font-size:16px;padding:4px 0}
+    .cel .sum b{font-size:17px}
+    .cel .cash{font-size:30px;font-weight:800}
+    .cel{font-family:Figtree,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--text);
+         font-size:16px;line-height:1.35;background:var(--bg);text-align:left}
+    .cel *{box-sizing:border-box}
+    .cel h1,.cel h2{color:inherit}
+    .cel span.inp{display:block;color:var(--text)}
+    .cel .inp.ph{color:#8d99a4;font-weight:400}
+    .cel .hours .inp.time{width:auto;flex:1;min-width:0}
+    .cel .opt,.cel .link,.cel .btn{display:block}
+    .cel .card .grid2 .opt,.cel .grid3 .opt{display:flex;align-items:center;justify-content:center}
+
+    /* Chrome: diálogo para instalar */
+    .chrome{background:#fff;min-height:560px;display:flex;flex-direction:column;position:relative;font-family:system-ui,-apple-system,Roboto,sans-serif}
+    .chrome .url{margin:8px 10px;background:#eef1f4;border-radius:99px;padding:9px 14px;font-size:13px;color:#3c4043;
+                 display:flex;justify-content:space-between}
+    .chrome .url b{color:#5f6368;font-weight:400}
+    .chrome .fondo{flex:1;padding:24px 20px;opacity:.35}
+    .chrome .fondo .h{background:#10243f;height:70px;border-radius:8px}
+    .chrome .fondo .l{height:14px;background:#d6dde3;border-radius:6px;margin-top:14px}
+    .chrome .velo{position:absolute;inset:0;background:rgba(0,0,0,.35)}
+    .chrome .hoja{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;
+                  padding:22px 22px 26px;color:#202124}
+    .chrome .hoja h4{margin:0 0 16px;font-size:20px;font-weight:600}
+    .chrome .app{display:flex;align-items:center;gap:14px}
+    .chrome .app img{width:48px;height:48px;border-radius:12px}
+    .chrome .app b{display:block;font-size:16px;font-weight:600}
+    .chrome .app span{font-size:13px;color:#5f6368}
+    .chrome .acciones{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
+    .chrome .acciones span{font-size:15px;font-weight:600;padding:10px 18px;border-radius:99px;color:#0b57d0}
+    .chrome .acciones span.si{background:#0b57d0;color:#fff}
+
+    /* Pantalla de Odoo en un marco de computadora */
+    .marco.ancho{max-width:64rem}
+    .pc{margin:1.3rem 0 0;border:1px solid #c9d1d8;border-radius:12px;overflow:hidden;background:#fff;
+        box-shadow:0 10px 28px rgba(16,36,63,.14)}
+    .pc-barra{background:#e9edf1;padding:7px 10px;display:flex;gap:6px;align-items:center}
+    .pc-barra i{width:10px;height:10px;border-radius:50%;background:#c3cbd3;flex:none}
+    .pc-barra em{font-style:normal;font-size:11px;color:#5f6b76;background:#fff;border-radius:6px;padding:3px 10px;
+                 margin-left:8px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pc-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .od{min-width:960px;font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#374151;
+        background:#f3f4f6;padding-bottom:14px}
+    .od-nav{display:flex;gap:18px;align-items:center;background:#fff;border-bottom:1px solid #e5e7eb;padding:9px 16px}
+    .od-nav b{color:#111827;font-size:14px}
+    .od-nav .on{color:#714b67;font-weight:600}
+    .od-bc{font-size:16px;color:#017e84;padding:10px 16px 0}
+    .od-bc b{color:#111827;font-weight:500}
+    .od-header{display:flex;align-items:center;gap:6px;padding:10px 16px}
+    .od-btn{display:inline-block;border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:4px;
+            padding:5px 10px;font-weight:500;white-space:nowrap;font-size:12.5px}
+    .od-btn.pri{background:#714b67;border-color:#714b67;color:#fff}
+    .od-status{margin-left:auto;display:flex;align-items:center;font-size:12px;color:#6b7280;white-space:nowrap}
+    .od-status span+span:before{content:"›";margin:0 7px;color:#9ca3af;font-weight:400}
+    .od-status .on{color:#714b67;font-weight:700}
+    .od-sheet{background:#fff;border:1px solid #e5e7eb;margin:0 16px;padding:18px 22px}
+    .od-sheet h1{font-size:22px;color:#111827;font-weight:500;margin:0 0 12px;line-height:1.2}
+    .od-grupos{display:grid;grid-template-columns:1fr 1fr;gap:6px 32px}
+    .od h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#111827;
+           border-bottom:1px solid #e5e7eb;padding-bottom:4px}
+    .od-f{display:grid;grid-template-columns:160px 1fr;gap:8px;padding:3px 0}
+    .od-f > span:first-child{font-weight:600;color:#111827}
+    .od-in{border-bottom:1px solid #9ca3af;padding:0 2px;color:#111827}
+    .od-tag{background:#e6f2f2;color:#0f5e62;border-radius:10px;padding:1px 8px;font-size:12px}
+    .od-tabs{display:flex;border-bottom:1px solid #d1d5db;margin:16px 0 12px}
+    .od-tabs span{padding:7px 14px;color:#4b5563}
+    .od-tabs .on{border:1px solid #d1d5db;border-bottom-color:#fff;margin-bottom:-1px;background:#fff;color:#111827;
+                 font-weight:600;border-radius:4px 4px 0 0}
+    .od-sep{font-weight:600;color:#111827;border-bottom:1px solid #d1d5db;margin:18px 0 6px;padding-bottom:4px;font-size:14px}
+    .od-muted{color:#6b7280;margin:0 0 6px}
+    .od-cand{background:#fff8e1;border-radius:4px;padding:6px 8px;margin:0 0 6px}
+    .od table{width:100%;border-collapse:collapse;font-size:12.5px}
+    .od th{text-align:left;font-weight:600;color:#111827;border-bottom:1px solid #d1d5db;padding:6px;white-space:nowrap}
+    .od td{border-bottom:1px solid #eef0f2;padding:6px;vertical-align:middle;white-space:nowrap}
+    .od td.w{white-space:normal;min-width:110px}
+    .od-ico{display:inline-block;border:1px solid #d1d5db;border-radius:4px;padding:1px 7px;margin-right:4px;color:#374151;font-size:12px}
+    .od .n{text-align:right;white-space:nowrap}
+    .od tr.tot td{font-weight:600;border-bottom:0}
+    .od-badge{display:inline-block;border-radius:10px;padding:1px 8px;font-size:11.5px;background:#f3f4f6;color:#4b5563;white-space:nowrap}
+    .od-lnk{color:#017e84;white-space:nowrap;margin-right:10px;font-size:12px;font-weight:500}
+    .od-neg{color:#d23f3a;font-weight:600}
+    .od-chk{display:inline-block;width:15px;height:15px;border-radius:3px;background:#714b67;color:#fff;font-size:10px;
+            text-align:center;line-height:15px}
+    .solo-movil{display:block}
+    @media (min-width:800px){.solo-movil{display:none}}
+    .gal.ancha{grid-column:1/-1}
+    .gal .pc{zoom:.35;width:980px;height:900px;margin:0;pointer-events:none}
+    .gal .pc .pc-scroll{overflow:hidden}
+    @media (min-width:640px){.gal .pc{zoom:.52}}
+
+
+    /* Expenses and parcels: copy of static/src/reparto/app.css, limited to .cel */
+    .cel .foot .grid2{gap:8px}
+    .cel .btn.teal{background:var(--teal);border-color:var(--teal);color:#fff}
+    .cel .big-warn{font-size:15px;line-height:1.35;padding:12px 16px;align-items:flex-start}
+    .cel .photo-warn{font-size:14px;font-weight:600;color:var(--amber-text);padding:10px 12px}
+    .cel .photo-btn{display:flex;align-items:center;justify-content:center;gap:8px}
+    .cel .photo{display:flex;align-items:center;gap:12px}
+    .cel .photo .img{width:96px;height:96px;border-radius:10px;border:1px solid var(--line);flex:none;
+                     background:linear-gradient(135deg,#eef1f3,#d9e0e6);display:flex;align-items:center;
+                     justify-content:center;color:#7d8a96;font-size:12px;font-weight:700}
+    .cel .photo .opt{flex-grow:1}
+    .cel .kinds{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .cel .kinds .opt:last-child{grid-column:span 2}
+    .cel .exp .split{align-items:center;gap:10px}
+    .cel .exp .thumb{width:52px;height:52px;border-radius:8px;flex:none;
+                     background:linear-gradient(135deg,#eef1f3,#d9e0e6)}
+    .cel .exp .t{flex-grow:1;display:flex;flex-direction:column;min-width:0;font-size:14px}
+    .cel .exp .t span{color:var(--muted)}
+    .cel .exp .split > b{white-space:nowrap}
+    .cel .cashbox{gap:6px}
+    .cel .inp.bultos{width:90px;font-size:19px;font-weight:700;text-align:center}
+    .cel .pill.dispatched{color:var(--navy);background:var(--navy-bg)}
+    .cel .parcel-tag{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted)}
+    .cel .parcel-tag b{color:var(--navy);font-size:14px}
+    .cel .parcel-tag .payer{font-weight:800;font-size:14px}
+    .cel .payer.distri{color:var(--green)}
+    .cel .payer.customer{color:var(--amber-text)}
+    .cel .parcel-tag .who-picks b{color:var(--text);font-size:13px}
+    .cel .parcel-hero{background:var(--navy);color:#fff;padding:14px 20px 16px;display:flex;flex-direction:column;gap:6px}
+    .cel .parcel-hero .k{font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mint)}
+    .cel .parcel-hero .dest{font-size:18px}
+    .cel .parcel-hero .carrier{font-size:15px;color:var(--head-sub)}
+    .cel .parcel-hero .carrier b{color:#fff}
+    .cel .payer-big{font-size:19px;font-weight:800;border-radius:10px;padding:10px 12px;text-align:center}
+    .cel .payer-big.distri{background:var(--green-bg);color:var(--green)}
+    .cel .payer-big.customer{background:var(--amber-bg);color:var(--amber-text)}
+    .cel .recipient{background:#fff;color:var(--text);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+    .cel .recipient span{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:700}
+    .cel .recipient b{font-size:18px}
+
+    /* Customer pages (/pedido and the order link): copy of views/templates.xml, limited to .clip */
+    .clip{--fondo:#f5f5f5;--tarjeta:#fff;--texto:#4a4a4a;--tenue:#7a7a7a;--borde:#eee;--linea:#dbdbdb;
+          --acento:#00d1b2;--alerta:#c92a2a;--aviso:#b08900;background:var(--fondo);color:var(--texto);
+          font:15px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;text-align:left}
+    .clip *{box-sizing:border-box}
+    .clip .ph{background:var(--tarjeta);border-bottom:1px solid var(--borde);padding:.9rem;text-align:center}
+    .clip .ph h2{margin:0;font-size:1.1rem;color:var(--texto)}
+    .clip .pcl{background:var(--tarjeta);padding:.9rem}
+    .clip .campo{display:block;margin:.7rem 0 0;font-size:.85rem;font-weight:600;color:var(--texto)}
+    .clip .campo:first-child{margin-top:0}
+    .clip .dato{display:block;background:#fff;border:1px solid var(--linea);border-radius:4px;padding:.55rem;
+                font-size:.95rem;font-weight:400;margin-top:.25rem;color:var(--texto);min-height:2.4rem}
+    .clip .interior{display:flex;gap:.6rem;align-items:flex-start;margin:1rem 0 0;padding:.75rem;
+                    border:1px solid var(--acento);border-radius:4px;background:#e6faf7;
+                    font-size:.88rem;line-height:1.35}
+    .clip .interior .box{width:20px;height:20px;flex:none;border-radius:4px;background:var(--acento);
+                         color:#fff;font-size:14px;line-height:20px;text-align:center;font-weight:700}
+    .clip .caja-enc{border:1px solid var(--acento);border-top:0;border-radius:0 0 4px 4px;
+                    padding:.2rem .75rem .8rem;background:#fff;margin-top:-3px}
+    .clip .ayuda{font-size:.78rem;color:var(--tenue);margin:.55rem 0 0}
+    .clip .barra{background:var(--fondo);border-top:1px solid var(--linea);padding:.7rem .9rem;display:flex;gap:.6rem}
+    .clip .btn{display:block;border:0;border-radius:4px;padding:.65rem .9rem;font-size:.95rem;font-weight:600;
+               text-align:center;background:var(--acento);color:#fff;text-decoration:none}
+    .clip .btn.s{background:var(--tarjeta);color:var(--texto);border:1px solid var(--linea)}
+    .clip .cab{padding:1.1rem .9rem 1.2rem;text-align:center}
+    .clip .logo{width:56px;height:56px;border-radius:50%;background:#10243f;color:#fff;margin:0 auto;
+                display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.95rem}
+    .clip .cab h1{margin:.6rem 0 .2rem;font-size:1.15rem;font-weight:700;color:var(--texto)}
+    .clip .estado{display:inline-block;margin:.4rem 0 0;font-size:.8rem;font-weight:700;border-radius:99px;
+                  padding:.2rem .8rem;background:#e6faf7;color:#00806f}
+    .clip .tarjeta{background:var(--tarjeta);border-top:1px solid var(--borde);border-bottom:1px solid var(--borde);
+                   padding:.9rem}
+    .clip .encomienda{text-align:center}
+    .clip .encomienda p{margin:.2rem 0}
+    .clip .enc-t{font-weight:700;font-size:1rem;color:#00806f}
+    .clip .enc-d{font-size:.88rem}
+    .clip .encomienda .btn{display:inline-block;margin-top:.6rem}
+    .clip .saldo{background:var(--tarjeta);border-bottom:1px solid var(--borde);padding:1rem;text-align:center}
+    .clip .saldo .rotulo{font-size:.8rem;color:var(--tenue)}
+    .clip .saldo .monto{font-size:1.6rem;font-weight:700;margin-top:.2rem;color:var(--alerta)}
+    .clip .saldo .nota{font-size:.78rem;color:var(--aviso);margin-top:.3rem;text-align:center}
+    .clip .mov{display:flex;justify-content:space-between;gap:.7rem;padding:.6rem .9rem;background:var(--tarjeta);
+               border-top:1px solid var(--borde);font-size:.86rem}
+    .clip .mov.prov{background:#fff9db}
+    .clip .mov .fecha{font-weight:600}
+    .clip .mov .det{font-size:.76rem;color:var(--tenue);margin-top:.1rem}
+    .clip .mov .der{text-align:right;white-space:nowrap;font-weight:600}
+    .clip .mov .debe{color:var(--alerta)}
+    .clip .mov .haber{color:var(--acento)}
+    .clip .mov .sal{display:block;font-size:.72rem;font-weight:400;color:var(--tenue);margin-top:.1rem}
+    .clip .ctrl{display:inline-block;font-size:.68rem;border-radius:99px;padding:0 .5rem;background:#fff3bf;
+                color:var(--aviso);margin-left:.3rem;font-weight:600}
+
+    /* WhatsApp chat */
+    .wachat{max-width:320px;margin:1.2rem auto 0;border:1px solid var(--borde);border-radius:18px;
+            overflow:hidden;box-shadow:0 6px 18px rgba(16,36,63,.08);background:#efeae2}
+    .wachat .top{background:#075e54;color:#fff;padding:.65rem .9rem;display:flex;align-items:center;gap:.6rem}
+    .wachat .avatar{width:32px;height:32px;border-radius:50%;background:#25d366;color:#fff;font-weight:700;
+                    display:flex;align-items:center;justify-content:center;font-size:.8rem;flex:none}
+    .wachat .top b{display:block;font-size:.92rem}
+    .wachat .top small{font-size:.72rem;opacity:.8}
+    .wachat .msgs{padding:.8rem .7rem;display:flex;flex-direction:column;gap:.45rem}
+    .wachat .m{max-width:88%;padding:.45rem .6rem .3rem;border-radius:9px;font-size:.86rem;line-height:1.35;
+               color:#111b21;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+    .wachat .m.out{align-self:flex-end;background:#d9fdd3;border-top-right-radius:2px}
+    .wachat .m .h{display:block;text-align:right;font-size:.66rem;color:#667781;margin-top:.15rem}
+    .wachat .guia{background:#fff;border-radius:6px;height:92px;margin-bottom:.35rem;border:1px solid #e3e3e3;
+                  display:flex;align-items:center;justify-content:center;color:#667781;font-size:.72rem;font-weight:700}
+
+    /* Odoo: kanban cards and a dialog */
+    .od-kan{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:6px 16px 0}
+    .od-card{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;font-size:13px}
+    .od-card .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+    .od-card .t b{font-size:17px;color:#111827}
+    .od-card .t span{font-size:15px;color:#6b7280}
+    .od-card .l{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:14px}
+    .od-card .box{border-radius:6px;padding:7px 9px;margin-top:8px;font-size:16px}
+    .od-card .box.ok{background:#d1f0dd;color:#14532d}
+    .od-card .box.warn{background:#fff3cd;color:#8a5a00;font-weight:700}
+    .od-card .s{font-size:12px;color:#6b7280;margin-top:8px}
+    .od-card .i{font-style:italic;margin-top:6px}
+    .od-card .done{color:#15803d;font-weight:700;margin-top:10px}
+    .od-card .od-btn.pri{margin-top:10px;font-size:14px;padding:6px 14px}
+    .od-badge.info{background:#dbeafe;color:#1e40af}
+    .od-badge.warn{background:#fef3c7;color:#92400e}
+    .od-badge.ok{background:#d1f0dd;color:#14532d}
+    .od-dlg{background:#fff;margin:14px 16px 0;border:1px solid #d1d5db;border-radius:8px;
+            box-shadow:0 12px 30px rgba(0,0,0,.18);overflow:hidden}
+    .od-dlg .hd{padding:12px 18px;border-bottom:1px solid #e5e7eb;font-size:17px;color:#111827}
+    .od-dlg .bd{padding:14px 18px}
+    .od-dlg .ft{padding:10px 18px;border-top:1px solid #e5e7eb;display:flex;gap:6px}
+    .od-radio{display:inline-flex;align-items:center;gap:5px;margin-right:16px;white-space:nowrap}
+    .od-radio i{width:13px;height:13px;border-radius:50%;border:1px solid #9ca3af;display:inline-block}
+    .od-radio.on i{border:4px solid #714b67}
+    .od-small{font-size:12px;color:#6b7280;margin:6px 0 0}
+    .od-warnline{font-size:12px;color:#b45309;margin:6px 0 0}
+    .od-rev{color:#b45309;font-weight:600}
+    .od-tog{display:inline-block;width:26px;height:14px;border-radius:99px;background:#d1d5db;position:relative;vertical-align:middle}
+    .od-tog:after{content:"";position:absolute;left:2px;top:2px;width:10px;height:10px;border-radius:50%;background:#fff}
+    .od-tog.on{background:#714b67}
+    .od-tog.on:after{left:14px}
+    .od-foto{display:inline-block;width:30px;height:30px;border-radius:4px;background:linear-gradient(135deg,#eef1f3,#cfd8df);vertical-align:middle}
+
+    @media (max-width:360px){.cifras{flex-direction:column}}
+  </style>
+</head>
+<body>
+
+  <t t-call="distri_pedido.proyecto_franja"/>
+  <t t-call="distri_pedido.roles_base"/>
+
+  <div class="tapa">
+    <div class="marco">
+      <p class="rotulo">Distri Neuquén · Reparto</p>
+      <h1>La app del repartidor</h1>
+      <p>Así se ve la app en el celular del repartidor y qué pasa en cada etapa del día, desde la
+         carga de la camioneta hasta la rendición de caja en el depósito.</p>
+      <p>Reemplaza la planilla de papel. El repartidor marca cada entrega y cada cobro <b>en el
+         momento</b>, en la puerta del cliente, y la app <b>funciona sin señal</b>.</p>
+      <div class="cifras">
+        <div class="cifra"><b>7</b><span>etapas en el día</span></div>
+        <div class="cifra"><b>Sin señal</b><span>guarda todo en el celular</span></div>
+        <div class="cifra"><b>&lt;10 s</b><span>para marcar un cobro</span></div>
+      </div>
+      <a class="cta" href="#pantallas">Ver las pantallas</a>
+    </div>
+  </div>
+
+  <t t-call="distri_pedido.rol_mapa">
+    <t t-set="titulo" t-value="'Cada etapa del reparto y quién la hace'"/>
+    <t t-set="bajada" t-value="'Cada etiqueta lleva a la etapa que la explica.'"/>
+    <t t-set="nota" t-value="'Las etapas con letra (2b, 4b, 5b y 7b) completan el recorrido del día. La última es la alternativa al reparto: el cliente retira en el depósito.'"/>
+    <t t-set="mapa_pasos" t-value="[
+          {'id': 'instalar', 'n': '1', 't': 'Instalar', 'l': 'Paso 1 · Instalar la app', 'acts': {'repartidor': 'Instala la app', 'administrador': 'Asigna la ruta'}},
+          {'id': 'carga', 'n': '2', 't': 'Carga', 'l': 'Paso 2 · Carga de la camioneta', 'acts': {'repartidor': 'Carga los bultos'}},
+          {'id': 'salida', 'n': '2b', 't': 'Despacho', 'l': 'Paso 2b · Despacho y salida de viajes', 'acts': {'administrador': 'Controla la carga en «Despacho»', 'gerente': 'Controla la carga o reparte'}},
+          {'id': 'visitas', 'n': '3', 't': 'Visitas', 'l': 'Paso 3 · Las visitas del día', 'acts': {'repartidor': 'Elige a quién visitar'}},
+          {'id': 'visita', 'n': '4', 't': 'Visita', 'l': 'Paso 4 · Una visita', 'acts': {'cliente': 'Dicta el código y paga', 'repartidor': 'Entrega y cobra'}},
+          {'id': 'encomiendas', 'n': '4b', 't': 'Encomienda', 'l': 'Paso 4b · Encomiendas al interior', 'acts': {'cliente': 'Pide y descarga la guía', 'vendedor': 'Avisa al cliente', 'administrador': 'Revisa quién paga', 'repartidor': 'Despacha en la terminal'}},
+          {'id': 'cliente', 'n': '5', 't': 'Ubicación', 'l': 'Paso 5 · Ubicación y horarios', 'acts': {'repartidor': 'Carga ubicación y horarios'}},
+          {'id': 'gastos', 'n': '5b', 't': 'Gastos', 'l': 'Paso 5b · Gastos del repartidor', 'acts': {'repartidor': 'Carga el gasto con foto', 'sistema': 'Lee el importe'}},
+          {'id': 'cierre', 'n': '6', 't': 'Cierre', 'l': 'Paso 6 · Cerrar la ruta', 'acts': {'repartidor': 'Cierra la ruta'}},
+          {'id': 'rendicion', 'n': '7', 't': 'Rendición', 'l': 'Paso 7 · Rendición de caja', 'acts': {'administrador': 'Cuenta y controla', 'repartidor': 'Rinde efectivo y papeles'}},
+          {'id': 'devoluciones', 'n': '7b', 't': 'Devoluciones', 'l': 'Paso 7b · Devoluciones', 'acts': {'cliente': 'Ve la devolución en su cuenta', 'administrador': 'Marca si volvió', 'sistema': 'Nota de crédito y stock'}},
+          {'id': 'deposito', 'n': '8', 't': 'Depósito', 'l': 'Alternativa · Retiro en el depósito', 'acts': {'cliente': 'Retira en el depósito', 'administrador': 'Registra la entrega', 'gerente': 'Venta en mostrador'}},
+        ]"/>
+  </t>
+
+  <section id="pantallas" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['repartidor', 'administrador']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Todas las pantallas</p>
+      <h2>El día completo, en orden</h2>
+      <p class="bajada">Cada pantalla lleva a su etapa, con el detalle de lo que pasa en ella.</p>
+      <div class="galeria" id="galeria"></div>
+      <p class="nota" style="margin-top:1.2rem">Ilustración con datos de ejemplo. Las pantallas de
+         celular son las del repartidor; la salida de viajes, la rendición de caja y la entrega en
+         depósito son pantallas de Odoo.</p>
+    </div>
+  </section>
+
+  <!-- 1 · Instalar -->
+  <section id="instalar" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['repartidor', 'administrador']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 1 · Una sola vez</p>
+      <h2>Instalar la app</h2>
+      <p class="bajada">La app se abre desde Chrome y queda en la pantalla del celular como
+         cualquier otra, con el ícono <b>Reparto</b>.</p>
+
+      <div class="etapa">
+        <div class="cols">
+          <div class="telefono" data-vista="Instalar la app" data-num="1" data-ir="instalar">
+            <div class="sb claro"><span>9:41</span><span>4G · 80%</span></div>
+            <div class="chrome">
+              <div class="url"><span>distrineuquen.piadevs.com/reparto</span><b>⋮</b></div>
+              <div class="fondo"><div class="h"></div><div class="l"></div><div class="l" style="width:70%"></div>
+                <div class="l"></div><div class="l" style="width:55%"></div></div>
+              <div class="velo"></div>
+              <div class="hoja">
+                <h4>Instalar app</h4>
+                <div class="app">
+                  <img src="/distri_pedido/static/src/reparto/icon-192.png" alt=""/>
+                  <div><b>Reparto · Distri Neuquén</b><span>distrineuquen.piadevs.com</span></div>
+                </div>
+                <div class="acciones"><span>Cancelar</span><span class="si">Instalar</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t>
+            <ol class="cadena" style="margin-top:.2rem">
+              <li>El repartidor abre en <b>Chrome</b> el link de la app.</li>
+              <li><b>Entra con su usuario y su contraseña.</b> Cada repartidor tiene el suyo y la app muestra solo su ruta.</li>
+              <li>Desde el menú <b>⋮</b> de Chrome elige <b>Instalar app</b> (en algunos celulares figura como «Agregar a la pantalla principal»).</li>
+              <li>Queda el ícono <b>Reparto</b> en la pantalla del celular.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <div class="etapa">
+        <h3>Cada mañana: la descarga de la ruta</h3>
+        <p>La ruta se descarga al celular <b>antes de salir</b>. Después la app funciona aunque
+           no haya señal en la calle.</p>
+        <div class="cols">
+          <div class="telefono">
+            <div class="sb"><span>7:50</span><span>95%</span></div>
+            <div class="cel">
+              <div class="head"><div class="kicker">Reparto</div><h1>Sin ruta asignada</h1>
+                <div class="sub">Repartidor de ejemplo</div></div>
+              <div class="body"><div class="card"><div>No tenés una ruta asignada. Cuando
+                administración te asigne una, descargala antes de salir, con conexión.</div></div></div>
+              <div class="foot"><span class="btn">Descargar la ruta</span></div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor', 'administrador']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li>La descarga se hace <b>antes de salir</b>, con conexión.</li>
+              <li>Sin ruta asignada, la app lo avisa. El administrador la asigna en Odoo y el repartidor la vuelve a descargar.</li>
+              <li>La ruta trae fecha, viaje, zona, pedidos, bultos y el saldo de cada cliente.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 2 · Carga -->
+  <section id="carga" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 2 · En el depósito</p>
+      <h2>Carga de la camioneta</h2>
+      <p class="bajada">La primera pantalla es la lista de pedidos de la ruta, con la cantidad de
+         bultos de cada uno.</p>
+      <div class="etapa">
+        <div class="cols">
+          <div class="telefono" data-vista="Carga de la camioneta" data-num="2" data-ir="carga">
+            <div class="sb"><span>8:05</span><span>94%</span></div>
+            <div class="cel">
+              <div class="head"><div class="kicker">Ruta de martes 29/09 · Viaje 1</div><h1>Neuquén capital</h1>
+                <div class="sub">5 pedidos · 13 bultos</div></div>
+              <div class="intro"><h2>Control de carga</h2><p>Tocá cada pedido cuando sube a la camioneta.
+                El depósito lo controla también: tienen que estar los dos tildes.</p></div>
+              <div class="body">
+                <div class="load on"><span class="box">✓</span><span class="who"><b>Almacén de ejemplo</b>
+                  <span>Calle de ejemplo 100 · S00101</span><span class="dsp ok">Controlado por vos y por Administración</span></span><span class="n">3 bultos</span></div>
+                <div class="load on mismatch"><span class="box">✓</span><span class="who"><b>Kiosco de ejemplo</b>
+                  <span>Calle de ejemplo 200 · S00102</span><span class="dsp warn">Falta el control del depósito</span></span><span class="n">1 bulto</span></div>
+                <div class="load on"><span class="box">✓</span><span class="who"><b>Despensa de ejemplo</b>
+                  <span>Calle de ejemplo 300 · S00103</span><span class="dsp ok">Controlado por vos y por Administración</span></span><span class="n">2 bultos</span></div>
+                <div class="load mismatch"><span class="box"></span><span class="who"><b>Autoservicio de ejemplo</b>
+                  <span>Calle de ejemplo 400 · S00104</span><span class="dsp warn">Administración ya lo controló · falta que lo tildes vos</span></span><span class="n">4 bultos</span></div>
+                <div class="load"><span class="box"></span><span class="who"><b>Maxikiosco de ejemplo</b>
+                  <span>Calle de ejemplo 500 · S00105</span><span>Sin tildar</span></span><span class="n">3 bultos</span></div>
+                <span class="link">Actualizar la ruta</span>
+              </div>
+              <div class="foot"><div class="split"><span class="muted">Pedidos con doble control</span><b>2 de 5</b></div>
+                <div class="split"><span class="muted">Bultos cargados</span><b>6 de 13</b></div>
+                <span class="btn dis">Salir a repartir</span>
+                <div class="hint">Se habilita cuando cada pedido está tildado por vos y por el depósito.</div></div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li><b>La carga la hacen siempre dos personas: el repartidor y administración.</b> Leen la hoja de ruta, van cantando los clientes y el repartidor decide en qué orden sube cada pedido.</li>
+              <li><b>El repartidor toca cada pedido cuando sube a la camioneta.</b> Administración tilda el mismo pedido en su pantalla «Despacho». Se controla por pedido, no por bulto.</li>
+              <li>Debajo de cada pedido se ve el tilde del depósito. En amarillo, los que tiene tildados uno solo de los dos.</li>
+              <li><b>«Salir a repartir» se habilita recién con todos los pedidos tildados por los dos</b>, y necesita conexión: el sistema no deja salir si falta un control.</li>
+              <li>Al salir, la app propone <b>visitar al revés de cómo se cargó</b>: lo primero que subió queda al fondo y se entrega último. El repartidor elige; si no acepta, queda el orden de la ruta.</li>
+              <li>Después de «Controlado» los tildes quedan fijos: la carga ya fue controlada con Administración.</li>
+              <li>Si el administrador cambia la ruta, «Actualizar la ruta» baja la versión nueva.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 2b · Salida de viajes (Odoo) -->
+  <section id="salida" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'gerente', 'repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 2b · Antes de salir</p>
+      <h2>Despacho y salida de viajes</h2>
+      <p class="bajada">Mientras el repartidor tilda cada pedido en su celular, administración o gerencia
+         tilda el mismo pedido en <b>«Despacho»</b>, una pantalla para el celular (en Odoo:
+         <b>Reparto › Despacho (celular)</b>). Cuando todo tiene los dos tildes, marca
+         <b>«Controlado»</b>.</p>
+      <div class="etapa">
+        <div class="cols">
+          <div class="telefono">
+            <div class="sb"><span>8:10</span><span>93%</span></div>
+            <div class="cel">
+              <div class="head"><span class="back">‹ Rutas</span><div class="kicker">Despacho · Viaje 1 · hoy</div>
+                <h1>Repartidor de ejemplo</h1><div class="sub">Neuquén capital</div></div>
+              <div class="dsp-cnt"><div><span>Pedidos con doble control</span><b>2 de 5</b></div>
+                <div><span>Bultos con doble control</span><b>5 de 13</b></div></div>
+              <div class="body">
+                <div class="dsp-zone">Neuquén capital</div>
+                <div class="dsp-row"><span class="tick on">✓</span><span class="who"><b>Almacén de ejemplo</b>
+                  Calle de ejemplo 100 · S00101<span class="st">Controlado por Repartidor y vos</span>
+                  <span class="leave">Queda en el depósito</span></span><span class="n">3 bultos</span></div>
+                <div class="dsp-row mismatch"><span class="tick"></span><span class="who"><b>Kiosco de ejemplo</b>
+                  Calle de ejemplo 200 · S00102<span class="st">Repartidor lo tildó, vos todavía no</span>
+                  <span class="leave">Queda en el depósito</span></span><span class="n">1 bulto</span></div>
+                <div class="dsp-row mismatch"><span class="tick on">✓</span><span class="who"><b>Autoservicio de ejemplo</b>
+                  Calle de ejemplo 400 · S00104<span class="st">Vos lo tildaste, falta Repartidor</span>
+                  <span class="leave">Queda en el depósito</span></span><span class="n">4 bultos</span></div>
+              </div>
+              <div class="foot"><span class="btn">Controlado</span>
+                <div class="hint">Faltan 3 pedidos con doble control.</div></div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'gerente']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li>Se elige el viaje y aparecen sus pedidos <b>agrupados por zona</b>: cliente, dirección, pedido y bultos.</li>
+              <li>Se ve el tilde del repartidor al instante. <b>En amarillo</b>, los pedidos que tildó uno solo: «Repartidor lo tildó, vos todavía no» o «Vos lo tildaste, falta Repartidor».</li>
+              <li>El control lo hace otra persona: el repartidor de la ruta no puede tildar como depósito.</li>
+              <li><b>«Queda en el depósito»</b>: un pedido que no sube se saca de la ruta con el motivo (falta mercadería, no entra en la camioneta…). Queda anotado en la ruta y en el pedido, y el pedido queda libre para otra ruta. Si fue un error, «Deshacer» lo vuelve a subir mientras el despacho está abierto.</li>
+              <li><b>«Controlado»</b> cierra el despacho: solo con todos los pedidos tildados por los dos. Si falta alguno, la pantalla dice cuál y de quién falta el tilde.</li>
+              <li>Funciona con conexión: sin conexión avisa y los tildes no se guardan.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <p class="bajada" style="margin-top:1.4rem">En Odoo, <b>Reparto › Salida de viajes</b> muestra todos
+         los viajes del día con el mismo doble control.</p>
+    </div>
+    <div class="marco ancho">
+      <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla de administración en Odoo</span></div>
+      <div class="pc" data-vista="Salida de viajes" data-num="2b" data-ir="salida">
+        <div class="pc-barra"><i></i><i></i><i></i><em>distrineuquen.piadevs.com/odoo · Salida de viajes</em></div>
+        <div class="pc-scroll"><div class="od">
+          <div class="od-nav"><b>Reparto</b><span>Rutas de reparto</span><span class="on">Salida de viajes</span><span>Rendición de caja</span><span>Gastos del repartidor</span><span>Encomiendas despachadas</span></div>
+          <div class="od-bc"><b>Salida de viajes</b></div>
+          <div class="od-header"><span class="od-badge">Hoy</span></div>
+          <div class="od-kan">
+            <div class="od-card">
+              <div class="t"><b>Repartidor de ejemplo</b><span>Viaje 1</span></div>
+              <div class="l"><span>Pedidos: 5</span><span class="od-badge info">En reparto</span></div>
+              <div class="box ok">Doble control: 5 de 5 pedidos · 13 de 13 bultos</div>
+              <div class="s">S00101, S00102, S00103, S00104, S00105</div>
+              <div class="done">✓ Controló Administración de ejemplo · 29 sept, 08:35</div>
+            </div>
+            <div class="od-card">
+              <div class="t"><b>Repartidor de ejemplo</b><span>Viaje 2</span></div>
+              <div class="l"><span>Pedidos: 3</span><span class="od-badge">Asignada</span></div>
+              <div class="box warn">Doble control: 1 de 3 pedidos · 2 de 7 bultos</div>
+              <div class="s">S00106, S00108 (falta el depósito), S00109 (sin cargar)</div>
+              <div class="i">Quedan en el depósito: 1</div>
+              <span class="od-btn pri">Controlado</span>
+            </div>
+            <div class="od-card">
+              <div class="t"><b>Gerencia de ejemplo</b><span>Viaje 1</span></div>
+              <div class="l"><span>Pedidos: 1</span><span class="od-badge">Asignada</span></div>
+              <div class="box ok">Doble control: 1 de 1 pedidos · 2 de 2 bultos</div>
+              <div class="s">S00110</div>
+              <span class="od-btn pri">Controlado</span>
+            </div>
+          </div>
+        </div></div>
+      </div>
+      <p class="nota solo-movil" style="margin-top:.6rem">La pantalla de Odoo se desplaza hacia el costado.</p>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos de ejemplo.</p>
+    </div>
+    <div class="marco">
+      <div class="hacer">
+        <h3>En esta etapa</h3>
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'gerente']"/><t t-set="mini" t-value="True"/></t>
+        <ul>
+          <li>Cada tarjeta es un viaje del día: repartidor, viaje y <b>pedidos y bultos con doble
+              control</b> (el tilde del repartidor y el de administración), y cuántos quedan en el depósito.</li>
+          <li>Un viaje con pedidos sin los dos tildes se ve <b>en ámbar</b>.</li>
+          <li><b>«Controlado»</b> se puede marcar desde acá o desde «Despacho», con las mismas reglas: deja
+              anotado quién controló, a qué hora, cuántos pedidos y bultos salieron y qué quedó en el depósito
+              con su motivo. Cada viaje tiene una nota para aclaraciones.</li>
+          <li><b>Administración y gerencia también pueden ser repartidores</b> de una ruta, incluso de un
+              solo pedido, y usar la misma app en su celular.</li>
+          <li>Los pedidos que el cliente pasa a retirar no entran a la ruta: se entregan en el
+              depósito (ver <a href="#deposito">Retiro en el depósito</a>).</li>
+        </ul>
+      </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 3 · Visitas -->
+  <section id="visitas" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 3 · En la calle</p>
+      <h2>Las visitas del día</h2>
+      <p class="bajada">La lista muestra todos los clientes de la ruta, con el estado de cada
+         visita y el saldo que tienen que pagar.</p>
+      <div class="etapa">
+        <div class="cols">
+          <div class="telefono" data-vista="Visitas del día" data-num="3" data-ir="visitas">
+            <div class="sb"><span>11:20</span><span>Sin servicio · 71%</span></div>
+            <div class="cel">
+              <div class="head"><div class="row"><h1>Visitas</h1><div class="sub">2 de 5 hechas</div></div>
+                <div class="bar"><span style="width:40%"></span></div>
+                <div class="sub small">Orden sugerido. Tocá el cliente que vas a visitar.</div></div>
+              <div class="banner warn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.8a15 15 0 0 1 20 0"></path><path d="M5 12.5a10 10 0 0 1 14 0"></path><path d="M8.5 16.4a5 5 0 0 1 7 0"></path><path d="M3 3l18 18"></path></svg>Sin señal · 2 visitas guardadas en el celular</div>
+              <div class="body">
+                <div class="visit done"><div class="split"><span class="t">1 · Almacén de ejemplo</span>
+                  <span class="pill paid">COBRADO</span></div><div class="d">Efectivo $ 45.000</div></div>
+                <div class="visit done"><div class="split"><span class="t">2 · Kiosco de ejemplo</span>
+                  <span class="pill paid">COBRADO</span></div><div class="d">Transferencia $ 18.600 · comprobante pendiente</div></div>
+                <div class="visit next"><div class="split"><span class="t">3 · Despensa de ejemplo</span>
+                  <span class="pill pending">SUGERIDA</span></div>
+                  <div class="d">Calle de ejemplo 300 · 2 bultos · Recibe lunes a viernes, 8:00 a 13:00</div>
+                  <div class="money-row"><span>Saldo total</span><b>$ 62.300</b></div></div>
+                <div class="visit"><div class="split"><span class="t">4 · Autoservicio de ejemplo</span>
+                  <span class="pill pending">PENDIENTE</span></div>
+                  <div class="d">Calle de ejemplo 400 · 4 bultos · Saldo $&#160;43.500</div>
+                  <div style="display:flex;flex-direction:column;gap:1px;font-size:13px;color:var(--amber-text);background:var(--amber-bg);border-radius:8px;padding:6px 10px;margin-top:6px"><b>Pedido sin cobrar</b><span>Faltan $ 12.000 · Factura 0001-00001234 · entregado ayer</span></div></div>
+                <div class="visit"><div class="split"><span class="t">5 · Maxikiosco de ejemplo</span>
+                  <span class="pill pending">PENDIENTE</span></div>
+                  <div class="d">Calle de ejemplo 500 · 3 bultos · Saldo $&#160;27.800</div></div>
+              </div>
+              <div class="foot"><div class="grid2"><span class="btn teal">Cargar gasto</span>
+                <span class="btn outline">Cerrar la ruta</span></div></div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li><b>El orden es una sugerencia.</b> El repartidor elige a quién visitar tocando cualquier cliente.</li>
+              <li>La visita sugerida aparece remarcada, con el saldo total y los horarios en que recibe.</li>
+              <li><b>Cada visita termina con un estado:</b> cobrado, no pagó o no se entregó.</li>
+              <li><b>Lo que el cliente todavía debe al repartidor</b> aparece debajo de su visita: el tipo (transferencia sin comprobante o pedido sin cobrar), cuánto falta, la factura y cuándo se entregó. Así sabe qué reclamar antes de descargar.</li>
+              <li>El saldo incluye el pedido de hoy <b>y la deuda anterior</b>, así el repartidor también cobra lo que el cliente debía.</li>
+              <li>Al pie, <b>«Cargar gasto»</b> registra un gasto del día (ver <a href="#gastos">Gastos del repartidor</a>) y <b>«Cerrar la ruta»</b> lleva al cierre.</li>
+              <li>Una parada de encomienda figura como <b>ENCOMIENDA</b>, con destino y quién paga el envío (ver <a href="#encomiendas">Encomiendas</a>).</li>
+            </ul>
+          </div>
+        </div>
+        <div class="hacer ojo">
+            <h3>Sin señal</h3>
+            <ul>
+              <li>Con el aviso amarillo <b>«Sin señal · 2 visitas guardadas en el celular»</b>, lo marcado queda guardado en el teléfono. Los gastos cargados se cuentan aparte («1 gasto guardado»).</li>
+              <li>Se envía solo cuando vuelve la señal, sin que el repartidor haga nada.</li>
+              <li>Si el envío se repite, el cobro no se duplica.</li>
+              <li>Los cobros guardados quedan en el celular hasta que se envían. <b>Borrar los datos de Chrome antes del envío los pierde.</b></li>
+            </ul>
+          </div>
+      </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 4 · Una visita -->
+  <section id="visita" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 4 · En la puerta del cliente</p>
+      <h2>Una visita</h2>
+      <p class="bajada">Es la pantalla más importante. Se completa de arriba hacia abajo:
+         entrega, devoluciones, código de recibido y cobro.</p>
+
+      <div class="etapa">
+        <h3>La entrega y las devoluciones</h3>
+        <div class="cols">
+          <div class="telefono" data-vista="Una visita" data-num="4" data-ir="visita">
+            <div class="sb"><span>11:32</span><span>Sin servicio · 70%</span></div>
+            <div class="cel">
+              <div class="head"><span class="back">‹ Visitas</span><h1>Despensa de ejemplo</h1>
+                <div class="sub">Calle de ejemplo 300 · S00103 · 2 bultos</div></div>
+              <div class="banner warn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.8a15 15 0 0 1 20 0"></path><path d="M5 12.5a10 10 0 0 1 14 0"></path><path d="M8.5 16.4a5 5 0 0 1 7 0"></path><path d="M3 3l18 18"></path></svg>Sin señal · 2 visitas guardadas en el celular</div>
+              <div class="place"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a6b5c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"></path><circle cx="12" cy="9" r="2.5"></circle></svg>
+                <span class="txt"><b>Ubicación y horarios</b><span>Recibe lunes a viernes, 8:00 a 13:00 y 17:00 a 20:00 · Portón verde</span></span>
+                <span class="chev">›</span></div>
+              <div class="body">
+                <div class="label">Entrega</div>
+                <div class="card">
+                  <div class="split"><span style="font-size:22px;font-weight:800">2 bultos</span>
+                    <span class="small muted">Controlá con el cliente</span></div>
+                  <div class="lines">
+                    <div><b>12</b><span>Galletitas surtidas 300 g</span></div>
+                    <div><b>6</b><span>Yerba mate 1 kg</span></div>
+                    <div><b>6</b><span>Aceite de girasol 900 cc</span></div>
+                    <div><b>10</b><span>Azúcar 1 kg</span></div>
+                  </div>
+                  <span class="link">Ver los 6 productos</span>
+                  <div class="sep"><div class="q">¿Devolvió algo? <small>Obligatorio</small></div>
+                    <div class="grid2"><span class="opt">No, recibió todo</span><span class="opt on">Sí, devolvió</span></div>
+                    <div class="ret"><div class="split"><span><b>1</b> · Aceite de girasol 900 cc</span><b>− $ 4.800</b></div>
+                      <div class="split small muted"><span>Motivo: Envase golpeado</span><span class="link red">Quitar</span></div></div>
+                    <span class="link">+ Otro producto devuelto</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor', 'cliente']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li><b>El repartidor controla con el cliente</b> los bultos y el detalle de productos durante la descarga.</li>
+              <li><b>La pregunta «¿Devolvió algo?» es obligatoria</b>: «No, recibió todo» o «Sí, devolvió».</li>
+              <li>Con «Sí», se elige el <b>producto</b> de la lista del pedido, la <b>cantidad</b> y el <b>motivo</b> (envase golpeado, vencido, no lo pidió…). Puede haber varios.</li>
+              <li>El saldo se recalcula en el celular, sin señal, y el efectivo esperado ya descuenta lo devuelto.</li>
+              <li><b>Lo declarado como devuelto vuelve en la camioneta</b> y se controla en la rendición. Apenas la visita llega al servidor, la cuenta del cliente ya muestra la devolución (ver <a href="#devoluciones">Devoluciones</a>).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="etapa">
+        <h3>El código de recibido</h3>
+        <div class="cols">
+          <div class="telefono">
+            <div class="sb"><span>11:34</span><span>Sin servicio · 70%</span></div>
+            <div class="cel">
+              <div class="body">
+                <div class="card strong">
+                  <div class="field">Código de recibido<span class="inp code">4821</span></div>
+                  <div class="okline"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg>Código correcto · Recibido acreditado</div>
+                  <div class="small muted">Obligatorio. Se habilita después de responder si devolvió
+                    algo, y acredita lo recibido menos lo devuelto. El cliente lo recibió por WhatsApp
+                    cuando se armó el pedido. Se valida sin señal.</div>
+                  <span class="opt amberopt">El cliente no tiene el código · Entregar igual</span>
+                  <div class="small amber">Queda como "Entregado sin código": ante un reclamo por
+                    faltantes no hay constancia de recibido.</div>
+                </div>
+                <div class="card" style="gap:6px">
+                  <div class="money-row"><span>Pedido de hoy</span><span>$ 52.300</span></div>
+                  <div class="money-row"><span>Devolución</span><span>− $ 4.800</span></div>
+                  <div class="money-row"><span>Deuda anterior</span><span>$ 10.000</span></div>
+                  <div class="money-row total"><span>Saldo total</span><span>$ 57.500</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'repartidor']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li><b>El cliente dicta el código de 4 números</b> que recibió por WhatsApp cuando se armó su pedido. Con el código acredita que recibió lo entregado, menos lo devuelto.</li>
+              <li>La app lo valida al instante, sin señal. La ruta descargada trae una huella del código, nunca el código.</li>
+              <li>Si el cliente no lo tiene, el repartidor entrega con <b>«Entregar igual»</b>. Queda como «Entregado sin código» y, ante un reclamo por faltantes, <b>no hay constancia de recibido</b>. El cierre de la ruta muestra cuántas entregas quedaron así.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="etapa">
+        <h3>El cobro y el WhatsApp</h3>
+        <div class="cols">
+          <div class="telefono">
+            <div class="sb"><span>11:35</span><span>Sin servicio · 69%</span></div>
+            <div class="cel">
+              <div class="body">
+                <div class="label">¿Cómo pagó?</div>
+                <div class="card" style="gap:12px">
+                  <div class="field">Efectivo<span class="inp money">$ 30.000</span></div>
+                  <div class="stack" style="color:inherit"><div style="font-size:17px;font-weight:700">¿Paga con transferencia?</div>
+                    <div class="grid2"><span class="opt">No</span><span class="opt teal on">Sí</span></div></div>
+                  <div class="field">Importe transferido<span class="inp money">$ 32.300</span></div>
+                  <div class="card" style="gap:10px;border:2px solid var(--green)"><div class="q">Comprobante</div>
+                    <div class="small">Pedile que te mande el comprobante a tu WhatsApp y reenvialo a la empresa.</div>
+                    <span class="opt second">Pedirle el comprobante por WhatsApp</span>
+                    <span class="btn teal">Reenviar a la empresa</span>
+                    <div class="small muted">Abre el WhatsApp de la empresa con el texto «Comprobante del pedido S00104».</div>
+                    <div class="grid2"><span class="opt">Ya lo reenvié</span><span class="opt on">Todavía no me lo mandó</span></div>
+                    <div style="display:flex;flex-direction:column;gap:2px;background:var(--amber-bg);color:var(--amber-text);border:2px solid var(--amber-border);border-radius:10px;padding:10px 12px;font-size:14px"><b>Pendiente de comprobante · a tu cargo</b>
+                      <span>Queda pendiente a tu nombre hasta que el comprobante llegue a la empresa.</span></div></div>
+                  <div class="stack">Comentario (opcional)<span class="inp ph">Ej.: dice que transfirió desde la cuenta del hijo</span></div>
+                  <div class="note">El comprobante que no llegue a la empresa para la rendición de mañana se carga a tu cuenta,
+                    salvo que administración verifique el pago en Mercado Pago.</div>
+                </div>
+                <div class="card"><div class="stack"><span>WhatsApp del cliente, según el contacto</span>
+                  <span class="phone">299 000-0000</span></div>
+                  <div class="grid2"><span class="opt primary">Confirmar</span><span class="opt second">Corregir</span></div></div>
+              </div>
+              <div class="foot"><span class="btn">Guardar visita</span></div>
+              <div class="body"><div class="label">¿Algo salió distinto?</div>
+                <div class="grid2" style="gap:8px"><span class="opt alt-opt">No pagó nada</span>
+                  <span class="opt alt-opt">No se pudo entregar</span></div></div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'repartidor']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li><b>Efectivo:</b> el monto recibido.</li>
+              <li><b>«¿Paga con transferencia?»</b> «No» o «Sí», con el <b>importe transferido</b>. El repartidor exige el total: si la transferencia no cubre el pedido de hoy, la diferencia queda a su cargo.</li>
+              <li><b>El comprobante se reclama en el acto.</b> El cliente lo manda al WhatsApp del repartidor y él lo reenvía a la empresa con <b>«Reenviar a la empresa»</b>, que abre el chat con «Comprobante del pedido …». Responde <b>«Ya lo reenvié»</b> o <b>«Todavía no me lo mandó»</b>.</li>
+              <li>Cada transferencia queda como <b>comprobante pendiente a nombre del repartidor</b> hasta que llega a la empresa. Se resuelve sola cuando llega por WhatsApp, lo trae el reporte de Mercado Pago o lo marcan el vendedor o administración.</li>
+              <li><b>El mensaje de reclamo</b> nombra la factura, lo que falta y cuándo se entregó: «Hola, te entregué el pedido de la factura 0001-00001234 ayer y todavía no tengo el comprobante de la transferencia de $ 18.600. ¿Me lo podés mandar por acá?». Si el cliente tiene varios pendientes, van todos en un solo mensaje, del más viejo al más nuevo, con el total.</li>
+              <li>Un cliente puede pagar una parte en efectivo y otra por transferencia, en la misma visita.</li>
+              <li><b>«No pagó nada»</b> y <b>«No se pudo entregar»</b> están al final, debajo de «Guardar visita», para no tocarlos sin querer.</li>
+              <li><b>«No pagó nada»</b> pregunta antes de guardar. El pedido de hoy queda como <b>pedido sin cobrar a nombre del repartidor</b>, igual que un comprobante pendiente.</li>
+              <li><b>«No se pudo entregar»</b> pide el motivo, y los bultos vuelven al depósito. Si ya se había cargado algo (código, devoluciones, efectivo, transferencia), avisa qué se va a borrar antes de guardar; «Volver: sí se entregó» lo deja todo como estaba.</li>
+              <li><b>El WhatsApp del cliente</b> se confirma, se corrige o se carga si falta. Sirve para reconocer sus comprobantes y reclamarle lo que falta.</li>
+              <li>Con <b>«Guardar visita»</b> todo queda en el celular y se envía al servidor.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 4b · Encomiendas al interior -->
+  <section id="encomiendas" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'vendedor', 'administrador', 'repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 4b · En la terminal de ómnibus</p>
+      <h2>Encomiendas al interior</h2>
+      <p class="bajada">Los pedidos de clientes del interior, en general de Zapala y Cutral Có, entran
+         como cualquier pedido. El repartidor los lleva a la terminal de ómnibus de Neuquén y los
+         despacha con el transportista. A Zapala, en general, viajan con El Petróleo S.A.</p>
+
+      <div class="etapa">
+        <h3>El cliente lo pide en /pedido</h3>
+        <div class="cols">
+          <div>
+          <div class="vista"><span class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que ve el cliente</span></div>
+          <div class="telefono" style="margin-top:.6rem" data-vista="Soy del interior" data-num="4b" data-ir="encomiendas">
+            <div class="sb claro"><span>18:40</span><span>4G · 62%</span></div>
+            <div class="clip">
+              <div class="ph"><h2>Tus datos</h2></div>
+              <div class="pcl">
+                <label class="campo">Nombre del comercio<span class="dato">Almacén del interior de ejemplo</span></label>
+                <label class="campo">Teléfono<span class="dato">299 000-0000</span></label>
+                <div class="interior"><span class="box">✓</span><span><b>Soy del interior:</b> necesito que me
+                  lo envíen por encomienda a la terminal de mi localidad</span></div>
+                <div class="caja-enc">
+                  <p class="ayuda">Son los datos que pide la empresa de transporte para la guía.</p>
+                  <label class="campo" style="margin-top:.6rem">Nombre completo de quien retira<span class="dato">Nombre de ejemplo</span></label>
+                  <label class="campo">DNI<span class="dato">12345678</span></label>
+                  <label class="campo">Localidad (terminal donde retirás)<span class="dato">Zapala</span></label>
+                  <p class="ayuda">Sale desde la terminal de ómnibus de Neuquén. Te avisamos por
+                    WhatsApp el número de guía cuando lo despachamos.</p>
+                </div>
+              </div>
+              <div class="barra"><span class="btn s">Volver al pedido</span><span class="btn" style="flex:1">Confirmar pedido</span></div>
+            </div>
+          </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li>En «Tus datos», la casilla <b>«Soy del interior»</b> pide el nombre completo de quien
+                  retira, el DNI (7 u 8 números) y la localidad, con las localidades atendidas como
+                  sugerencia.</li>
+              <li>El pedido queda como encomienda aunque la zona del cliente diga otra cosa.</li>
+              <li>Para los clientes de las zonas Zapala y Cutral Có, el pedido ya sale como encomienda
+                  aunque no marquen la casilla.</li>
+              <li><b>Catriel no se reparte ni sale por encomienda:</b> sus clientes retiran en el depósito.
+                  El pedido queda en «Lo voy a retirar», aunque el cliente escriba Catriel en «Soy del
+                  interior», y se entrega con «Entrega en depósito».</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="etapa">
+        <h3>Quién paga el envío</h3>
+        <div class="hacer" style="margin-top:.6rem">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'gerente']"/><t t-set="mini" t-value="True"/></t>
+          <ul>
+            <li><b>Paga Distrineuquén</b>, salvo dos casos que paga el cliente en destino: los pedidos
+                con lista de distribuidoras (Distribuidoras y las listas de revendedores) y los pedidos de menos de
+                $ 70.000.</li>
+            <li>El pedido completa solo <b>Encomienda</b>, <b>Transportista</b> y <b>Paga el envío</b>
+                según la zona del cliente. Administración y gerencia cambian cualquiera de los tres, o
+                tocan <b>«Cambiar quién paga el envío»</b>; lo elegido a mano queda para ese pedido.</li>
+            <li>El remito impreso lleva un recuadro con la terminal de destino, el transportista, quién
+                paga, el destinatario, quién retira y los bultos. Viaja adentro del bulto. El armador ve
+                el mismo aviso en su pantalla.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="etapa">
+        <h3>El repartidor despacha en la terminal</h3>
+        <div class="cols">
+          <div>
+          <div class="vista"><span class="rol rol-repartidor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-repartidor"/></svg>Pantalla del repartidor</span></div>
+          <div class="telefono" style="margin-top:.6rem">
+            <div class="sb"><span>10:15</span><span>4G · 88%</span></div>
+            <div class="cel">
+              <div class="head"><span class="back">‹ Visitas</span><h1>Almacén del interior de ejemplo</h1>
+                <div class="sub">R-00123 · 3 bultos</div></div>
+              <div class="parcel-hero"><div class="k">Encomienda · Terminal de ómnibus</div>
+                <div class="dest">Destino: terminal de <b>Zapala</b></div>
+                <div class="carrier">Transportista: <b>El Petróleo S.A.</b></div>
+                <div class="payer-big distri">Envío pago por Distrineuquén</div>
+                <div class="recipient"><span>Retira en destino</span><b>Nombre de ejemplo</b><b>DNI 12345678</b></div>
+              </div>
+              <div class="body">
+                <div class="note">El cliente no está: no se pide el código de recibido. Dictale al
+                  transportista el destino, quién retira y quién paga el envío.</div>
+                <div class="label">Despachar encomienda</div>
+                <div class="card" style="gap:12px">
+                  <div class="q">Foto de la guía o ticket del transportista <small>Obligatoria</small></div>
+                  <div class="card warn photo-warn">La foto tiene que mostrar el número de guía y el
+                    importe, legibles. El ticket en papel se entrega en la rendición.</div>
+                  <div class="photo"><span class="img">Guía</span><span class="opt second">Sacar otra foto</span></div>
+                  <div class="stack">Número de guía<span class="inp">000123</span></div>
+                  <div class="field">Costo del envío<span class="inp money">$ 6.200</span></div>
+                  <div class="small muted">Pagado con el efectivo del día: se descuenta del efectivo a
+                    rendir como gasto «Encomienda».</div>
+                  <div class="field">Bultos despachados<span class="inp bultos">3</span></div>
+                </div>
+                <span class="opt big grey">No se pudo despachar</span>
+              </div>
+              <div class="foot"><span class="btn">Despachar encomienda</span>
+                <div class="hint">La ruta no se cierra sin la foto de la guía.</div></div>
+            </div>
+          </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li>En la lista de visitas la parada figura como <b>ENCOMIENDA</b>, con el destino y quién
+                  paga.</li>
+              <li>La pantalla muestra en grande <b>«Envío pago por Distrineuquén»</b> o <b>«Envío a pagar
+                  por el cliente en destino»</b>, y el nombre y DNI de quien retira, para dictárselos al
+                  transportista.</li>
+              <li><b>«Despachar encomienda»</b> pide la foto de la guía o del ticket, que es obligatoria,
+                  el número de guía, los bultos y, cuando paga Distrineuquén, el costo del envío.</li>
+              <li>Ese costo se convierte solo en un <b>gasto «Encomienda»</b> del efectivo del día, con la
+                  guía como comprobante.</li>
+              <li>No se pide el código de recibido, porque el cliente no está. El cobro del pedido sigue
+                  como cualquier otro, en general por transferencia.</li>
+              <li>La ruta <b>no se cierra</b> mientras una encomienda no tenga la foto de su guía.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="etapa">
+        <h3>El vendedor avisa y el cliente descarga la guía</h3>
+        <div class="cols">
+          <div>
+          <div class="vista"><span class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que ve el cliente</span></div>
+          <div class="telefono" style="margin-top:.6rem" data-vista="Despachado por encomienda" data-num="4b" data-ir="encomiendas">
+            <div class="sb claro"><span>11:02</span><span>4G · 71%</span></div>
+            <div class="clip">
+              <div class="cab"><div class="logo">DN</div>
+                <h1>Tu pedido S00123</h1>
+                <span class="estado">Despachado por encomienda</span></div>
+              <div class="tarjeta encomienda">
+                <p class="enc-t">Despachado por encomienda</p>
+                <p class="enc-d">Transportista: <b>El Petróleo S.A.</b></p>
+                <p class="enc-d">Guía N° <b>000123</b> · 29/09/2026</p>
+                <p class="enc-d"><b>Envío pago</b></p>
+                <p class="enc-d">Lo retirás en la terminal de Zapala con esta guía. Retira: Nombre de
+                  ejemplo · DNI 12345678.</p>
+                <span class="btn">Descargar comprobante de guía</span>
+              </div>
+            </div>
+          </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'cliente', 'sistema']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li>Apenas la guía llega al servidor, <b>el vendedor del pedido recibe una actividad</b> y
+                  administración un mensaje en el pedido, con la foto de la guía.</li>
+              <li>El botón <b>«Avisar encomienda»</b> del pedido abre WhatsApp con el texto listo y la
+                  marca como avisada.</li>
+              <li>La página del pedido muestra <b>«Despachado por encomienda»</b> con transportista, número
+                  de guía, fecha y quién paga. <b>«Descargar comprobante de guía»</b> baja la foto, solo con
+                  el enlace del pedido y solo después del despacho.</li>
+              <li>Antes del despacho, la misma página dice «Sale por encomienda», con la terminal y quién
+                  retira.</li>
+              <li>En <b>Reparto › Encomiendas despachadas</b> quedan la guía, el transportista, la fecha,
+                  quién paga, la foto y si el cliente fue avisado. El número se lee de la foto: si no
+                  coincide con el cargado, la encomienda queda marcada <b>«Revisar guía»</b>.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="vista"><span class="rol rol-vendedor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-vendedor"/></svg>El aviso que manda el vendedor</span></div>
+        <div class="wachat" style="margin-top:.6rem">
+          <div class="top"><span class="avatar">AI</span>
+            <span><b>Almacén del interior de ejemplo</b><small>Desde el WhatsApp del vendedor</small></span></div>
+          <div class="msgs">
+            <div class="m out"><div class="guia">Foto de la guía</div>Hola Almacén del interior de ejemplo, tu
+              pedido R-00123 salió hoy por El Petróleo S.A. Guía N° 000123. Lo retirás en la terminal de
+              Zapala con esta guía. Envío pago. Retira: Nombre de ejemplo · DNI 12345678.<span class="h">11:00 ✓✓</span></div>
+          </div>
+        </div>
+        <p class="nota" style="margin-top:.6rem">Ilustración con datos de ejemplo.</p>
+      </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 5 · Ubicación y horarios -->
+  <section id="cliente" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 5 · Datos del cliente</p>
+      <h2>Ubicación y horarios</h2>
+      <p class="bajada">Se abre desde la visita, en <b>«Ubicación y horarios»</b>. Lo que carga un
+         repartidor lo ven todos los demás la próxima vez que van.</p>
+      <div class="etapa">
+        <div class="cols">
+          <div class="telefono" data-vista="Ubicación y horarios" data-num="5" data-ir="cliente">
+            <div class="sb"><span>11:37</span><span>Sin servicio · 69%</span></div>
+            <div class="cel">
+              <div class="head"><span class="back">‹ Visita</span><h1>Ubicación y horarios</h1>
+                <div class="sub">Despensa de ejemplo · Calle de ejemplo 300</div></div>
+              <div class="body">
+                <div class="label">Ubicación exacta</div>
+                <div class="card" style="padding:0;overflow:hidden;gap:0">
+                  <div class="map"><b><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0a6b5c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"></path><circle cx="12" cy="9" r="2.5"></circle></svg></b>
+                    <span>Ubicación de ejemplo</span><span>Abrir en el mapa</span></div>
+                  <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+                    <div class="small muted">Guardada por Repartidor de ejemplo el 22/09 · Estás a 30 m</div>
+                    <div class="grid2"><span class="opt primary">Confirmar ubicación</span>
+                      <span class="opt second">Usar dónde estoy</span></div></div>
+                </div>
+                <div class="label">Horarios en que recibe</div>
+                <div class="card" style="gap:12px">
+                  <div class="grid7"><span class="opt day on">Lu</span><span class="opt day on">Ma</span>
+                    <span class="opt day on">Mi</span><span class="opt day on">Ju</span><span class="opt day on">Vi</span>
+                    <span class="opt day">Sá</span><span class="opt day">Do</span></div>
+                  <div class="hours"><span class="l">Mañana</span><span class="inp time">08:00</span><span>a</span>
+                    <span class="inp time">13:00</span></div>
+                  <div class="hours"><span class="l">Tarde</span><span class="inp time">17:00</span><span>a</span>
+                    <span class="inp time">20:00</span></div>
+                  <span class="link">+ Agregar horario</span>
+                </div>
+                <div class="stack"><span class="label" style="padding:0">Comentario para los repartidores</span>
+                  <span class="inp" style="min-height:80px">Portón verde. Descargar por el costado.
+                    Atiende el encargado.</span></div>
+              </div>
+              <div class="foot"><span class="btn">Guardar datos del cliente</span>
+                <div class="hint">Se guarda en el celular y se envía al sincronizar. Lo ven todos los repartidores.</div></div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li><b>La ubicación guardada se confirma</b>, o se reemplaza por la del GPS con «Usar dónde estoy», en la puerta del comercio.</li>
+              <li>Se cargan los <b>días y horarios en que recibe</b>, con franjas de mañana y de tarde.</li>
+              <li>El <b>comentario para los repartidores</b> guarda el portón, por dónde descargar y quién atiende.</li>
+              <li>Se guarda en el celular, se envía al sincronizar y lo ven todos los repartidores.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 5b · Gastos del repartidor -->
+  <section id="gastos" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['repartidor', 'administrador', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 5b · Durante el día</p>
+      <h2>Gastos del repartidor</h2>
+      <p class="bajada">La nafta, un repuesto o el estacionamiento se pagan con el efectivo del día.
+         El repartidor los carga en la app en el momento, con la foto del comprobante, y el efectivo
+         a rendir ya los descuenta.</p>
+      <div class="etapa">
+        <div class="cols">
+          <div class="telefono" data-vista="Cargar gasto" data-num="5b" data-ir="gastos">
+            <div class="sb"><span>13:05</span><span>Sin servicio · 58%</span></div>
+            <div class="cel">
+              <div class="head"><span class="back">‹ Visitas</span><h1>Cargar gasto</h1>
+                <div class="sub">Se paga con el efectivo del día</div></div>
+              <div class="banner warn big-warn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"></path><circle cx="12" cy="13" r="4"></circle></svg><span>La foto tiene que mostrar todos los datos
+                del comprobante, legibles. El comprobante en papel se entrega en la rendición.</span></div>
+              <div class="body">
+                <div class="card" style="gap:12px"><div class="q">Tipo de gasto</div>
+                  <div class="grid3 kinds"><span class="opt on">Nafta</span><span class="opt">Repuestos</span>
+                    <span class="opt">Estacionamiento</span><span class="opt">Encomienda</span><span class="opt">Otro</span></div>
+                  <div class="field">Importe<span class="inp money">$ 25.000</span></div>
+                  <div class="stack">Comentario (opcional)<span class="inp">YPF de Ruta 22</span></div>
+                  <div class="q">Foto del comprobante <small>Obligatoria</small></div>
+                  <div class="photo"><span class="img">Ticket</span><span class="opt second">Sacar otra foto</span></div>
+                  <span class="btn">Guardar gasto</span></div>
+                <div class="label">Gastos de la ruta</div>
+                <div class="card exp"><div class="split"><span class="thumb"></span>
+                  <span class="t"><b>Estacionamiento</b><span>Centro</span><span class="small muted">Guardado en el celular</span></span>
+                  <b>− $ 3.000</b></div><span class="link red">Anular</span></div>
+                <div class="card cashbox"><div class="money-row"><span>Efectivo cobrado</span><span>$ 146.500</span></div>
+                  <div class="money-row"><span>Gastos</span><span>− $ 3.000</span></div>
+                  <div class="money-row total"><span>Efectivo a rendir</span><span>$ 143.500</span></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor', 'sistema']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li><b>«Cargar gasto»</b> está al pie de la lista de visitas y en el cierre de la ruta.</li>
+              <li>Tipo de gasto (Nafta, Repuestos, Estacionamiento, Encomienda u Otro), importe,
+                  comentario opcional y <b>la foto del comprobante, que es obligatoria</b>.</li>
+              <li><b>Funciona sin señal.</b> La foto se achica en el celular y viaja con el gasto cuando
+                  vuelve la señal. Un reintento no lo duplica. «Anular» saca un gasto cargado por error.</li>
+              <li>El servidor <b>lee el importe de la foto</b>, igual que los comprobantes de WhatsApp. Si
+                  no coincide con el cargado, el gasto queda marcado «Revisar importe».</li>
+              <li>La tarjeta de abajo muestra el <b>efectivo a rendir</b>: efectivo cobrado menos gastos.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="hacer ojo">
+        <h3>En la rendición y en la contabilidad</h3>
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema']"/><t t-set="mini" t-value="True"/></t>
+        <ul>
+          <li>Cada gasto aparece con su foto. Administración recibe el papel y tilda <b>«Comprobante en
+              papel recibido»</b>, o toca <b>«Rechazar»</b>.</li>
+          <li>Con el papel recibido, al cerrar la rendición el gasto queda <b>Aprobado</b> y se registra en
+              el diario Efectivo, con la foto adjunta, en la cuenta de su tipo (por ejemplo, Movilidad y
+              viáticos para la nafta).</li>
+          <li>Sin papel, o rechazado, se abre un caso <b>«Gasto sin comprobante o rechazado»</b> contra la
+              ruta por su importe, como un faltante de caja.</li>
+          <li><b>Reparto › Gastos del repartidor</b> junta todos los gastos, con los filtros «Sin
+              controlar», «Revisar importe», «Aprobados» y «Rechazados o sin papel».</li>
+          <li>Las cuentas contables de cada tipo se revisan con el contador.</li>
+        </ul>
+      </div>
+      <p class="nota" style="margin-top:.8rem">Ilustración con datos de ejemplo.</p>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 6 · Cierre -->
+  <section id="cierre" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 6 · Al terminar el recorrido</p>
+      <h2>Cerrar la ruta</h2>
+      <p class="bajada">Con todas las visitas marcadas, el repartidor toca <b>«Cerrar la ruta»</b>
+         al pie de la lista. La app muestra el resumen del día y el efectivo que tiene que rendir.</p>
+      <div class="etapa">
+        <div class="cols">
+          <div class="telefono" data-vista="Cerrar la ruta" data-num="6" data-ir="cierre">
+            <div class="sb"><span>16:10</span><span>4G · 41%</span></div>
+            <div class="cel">
+              <div class="head"><span class="back">‹ Visitas</span><h1>Cerrar la ruta</h1>
+                <div class="sub">5 de 5 visitas con estado</div></div>
+              <div class="body">
+                <div class="card" style="gap:2px">
+                  <div class="sum"><span>Pagaron (efectivo o transferencia)</span><b>3</b></div>
+                  <div class="sum"><span>No pagaron</span><b>0</b></div>
+                  <div class="sum"><span>No se entregó</span><b>1</b></div>
+                  <div class="sum amber"><span>Entregados sin código de recibido</span><b>1</b></div>
+                </div>
+                <div class="card warn" style="gap:8px"><div class="q">No se entregó · Maxikiosco de ejemplo</div>
+                  <div class="small">S00105 · 3 bultos vuelven al depósito</div>
+                  <div class="stack" style="color:var(--text)">¿Por qué no se entregó? (obligatorio)
+                    <span class="inp">Estaba cerrado</span></div></div>
+                <div class="card"><div class="muted">Efectivo para rendir en el depósito</div>
+                  <div class="cash">$ 118.500</div>
+                  <div class="money-row"><span>Efectivo cobrado</span><span>$ 146.500</span></div>
+                  <div class="money-row"><span>Gastos</span><span>− $ 28.000</span></div>
+                  <div class="small">Efectivo cobrado − gastos = efectivo a rendir. Los comprobantes en papel de los gastos se entregan con el efectivo.</div>
+                  <span class="opt second">Cargar gasto</span>
+                  <div class="small muted">Al volver hoy o mañana a primera hora</div>
+                  </div>
+                <div class="label">A tu cargo · transferencias sin comprobante y pedidos sin cobrar</div>
+                <div class="card" style="gap:6px"><div class="split"><b>Kiosco de ejemplo</b><b>$ 18.600</b></div>
+                  <div class="small"><b>Transferencia sin comprobante</b></div>
+                  <div class="small">Faltan $ 18.600 · Factura 0001-00001240 · entregado hace un rato</div>
+                  <span class="pill" style="align-self:flex-start;color:var(--amber-text);background:var(--amber-bg)">Pendiente</span>
+                  <span class="opt second">Reclamar por WhatsApp</span></div>
+                <div class="card" style="gap:6px;border:2px solid var(--red-border);background:var(--red-bg)"><div class="split"><b>Autoservicio de ejemplo</b><b>$ 12.000</b></div>
+                  <div class="small"><b>Pedido sin cobrar</b></div>
+                  <div class="small">Faltan $ 12.000 · Factura 0001-00001234 · entregado el lunes 28/09</div>
+                  <span class="pill not_paid" style="align-self:flex-start">Vencida desde 29/09</span>
+                  <span class="opt second">Reclamar por WhatsApp</span></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;background:var(--amber-bg);color:var(--amber-text);border:2px solid var(--amber-border);border-radius:12px;padding:12px 14px;font-weight:700"><span>Pendiente a tu cargo · 2</span><b>$ 30.600</b></div>
+                <div class="note">Las pendientes de hoy vencen en la rendición de mañana. Si para entonces no llegó el comprobante o el pago, el importe se carga a tu cuenta.</div>
+              </div>
+              <div class="foot"><span class="btn">Cerrar la ruta</span>
+                <div class="hint">No se puede cerrar con visitas sin estado, sin el motivo de lo no entregado, sin la foto de la guía de una encomienda ni con cambios sin enviar.</div></div>
+            </div>
+          </div>
+          <div class="hacer">
+            <h3>En esta etapa</h3>
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t>
+            <ul>
+              <li><b>La ruta cierra solo con todas las visitas con estado.</b></li>
+              <li><b>La app pide el motivo de cada pedido no entregado.</b> El administrador lo ve en la rendición para reprogramar.</li>
+              <li><b>No cierra con cosas guardadas en el celular sin enviar.</b> Al cerrar, la app envía todo, así que hace falta señal.</li>
+              <li>El <b>efectivo para rendir</b> es la suma de los cobros en efectivo, ya sin lo devuelto.</li>
+              <li><b>«A tu cargo»</b> lista lo que está a nombre del repartidor: transferencias sin comprobante y pedidos sin cobrar, de esta ruta y de días anteriores, con cuánto falta, la factura y cuándo se entregó. «Reclamar por WhatsApp» manda un solo mensaje por cliente con todo lo que debe.</li>
+              <li><b>Las pendientes de hoy vencen en la rendición de mañana.</b> Lo que para entonces no llegó se carga a la cuenta del repartidor (ver <a href="#rendicion">Rendición de caja</a>).</li>
+              <li>Los gastos del día se descuentan: <b>efectivo cobrado − gastos = efectivo a rendir</b>. Desde el cierre también se puede cargar un gasto olvidado.</li>
+              <li>Con una encomienda en la ruta, <b>no cierra sin la foto de su guía</b>.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- 7 · Rendición de caja (pantalla del administrador en Odoo) -->
+  <section id="rendicion" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 7 · En el depósito</p>
+      <h2>Rendición de caja</h2>
+      <p class="bajada">La registra el administrador en Odoo, en <b>Reparto › Rendición de caja</b>.
+         La ruta aparece ahí cuando el repartidor la cierra en el celular. Generalmente se rinde al
+         día siguiente a primera hora; también puede ser el mismo día, cuando el repartidor vuelve.</p>
+    </div>
+    <div class="marco ancho">
+      <div class="pc" data-vista="Rendición de caja" data-num="7" data-ir="rendicion">
+        <div class="pc-barra"><i></i><i></i><i></i><em>distrineuquen.piadevs.com/odoo · Rendición de caja</em></div>
+        <div class="pc-scroll"><div class="od">
+          <div class="od-nav"><b>Reparto</b><span>Rutas de reparto</span><span class="on">Rendición de caja</span><span>Casos</span></div>
+          <div class="od-bc">Rendición de caja / <b>Repartidor de ejemplo · 29/09 · Viaje 1</b></div>
+          <div class="od-header">
+            <span class="od-btn pri">Cerrar rendición</span><span class="od-btn">Reabrir para el repartidor</span>
+            <div class="od-status"><span>Asignada</span><span>En reparto</span><span class="on">Cerrada por el repartidor</span><span>Rendida</span></div>
+          </div>
+          <div class="od-sheet">
+            <h1>Repartidor de ejemplo · 29/09 · Viaje 1</h1>
+            <div class="od-grupos">
+              <div>
+                <div class="od-f"><span>Repartidor</span><span>Repartidor de ejemplo</span></div>
+                <div class="od-f"><span>Fecha</span><span>29/09/2026</span></div>
+                <div class="od-f"><span>Viaje</span><span>Viaje 1</span></div>
+                <div class="od-f"><span>Zonas</span><span><span class="od-tag">Neuquén capital</span></span></div>
+              </div>
+              <div>
+                <div class="od-f"><span>Pedidos</span><span>5</span></div>
+                <div class="od-f"><span>Bultos</span><span>13</span></div>
+                <div class="od-f"><span>Salió a repartir</span><span>29/09/2026 08:40</span></div>
+                <div class="od-f"><span>Cerrada en el celular</span><span>29/09/2026 16:12</span></div>
+              </div>
+            </div>
+            <div class="od-tabs"><span>Visitas</span><span class="on">Rendición</span><span>Casos</span>
+              <span>Comprobantes pendientes</span></div>
+            <div class="od-grupos">
+              <div>
+                <h4>Efectivo</h4>
+                <div class="od-f"><span>Efectivo cobrado</span><span>$ 146.500,00</span></div>
+                <div class="od-f"><span>Gastos</span><span>$ 28.000,00</span></div>
+                <div class="od-f"><span>Efectivo esperado</span><span>$ 118.500,00</span></div>
+                <div class="od-f"><span>Efectivo contado</span><span class="od-in">$ 113.500,00</span></div>
+                <div class="od-f"><span>Diferencia</span><span class="od-neg">-$ 5.000,00</span></div>
+                <div class="od-f"><span>Diario del efectivo</span><span class="od-in">Efectivo</span></div>
+              </div>
+              <div>
+                <h4>Si hay diferencia</h4>
+                <div class="od-cand">Kiosco de ejemplo (No pagó, saldo $ 18.600)</div>
+                <div class="od-f"><span>Explicación del repartidor</span>
+                  <span class="od-in">Puede haber dado mal un vuelto.</span></div>
+                <div style="margin-top:6px"><span class="od-btn">Abrir caso por la diferencia</span></div>
+              </div>
+            </div>
+            <div class="od-sep">Gastos del repartidor</div>
+            <p class="od-muted">Pagados con el efectivo del día. Tildá «Comprobante en papel recibido» al
+              recibir cada papel. Al cerrar la rendición, los gastos con papel se registran en la
+              contabilidad; un gasto rechazado o sin papel abre un caso contra la ruta.</p>
+            <table>
+              <tr><th>Foto</th><th>Tipo</th><th>Comentario</th><th class="n">Importe</th><th>Lectura</th>
+                <th class="n">Importe leído</th><th>Comprobante en papel recibido</th><th>Estado</th><th></th></tr>
+              <tr><td><span class="od-foto"></span></td><td>Nafta</td><td class="w">YPF de Ruta 22</td><td class="n">$ 25.000,00</td>
+                <td><span class="od-badge ok">Coincide con la foto</span></td><td class="n">$ 25.000,00</td>
+                <td><span class="od-tog on"></span></td><td><span class="od-badge">Informado</span></td><td><span class="od-lnk">Rechazar</span></td></tr>
+              <tr><td><span class="od-foto"></span></td><td>Estacionamiento</td><td class="w">Centro</td><td class="n od-rev">$ 3.000,00</td>
+                <td><span class="od-badge warn">Revisar importe</span></td><td class="n">$ 30.000,00</td>
+                <td><span class="od-tog"></span></td><td><span class="od-badge">Informado</span></td><td><span class="od-lnk">Rechazar</span></td></tr>
+              <tr class="tot"><td></td><td></td><td></td><td class="n">$ 28.000,00</td><td></td><td></td><td></td><td></td><td></td></tr>
+            </table>
+            <div class="od-sep">Devoluciones</div>
+            <p class="od-muted">Declaradas por el repartidor en la visita. Controlá que la mercadería
+              volvió. Las dos marcas emiten la nota de crédito: «Recibido en el depósito» devuelve la
+              mercadería al stock y «No volvió» abre un caso contra la ruta.</p>
+            <table>
+              <tr><th>Cliente</th><th>Pedido</th><th>Producto</th><th class="n">Cantidad</th><th>Motivo</th>
+                <th class="n">Importe</th><th>Control</th><th>Nota de crédito</th><th></th></tr>
+              <tr><td>Despensa de ejemplo</td><td>S00103</td><td class="w">Aceite de girasol 900 cc</td><td class="n">1,00</td>
+                <td>Envase golpeado</td><td class="n">$ 4.800,00</td><td><span class="od-badge">Sin controlar</span></td>
+                <td></td><td><span class="od-ico" title="Recibido en el depósito">✓</span><span class="od-ico" title="No volvió">✕</span></td></tr>
+              <tr class="tot"><td></td><td></td><td></td><td></td><td></td><td class="n">$ 4.800,00</td><td></td><td></td><td></td></tr>
+            </table>
+            <div class="od-sep">Pedidos sin entregar</div>
+            <p class="od-muted">Hasta que se reasigna, el pedido figura como pendiente de entrega.</p>
+            <table>
+              <tr><th>Pedido</th><th>Cliente</th><th class="n">Bultos</th><th>Motivo de no entrega</th>
+                <th>Descargado</th><th>Pasar a la ruta</th><th></th><th>Nueva visita</th></tr>
+              <tr><td>S00105</td><td>Maxikiosco de ejemplo</td><td class="n">3</td><td>Estaba cerrado</td>
+                <td><span class="od-chk">✓</span></td><td class="w">Repartidor de ejemplo · 30/09 · Viaje 1</td>
+                <td><span class="od-ico" title="Pasar a la ruta">🚚</span></td><td></td></tr>
+            </table>
+          </div>
+        </div></div>
+      </div>
+      <p class="nota solo-movil" style="margin-top:.6rem">La pantalla de Odoo se desplaza hacia el costado.</p>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos de ejemplo.</p>
+    </div>
+    <div class="marco">
+      <ol class="cadena">
+        <li><span class="quien">Efectivo</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'repartidor']"/><t t-set="mini" t-value="True"/></t><b>El administrador carga el efectivo contado</b> y
+            Odoo lo compara con el esperado, que es la suma de los cobros en efectivo de la app menos
+            los gastos del día. Con
+            una diferencia, Odoo sugiere candidatos: clientes que no pagaron o transfieren después, o
+            cobros cuyo monto la explica. La diferencia queda como <b>caso abierto</b> contra la ruta,
+            con la explicación del repartidor.</li>
+        <li><span class="quien">Gastos</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>Cada gasto aparece con su foto.</b> El administrador
+            recibe el papel y tilda «Comprobante en papel recibido», o lo rechaza. Si la foto dice otro
+            importe, el gasto queda marcado «Revisar importe» (ver <a href="#gastos">Gastos</a>).</li>
+        <li><span class="quien">Devoluciones</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema']"/><t t-set="mini" t-value="True"/></t><b>Llegan declaradas desde la visita. Cada una se
+            marca «Recibido en el depósito» o «No volvió».</b> Al cerrar la rendición la nota de crédito se
+            emite en los dos casos, porque el cliente devolvió la mercadería. Lo recibido vuelve al stock;
+            «No volvió» además abre un caso contra la ruta (ver <a href="#devoluciones">Devoluciones</a>).</li>
+        <li><span class="quien">Pedidos sin entregar</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t>Aparecen con el motivo del repartidor.
+            <b>Se marcan como descargados y se pasan a otra ruta</b> con «Pasar a la ruta». Hasta
+            entonces figuran como pendientes de entrega.</li>
+        <li><span class="quien">Cerrar rendición</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema']"/><t t-set="mini" t-value="True"/></t>Pide el efectivo contado, todas las
+            devoluciones controladas, lo no entregado descargado y el diario del efectivo.
+            <b>Registra un cobro por cliente en la contabilidad y lo aplica a sus facturas, la más
+            vieja primero.</b> Registra también cada gasto con papel en el diario «Efectivo», emite las
+            notas de crédito de las devoluciones y abre un caso por cada gasto sin papel o rechazado.
+            La ruta pasa a «Rendida».</li>
+        <li><span class="quien">Pendientes del repartidor</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema', 'repartidor']"/><t t-set="mini" t-value="True"/></t>Al cerrar la rendición, <b>las transferencias sin comprobante
+            y los pedidos sin cobrar de días anteriores vencen y se cargan a la cuenta del repartidor</b>
+            (Reparto › Cargos al repartidor). Si no hubo rendición, vencen igual desde el segundo día.</li>
+        <li><span class="quien">Pago parcial</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema']"/><t t-set="mini" t-value="True"/></t>Un pedido sin cobrar sigue el saldo de su factura:
+            <b>cada pago que administración registra baja el pendiente y el cargo al saldo que falta</b>,
+            nunca por encima del importe original. El <b>historial del importe</b> guarda la fecha, el
+            importe anterior, el nuevo y el pago que lo causó. Si el pago se anula, el importe vuelve a
+            subir.</li>
+        <li><span class="quien">Cierre automático</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>El cargo se cierra solo cuando aparece el pago o el
+            comprobante:</b> el reporte de Mercado Pago trae la transferencia, administración registra el
+            pago que completa la factura o llega el comprobante por WhatsApp. Un cargo que administración ya
+            decidió a mano no cambia solo.</li>
+      </ol>
+      <div class="dato">
+        <p><b>Cada caso guarda</b> la explicación del repartidor, la investigación, la resolución y
+           si el repartidor repuso la plata. Se consultan en Reparto › Casos.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7b · Devoluciones: informada, rendición -->
+  <section id="devoluciones" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'repartidor', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 7b · De la visita a la rendición</p>
+      <h2>Devoluciones</h2>
+      <p class="bajada">Una devolución cuenta para el cliente desde que el repartidor la informa. La
+         nota de crédito llega en la rendición, cuando se controla la mercadería.</p>
+      <ol class="cadena">
+        <li><span class="quien">En la visita</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t><b>El repartidor declara la devolución</b>:
+            producto del pedido, cantidad y motivo. El saldo se recalcula en el celular, sin señal.</li>
+        <li><span class="quien">Apenas la visita llega al servidor</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema', 'cliente']"/><t t-set="mini" t-value="True"/></t><b>La cuenta del cliente
+            muestra «Devolución informada», marcada «a controlar»</b>, y el saldo ya la descuenta. Lo
+            mismo pasa al guardar una entrega en el depósito.</li>
+        <li><span class="quien">En la rendición</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema']"/><t t-set="mini" t-value="True"/></t><b>«Recibido en el depósito»</b>: la nota
+            de crédito se crea, se emite y se aplica a la factura del pedido, en la misma serie de las
+            facturas. La mercadería vuelve al stock con una devolución de la entrega (DEV-00001, DEV-00002…).</li>
+        <li><span class="quien">En la rendición</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema']"/><t t-set="mini" t-value="True"/></t><b>«No volvió»</b>: el cliente conserva el
+            crédito, porque le entregó la mercadería al repartidor. La nota de crédito también se emite,
+            sin devolución al stock, y queda un caso «Devolución que no volvió» contra la ruta.</li>
+        <li><span class="quien">Después</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><b>La nota de crédito reemplaza a la línea «a
+            controlar»</b> y el importe se cuenta una sola vez. Lo devuelto no se vuelve a facturar. El
+            cliente ve el remito y la línea «Devolución», nunca el número de la nota de crédito.</li>
+      </ol>
+      <div class="vista"><span class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que ve el cliente</span></div>
+      <div class="telefono" style="margin-top:.6rem" data-vista="Cuenta con la devolución" data-num="7b" data-ir="devoluciones">
+        <div class="sb claro"><span>12:10</span><span>4G · 66%</span></div>
+        <div class="clip">
+          <div class="cab"><div class="logo">DN</div><h1>Tu cuenta corriente</h1>
+            <p style="margin:0;font-size:.85rem;color:var(--tenue)">Despensa de ejemplo</p></div>
+          <div class="saldo"><div class="rotulo">Saldo pendiente</div><div class="monto">$ 57.500</div>
+            <div class="nota">Ya descontamos $ 4.800 de devoluciones que informó el repartidor. Se
+              confirman cuando la mercadería vuelve al depósito.</div></div>
+          <div class="mov prov"><div><div class="fecha">29/09/2026 · Devolución informada<span class="ctrl">a controlar</span></div>
+            <div class="det">R-00103 · a controlar</div></div>
+            <div class="der"><span class="haber">- $ 4.800</span><span class="sal">Saldo 57.500</span></div></div>
+          <div class="mov"><div><div class="fecha">29/09/2026 · Remito</div><div class="det">R-00103</div></div>
+            <div class="der"><span class="debe">$ 52.300</span><span class="sal">Saldo 62.300</span></div></div>
+          <div class="mov"><div><div class="fecha">22/09/2026 · Pago</div><div class="det">Recibo de ejemplo</div></div>
+            <div class="der"><span class="haber">- $ 30.000</span><span class="sal">Saldo 10.000</span></div></div>
+        </div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos de ejemplo. Lo más nuevo, arriba.</p>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <!-- Alternativa · Entrega en depósito y venta en mostrador (Odoo) -->
+  <section id="deposito" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Alternativa · En el depósito</p>
+      <h2>Retiro en el depósito y venta en mostrador</h2>
+      <p class="bajada">Cuando el cliente pasa a retirar un pedido armado, administración o gerencia
+         tocan <b>«Entrega en depósito»</b> en el pedido. El asistente hace las mismas preguntas que la
+         app del repartidor y aplica las mismas reglas.</p>
+    </div>
+    <div class="marco ancho">
+      <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla de administración en Odoo</span></div>
+      <div class="pc" data-vista="Entrega en depósito" data-num="8" data-ir="deposito">
+        <div class="pc-barra"><i></i><i></i><i></i><em>distrineuquen.piadevs.com/odoo · Pedido S00107</em></div>
+        <div class="pc-scroll"><div class="od">
+          <div class="od-nav"><b>Ventas</b><span class="on">Pedidos</span><span>A facturar</span><span>Productos</span></div>
+          <div class="od-header"><span class="od-btn">Entrega en depósito</span><span class="od-btn">Venta en mostrador</span></div>
+          <div class="od-dlg">
+            <div class="hd">Entrega en depósito</div>
+            <div class="bd">
+              <div class="od-grupos">
+                <div><h4>Pedido</h4>
+                  <div class="od-f"><span>Pedido</span><span>S00107</span></div>
+                  <div class="od-f"><span>Cliente</span><span>Kiosco de ejemplo</span></div>
+                  <div class="od-f"><span>Bultos</span><span>2</span></div></div>
+                <div><h4>Saldo</h4>
+                  <div class="od-f"><span>Pedido de hoy</span><span>$ 22.600,00</span></div>
+                  <div class="od-f"><span>Deuda anterior</span><span>$ 0,00</span></div>
+                  <div class="od-f"><span>Devolución</span><span>$ 2.400,00</span></div>
+                  <div class="od-f"><span>Saldo total</span><span><b>$ 20.200,00</b></span></div></div>
+              </div>
+              <div class="od-sep">Detalle de productos</div>
+              <table>
+                <tr><th>Producto</th><th class="n">Cantidad</th><th>Unidad</th><th class="n">Importe</th></tr>
+                <tr><td>Galletitas surtidas 300 g</td><td class="n">12,00</td><td>Unidades</td><td class="n">$ 14.400,00</td></tr>
+                <tr><td>Yerba mate 1 kg</td><td class="n">2,00</td><td>Unidades</td><td class="n">$ 8.200,00</td></tr>
+              </table>
+              <div class="od-sep">¿Devolvió algo?</div>
+              <span class="od-radio"><i></i>No, recibió todo</span><span class="od-radio on"><i></i>Sí, devolvió</span>
+              <table style="margin-top:6px">
+                <tr><th>Producto</th><th class="n">Cantidad</th><th>Motivo</th><th class="n">Importe</th></tr>
+                <tr><td>Galletitas surtidas 300 g</td><td class="n">2,00</td><td>Envase golpeado</td><td class="n">$ 2.400,00</td></tr>
+              </table>
+              <div class="od-f" style="margin-top:6px"><span>Recibido en el depósito</span><span><span class="od-chk">✓</span></span></div>
+              <div class="od-sep">Código de recibido</div>
+              <span class="od-radio on"><i></i>Ingresar el código</span><span class="od-radio"><i></i>El cliente no tiene el código · Entregar igual</span>
+              <div class="od-f" style="margin-top:6px"><span>Código</span><span class="od-in">4821</span></div>
+              <div class="od-sep">¿Cómo pagó?</div>
+              <div class="od-grupos">
+                <div><div class="od-f"><span>Efectivo</span><span class="od-in">$ 20.200,00</span></div>
+                  <div class="od-f"><span>¿Paga con transferencia?</span><span><span class="od-radio on"><i></i>No</span><span class="od-radio"><i></i>Sí</span></span></div></div>
+                <div><div class="od-f"><span>Comentario</span><span class="od-in">&#160;</span></div></div>
+              </div>
+              <p class="od-small">El efectivo entra en «Caja depósito» y se aplica a las facturas del
+                cliente, la más vieja primero. Una transferencia queda como comprobante pendiente hasta
+                que el comprobante llega a la empresa: nunca crea un pago.</p>
+            </div>
+            <div class="ft"><span class="od-btn pri">Registrar entrega</span><span class="od-btn">Cancelar</span></div>
+          </div>
+        </div></div>
+      </div>
+      <p class="nota solo-movil" style="margin-top:.6rem">La pantalla de Odoo se desplaza hacia el costado.</p>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos de ejemplo.</p>
+    </div>
+    <div class="marco">
+      <ol class="cadena">
+        <li><span class="quien">Zonas que retiran</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'sistema']"/><t t-set="mini" t-value="True"/></t>Una zona marcada <b>«Retiran en el
+            depósito»</b> (hoy Catriel) no va en ninguna ruta ni sale por encomienda: sus pedidos
+            quedan en «Lo voy a retirar» y se entregan con este mismo asistente.</li>
+        <li><span class="quien">Entrega en depósito</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'gerente', 'cliente']"/><t t-set="mini" t-value="True"/></t><b>Bultos y detalle de productos,
+            «¿Devolvió algo?», código de recibido y cómo pagó</b>, como en la visita del repartidor.
+            «El cliente no tiene el código · Entregar igual» deja la entrega como «Entregado sin código».</li>
+        <li><span class="quien">Devoluciones</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'sistema']"/><t t-set="mini" t-value="True"/></t><b>La devolución figura en la cuenta del cliente
+            desde que se guarda la entrega.</b> Como la mercadería ya está en el depósito, «Recibido en el
+            depósito» emite la nota de crédito en el momento y lo devuelto vuelve al stock (DEV-…). Sin
+            esa marca, se controla en el cierre de caja.</li>
+        <li><span class="quien">Cobro</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema']"/><t t-set="mini" t-value="True"/></t><b>El efectivo entra en el diario «Caja depósito»</b> y se
+            aplica a las facturas del cliente, la más vieja primero. Una transferencia queda como
+            comprobante pendiente hasta que llega el comprobante.</li>
+        <li><span class="quien">Venta en mostrador</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente', 'administrador']"/><t t-set="mini" t-value="True"/></t>Desde un presupuesto con cliente real,
+            <b>«Venta en mostrador»</b> confirma el pedido, lo arma completo tal como se pidió, valida el
+            remito, emite la factura y genera el código de recibido. Después abre el mismo asistente, donde
+            el código se reemplaza por «Venta en mostrador (cliente presente)». No usa el Punto de Venta de
+            Odoo.</li>
+        <li><span class="quien">Cierre de caja depósito</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t>Cada usuario tiene una caja por día con
+            sus entregas en depósito. Administración carga el efectivo contado y el sistema lo compara con
+            los cobros registrados; una diferencia abre un caso, igual que en la rendición de una ruta.</li>
+      </ol>
+      <div class="dato">
+        <p><b>Los pedidos para retirar no entran a la ruta.</b> La asignación de rutas los deja afuera,
+           así no suben a la camioneta y quedan listos para la entrega en depósito.</p>
+      </div>
+      <a class="volver" href="#pantallas">↑ Todas las pantallas</a>
+    </div>
+  </section>
+
+  <section class="oscuro rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'vendedor', 'administrador', 'repartidor', 'gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">En resumen</p>
+      <h2>El día en cinco momentos</h2>
+      <div class="flujo">
+        <div class="caja"><h3>Depósito, a la mañana</h3>
+          <p>La ruta se descarga antes de salir. Cada pedido lo tildan el repartidor y administración al
+             subir a la camioneta, y la salida queda «Controlado».</p></div>
+        <div class="caja"><h3>Entrega</h3>
+          <p>Bultos controlados con el cliente, devoluciones declaradas y código de recibido.</p></div>
+        <div class="caja"><h3>Cobro</h3>
+          <p>Efectivo, transferencia o no pagó, marcado en la puerta del cliente, con o sin señal.</p></div>
+        <div class="caja"><h3>Cierre de la ruta</h3>
+          <p>Todas las visitas con estado, el motivo de lo no entregado y todo enviado. El efectivo a
+             rendir ya descuenta los gastos del día, y cada encomienda tiene la foto de su guía.</p></div>
+        <div class="caja"><h3>Rendición de caja</h3>
+          <p>Efectivo contado contra esperado, devoluciones controladas con su nota de crédito,
+             gastos con su papel y cobros aplicados a las facturas más viejas.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="pie">
+    <div class="marco">
+      <p>Distri Neuquén · Entorno de pruebas · Septiembre 2026</p>
+      <a href="/proyecto" style="color:#fff;font-weight:700;display:block;margin-top:.6rem">← Volver al centro del proyecto</a>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var galeria = document.getElementById("galeria");
+      var tels = document.querySelectorAll(".telefono[data-vista], .pc[data-vista]");
+      Array.prototype.forEach.call(tels, function (tel) {
+        var a = document.createElement("a");
+        a.className = tel.classList.contains("pc") ? "gal ancha" : "gal";
+        a.href = "#" + tel.getAttribute("data-ir");
+        var copia = tel.cloneNode(true);
+        copia.setAttribute("aria-hidden", "true");
+        a.appendChild(copia);
+        var rot = document.createElement("span");
+        rot.className = "rot";
+        var num = document.createElement("span");
+        num.textContent = "PASO " + tel.getAttribute("data-num");
+        rot.appendChild(num);
+        rot.appendChild(document.createTextNode(tel.getAttribute("data-vista")));
+        a.appendChild(rot);
+        galeria.appendChild(a);
+      });
+    })();
+  </script>
+
+</body>
+</html>
+  </template>
+
+</odoo>

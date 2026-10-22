@@ -1,0 +1,598 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Migration from AgilPedido, for the manager. Same format as the other
+       presentations. Product names and prices come from the AgilPedido
+       catalog (public data); no customer data on this page. Sources:
+       docs/distrineuquen-modulo/migracion-catalogo/README.md,
+       plan_integracion_distri_neuquen.md, cobranza/README.md. -->
+  <template id="presentacion_migracion" name="La migracion desde AgilPedido, en una pagina">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>La migración · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{
+      --azul:#10243f; --azul2:#19334f; --claro:#f7f8f7; --blanco:#fff;
+      --texto:#42505f; --tenue:#7a8794; --turq:#00d1b2; --borde:#e2e7ec; --ambar:#b08900;
+      --verde:#1f7a4d;
+    }
+    *{box-sizing:border-box}
+    html,body{overflow-x:hidden}
+    body{margin:0;background:var(--claro);color:var(--texto);
+         font:16px/1.6 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:44rem;margin:0 auto;padding:0 1.15rem}
+    h1,h2,h3{color:var(--azul);line-height:1.25;margin:0}
+
+    .tapa{background:var(--azul);color:#e8eef5;padding:2.5rem 0 2.2rem}
+    .tapa .rotulo{color:var(--turq);font-size:.78rem;letter-spacing:.14em;
+                  text-transform:uppercase;margin:0 0 .5rem;font-weight:700}
+    .tapa h1{color:#fff;font-size:1.95rem;font-weight:700}
+    .tapa p{color:#9fb3c8;font-size:1.02rem;margin:.75rem 0 0}
+    .tapa b{color:#fff}
+
+    .cta{display:block;background:var(--turq);color:#fff;text-align:center;font-weight:700;
+         font-size:1.05rem;padding:1rem;border-radius:10px;text-decoration:none;margin:1.5rem 0 .4rem}
+    .cta.claro{background:var(--blanco);color:var(--azul);border:1px solid var(--borde)}
+    .nota{font-size:.82rem;color:var(--tenue);text-align:center;margin:0}
+
+    section{padding:2.4rem 0;border-top:1px solid var(--borde)}
+    section.oscuro{background:var(--azul);border-top:0}
+    section.oscuro h2{color:#fff}
+    section.oscuro p{color:#c3d3e3}
+    .eyebrow{color:var(--turq);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
+             font-weight:700;margin:0 0 .5rem}
+    h2{font-size:1.5rem}
+    .bajada{font-size:1.02rem;margin:.7rem 0 0}
+
+    .cifras{display:flex;gap:.7rem;margin-top:1.3rem}
+    .cifra{flex:1;background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+           padding:1rem .8rem;text-align:center}
+    .cifra b{display:block;font-size:1.6rem;color:var(--turq);line-height:1.1;white-space:nowrap}
+    .cifra span{display:block;font-size:.8rem;margin-top:.35rem;color:var(--texto)}
+
+    .dato{background:var(--azul2);border-radius:12px;padding:1.1rem;margin-top:1.2rem}
+    .dato p{margin:0;color:#c3d3e3;font-size:.95rem}
+    .dato b{color:#fff}
+
+    .flujo{display:flex;flex-direction:column;gap:.55rem;margin-top:1.2rem}
+    .caja{background:var(--azul2);border-radius:12px;padding:1rem}
+    .caja h3{color:#fff;font-size:1.05rem;margin-bottom:.3rem}
+    .caja p{margin:0;font-size:.92rem;color:#c3d3e3}
+    .flecha{text-align:center;color:var(--turq);font-size:.85rem;font-weight:700;margin:0}
+
+    .cadena{margin:1.2rem 0 0;padding:0;list-style:none;counter-reset:paso}
+    .cadena li{position:relative;padding:.95rem 0 .95rem 2.7rem;border-bottom:1px solid var(--borde);
+               font-size:.96rem;line-height:1.5}
+    .cadena li:last-child{border-bottom:0}
+    .cadena li:before{counter-increment:paso;content:counter(paso);position:absolute;left:0;top:.9rem;
+                      width:1.8rem;height:1.8rem;border-radius:50%;background:var(--azul);color:#fff;
+                      font-size:.82rem;font-weight:700;display:flex;align-items:center;
+                      justify-content:center}
+    .cadena li b{color:var(--azul)}
+    .quien{display:block;font-size:.74rem;font-weight:700;color:var(--tenue);
+           text-transform:uppercase;letter-spacing:.08em;margin:0 0 .35rem;line-height:1.2}
+    .hecho-lab{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.05em;
+               text-transform:uppercase;border-radius:99px;padding:.1rem .55rem;margin-left:.35rem;
+               background:#e6f4ec;color:var(--verde);vertical-align:.1em}
+    .hecho-lab.falta{background:#fff8e1;color:#8a6b00}
+
+    /* Product names taken apart */
+    .desarme{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:1rem;
+             margin-top:.8rem}
+    .desarme .donde{font-size:.74rem;font-weight:700;color:var(--tenue);letter-spacing:.08em;
+                    text-transform:uppercase;margin:0 0 .45rem}
+    .desarme .nom{font:700 1.08rem/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+                  color:var(--azul);word-break:break-word}
+    .desarme .precio{font-size:.86rem;color:var(--tenue);margin:.25rem 0 0}
+    .t{border-radius:5px;padding:.05rem .3rem}
+    .t1{background:#ffe7c2;color:#7a4a00}
+    .t2{background:#d9f3ee;color:#0a5c4f}
+    .t3{background:#e4e6fb;color:#2c3a8f}
+    .t4{background:#fbe0e6;color:#8f2340}
+    .claves{display:flex;flex-direction:column;gap:.3rem;margin-top:.7rem;font-size:.88rem}
+    .claves span{display:flex;gap:.5rem;align-items:baseline}
+    .claves i{font-style:normal;flex:none}
+
+    table.tabla{width:100%;border-collapse:collapse;margin-top:1.1rem;font-size:.9rem;
+                background:var(--blanco);border:1px solid var(--borde);border-radius:12px;overflow:hidden}
+    table.tabla th{text-align:left;color:var(--azul);font-size:.74rem;text-transform:uppercase;
+                   letter-spacing:.06em;padding:.6rem .55rem;border-bottom:2px solid var(--borde);background:#fbfcfc}
+    table.tabla td{padding:.6rem .55rem;border-bottom:1px solid var(--borde);vertical-align:top}
+    table.tabla tr:last-child td{border-bottom:0}
+    table.tabla td b{color:var(--azul)}
+    table.tabla code{font-size:.84rem;background:var(--claro);border-radius:4px;padding:0 .2rem;
+                     word-break:break-word}
+
+    .regla{background:#e9fbf8;border:1px solid var(--turq);border-radius:12px;padding:1rem 1.1rem;
+           margin-top:1.2rem;font-size:1rem;color:var(--azul)}
+    .regla b{display:block;font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;
+             color:#0a7f6c;margin-bottom:.2rem}
+
+    .problemas{margin:1.2rem 0 0;padding:0;list-style:none}
+    .problemas li{background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--ambar);
+                  border-radius:8px;padding:.85rem 1rem;margin-bottom:.6rem;font-size:.95rem}
+    .problemas li b{color:var(--azul);display:block;margin-bottom:.15rem}
+
+    /* How it is modeled now */
+    .ahora{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:1rem 1.05rem;
+           margin-top:.9rem}
+    .ahora h3{font-size:1.08rem;margin-bottom:.35rem}
+    .ahora p{margin:0 0 .6rem;font-size:.94rem}
+    .ahora p:last-child{margin-bottom:0}
+    .ficha{background:var(--claro);border:1px dashed #c9d3dc;border-radius:10px;padding:.75rem .85rem;
+           font-size:.9rem;margin:.6rem 0 0}
+    .ficha .r{display:flex;justify-content:space-between;gap:.8rem;padding:.2rem 0}
+    .ficha .r b{color:var(--azul);text-align:right}
+    .ficha .tit{font-weight:700;color:var(--azul);margin-bottom:.2rem}
+    .listas{display:grid;grid-template-columns:1fr;gap:.5rem;margin-top:.6rem}
+    @media (min-width:640px){.listas{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    .lista{border:1px solid var(--borde);border-radius:10px;padding:.7rem .8rem;font-size:.88rem}
+    .lista b{display:block;color:var(--azul);font-size:.98rem}
+    .lista span{display:block;color:var(--tenue);font-size:.76rem;font-weight:700;letter-spacing:.06em;
+                text-transform:uppercase;margin-bottom:.2rem}
+
+    /* The chain: central visual */
+    .eslabones{margin:1.5rem 0 0;padding:0;list-style:none;position:relative}
+    .eslabones:before{content:"";position:absolute;left:1.05rem;top:1rem;bottom:1rem;width:3px;
+                      background:var(--turq);border-radius:3px}
+    .eslabon{position:relative;padding:0 0 1rem 3.1rem}
+    .eslabon:last-child{padding-bottom:0}
+    .eslabon .n{position:absolute;left:0;top:.55rem;width:2.35rem;height:2.35rem;border-radius:50%;
+                background:var(--turq);color:var(--azul);font-weight:800;display:flex;
+                align-items:center;justify-content:center;font-size:.95rem;border:3px solid var(--azul)}
+    .eslabon .tarjeta{background:var(--azul2);border-radius:12px;padding:.85rem 1rem}
+    .eslabon h3{color:#fff;font-size:1.05rem}
+    .eslabon .usa{margin:.3rem 0 0;font-size:.9rem;color:#c3d3e3}
+    .eslabon .mal{margin:.5rem 0 0;font-size:.88rem;color:#ffe08a;border-top:1px solid #2c4666;
+                  padding-top:.45rem}
+    .eslabon .mal:before{content:"Con un dato mal · ";font-weight:700;color:#ffd166}
+    .eslabon.origen .tarjeta{background:var(--turq)}
+    .eslabon.origen h3,.eslabon.origen .usa{color:var(--azul)}
+    .eslabon.origen .mal{color:#10243f;border-top-color:#0aa58e}
+    .eslabon.origen .mal:before{color:#10243f}
+    .puerta{background:var(--blanco);border-radius:12px;padding:1rem 1.1rem;margin-top:1.4rem}
+    section.oscuro .puerta p{margin:0;color:var(--texto);font-size:.95rem}
+    .puerta b{color:var(--azul)}
+
+    .dos{display:flex;flex-direction:column;gap:.7rem;margin-top:1.2rem}
+    @media (min-width:640px){.dos{flex-direction:row}.dos > div{flex:1}}
+    .col{border-radius:12px;padding:1.05rem;background:var(--blanco);border:1px solid var(--borde)}
+    .col.nueva{background:#e9fbf8;border-color:var(--turq)}
+    .col h3{font-size:1.02rem;margin-bottom:.4rem}
+    .col p{margin:0;font-size:.93rem}
+    .col .et{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--tenue);
+             display:block;margin-bottom:.2rem}
+
+    .decide{margin:1rem 0 0;padding:0;list-style:none}
+    .decide li{background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--turq);
+               border-radius:8px;padding:.75rem 1rem;margin-bottom:.55rem;font-size:.95rem}
+    .decide li b{color:var(--azul)}
+
+    .prefijos{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
+    .prefijos span{background:var(--claro);border:1px solid var(--borde);border-radius:8px;
+                   padding:.2rem .5rem;font-size:.82rem;white-space:nowrap}
+    .prefijos b{color:var(--azul)}
+
+    .riesgos{margin:1.2rem 0 0;padding:0;list-style:none}
+    .riesgos li{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+                padding:.85rem 1rem;margin-bottom:.6rem}
+    .riesgos .r{font-weight:700;color:var(--azul);font-size:.98rem}
+    .riesgos .c{font-size:.92rem;margin-top:.35rem;padding-top:.35rem;border-top:1px dashed var(--borde)}
+    .riesgos .c:before{content:"Cómo se cubre · ";font-weight:700;color:var(--verde)}
+
+    .pie{background:var(--azul);color:#7f95ad;padding:2rem 0 2.6rem;text-align:center;font-size:.85rem}
+    .pie a{color:#9fb3c8;display:block;margin-top:.45rem}
+    @media (max-width:360px){.cifras{flex-direction:column}}
+  </style>
+</head>
+<body>
+
+  <t t-call="distri_pedido.proyecto_franja"/>
+  <t t-call="distri_pedido.roles_base"/>
+
+  <div class="tapa">
+    <div class="marco">
+      <p class="rotulo">Distri Neuquén · Migración</p>
+      <h1>Por qué el proyecto empezó por el catálogo</h1>
+      <p>La cobranza es lo que más urge en el día a día. Cada cobro se aplica a una factura,
+         la factura sale del pedido y el pedido sale del catálogo. <b>Con el catálogo mal
+         armado, todo lo que viene después arrastra el error.</b></p>
+      <p>El paso de AgilPedido a Odoo empezó por ordenar el catálogo. Los dos sistemas conviven
+         mientras los clientes se mudan.</p>
+      <div class="cifras">
+        <div class="cifra"><b>955</b><span>productos en AgilPedido</span></div>
+        <div class="cifra"><b>1</b><span>con código propio</span></div>
+        <div class="cifra"><b>25 → 22</b><span>secciones a categorías</span></div>
+      </div>
+      <a class="cta" href="#cadena">Ver la cadena completa</a>
+      <p class="nota" style="color:#7f95ad"><a href="/proyecto" style="color:#9fb3c8">Estado de cada parte del proyecto</a></p>
+    </div>
+  </div>
+
+  <t t-call="distri_pedido.rol_mapa">
+    <t t-set="titulo" t-value="'Cada parte de la migración y quién participa'"/>
+    <t t-set="bajada" t-value="'Cada etiqueta lleva a la sección que la explica.'"/>
+    <t t-set="mapa_pasos" t-value="[
+          {'id': 'hallazgo', 'n': '1', 't': 'Hallazgo', 'l': 'El nombre del producto guardaba datos', 'acts': {'cliente': 'Veía un producto por precio', 'sistema': 'AgilPedido sin campos'}},
+          {'id': 'efectos', 'n': '2', 't': 'Efectos', 'l': 'Los efectos más adelante', 'acts': {'cliente': 'Pedía por dos caminos', 'gerente': 'Sumaba las partes a mano'}},
+          {'id': 'en-odoo', 'n': '3', 't': 'En Odoo', 'l': 'Un producto, sus envases y sus precios', 'acts': {'sistema': 'Envases, listas y reglas'}},
+          {'id': 'cadena', 'n': '4', 't': 'Cadena', 'l': 'Cada paso usa el dato del anterior', 'acts': {'cliente': 'Pide', 'armador': 'Arma', 'repartidor': 'Entrega y cobra', 'administrador': 'Confirma los cobros', 'sistema': 'Factura'}},
+          {'id': 'transicion', 'n': '5', 't': 'Transición', 'l': 'Los dos sistemas conviviendo', 'acts': {'cliente': 'Se muda de a grupos', 'administrador': 'Pega y exporta', 'gerente': 'Invita a los clientes'}},
+          {'id': 'control', 'n': '6', 't': 'Control', 'l': 'Qué se compara durante el cambio', 'acts': {'vendedor': 'Toma pedidos en Odoo', 'gerente': 'Compara y decide'}},
+          {'id': 'datos', 'n': '7', 't': 'Datos', 'l': 'Qué pasa al sistema nuevo', 'acts': {'administrador': 'Controla cada saldo', 'sistema': 'Carga la historia'}},
+          {'id': 'riesgos', 'n': '8', 't': 'Riesgos', 'l': 'Qué puede salir mal y cómo se cubre', 'acts': {'administrador': 'Elige el producto dudoso', 'sistema': 'Copia diaria'}},
+          {'id': 'lo-que-sigue', 'n': '9', 't': 'Sigue', 'l': 'Lo que sigue', 'acts': {'cliente': 'Prueba real', 'armador': 'Prueba real', 'repartidor': 'Prueba real', 'gerente': 'Conecta las cuentas'}},
+        ]"/>
+  </t>
+
+  <section class="rol-sec" id="hallazgo">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">El hallazgo</p>
+      <h2>El nombre del producto guardaba datos</h2>
+      <p class="bajada">AgilPedido no tenía lugar para el envase, el precio mayorista ni el descuento
+         por cantidad. La empresa los fue escribiendo adentro del nombre. Estos son productos
+         reales del catálogo de AgilPedido.</p>
+
+      <div class="desarme">
+        <p class="donde">Sección Bodega · dos productos para la misma cerveza</p>
+        <div class="nom">Andes lata 473 <span class="t t2">x 24u</span></div>
+        <p class="precio">$ 42.000</p>
+        <div class="nom" style="margin-top:.5rem"><span class="t t1">10 Pack</span> Andes 473 <span class="t t2">x 24</span></div>
+        <p class="precio">$ 395.000</p>
+        <div class="claves">
+          <span><i class="t t2">x 24</i>el envase de venta: un bulto de 24 latas</span>
+          <span><i class="t t1">10 Pack</i>el descuento por comprar diez bultos</span>
+        </div>
+      </div>
+
+      <div class="desarme">
+        <p class="donde">Dos secciones · el mismo Actron con dos precios</p>
+        <div class="nom">Actron 400 x 10</div>
+        <p class="precio">$ 3.400 · sección FARMACIA</p>
+        <div class="nom" style="margin-top:.5rem"><span class="t t3">May</span> Actron 400 x 10</div>
+        <p class="precio">$ 2.700 · sección «Vent espec Distribuidoras + $ 10.000.000»</p>
+        <div class="claves">
+          <span><i class="t t3">May</i>el precio mayorista, cargado como otro producto en otra sección</span>
+        </div>
+      </div>
+
+      <div class="desarme">
+        <p class="donde">Galletitas y golosinas · envase adelante y marca</p>
+        <div class="nom"><span class="t t2">Bulto x 30 u.</span> Pitusas Chocolate 160 g.</div>
+        <p class="precio">$ 37.000 el bulto · los 160 g son el peso de cada paquete</p>
+        <div class="nom" style="margin-top:.5rem"><span class="t t4">Bi</span> Caramelo Billiken Frutal 600g.</div>
+        <div class="claves">
+          <span><i class="t t4">Bi</i>la marca Billiken, para que el armador los encuentre juntos</span>
+        </div>
+      </div>
+
+      <table class="tabla">
+        <tr><th>En el nombre decía</th><th>Lo que faltaba</th><th>En Odoo va en</th></tr>
+        <tr><td><code>x 24</code>, <code>Bulto x 30 u.</code></td><td>El envase de venta</td><td><b>Unidad de venta</b></td></tr>
+        <tr><td><code>May Actron 400</code></td><td>El precio mayorista</td><td><b>Lista de precios</b></td></tr>
+        <tr><td><code>10 bultos Heineken</code></td><td>El descuento por cantidad</td><td><b>Regla por cantidad</b></td></tr>
+        <tr><td><code>Bi</code></td><td>La marca</td><td><b>Categoría</b></td></tr>
+        <tr><td>Sección «Vent espec Distribuidoras»</td><td>La lista oculta Distribuidoras</td><td><b>Lista de precios</b></td></tr>
+      </table>
+
+      <div class="regla">
+        <b>La regla práctica</b>
+        Si un dato aparece repetido en muchos nombres, es un campo que falta crear.
+      </div>
+    </div>
+  </section>
+
+  <section class="rol-sec" id="efectos">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Qué rompía</p>
+      <h2>Los efectos más adelante</h2>
+      <ul class="problemas">
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>El stock nunca podía cerrar</b>El mismo Actron figuraba dos veces. Vender el
+            «May» no descontaba el otro, y los «10 bultos» eran productos aparte.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><b>El precio mayorista dependía de qué producto tocaba el cliente</b>En Odoo el
+            precio sale de la lista del cliente. Con un producto por precio, no hay lista que
+            asignar.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'gerente']"/><t t-set="mini" t-value="True"/></t><b>El revendedor pedía por dos caminos</b>Los medicamentos en AgilPedido y los
+            cigarrillos por WhatsApp escrito a mano. El gerente sumaba las dos partes a mano.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><b>El «x 10» es una trampa</b><code>Actron 400 x 10</code> son diez comprimidos en una
+            caja. Si ese «x 10» se tomara como envase, el cliente pediría «1» y recibiría un
+            comprimido suelto. Los 41 productos con ese patrón quedaron con su nombre.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Emparejar por parecido de nombre ata productos distintos</b>En una prueba,
+            «10 Pack Cerveza Brul» quedó atado a «Cerveza Andes» y tomó su precio. Los pares se
+            escriben a mano, uno por uno, y se verifican con la cuenta.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="rol-sec" id="en-odoo">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Cómo quedó en Odoo</p>
+      <h2>Un producto, sus envases y sus precios</h2>
+      <p class="bajada">Cada dato pasó a su campo. El nombre quedó limpio y el producto es uno solo.</p>
+
+      <div class="ahora">
+        <h3>Bultos: la unidad de venta</h3>
+        <p>El producto se cuenta en unidades y se vende en su envase. Se crearon las unidades
+           <b>Bulto x 6, x 8, x 12, x 16, x 24, x 30, x 120</b> y <b>Cartón x 25</b>. Unos 50
+           productos se venden por bulto.</p>
+        <div class="ficha">
+          <p class="tit">Cerveza Andes Lata 473 cc</p>
+          <div class="r"><span>Se vende en</span><b>Bulto x 24</b></div>
+          <div class="r"><span>Precio</span><b>$ 1.750 la lata</b></div>
+          <div class="r"><span>1 bulto (24 latas)</span><b>$ 42.000</b></div>
+          <div class="r"><span>10 bultos (240 latas)</span><b>$ 395.000</b></div>
+        </div>
+        <p style="margin-top:.6rem">El depósito cuenta en bultos: se carga «50 Bulto x 24» y el
+           sistema guarda 1.200 latas.</p>
+      </div>
+
+      <div class="ahora">
+        <h3>Listas de precios</h3>
+        <p>El precio sale de la lista que tiene cada cliente en su ficha.</p>
+        <div class="listas">
+          <div class="lista"><span>Pública</span><b>General</b>La lista mayorista general de /pedido.
+            La recibe todo cliente sin lista asignada.</div>
+          <div class="lista"><span>Oculta</span><b>Distribuidoras</b>Los precios «May», fijos por
+            producto. Solo la ven, con su usuario, las distribuidoras y los revendedores
+            autorizados.</div>
+          <div class="lista"><span>Oculta</span><b>10 revendedores</b>Precio de cigarrillos
+            negociado marca por marca. El resto, al precio de Distribuidoras.</div>
+        </div>
+        <p style="margin-top:.7rem">El descuento mayorista medido va del 12 % al 42 % según el
+           producto. Por eso va un precio fijo por producto: un porcentaje único cambiaría el precio
+           de once productos.</p>
+      </div>
+
+      <div class="ahora">
+        <h3>Descuento por cantidad</h3>
+        <p>Los «10 bultos» pasaron a una regla de precio de la lista: desde 240 latas, la lata de
+           Andes baja de $ 1.750 a $ 1.645,83. El producto «10 Pack Andes» se archivó.</p>
+      </div>
+
+      <div class="dato">
+        <p><b>Resultado en el lab:</b> de 25 secciones a 22 categorías, 41 duplicados emparejados con
+           su original y archivados, nunca borrados, porque el historial cuelga de ellos. El prefijo
+           «Bi» se quitó de 64 productos y quedó la categoría Billiken.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="rol-sec oscuro" id="cadena">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'armador', 'repartidor', 'administrador', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">La cadena</p>
+      <h2>Cada paso usa el dato del anterior</h2>
+      <p class="bajada">Un error en el catálogo viaja por todos los puestos hasta la conciliación
+         con Mercado Pago.</p>
+      <ol class="eslabones">
+        <li class="eslabon origen"><span class="n">1</span><div class="tarjeta">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><h3>Catálogo</h3>
+          <p class="usa">Define el producto, su unidad de venta y el precio de cada lista.</p>
+          <p class="mal">dos productos para la misma cerveza, o un precio mayorista cargado como otro producto.</p>
+        </div></li>
+        <li class="eslabon"><span class="n">2</span><div class="tarjeta">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'vendedor']"/><t t-set="mini" t-value="True"/></t><h3>Pedido</h3>
+          <p class="usa">El cliente elige del catálogo en la pantalla tipo AgilPedido, dentro de Odoo.</p>
+          <p class="mal">el cliente pide «1» y el sistema entiende una lata en lugar de un bulto de 24.</p>
+        </div></li>
+        <li class="eslabon"><span class="n">3</span><div class="tarjeta">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['armador']"/><t t-set="mini" t-value="True"/></t><h3>Armado</h3>
+          <p class="usa">El armador prepara los renglones del pedido y carga los bultos.</p>
+          <p class="mal">se arma otra cantidad y los bultos no coinciden con los que suben a la camioneta.</p>
+        </div></li>
+        <li class="eslabon"><span class="n">4</span><div class="tarjeta">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><h3>Factura</h3>
+          <p class="usa">Sale por lo entregado, con el precio de la lista del cliente.</p>
+          <p class="mal">el importe difiere del que el cliente vio al pedir.</p>
+        </div></li>
+        <li class="eslabon"><span class="n">5</span><div class="tarjeta">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'administrador']"/><t t-set="mini" t-value="True"/></t><h3>Cuenta corriente</h3>
+          <p class="usa">Las facturas y los cobros mueven el saldo del comercio.</p>
+          <p class="mal">el saldo queda mal y el reclamo aparece semanas después.</p>
+        </div></li>
+        <li class="eslabon"><span class="n">6</span><div class="tarjeta">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t><h3>Reparto y cobranza</h3>
+          <p class="usa">El repartidor entrega y cobra el saldo de cada cliente.</p>
+          <p class="mal">el repartidor cobra un saldo equivocado en la puerta del cliente.</p>
+        </div></li>
+        <li class="eslabon"><span class="n">7</span><div class="tarjeta">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema']"/><t t-set="mini" t-value="True"/></t><h3>Conciliación con Mercado Pago</h3>
+          <p class="usa">Cada transferencia se aplica a las facturas del cliente, la más vieja primero.</p>
+          <p class="mal">la transferencia no coincide con ninguna factura y queda sin imputar.</p>
+        </div></li>
+      </ol>
+      <div class="puerta">
+        <p><b>Todo empieza en la pantalla de pedidos.</b> El pedido entra por la pantalla tipo
+           AgilPedido dentro de Odoo, con el producto, la unidad y el precio tal como están en el
+           catálogo. Desde ahí ningún puesto vuelve a escribir el dato: el armador, la factura, la
+           cuenta y el repartidor usan el mismo registro.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="rol-sec" id="transicion">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">La transición</p>
+      <h2>Los dos sistemas conviviendo</h2>
+      <p class="bajada">AgilPedido sigue funcionando mientras los clientes se mudan. Hay comercios
+         que compran una vez por mes, así que la convivencia se mide en meses.</p>
+      <div class="flujo">
+        <div class="caja"><h3>Odoo</h3>
+          <p>Manda. Ahí viven los productos, los precios y las listas de cada cliente.</p></div>
+        <p class="flecha">↓ Un Excel al cierre de cada jornada, con precios y visibilidad</p>
+        <div class="caja"><h3>AgilPedido</h3>
+          <p>El cliente que todavía no se mudó pide igual que siempre. Los precios «May» se
+             generan desde la lista Distribuidoras.</p></div>
+        <p class="flecha">↓ El administrador pega el mensaje que llegó</p>
+        <div class="caja"><h3>Odoo, otra vez</h3>
+          <p>El pedido vuelve como presupuesto estructurado. Odoo reconoce los productos aunque
+             cambien mayúsculas o acentos, y pide confirmación cuando duda.</p></div>
+      </div>
+
+      <h3 style="margin-top:2rem;font-size:1.15rem">Las etapas del cambio</h3>
+      <ol class="cadena">
+        <li><span class="quien">Catálogo</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Ordenar los productos</b>: envases, listas y
+            categorías.<span class="hecho-lab">Hecho en el lab</span></li>
+        <li><span class="quien">Desarrollo</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>La pantalla de pedidos dentro de Odoo</b>, con
+            la mecánica de AgilPedido.<span class="hecho-lab">Hecho en el lab</span></li>
+        <li><span class="quien">Desarrollo · controla administración</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>Pasar las cuentas de
+            los clientes</b>: 665 comercios y 21.011 movimientos de cuenta corriente. En la prueba,
+            el saldo cerró al peso con el sistema actual.<span class="hecho-lab">Ensayado</span></li>
+        <li><span class="quien">Gerencia de ventas</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente', 'cliente']"/><t t-set="mini" t-value="True"/></t><b>Invitar a los clientes de a grupos</b>,
+            empezando por comercios de confianza. AgilPedido sigue encendido.</li>
+        <li><span class="quien">Administración</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>Asignar el cliente</b> a cada pedido que
+            entra, comparando lo escrito con la ficha de cada candidato. Ahí Odoo aplica la lista de
+            ese cliente.<span class="hecho-lab">Probado en el lab</span></li>
+        <li><span class="quien">Depósito</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['armador']"/><t t-set="mini" t-value="True"/></t><b>El armador trabaja con su usuario</b> y la factura
+            sale por lo entregado.<span class="hecho-lab">Probado en el lab</span></li>
+        <li><span class="quien">Reparto</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t><b>La app del repartidor</b>, con el cobro marcado en
+            la puerta del cliente.<span class="hecho-lab">Probado en el lab</span></li>
+        <li><span class="quien">Gerencia</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>Compras y stock</b>, cuando todos los pedidos
+            entren por Odoo.</li>
+        <li><span class="quien">Gerencia</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>Baja de AgilPedido</b>, cuando la mayoría de los
+            clientes se haya adaptado. Se dejan de pagar $ 16.000 por mes.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="rol-sec" id="control">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['vendedor', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">El control del gerente</p>
+      <h2>Qué se compara durante el cambio</h2>
+      <p class="bajada">El gerente hoy controla los pedidos por WhatsApp. En el sistema nuevo sigue
+         viendo cada pedido, por el canal que corresponde a quién lo hizo.</p>
+      <div class="dos">
+        <div class="col">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'gerente']"/><t t-set="mini" t-value="True"/></t><span class="et">Pedido de la página</span>
+          <h3>Llega por WhatsApp</h3>
+          <p>El cliente manda al WhatsApp de la empresa el mensaje con el código del pedido, y con ese
+             mensaje el pedido entra al armado. El gerente lo sigue viendo llegar como hoy.</p>
+        </div>
+        <div class="col nueva">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'gerente']"/><t t-set="mini" t-value="True"/></t><span class="et">Pedido del vendedor</span>
+          <h3>Queda en Odoo</h3>
+          <p>El vendedor lo toma con su usuario y queda en Odoo a nombre del cliente, con el vendedor
+             asignado. El vendedor se lo manda al cliente por WhatsApp; a la empresa no hace falta.</p>
+        </div>
+      </div>
+
+      <h3 style="margin-top:2rem;font-size:1.15rem">Lo que decide el gerente</h3>
+      <ul class="decide">
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>Cuándo se suma cada grupo de clientes</b> y cuándo se da de baja AgilPedido.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>El precio de la lista oculta</b> cuando el cliente asignado tiene otra lista,
+            y si la compra mínima se exige o queda como aviso. Es una consulta pendiente, con una
+            propuesta escrita.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>Los precios de los diez revendedores</b>, que hoy viven en la app de cigarrillos.
+            Se cargan en una planilla, una columna por revendedor.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>Qué productos ocultos ya no se reponen</b> y qué pasa con los 43 que quedaron sin
+            par.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>Las zonas, los días y los viajes del reparto</b>, y el sistema de etiquetas de bultos.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="rol-sec" id="datos">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Los datos</p>
+      <h2>Qué pasa al sistema nuevo</h2>
+      <table class="tabla">
+        <tr><th>Dato</th><th>Viene de</th><th>Cómo pasa</th></tr>
+        <tr><td><b>Contactos</b></td><td>El Odoo actual</td>
+            <td>665 comercios. La letra inicial del nombre marca la localidad y de ahí sale la zona de reparto.
+              <div class="prefijos">
+                <span><b>X -</b> Centenario</span><span><b>Y -</b> Plottier</span>
+                <span><b>Z -</b> Zapala</span><span><b>W -</b> Catriel</span>
+                <span><b>ZC -</b> Cutral Có</span><span>sin letra: Neuquén</span>
+              </div></td></tr>
+        <tr><td><b>Productos</b></td><td>AgilPedido</td>
+            <td>955 productos, 628 visibles. Reorganizados con envases y categorías. Las 543 fotos
+                ya están descargadas.</td></tr>
+        <tr><td><b>Listas de precios</b></td><td>AgilPedido y la app de cigarrillos</td>
+            <td>General, Distribuidoras y las diez de revendedores. Los precios de revendedores se
+                cargan desde una planilla.</td></tr>
+        <tr><td><b>Facturas</b></td><td>El Odoo actual</td>
+            <td>La numeración sigue la de Online (0001/2026/…). Plan de cuentas argentino para
+                Monotributo, como en Online, sin factura electrónica de ARCA. El cliente ve el remito,
+                nunca la factura.</td></tr>
+        <tr><td><b>Saldos</b></td><td>El Odoo actual</td>
+            <td>21.011 movimientos: 15.497 facturas y 5.513 pagos. Cada saldo se controla contra el
+                sistema actual antes de seguir.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="rol-sec" id="riesgos">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Riesgos</p>
+      <h2>Qué puede salir mal y cómo se cubre</h2>
+      <ul class="riesgos">
+        <li><div class="r">Que un saldo no cierre al pasarlo</div>
+            <div class="c">Se compara cliente por cliente con el sistema actual. Ninguna etapa
+              avanza con un saldo sin explicar.</div></li>
+        <li><div class="r">Que los clientes no adopten la pantalla</div>
+            <div class="c">Se empieza con un grupo chico y AgilPedido sigue funcionando mientras
+              tanto.</div></li>
+        <li><div class="r">Que el gerente crea que no entran pedidos</div>
+            <div class="c">Todo pedido de la página sigue llegando por WhatsApp, con su código, y los
+              del vendedor aparecen en Odoo con su nombre.</div></li>
+        <li><div class="r">Que un pedido de AgilPedido no se reconozca</div>
+            <div class="c">El Excel diario sale de Odoo, con los nombres de Odoo y los «May» armados
+              desde la lista Distribuidoras. Al pegar el mensaje, Odoo compara sin mayúsculas ni acentos
+              y, cuando duda, el administrador elige el producto.</div></li>
+        <li><div class="r">Ocultar productos que sí hay</div>
+            <div class="c">Ningún producto se oculta sin la confirmación del administrador. El
+              ocultamiento automático espera a que el stock sea confiable.</div></li>
+        <li><div class="r">Que se caiga el servidor</div>
+            <div class="c">Copia diaria fuera del servidor, restauración de prueba y AgilPedido
+              encendido durante la migración.</div></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="rol-sec oscuro" id="lo-que-sigue">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'armador', 'repartidor', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Dónde está hoy</p>
+      <h2>Lo que sigue</h2>
+      <div class="flujo">
+        <div class="caja"><h3>Terminar el catálogo</h3>
+          <p>Los precios reales de los revendedores, los 43 productos sin par y los ocultos que ya
+             no se reponen.</p></div>
+        <div class="caja"><h3>Probar con gente real</h3>
+          <p>La pantalla de pedidos con un grupo chico de comercios, el armado en el depósito y la
+             app en el celular del repartidor. La prueba integral del 27/09 ya recorrió todo el
+             circuito en el lab, con cada rol en su pantalla.</p></div>
+        <div class="caja"><h3>Conectar las cuentas de la empresa</h3>
+          <p>El WhatsApp de la empresa y el reporte diario de Mercado Pago. El número de WhatsApp se
+             conecta al final del proyecto, cuando se apruebe.</p></div>
+      </div>
+      <a class="cta" href="/proyecto">Ver el estado de cada parte</a>
+    </div>
+  </section>
+
+  <div class="pie">
+    <div class="marco">
+      <p>Distri Neuquén · Entorno de pruebas · Septiembre 2026</p>
+      <a href="/proyecto" style="color:#fff;font-weight:700">← Volver al centro del proyecto</a>
+      <a href="/presentacion">El sistema de pedidos</a>
+      <a href="/presentacion/cobranza">Registro de cobranzas</a>
+      <a href="/presentacion/reparto">La app del repartidor</a>
+    </div>
+  </div>
+
+</body>
+</html>
+  </template>
+
+</odoo>

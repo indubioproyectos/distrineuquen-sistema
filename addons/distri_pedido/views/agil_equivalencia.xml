@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- AgilPedido name equivalences that Odoo learns when staff correct a line
+       (models/agil_equivalencia.py), and the «Corregir producto» wizard. -->
+
+  <!-- ============================================ equivalencias -->
+
+  <record id="view_agil_equivalencia_list" model="ir.ui.view">
+    <field name="name">distri.agil.equivalencia.list</field>
+    <field name="model">distri.agil.equivalencia</field>
+    <field name="arch" type="xml">
+      <list string="Equivalencias de productos AgilPedido" decoration-muted="not active">
+        <field name="active" column_invisible="1"/>
+        <field name="nombre_agil"/>
+        <field name="product_id"/>
+        <field name="product_uom_id"/>
+        <field name="equivale"/>
+        <field name="usos"/>
+        <field name="ultimo_uso" widget="datetime"/>
+        <field name="create_uid" string="Aprendida por" optional="show"/>
+        <field name="create_date" string="Aprendida el" widget="datetime" optional="show"/>
+        <field name="pedido_id" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_agil_equivalencia_form" model="ir.ui.view">
+    <field name="name">distri.agil.equivalencia.form</field>
+    <field name="model">distri.agil.equivalencia</field>
+    <field name="arch" type="xml">
+      <form string="Equivalencia de producto AgilPedido">
+        <sheet>
+          <widget name="web_ribbon" title="Archivada" bg_color="text-bg-danger"
+                  invisible="active"/>
+          <div class="oe_title">
+            <label for="nombre_agil"/>
+            <h1><field name="nombre_agil" placeholder="Bulto DURACELL AAA X 120U."/></h1>
+          </div>
+          <group>
+            <group string="En Odoo">
+              <field name="product_id" options="{'no_create': True}"/>
+              <field name="unidades_ids" invisible="1"/>
+              <field name="product_uom_id" options="{'no_create': True, 'no_open': True}"/>
+              <field name="factor"/>
+              <field name="equivale"/>
+            </group>
+            <group string="Uso">
+              <field name="usos"/>
+              <field name="ultimo_uso"/>
+              <field name="create_uid" string="Aprendida por" readonly="1"/>
+              <field name="create_date" string="Aprendida el" readonly="1"/>
+              <field name="pedido_id"/>
+              <field name="clave"/>
+              <field name="active" invisible="1"/>
+            </group>
+          </group>
+          <div class="text-muted">
+            Cuando llega un pedido de AgilPedido con este nombre (con o sin «May» adelante,
+            sin importar mayúsculas, acentos ni puntuación), el renglón entra solo con este
+            producto y esta unidad, al precio de Odoo, sin marcar para corregir.
+            Archivala para que deje de usarse.
+          </div>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_agil_equivalencia_search" model="ir.ui.view">
+    <field name="name">distri.agil.equivalencia.search</field>
+    <field name="model">distri.agil.equivalencia</field>
+    <field name="arch" type="xml">
+      <search string="Equivalencias de productos AgilPedido">
+        <field name="nombre_agil"/>
+        <field name="product_id"/>
+        <filter name="sin_usar" string="Nunca usadas" domain="[('usos', '=', 0)]"/>
+        <separator/>
+        <filter name="archivadas" string="Archivadas" domain="[('active', '=', False)]"/>
+        <group>
+          <filter name="por_producto" string="Producto" context="{'group_by': 'product_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_agil_equivalencias" model="ir.actions.act_window">
+    <field name="name">Equivalencias de productos AgilPedido</field>
+    <field name="res_model">distri.agil.equivalencia</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todavía no se aprendió ninguna equivalencia.</p>
+      <p>Se aprenden solas cuando corregís un renglón de un pedido de AgilPedido: eligiendo el
+         producto, con «Está bien» o con «Corregir producto». El próximo pedido con ese nombre
+         entra solo.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_transicion_agil_equivalencias"
+            name="Equivalencias de productos AgilPedido"
+            parent="menu_transicion"
+            action="action_agil_equivalencias"
+            sequence="6"/>
+
+  <menuitem id="menu_app_agil_equivalencias"
+            name="Equivalencias de productos AgilPedido"
+            parent="menu_transicion_app"
+            action="action_agil_equivalencias"
+            sequence="6"/>
+
+  <!-- ============================================ corregir producto -->
+
+  <record id="view_agil_corregir_renglon_form" model="ir.ui.view">
+    <field name="name">distri.agil.corregir.renglon.form</field>
+    <field name="model">distri.agil.corregir.renglon</field>
+    <field name="arch" type="xml">
+      <form string="Corregir producto de AgilPedido">
+        <field name="linea_id" invisible="1"/>
+        <field name="currency_id" invisible="1"/>
+        <field name="unidades_ids" invisible="1"/>
+        <div class="alert alert-light border mb-3" role="status">
+          <div class="text-muted small">Como vino en AgilPedido</div>
+          <div class="font-monospace"><field name="texto_agil" readonly="1"/></div>
+          <div class="small mt-1">
+            Cantidad <strong><field name="cantidad_agil" readonly="1" class="d-inline"/></strong>
+            · subtotal <field name="importe_agil" readonly="1" class="d-inline"/>
+            <span invisible="not es_mayorista"> · con «May»: precio de la lista Distribuidoras</span>
+          </div>
+          <div class="small text-danger mt-1" invisible="not motivo">
+            <field name="motivo" readonly="1"/>
+          </div>
+        </div>
+        <group>
+          <field name="product_id" options="{'no_create': True}"/>
+          <field name="product_uom_id" options="{'no_create': True, 'no_open': True}"
+                 widget="radio" invisible="not product_id"/>
+          <field name="otra_cantidad" invisible="not product_id"/>
+          <field name="factor" invisible="not otra_cantidad"/>
+          <field name="es_mayorista" invisible="1"/>
+        </group>
+        <div class="alert alert-success mb-0" role="status" invisible="not resumen">
+          Queda en el pedido: <strong><field name="resumen" readonly="1" class="d-inline"/></strong>,
+          al precio de Odoo. Se recuerda: la próxima vez que llegue este nombre entra solo.
+        </div>
+        <footer>
+          <button name="action_corregir" type="object" string="Corregir y recordar"
+                  class="btn-primary"/>
+          <button string="Cancelar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+</odoo>

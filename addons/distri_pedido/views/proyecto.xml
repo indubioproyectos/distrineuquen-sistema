@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Project status: the same records feed /proyecto and the stage strip on
+       top of every presentation. -->
+  <record id="project_module_list" model="ir.ui.view">
+    <field name="name">distri.project.module.list</field>
+    <field name="model">distri.project.module</field>
+    <field name="arch" type="xml">
+      <list string="Partes del proyecto">
+        <field name="sequence" widget="handle"/>
+        <field name="name"/>
+        <field name="stage" widget="badge"
+               decoration-muted="stage == 'pending'"
+               decoration-info="stage == 'designed'"
+               decoration-warning="stage == 'programmed'"
+               decoration-success="stage in ('lab', 'live')"/>
+        <field name="next_step"/>
+        <field name="presentation_url" optional="show"/>
+        <field name="depends_on_ids" widget="many2many_tags" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="project_module_form" model="ir.ui.view">
+    <field name="name">distri.project.module.form</field>
+    <field name="model">distri.project.module</field>
+    <field name="arch" type="xml">
+      <form string="Parte del proyecto">
+        <header>
+          <field name="stage" widget="statusbar" options="{'clickable': '1'}"/>
+        </header>
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name" placeholder="Nombre de la parte"/></h1>
+          </div>
+          <group>
+            <group>
+              <field name="description"/>
+              <field name="next_step"/>
+            </group>
+            <group>
+              <field name="presentation_url" widget="url"/>
+              <field name="depends_on_ids" widget="many2many_tags"/>
+              <field name="sequence"/>
+              <field name="code"/>
+              <field name="active" invisible="1"/>
+            </group>
+          </group>
+          <div class="text-muted">
+            Lo que se carga acá se ve en la página pública /proyecto y en la franja de
+            arriba de cada presentación.
+          </div>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="project_module_search" model="ir.ui.view">
+    <field name="name">distri.project.module.search</field>
+    <field name="model">distri.project.module</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name"/>
+        <filter name="archived" string="Archivadas" domain="[('active', '=', False)]"/>
+        <filter name="by_stage" string="Etapa" context="{'group_by': 'stage'}"/>
+      </search>
+    </field>
+  </record>
+
+  <record id="project_module_action" model="ir.actions.act_window">
+    <field name="name">Estado del proyecto</field>
+    <field name="res_model">distri.project.module</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Cargá las partes del proyecto</p>
+      <p>Cada parte tiene su etapa y su próximo paso. Se publican en /proyecto.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_project_status"
+            name="Estado del proyecto"
+            action="project_module_action"
+            parent="menu_transicion_app"
+            sequence="90"/>
+
+</odoo>

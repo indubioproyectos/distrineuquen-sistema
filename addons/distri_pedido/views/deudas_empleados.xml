@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Deudas de empleados» (models/deudas_empleados.py): administración y
+       gerencia. Reporte de gestión: no genera asientos. -->
+
+  <record id="view_employee_debt_list" model="ir.ui.view">
+    <field name="name">distri.employee.debt.list</field>
+    <field name="model">distri.employee.debt</field>
+    <field name="arch" type="xml">
+      <list string="Deudas de empleados" create="0" edit="0" delete="0"
+            decoration-muted="state == 'settled'">
+        <field name="employee_id"/>
+        <field name="origin"/>
+        <field name="document"/>
+        <field name="order_id" optional="show"/>
+        <field name="partner_id"/>
+        <field name="delivered_at"/>
+        <field name="charge_amount" optional="show"/>
+        <field name="amount_owed" sum="Total adeudado"/>
+        <field name="state" widget="badge" decoration-danger="state == 'owed'"
+               decoration-success="state == 'settled'"/>
+        <field name="settled_reason" optional="show"/>
+        <field name="route_id" optional="hide"/>
+        <field name="currency_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_employee_debt_form" model="ir.ui.view">
+    <field name="name">distri.employee.debt.form</field>
+    <field name="model">distri.employee.debt</field>
+    <field name="arch" type="xml">
+      <form string="Deuda de un empleado" create="0" edit="0" delete="0">
+        <header>
+          <button name="action_open_case" type="object" string="Ver el cargo"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="employee_id"/>
+              <field name="origin"/>
+              <field name="document"/>
+              <field name="order_id"/>
+              <field name="partner_id"/>
+              <field name="delivered_at"/>
+            </group>
+            <group>
+              <field name="charge_amount"/>
+              <field name="amount_owed"/>
+              <field name="settled_reason" invisible="state != 'settled'"/>
+              <field name="route_id"/>
+              <field name="date"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+          <group string="Historial del importe" invisible="not amount_history_ids">
+            <field name="amount_history_ids" nolabel="1" colspan="2">
+              <list>
+                <field name="date"/>
+                <field name="old_amount"/>
+                <field name="new_amount"/>
+                <field name="move_id"/>
+                <field name="cause"/>
+                <field name="currency_id" column_invisible="1"/>
+              </list>
+            </field>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_employee_debt_search" model="ir.ui.view">
+    <field name="name">distri.employee.debt.search</field>
+    <field name="model">distri.employee.debt</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="employee_id"/>
+        <field name="partner_id"/>
+        <field name="order_id"/>
+        <filter name="owed" string="Adeudado" domain="[('state', '=', 'owed')]"/>
+        <filter name="settled" string="Saldado" domain="[('state', '=', 'settled')]"/>
+        <separator/>
+        <filter name="o_receipt" string="Transferencias sin comprobante" domain="[('origin', '=', 'receipt')]"/>
+        <filter name="o_unpaid" string="Pedidos sin cobrar" domain="[('origin', '=', 'unpaid')]"/>
+        <filter name="o_short" string="Cobros incompletos" domain="[('origin', '=', 'short')]"/>
+        <separator/>
+        <filter name="f_delivered" string="Fecha de entrega" date="delivered_at"/>
+        <filter name="f_date" string="Fecha de la ruta" date="date"/>
+        <group>
+          <filter name="by_employee" string="Empleado" context="{'group_by': 'employee_id'}"/>
+          <filter name="by_origin" string="Origen" context="{'group_by': 'origin'}"/>
+          <filter name="by_state" string="Estado" context="{'group_by': 'state'}"/>
+          <filter name="by_month" string="Mes" context="{'group_by': 'delivered_at:month'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_employee_debt" model="ir.actions.act_window">
+    <field name="name">Deudas de empleados</field>
+    <field name="res_model">distri.employee.debt</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'search_default_owed': 1, 'search_default_by_employee': 1}</field>
+    <field name="help" type="html">
+      <p>Lo que cada empleado le debe a la empresa por los cargos al repartidor: transferencias
+         sin comprobante, pedidos sin cobrar y cobros incompletos. «Saldado»: el cargo se cerró
+         (pago verificado, administración) o el repartidor lo repuso. Es un reporte de gestión:
+         no genera asientos contables. Para el resumen en PDF, filtrá por empleado, seleccioná
+         las filas y usá Imprimir.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_reparto_employee_debts" name="Deudas de empleados"
+            parent="menu_reparto_root" action="action_employee_debt" sequence="36"
+            groups="distri_pedido.grupo_administracion"/>
+
+  <record id="report_deudas_empleado" model="ir.actions.report">
+    <field name="name">Resumen de deudas por empleado</field>
+    <field name="model">distri.employee.debt</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.deudas_empleado_documento</field>
+    <field name="report_file">distri_pedido.deudas_empleado_documento</field>
+    <field name="print_report_name">'Deudas de empleados'</field>
+    <field name="binding_model_id" ref="model_distri_employee_debt"/>
+    <field name="binding_type">report</field>
+    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion'))]"/>
+  </record>
+
+  <template id="deudas_empleado_documento">
+    <t t-call="web.html_container">
+      <t t-foreach="employees" t-as="e">
+        <t t-call="web.basic_layout">
+          <div class="page" style="font-size:10px">
+            <h3 style="margin-bottom:2px">Deudas de empleados</h3>
+            <div><b t-esc="e['employee'].name"/> · Impreso el <t t-esc="printed"/></div>
+            <div style="margin-top:4px">Reporte de gestión, sin asientos contables.</div>
+            <h4 style="margin-top:10px">Adeudado: <t t-esc="money(e['total'])"/></h4>
+            <table class="table table-sm" t-if="e['owed']">
+              <thead>
+                <tr><th>Entregado</th><th>Origen</th><th>Factura</th><th>Cliente</th>
+                  <th class="text-end">Adeuda</th></tr>
+              </thead>
+              <tbody>
+                <tr t-foreach="e['owed']" t-as="d">
+                  <td t-esc="d.delivered_at and d.delivered_at.strftime('%d/%m/%Y') or ''"/>
+                  <td t-esc="origins.get(d.origin, '')"/>
+                  <td t-esc="d.document"/>
+                  <td t-esc="d.partner_id.name or ''"/>
+                  <td class="text-end" t-esc="money(d.amount_owed)"/>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr><th colspan="4">Total adeudado</th>
+                  <th class="text-end" t-esc="money(e['total'])"/></tr>
+              </tfoot>
+            </table>
+            <p t-if="not e['owed']">No tiene cargos abiertos.</p>
+            <t t-if="e['settled']">
+              <h4 style="margin-top:10px">Saldado</h4>
+              <table class="table table-sm">
+                <thead>
+                  <tr><th>Entregado</th><th>Origen</th><th>Factura</th><th>Cliente</th>
+                    <th class="text-end">Importe</th><th>Cómo se saldó</th></tr>
+                </thead>
+                <tbody>
+                  <tr t-foreach="e['settled']" t-as="d">
+                    <td t-esc="d.delivered_at and d.delivered_at.strftime('%d/%m/%Y') or ''"/>
+                    <td t-esc="origins.get(d.origin, '')"/>
+                    <td t-esc="d.document"/>
+                    <td t-esc="d.partner_id.name or ''"/>
+                    <td class="text-end" t-esc="money(d.charge_amount)"/>
+                    <td t-esc="d.settled_reason"/>
+                  </tr>
+                </tbody>
+              </table>
+            </t>
+          </div>
+        </t>
+      </t>
+    </t>
+  </template>
+</odoo>

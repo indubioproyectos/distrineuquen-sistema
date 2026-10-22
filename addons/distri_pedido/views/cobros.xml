@@ -1,0 +1,1169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Tablero de cobros (models/cobros.py). Design: cobranza/README.md,
+       «Conciliación con Mercado Pago». -->
+
+  <!-- ================================================= collection: board -->
+
+  <record id="view_mp_collection_kanban" model="ir.ui.view">
+    <field name="name">distri.mp.collection.kanban</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="arch" type="xml">
+      <!-- js_class: column header with count, total and the «i» of each column
+           (static/src/js/cobros_board.js); card look in cobros_backend.css -->
+      <kanban default_group_by="column" create="0" group_create="0" group_delete="0"
+              group_edit="0" records_draggable="0" quick_create="0" sample="0"
+              js_class="distri_cobros_kanban" class="o_distri_cobros">
+        <header>
+          <button name="action_confirm_ready" type="object" display="always"
+                  string="Confirmar todos" class="btn-primary"
+                  confirm="Se registran como pagos todos los cobros de «Confirmado contra reporte MP», cada uno a su cliente. ¿Seguir?"/>
+          <button name="action_confirm" type="object" string="Confirmar los elegidos"
+                  class="btn-primary"/>
+          <button name="action_mark_wholesale" type="object" string="Es de mayorista"
+                  groups="distri_pedido.grupo_administracion"/>
+          <button name="action_import_report" type="object" display="always"
+                  string="Importar reporte"/>
+          <button name="action_check_alerts" type="object" display="always"
+                  string="Revisar alertas" groups="distri_pedido.grupo_administracion"/>
+        </header>
+        <field name="id"/>
+        <field name="column"/>
+        <field name="kind"/>
+        <field name="state"/>
+        <field name="partner_id"/>
+        <field name="receipt_id"/>
+        <field name="receipt_is_image"/>
+        <field name="receipt_amount_review"/>
+        <field name="receipt_forwarded_by_id"/>
+        <field name="proposal"/>
+        <field name="proposal_note"/>
+        <field name="proposal_badge"/>
+        <field name="amount_mismatch"/>
+        <field name="date_mismatch"/>
+        <field name="conflict_note"/>
+        <field name="receipt_destination"/>
+        <field name="receipt_other_account"/>
+        <field name="hand_verified"/>
+        <field name="reversal"/>
+        <field name="currency_id"/>
+        <field name="payer_name"/>
+        <field name="operation"/>
+        <field name="source_id"/>
+        <field name="report_review"/>
+        <field name="authorized_label"/>
+        <field name="review_reason"/>
+        <field name="payer_label"/>
+        <field name="report_label"/>
+        <field name="receipt_operation"/>
+        <field name="waiting_label"/>
+        <field name="receipt_date_label"/>
+        <field name="period_label"/>
+        <field name="received_label"/>
+        <field name="origin_label"/>
+        <templates>
+          <t t-name="card" class="o_distri_card p-0">
+            <t t-set="col" t-value="record.column.raw_value"/>
+            <t t-set="kind" t-value="record.kind.raw_value"/>
+            <t t-set="draft" t-value="record.state.raw_value == 'draft'"/>
+            <t t-set="authorized" t-value="record.state.raw_value == 'authorized'"/>
+            <field name="amount" widget="monetary" class="o_distri_amount"/>
+            <div class="o_distri_card_main">
+              <div class="o_distri_card_text">
+                <div t-if="record.partner_id.raw_value" class="o_distri_customer">
+                  <field name="partner_id"/>
+                </div>
+                <div t-else="" class="o_distri_customer o_distri_no_customer">Sin cliente</div>
+                <div class="o_distri_when">
+                  <i class="fa fa-clock-o" title="Fecha y hora"/>
+                  <field name="date_day"/> <field name="hour"/>
+                </div>
+              </div>
+              <img t-if="record.receipt_is_image.raw_value" class="o_distri_thumb" loading="lazy"
+                   alt="Foto del comprobante"
+                   t-att-src="'/web/image/distri.mp.collection/' + record.id.raw_value + '/receipt_image/96x96'"/>
+            </div>
+            <!-- «Revisar»: why the card needs attention -->
+            <div t-if="record.review_reason.raw_value" class="o_distri_reason">
+              <i class="fa fa-question-circle" title="Por qué revisar"/>
+              <span><b>Por qué:</b> <field name="review_reason"/></span>
+            </div>
+            <div class="o_distri_badges">
+              <span t-if="record.proposal_badge.raw_value" class="o_distri_badge o_distri_badge_source"
+                    title="De dónde salió el cliente">
+                <i class="fa fa-lightbulb-o" aria-hidden="true"/> <field name="proposal_badge"/>
+              </span>
+              <span t-if="kind == 'income' and record.receipt_id.raw_value"
+                    class="o_distri_badge o_distri_badge_ok" title="También llegó el comprobante por WhatsApp">
+                <i class="fa fa-check" aria-hidden="true"/> Comprobante ✓
+              </span>
+              <span t-if="kind == 'verify' and draft" class="o_distri_badge o_distri_badge_info">
+                <i class="fa fa-hourglass-half" aria-hidden="true"/> Aún sin registro en Mercado Pago
+              </span>
+              <span t-if="kind == 'verify' and authorized and not record.report_review.raw_value"
+                    class="o_distri_badge o_distri_badge_warn"
+                    title="Se vio en la app de Mercado Pago. No hay ningún pago registrado: se registra cuando el reporte traiga la transferencia.">
+                <i class="fa fa-truck" aria-hidden="true"/> Autorizado para entregar · falta el reporte
+              </span>
+              <span t-if="record.waiting_label.raw_value" class="o_distri_badge o_distri_badge_muted">
+                <field name="waiting_label"/>
+              </span>
+              <span t-if="record.amount_mismatch.raw_value" class="o_distri_badge o_distri_badge_warn">
+                <i class="fa fa-balance-scale" aria-hidden="true"/> Importe distinto
+              </span>
+              <span t-if="record.date_mismatch.raw_value" class="o_distri_badge o_distri_badge_warn"
+                    title="La fecha leída en el comprobante está a más de un día de la transferencia.">
+                <i class="fa fa-calendar-times-o" aria-hidden="true"/> Fecha distinta
+              </span>
+              <span t-if="record.receipt_other_account.raw_value" class="o_distri_badge o_distri_badge_danger"
+                    title="El destino leído en el comprobante no es la cuenta propia.">
+                <i class="fa fa-exclamation-triangle" aria-hidden="true"/> A otra cuenta
+              </span>
+              <span t-if="record.conflict_note.raw_value and draft" class="o_distri_badge o_distri_badge_danger"
+                    title="El mismo comprobante llegó para dos clientes distintos.">
+                <i class="fa fa-users" aria-hidden="true"/> Dos clientes
+              </span>
+              <span t-if="record.receipt_amount_review.raw_value" class="o_distri_badge o_distri_badge_warn">
+                <i class="fa fa-eye" aria-hidden="true"/> Revisar importe de la foto
+              </span>
+              <span t-if="record.hand_verified.raw_value" class="o_distri_badge o_distri_badge_info">
+                <i class="fa fa-hand-paper-o" aria-hidden="true"/> Verificado a mano
+              </span>
+              <span t-if="record.report_review.raw_value and authorized"
+                    class="o_distri_badge o_distri_badge_danger"
+                    title="Se autorizó la entrega, pero el reporte que cubre ese momento no trae la transferencia.">
+                <i class="fa fa-exclamation-triangle" aria-hidden="true"/> Mercadería autorizada sin transferencia
+              </span>
+              <span t-elif="record.report_review.raw_value" class="o_distri_badge o_distri_badge_danger"
+                    title="Pago registrado a mano con el sistema anterior: el reporte que cubre ese momento no trae la transferencia.">
+                <i class="fa fa-question-circle" aria-hidden="true"/> Pago registrado sin transferencia
+              </span>
+              <span t-if="record.receipt_forwarded_by_id.raw_value" class="o_distri_badge o_distri_badge_info">
+                <i class="fa fa-share" aria-hidden="true"/> Reenviado por <field name="receipt_forwarded_by_id"/>
+              </span>
+            </div>
+            <div t-if="record.proposal_note.raw_value" class="o_distri_note">
+              <field name="proposal_note"/>
+            </div>
+            <div t-if="record.reversal.raw_value" class="o_distri_note o_distri_note_danger">
+              <i class="fa fa-exclamation-triangle" title="Aviso"/> <field name="reversal"/>
+            </div>
+            <!-- the data to double-check the card -->
+            <div class="o_distri_facts">
+              <t t-if="record.payer_label.raw_value">
+                <span class="o_distri_fact_key">Pagó</span>
+                <span class="o_distri_fact_value"><field name="payer_label"/></span>
+              </t>
+              <t t-elif="kind == 'income'">
+                <span class="o_distri_fact_key">Pagó</span>
+                <span class="o_distri_fact_value text-muted">Sin datos del pagador</span>
+              </t>
+              <t t-if="kind == 'income'">
+                <span class="o_distri_fact_key">Medio</span>
+                <span class="o_distri_fact_value"><field name="origin_label"/></span>
+                <span class="o_distri_fact_key">N° MP</span>
+                <span class="o_distri_fact_value font-monospace"><field name="source_id"/></span>
+              </t>
+              <t t-if="record.authorized_label.raw_value">
+                <span class="o_distri_fact_key">Autorizó</span>
+                <span class="o_distri_fact_value"><field name="authorized_label"/></span>
+              </t>
+              <t t-if="kind == 'verify' and record.operation.raw_value">
+                <span class="o_distri_fact_key">N° comprob.</span>
+                <span class="o_distri_fact_value font-monospace"><field name="operation"/></span>
+              </t>
+              <t t-elif="record.receipt_operation.raw_value">
+                <span class="o_distri_fact_key">N° comprob.</span>
+                <span class="o_distri_fact_value font-monospace"><field name="receipt_operation"/></span>
+              </t>
+              <t t-if="record.receipt_destination.raw_value">
+                <span class="o_distri_fact_key">Destino</span>
+                <span t-att-class="'o_distri_fact_value' + (record.receipt_other_account.raw_value ? ' text-danger' : '')">
+                  <field name="receipt_destination"/>
+                </span>
+              </t>
+              <t t-if="kind == 'receipt'">
+                <span class="o_distri_fact_key">Foto recibida</span>
+                <span class="o_distri_fact_value"><field name="received_label"/></span>
+                <t t-if="record.receipt_date_label.raw_value">
+                  <span class="o_distri_fact_key">Fecha leída</span>
+                  <span class="o_distri_fact_value"><field name="receipt_date_label"/></span>
+                </t>
+                <t t-if="record.period_label.raw_value">
+                  <span class="o_distri_fact_key">Reporte revisado</span>
+                  <span class="o_distri_fact_value"><field name="period_label"/></span>
+                </t>
+              </t>
+              <t t-if="record.report_label.raw_value">
+                <span class="o_distri_fact_key">Reporte</span>
+                <span class="o_distri_fact_value">
+                  <button name="action_view_report" type="object"
+                          class="btn btn-link p-0 o_distri_report_link" title="Abrir el reporte">
+                    <field name="report_label"/> <i class="fa fa-external-link" aria-hidden="true"/>
+                  </button>
+                </span>
+              </t>
+            </div>
+            <!-- primary action of the column, full width -->
+            <div class="o_distri_primary">
+              <button t-if="col == 'verify' and kind == 'verify' and draft"
+                      name="action_verify" type="object" class="btn btn-primary"
+                      groups="distri_pedido.grupo_administracion"
+                      confirm="¿Viste esta transferencia en la app de Mercado Pago, con el mismo importe y número de operación? Se autoriza entregar la mercadería. No se registra ningún pago: se registra cuando el reporte traiga la transferencia.">
+                <i class="fa fa-truck" aria-hidden="true"/> Visto en MP: autorizar entrega
+              </button>
+              <button t-elif="col == 'confirm' and kind == 'income' and record.partner_id.raw_value"
+                      name="action_confirm" type="object" class="btn btn-primary">
+                <i class="fa fa-check" aria-hidden="true"/> Confirmar
+              </button>
+              <a t-elif="col == 'review'" type="open" role="button" class="btn btn-primary">
+                <i class="fa fa-eye" aria-hidden="true"/> Revisar
+              </a>
+              <button t-elif="col == 'unidentified' and draft" name="action_assign" type="object"
+                      class="btn btn-primary">
+                <i class="fa fa-user-plus" aria-hidden="true"/> Asignar cliente
+              </button>
+              <button t-elif="col == 'no_money' and record.receipt_id.raw_value"
+                      name="action_view_receipt" type="object" class="btn btn-primary">
+                <i class="fa fa-picture-o" aria-hidden="true"/> Ver foto
+              </button>
+            </div>
+            <!-- the other actions, compact -->
+            <div class="o_distri_secondary">
+              <button t-if="col != 'confirm' and kind == 'income' and record.partner_id.raw_value"
+                      name="action_confirm" type="object" class="btn btn-sm btn-light">
+                Confirmar
+              </button>
+              <button t-if="record.report_review.raw_value and not authorized" name="action_clear_review"
+                      type="object" class="btn btn-sm btn-light"
+                      groups="distri_pedido.grupo_administracion">
+                Revisado
+              </button>
+              <button t-if="record.receipt_id.raw_value and col != 'no_money'"
+                      name="action_view_receipt" type="object" class="btn btn-sm btn-light">
+                <i class="fa fa-picture-o" title="Foto"/> Ver foto
+              </button>
+              <button t-if="draft and col != 'unidentified'" name="action_assign" type="object"
+                      class="btn btn-sm btn-light">
+                <t t-if="record.partner_id.raw_value">Corregir cliente</t>
+                <t t-else="">Elegir cliente</t>
+              </button>
+              <button t-if="draft" name="action_ignore" type="object"
+                      class="btn btn-sm btn-link text-muted">
+                <t t-if="kind == 'receipt'">Investigar</t>
+                <t t-else="">Descartar</t>
+              </button>
+              <button t-if="record.report_review.raw_value and not authorized" name="action_undo"
+                      type="object" class="btn btn-sm btn-link text-danger"
+                      groups="distri_pedido.grupo_administracion"
+                      confirm="Se anula el pago registrado y el comprobante vuelve a «Esperando reporte MP». ¿Seguir?">
+                Deshacer
+              </button>
+              <button t-if="authorized" name="action_undo" type="object"
+                      class="btn btn-sm btn-link text-danger"
+                      groups="distri_pedido.grupo_administracion"
+                      confirm="Se quita la autorización de entrega y el comprobante vuelve a «Esperando reporte MP». ¿Seguir?">
+                Deshacer autorización
+              </button>
+            </div>
+          </t>
+        </templates>
+      </kanban>
+    </field>
+  </record>
+
+  <record id="view_mp_collection_list" model="ir.ui.view">
+    <field name="name">distri.mp.collection.list</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="arch" type="xml">
+      <list string="Cobros de Mercado Pago" create="0" edit="0"
+            decoration-muted="state == 'ignored'" decoration-success="state == 'confirmed'"
+            decoration-info="state == 'authorized'">
+        <header>
+          <button name="action_confirm" type="object" string="Confirmar" class="btn-primary"/>
+          <button name="action_mark_wholesale" type="object" string="Es de mayorista"
+                  groups="distri_pedido.grupo_administracion"/>
+          <button name="action_unmark_wholesale" type="object" string="Volver al tablero"
+                  groups="distri_pedido.grupo_administracion"/>
+        </header>
+        <field name="date"/>
+        <field name="source_id"/>
+        <field name="amount" sum="Total"/>
+        <field name="origin_label" optional="show"/>
+        <field name="payer_cuit" optional="show"/>
+        <field name="payer_name" optional="show"/>
+        <field name="partner_id"/>
+        <field name="proposal" optional="show"/>
+        <field name="proposal_note" optional="hide"/>
+        <field name="column" optional="show"/>
+        <field name="state" widget="badge" decoration-success="state == 'confirmed'"
+               decoration-warning="state == 'draft'" decoration-info="state == 'authorized'"/>
+        <field name="wholesale_label" optional="show"/>
+        <field name="wholesale_by_id" optional="hide"/>
+        <field name="wholesale_at" optional="hide"/>
+        <field name="payment_id" optional="hide"/>
+        <field name="confirmed_by_id" optional="hide"/>
+        <field name="confirmed_at" optional="hide"/>
+        <field name="currency_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_mp_collection_form" model="ir.ui.view">
+    <field name="name">distri.mp.collection.form</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="arch" type="xml">
+      <form string="Cobro de Mercado Pago" create="0" edit="0" delete="0">
+        <header>
+          <button name="action_confirm" type="object" string="Confirmar" class="btn-primary"
+                  invisible="state != 'draft' or kind != 'income' or not partner_id"/>
+          <button name="action_verify" type="object" string="Visto en MP: autorizar entrega"
+                  class="btn-primary" invisible="state != 'draft' or kind != 'verify'"
+                  groups="distri_pedido.grupo_administracion"
+                  confirm="¿Viste esta transferencia en la app de Mercado Pago, con el mismo importe y número de operación? Se autoriza entregar la mercadería. No se registra ningún pago: se registra cuando el reporte traiga la transferencia."/>
+          <button name="action_clear_review" type="object" string="Revisado"
+                  invisible="not report_review or state == 'authorized'"
+                  groups="distri_pedido.grupo_administracion"/>
+          <button name="action_assign" type="object" string="Elegir cliente"
+                  invisible="state != 'draft'"/>
+          <button name="action_view_receipt" type="object" string="Ver foto"
+                  invisible="not receipt_id"/>
+          <button name="action_ignore" type="object" string="Descartar"
+                  invisible="state != 'draft'"/>
+          <button name="action_mark_wholesale" type="object" string="Es de mayorista"
+                  invisible="state != 'draft' or kind != 'income'"
+                  groups="distri_pedido.grupo_administracion"/>
+          <button name="action_unmark_wholesale" type="object" string="Volver al tablero"
+                  invisible="state != 'apartado'" groups="distri_pedido.grupo_administracion"/>
+          <button name="action_undo" type="object" string="Deshacer"
+                  invisible="state in ('draft', 'authorized', 'apartado')"
+                  confirm="Se anula el pago registrado y el cobro vuelve al tablero. ¿Seguir?"/>
+          <button name="action_undo" type="object" string="Deshacer autorización"
+                  invisible="state != 'authorized'" groups="distri_pedido.grupo_administracion"
+                  confirm="Se quita la autorización de entrega y el comprobante vuelve a «Esperando reporte MP». ¿Seguir?"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="alert alert-secondary" role="status" invisible="state != 'apartado'">
+            <b>Mayorista / fuera del sistema.</b>
+            <field name="wholesale_label" readonly="1" class="oe_inline"/>
+            Apartado <span invisible="not wholesale_auto">solo por la regla del CUIT</span>
+            <span invisible="wholesale_auto">por <field name="wholesale_by_id" readonly="1" class="oe_inline"/></span>
+            el <field name="wholesale_at" readonly="1" class="oe_inline"/>.
+            No tiene cliente ni pago y no cuenta en el cierre diario. «Volver al tablero» lo deshace.
+            <field name="wholesale_auto" invisible="1"/>
+            <field name="wholesale_rule_id" invisible="1"/>
+          </div>
+          <div class="oe_button_box" name="button_box">
+            <button name="action_view_payment" type="object" class="oe_stat_button"
+                    icon="fa-money" invisible="not payment_id">
+              <field name="payment_id" widget="statinfo" string="Pago"/>
+            </button>
+          </div>
+          <div class="oe_title">
+            <h1><field name="amount" widget="monetary"/></h1>
+            <h3><field name="detail"/></h3>
+          </div>
+          <group>
+            <group string="Cliente">
+              <field name="partner_id" readonly="1"/>
+              <field name="proposal"/>
+              <field name="proposal_note"/>
+              <field name="column"/>
+              <field name="reversal" invisible="not reversal"/>
+              <field name="authorized_conflict" invisible="not authorized_conflict"/>
+              <field name="report_review" invisible="not report_review"/>
+            </group>
+            <group string="Comprobante" invisible="kind != 'verify'">
+              <field name="operation"/>
+              <field name="date"/>
+              <field name="payer_name"/>
+              <field name="payer_cuit"/>
+              <field name="income_id" invisible="not income_id"/>
+              <field name="report_id" invisible="not report_id"/>
+            </group>
+            <group string="Mercado Pago" invisible="kind != 'income'">
+              <field name="source_id"/>
+              <field name="date"/>
+              <field name="origin_label"/>
+              <field name="method_type"/>
+              <field name="method"/>
+              <field name="payer_name"/>
+              <field name="payer_id_type"/>
+              <field name="payer_cuit"/>
+              <field name="bank_transfer_id" invisible="not bank_transfer_id"/>
+              <field name="segment" invisible="not segment"/>
+              <field name="sale_detail" invisible="not sale_detail"/>
+              <field name="fee_amount" invisible="not fee_amount"/>
+              <field name="report_id"/>
+            </group>
+          </group>
+          <group>
+            <group string="Confirmación">
+              <field name="authorized_by_id" invisible="not authorized_by_id"/>
+              <field name="authorized_at" invisible="not authorized_at"/>
+              <field name="confirmed_by_id"/>
+              <field name="confirmed_at"/>
+              <field name="ignore_reason" invisible="state != 'ignored'"/>
+              <field name="ignore_note" invisible="state != 'ignored'"/>
+              <field name="fulfilled_promise_ids" widget="many2many_tags"
+                     invisible="not fulfilled_promise_ids"/>
+            </group>
+            <group string="Respaldo">
+              <field name="receipt_id"/>
+              <field name="promise_id" invisible="not promise_id"/>
+              <field name="receipt_is_image" invisible="1"/>
+              <field name="receipt_image" widget="image" options="{'size': [0, 260]}"
+                     invisible="not receipt_is_image"/>
+            </group>
+          </group>
+          <field name="kind" invisible="1"/>
+          <field name="currency_id" invisible="1"/>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_mp_collection_search" model="ir.ui.view">
+    <field name="name">distri.mp.collection.search</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="partner_id"/>
+        <field name="payer_name"/>
+        <field name="payer_cuit"/>
+        <field name="wholesale_label"/>
+        <field name="source_id"/>
+        <field name="amount"/>
+        <filter name="to_act" string="Para actuar (minoristas)"
+                domain="['&amp;', ('column', '!=', 'unidentified'),
+                         '|', '|', ('state', '=', 'draft'), ('report_review', '=', True),
+                         '&amp;', ('state', '=', 'authorized'), ('income_id', '=', False)]"/>
+        <filter name="unknown" string="Sin identificar"
+                domain="[('state', '=', 'draft'), ('column', '=', 'unidentified')]"/>
+        <filter name="apartados" string="Mayoristas apartados" domain="[('state', '=', 'apartado')]"/>
+        <separator/>
+        <filter name="last_60" string="Últimos 60 días"
+                domain="[('date_day', '&gt;=', (context_today() - relativedelta(days=60)).strftime('%Y-%m-%d'))]"/>
+        <separator/>
+        <filter name="pending" string="Pendientes"
+                domain="['|', '|', ('state', '=', 'draft'), ('report_review', '=', True),
+                         '&amp;', ('state', '=', 'authorized'), ('income_id', '=', False)]"/>
+        <filter name="confirmed" string="Confirmados" domain="[('state', '=', 'confirmed')]"/>
+        <filter name="ignored" string="Descartados" domain="[('state', '=', 'ignored')]"/>
+        <separator/>
+        <filter name="with_reversal" string="Con devolución o contracargo"
+                domain="[('reversal', '!=', False)]"/>
+        <filter name="authorized" string="Entregas autorizadas a mano"
+                domain="[('kind', '=', 'verify'), ('state', '=', 'authorized')]"/>
+        <filter name="hand_verified" string="Pagos registrados a mano (sistema anterior)"
+                domain="[('kind', '=', 'verify'), ('state', '=', 'confirmed')]"/>
+        <separator/>
+        <filter name="date_day" string="Día" date="date_day"/>
+        <group>
+          <filter name="by_column" string="Columna" context="{'group_by': 'column'}"/>
+          <filter name="by_day" string="Día" context="{'group_by': 'date_day:day'}"/>
+          <filter name="by_partner" string="Cliente" context="{'group_by': 'partner_id'}"/>
+          <filter name="by_payer" string="Pagador (CUIT)" context="{'group_by': 'payer_cuit'}"/>
+          <filter name="by_wholesale" string="Cuenta mayorista" context="{'group_by': 'wholesale_label'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_mp_board" model="ir.actions.act_window">
+    <field name="name">Tablero</field>
+    <field name="res_model">distri.mp.collection</field>
+    <field name="view_mode">kanban,list,form</field>
+    <field name="context">{'search_default_to_act': 1, 'search_default_last_60': 1}</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_mp_collection_kanban')}),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_mp_collection_list')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('view_mp_collection_form')})]"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No hay cobros pendientes</p>
+      <p>Cada mañana el reporte de Mercado Pago llega por SFTP y cada transferencia aparece acá
+         con el cliente propuesto. También se puede subir un reporte a mano con «Importar
+         reporte».</p>
+      <p>Las columnas van de lo más seguro a lo que pide más atención: «Confirmado contra
+         reporte MP», «Esperando reporte MP», «Revisar», «Asignar cliente» y «Sin
+         transferencia». Solo se registran pagos desde las transferencias del reporte:
+         «Confirmado contra reporte MP», «Revisar» y «Asignar cliente».
+         La «i» de cada columna explica qué es y qué hacer.</p>
+      <p>Los comprobantes que llegan por WhatsApp antes del reporte esperan en «Esperando
+         reporte MP» y no registran ningún pago. Si hay que entregar mercadería antes, se mira
+         la operación en la app de Mercado Pago y se toca «Visto en MP: autorizar entrega».</p>
+    </field>
+  </record>
+
+  <!-- ================================================= wizards -->
+
+  <record id="view_mp_assign_form" model="ir.ui.view">
+    <field name="name">distri.mp.assign.form</field>
+    <field name="model">distri.mp.assign</field>
+    <field name="arch" type="xml">
+      <form string="Elegir cliente">
+        <group>
+          <field name="amount" widget="monetary"/>
+          <field name="detail"/>
+          <field name="partner_id" options="{'no_create': True}"
+                 context="{'distri_search_phone': True}"/>
+          <field name="payer_cuit" invisible="1"/>
+          <field name="learn" invisible="not payer_cuit"/>
+          <field name="currency_id" invisible="1"/>
+          <field name="collection_id" invisible="1"/>
+        </group>
+        <footer>
+          <button name="action_assign_confirm" type="object" string="Asignar y confirmar"
+                  class="btn-primary"/>
+          <button name="action_assign" type="object" string="Solo asignar"/>
+          <button special="cancel" string="Cancelar" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_mp_ignore_form" model="ir.ui.view">
+    <field name="name">distri.mp.ignore.form</field>
+    <field name="model">distri.mp.ignore</field>
+    <field name="arch" type="xml">
+      <form string="Descartar">
+        <p invisible="kind != 'receipt'">La foto no tiene ingreso en el reporte. Anotá qué pasó:
+          un error, una demora (la plata llegó en otro reporte) o un comprobante falso.</p>
+        <p invisible="kind != 'verify'">El comprobante sale del tablero sin registrar ningún pago.
+          Anotá qué pasó: no está en Mercado Pago, se mandó a otra cuenta, es repetido o falso.</p>
+        <p invisible="kind != 'income'">El ingreso queda fuera de los cobros de clientes y el
+          cierre diario lo muestra como descartado.</p>
+        <group>
+          <field name="reason"/>
+          <field name="note"/>
+          <field name="kind" invisible="1"/>
+          <field name="collection_id" invisible="1"/>
+        </group>
+        <footer>
+          <button name="action_ignore" type="object" string="Descartar" class="btn-primary"/>
+          <button special="cancel" string="Cancelar" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_mp_import_form" model="ir.ui.view">
+    <field name="name">distri.mp.import.form</field>
+    <field name="model">distri.mp.import</field>
+    <field name="arch" type="xml">
+      <form string="Importar reporte de Mercado Pago">
+        <div invisible="report_id">
+          <p>Reporte «Todas las transacciones» de Mercado Pago, en .csv. Cada operación se carga
+             una sola vez: se puede subir un reporte que se superpone con otro.</p>
+          <group>
+            <field name="file" filename="filename"/>
+            <field name="filename" invisible="1"/>
+          </group>
+        </div>
+        <div invisible="not report_id">
+          <field name="report_id" invisible="1"/>
+          <field name="summary" nolabel="1"/>
+        </div>
+        <footer>
+          <button name="action_import" type="object" string="Importar" class="btn-primary"
+                  invisible="report_id"/>
+          <button name="action_open_board" type="object" string="Ver el tablero"
+                  class="btn-primary" invisible="not report_id"/>
+          <button special="cancel" string="Cerrar" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- ================================================= reports -->
+
+  <record id="view_mp_report_list" model="ir.ui.view">
+    <field name="name">distri.mp.report.list</field>
+    <field name="model">distri.mp.report</field>
+    <field name="arch" type="xml">
+      <list string="Reportes de Mercado Pago" create="0" edit="0">
+        <field name="imported_at"/>
+        <field name="name"/>
+        <field name="source"/>
+        <field name="period_start"/>
+        <field name="period_end"/>
+        <field name="new_count"/>
+        <field name="duplicate_count"/>
+        <field name="skipped_count" optional="show"/>
+        <field name="incoming_total"/>
+        <field name="no_money_count" optional="show"/>
+        <field name="reversal_count" optional="hide"/>
+        <field name="imported_by_id" optional="hide"/>
+        <field name="currency_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_mp_report_form" model="ir.ui.view">
+    <field name="name">distri.mp.report.form</field>
+    <field name="model">distri.mp.report</field>
+    <field name="arch" type="xml">
+      <form string="Reporte de Mercado Pago" create="0" edit="0">
+        <sheet>
+          <div class="oe_button_box" name="button_box">
+            <button name="action_open_collections" type="object" class="oe_stat_button"
+                    icon="fa-list" string="Cobros"/>
+          </div>
+          <div class="oe_title"><h1><field name="name"/></h1></div>
+          <field name="summary"/>
+          <group>
+            <group>
+              <field name="source"/>
+              <field name="imported_at"/>
+              <field name="imported_by_id"/>
+              <field name="period_start"/>
+              <field name="period_end"/>
+              <field name="attachment_id"/>
+            </group>
+            <group>
+              <field name="row_count"/>
+              <field name="new_count"/>
+              <field name="duplicate_count"/>
+              <field name="skipped_count"/>
+              <field name="reversal_count"/>
+              <field name="incoming_total"/>
+              <field name="no_money_count"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_mp_report" model="ir.actions.act_window">
+    <field name="name">Reportes de Mercado Pago</field>
+    <field name="res_model">distri.mp.report</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <!-- ================================================= daily close -->
+
+  <record id="view_mp_day_list" model="ir.ui.view">
+    <field name="name">distri.mp.day.list</field>
+    <field name="model">distri.mp.day</field>
+    <field name="arch" type="xml">
+      <list string="Cierre diario" create="0" decoration-danger="state == 'alert'"
+            decoration-muted="state == 'closed'">
+        <field name="date"/>
+        <field name="transfer_count"/>
+        <field name="report_total"/>
+        <field name="confirmed_total"/>
+        <field name="ignored_total"/>
+        <field name="apartado_total" optional="show"/>
+        <field name="difference" decoration-danger="difference != 0" decoration-bf="1"/>
+        <field name="pending_count"/>
+        <field name="covered" widget="boolean_icon" optional="show"/>
+        <field name="state" widget="badge" decoration-success="state == 'closed'"
+               decoration-danger="state == 'alert'"/>
+        <field name="closed_by_id" optional="hide"/>
+        <field name="currency_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_mp_day_form" model="ir.ui.view">
+    <field name="name">distri.mp.day.form</field>
+    <field name="model">distri.mp.day</field>
+    <field name="arch" type="xml">
+      <form string="Cierre diario" create="0" delete="0">
+        <header>
+          <button name="action_close" type="object" string="Cerrar el día" class="btn-primary"
+                  invisible="state != 'open'"/>
+          <button name="action_reopen" type="object" string="Reabrir"
+                  invisible="state == 'open'"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="oe_button_box" name="button_box">
+            <button name="action_open_collections" type="object" class="oe_stat_button"
+                    icon="fa-list">
+              <field name="transfer_count" widget="statinfo" string="Transferencias"/>
+            </button>
+          </div>
+          <div class="oe_title"><h1><field name="date" readonly="1"/></h1></div>
+          <group>
+            <group>
+              <field name="report_total"/>
+              <field name="confirmed_total"/>
+              <field name="ignored_total"/>
+              <field name="apartado_total"/>
+              <field name="apartado_count"/>
+              <field name="difference" decoration-danger="difference != 0"/>
+            </group>
+            <group>
+              <field name="pending_count"/>
+              <field name="covered"/>
+              <field name="closed_difference" invisible="state == 'open'"/>
+              <field name="closed_by_id" invisible="state == 'open'"/>
+              <field name="closed_at" invisible="state == 'open'"/>
+            </group>
+          </group>
+          <field name="note" placeholder="Si hay diferencia, qué la explica."
+                 readonly="state != 'open'"/>
+          <field name="currency_id" invisible="1"/>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_mp_day" model="ir.actions.act_window">
+    <field name="name">Cierre diario de Mercado Pago</field>
+    <field name="res_model">distri.mp.day</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p>Por día: las transferencias del reporte contra lo confirmado en el diario Mercado Pago
+         y lo descartado. Una diferencia pide una explicación y avisa a gerencia.</p>
+    </field>
+  </record>
+
+  <!-- ================================================= receipts -->
+
+  <record id="view_receipt_list" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.receipt.list</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="priority">30</field>
+    <field name="arch" type="xml">
+      <list string="Comprobantes por WhatsApp" create="0" delete="0" editable="bottom"
+            decoration-muted="distri_receipt_state in ('matched', 'dismissed', 'duplicate', 'registered')"
+            decoration-info="distri_receipt_state == 'outgoing'"
+            decoration-danger="distri_receipt_state == 'no_money' or distri_conflict">
+        <field name="timestamp" readonly="1"/>
+        <field name="wa_id" readonly="1"/>
+        <field name="profile_name" readonly="1" optional="show"/>
+        <field name="distri_forwarded_by_id" readonly="1" optional="show"/>
+        <field name="body" readonly="1" optional="show"/>
+        <field name="distri_partner_id" options="{'no_create': True}"/>
+        <field name="distri_amount"/>
+        <field name="distri_amount_confidence" widget="badge" optional="show"
+               decoration-success="distri_amount_confidence == 'high'"
+               decoration-warning="distri_amount_confidence in ('low', 'none')"
+               decoration-info="distri_amount_confidence == 'manual'"/>
+        <field name="distri_read_amount" optional="hide"/>
+        <field name="distri_operation" optional="show"/>
+        <field name="distri_payer_name" optional="hide"/>
+        <field name="distri_payer_cuit" optional="hide"/>
+        <field name="distri_bank" optional="hide"/>
+        <field name="distri_order_ref" optional="hide" readonly="1"/>
+        <field name="distri_receipt_state" readonly="1" widget="badge"
+               decoration-warning="distri_receipt_state == 'pending'"
+               decoration-success="distri_receipt_state == 'matched'"
+               decoration-info="distri_receipt_state in ('registered', 'outgoing')"
+               decoration-danger="distri_receipt_state == 'no_money'"/>
+        <field name="distri_receipt_note" readonly="1" optional="show"/>
+        <field name="distri_conflict" readonly="1" optional="show"/>
+        <field name="distri_other_account" readonly="1" optional="show" widget="boolean_toggle"/>
+        <field name="distri_collection_id" readonly="1" optional="show"/>
+        <button name="action_distri_dismiss_receipt" type="object" string="No es comprobante"
+                icon="fa-ban" invisible="distri_receipt_state in ('matched', 'dismissed')"/>
+        <button name="action_distri_mark_receipt" type="object" string="Es un comprobante nuevo"
+                icon="fa-undo" invisible="distri_receipt_state not in ('duplicate', 'registered', 'outgoing')"
+                title="Volver a esperar el reporte con este comprobante."/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_receipt_form" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.receipt.form</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="priority">30</field>
+    <field name="arch" type="xml">
+      <form string="Comprobante" create="0" delete="0">
+        <sheet>
+          <group>
+            <group>
+              <field name="timestamp" readonly="1"/>
+              <field name="wa_id" readonly="1"/>
+              <field name="profile_name" readonly="1"/>
+              <field name="distri_forwarded_by_id" readonly="1" invisible="not distri_forwarded_by_id"/>
+              <field name="body" readonly="1"/>
+              <field name="distri_partner_id" options="{'no_create': True}"/>
+              <field name="distri_partner_source" invisible="not distri_partner_id"/>
+              <field name="distri_amount"/>
+              <field name="distri_amount_confidence" widget="badge"
+                     decoration-success="distri_amount_confidence == 'high'"
+                     decoration-warning="distri_amount_confidence in ('low', 'none')"
+                     decoration-info="distri_amount_confidence == 'manual'"/>
+              <label for="distri_read_amount" invisible="not distri_read_amount"/>
+              <div invisible="not distri_read_amount" class="d-flex gap-2 align-items-baseline">
+                <field name="distri_read_amount" class="oe_inline"/>
+                <button name="action_distri_use_read_amount" type="object"
+                        string="Usar importe leído" class="btn-link p-0"
+                        invisible="distri_amount_confidence in ('high', 'manual') and distri_amount == distri_read_amount"/>
+              </div>
+              <field name="distri_operation"/>
+              <field name="distri_receipt_date"/>
+              <field name="distri_receipt_state" readonly="1"/>
+              <field name="distri_receipt_note" invisible="not distri_receipt_note"/>
+              <field name="distri_conflict" invisible="not distri_conflict"
+                     decoration-danger="distri_conflict"/>
+              <field name="distri_collection_id" readonly="1"/>
+            </group>
+            <group>
+              <field name="media_is_image" invisible="1"/>
+              <field name="media_name" invisible="1"/>
+              <field name="attachment_id" invisible="1"/>
+              <field name="media_data" string="Comprobante" widget="image" readonly="1"
+                     invisible="not media_is_image" options="{'size': [0, 520]}"/>
+              <field name="media_data" string="Comprobante" widget="binary" readonly="1"
+                     filename="media_name" invisible="not attachment_id or media_is_image"/>
+            </group>
+          </group>
+          <group string="Leído del comprobante" invisible="not attachment_id">
+            <group>
+              <field name="distri_payer_name"/>
+              <field name="distri_payer_cuit"/>
+              <field name="distri_bank"/>
+            </group>
+            <group>
+              <field name="distri_dest_name"/>
+              <field name="distri_dest_cuit"/>
+              <field name="distri_destination"/>
+              <field name="distri_other_account" widget="boolean_toggle"
+                     decoration-danger="distri_other_account"/>
+              <field name="distri_payer_own" widget="boolean_toggle"
+                     decoration-danger="distri_payer_own"/>
+              <button name="action_distri_read_again" type="object" string="Leer de nuevo"
+                      class="btn-secondary"/>
+            </group>
+          </group>
+          <notebook invisible="not distri_file_text">
+            <page string="Texto leído" name="file_text">
+              <field name="distri_file_text" nolabel="1"/>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_receipt_search" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.receipt.search</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="priority">30</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="distri_partner_id"/>
+        <field name="wa_id"/>
+        <field name="distri_amount"/>
+        <filter name="receipts" string="Comprobantes" domain="[('distri_is_receipt', '=', True)]"/>
+        <filter name="waiting" string="Esperando el reporte"
+                domain="[('distri_receipt_state', '=', 'pending')]"/>
+        <filter name="no_money" string="Sin transferencia"
+                domain="[('distri_receipt_state', '=', 'no_money')]"/>
+        <filter name="no_amount" string="Sin importe" domain="[('distri_amount', '=', 0)]"/>
+        <filter name="amount_review" string="Revisar importe"
+                domain="[('distri_amount_review', '=', True)]"/>
+        <filter name="no_partner" string="Sin cliente" domain="[('distri_partner_id', '=', False)]"/>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_receipts" model="ir.actions.act_window">
+    <field name="name">Comprobantes por WhatsApp</field>
+    <field name="res_model">distri.whatsapp.message</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('direction', '=', 'in'), ('message_type', 'in', ('image', 'document'))]</field>
+    <field name="context">{'search_default_receipts': 1}</field>
+    <field name="search_view_id" ref="view_receipt_search"/>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_receipt_list')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('view_receipt_form')})]"/>
+    <field name="help" type="html">
+      <p>Fotos y PDF que mandan los clientes por WhatsApp. El cliente sale del número de pedido
+         escrito junto a la foto, del teléfono o del CUIT de quien pagó. El importe, el número de
+         operación, la fecha, quién pagó y el destino se leen de la foto (en este servidor) o del
+         PDF. Si el importe no se leyó con seguridad queda «Revisar importe»: se confirma con
+         «Usar importe leído» o se escribe a mano.</p>
+    </field>
+  </record>
+
+  <!-- ================================================= identities -->
+
+  <record id="view_payer_identity_list" model="ir.ui.view">
+    <field name="name">distri.payer.identity.list</field>
+    <field name="model">distri.payer.identity</field>
+    <field name="arch" type="xml">
+      <list string="CUIT y teléfonos de clientes" editable="bottom">
+        <field name="partner_id" options="{'no_create': True}"/>
+        <field name="kind"/>
+        <field name="value"/>
+        <field name="holder"/>
+        <field name="learned_by_id"/>
+        <field name="learned_at"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_payer_identity" model="ir.actions.act_window">
+    <field name="name">CUIT y teléfonos de clientes</field>
+    <field name="res_model">distri.payer.identity</field>
+    <field name="view_mode">list</field>
+    <field name="help" type="html">
+      <p>Cada CUIT o teléfono asignado una vez a un cliente. Desde ahí el tablero lo propone
+         solo. Un comercio puede pagar desde varias cuentas.</p>
+    </field>
+  </record>
+
+  <record id="view_partner_form_cobros" model="ir.ui.view">
+    <field name="name">res.partner.form.cobros</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//notebook" position="inside">
+        <page string="Cobros" name="distri_cobros" groups="distri_pedido.grupo_administracion">
+          <field name="distri_payer_ids" context="{'default_partner_id': id}">
+            <list editable="bottom">
+              <field name="kind"/>
+              <field name="value"/>
+              <field name="holder"/>
+              <field name="learned_by_id"/>
+              <field name="learned_at"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- Find a customer by who pays for it: the MP account holder or CUIT. -->
+  <record id="view_partner_search_cobros" model="ir.ui.view">
+    <field name="name">res.partner.search.cobros</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_res_partner_filter"/>
+    <field name="arch" type="xml">
+      <field name="name" position="after">
+        <field name="distri_payer_ids" string="Titular o CUIT que paga"
+               groups="distri_pedido.grupo_administracion"
+               filter_domain="['|', ('distri_payer_ids.holder', 'ilike', self),
+                               ('distri_payer_ids.value', 'ilike', self)]"/>
+      </field>
+    </field>
+  </record>
+
+  <!-- ================================================ pending receipts -->
+  <!-- «Comprobantes pendientes»: the action lives in views/reparto.xml -->
+
+  <record id="view_comprobantes_config" model="ir.ui.view">
+    <field name="name">distri.comprobantes.config.form</field>
+    <field name="model">distri.comprobantes.config</field>
+    <field name="arch" type="xml">
+      <form string="Ajustes de comprobantes">
+        <group>
+          <field name="cliente_en_rojo"/>
+        </group>
+        <div class="text-muted">
+          <p><b>Activado:</b> la visita de un cliente que debe plata o comprobantes de días
+            anteriores sale en rojo en la app del repartidor: primero cobra lo que se debe y
+            reenvía los comprobantes, después descarga. El cliente ve el aviso de lo que debe en
+            su pedido.</p>
+          <p><b>Desactivado:</b> no hay visitas en rojo. Los comprobantes pendientes, los
+            vencimientos y los cargos al repartidor funcionan igual.</p>
+          <p>Activarlo recién con las cuentas corrientes al día: hoy el sistema muestra deudas que
+            ya se pagaron y muchos clientes quedarían en rojo por error.</p>
+        </div>
+        <footer>
+          <button name="action_save" type="object" string="Guardar" class="btn-primary"/>
+          <button string="Cerrar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_comprobantes_config" model="ir.actions.act_window">
+    <field name="name">Ajustes de comprobantes</field>
+    <field name="res_model">distri.comprobantes.config</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <!-- ================================================ mayoristas (19.0.1.31.0) -->
+  <!-- models/mayoristas.py: payers out of the system, grouped unknown payers -->
+
+  <record id="view_mp_wholesale_mark_form" model="ir.ui.view">
+    <field name="name">distri.mp.wholesale.mark.form</field>
+    <field name="model">distri.mp.wholesale.mark</field>
+    <field name="arch" type="xml">
+      <form string="Es de mayorista">
+        <p>Los pagos quedan <b>Mayorista / fuera del sistema</b>: sin cliente, sin pago
+          registrado, fuera de las alertas y del cierre diario. Se puede deshacer con «Volver al
+          tablero».</p>
+        <group>
+          <field name="count"/>
+          <field name="total"/>
+          <field name="cuits" invisible="not cuits"/>
+          <field name="without_cuit" invisible="not without_cuit"/>
+          <field name="remember" invisible="not cuits"/>
+          <field name="label" placeholder="Ej.: el nombre del revendedor"/>
+          <field name="note"/>
+        </group>
+        <div class="alert alert-warning" role="alert" invisible="not conflict_note">
+          <field name="conflict_note" readonly="1"/>
+        </div>
+        <div class="text-muted" invisible="not without_cuit">
+          Las transferencias bancarias sin CUIT no se pueden recordar: se apartan de a una.
+        </div>
+        <field name="collection_ids" invisible="1"/>
+        <footer>
+          <button name="action_apply" type="object" string="Apartar" class="btn-primary"/>
+          <button special="cancel" string="Cancelar"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_mp_payer_bucket_list" model="ir.ui.view">
+    <field name="name">distri.mp.payer.bucket.list</field>
+    <field name="model">distri.mp.payer.bucket</field>
+    <field name="arch" type="xml">
+      <list string="Sin identificar, por pagador" create="0" edit="0" delete="0">
+        <field name="payer"/>
+        <field name="payer_cuit"/>
+        <field name="payment_count" sum="Pagos"/>
+        <field name="total" sum="Total"/>
+        <field name="last_date"/>
+        <field name="first_date" optional="hide"/>
+        <field name="rule_conflict" optional="show"/>
+        <field name="currency_id" column_invisible="1"/>
+        <button name="action_view_payments" type="object" string="Ver pagos" icon="fa-list"/>
+        <button name="action_mark_wholesale" type="object" string="Es de mayorista"
+                icon="fa-archive"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_mp_payer_bucket_search" model="ir.ui.view">
+    <field name="name">distri.mp.payer.bucket.search</field>
+    <field name="model">distri.mp.payer.bucket</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="payer"/>
+        <field name="payer_cuit"/>
+        <filter name="with_cuit" string="Con CUIT" domain="[('payer_cuit', '!=', '')]"/>
+        <filter name="without_cuit" string="Sin CUIT" domain="[('payer_cuit', '=', '')]"/>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_mp_payer_bucket" model="ir.actions.act_window">
+    <field name="name">Sin identificar</field>
+    <field name="res_model">distri.mp.payer.bucket</field>
+    <field name="view_mode">list</field>
+    <field name="help" type="html">
+      <p>Ingresos del reporte sin ninguna pista de cliente, agrupados por pagador: una fila por
+         CUIT (o por titular, si no hay CUIT), con la cantidad de pagos, el total y el último.
+         «Ver pagos» los abre para asignar el cliente; «Es de mayorista» los aparta.</p>
+    </field>
+  </record>
+
+  <record id="action_mp_apartados" model="ir.actions.act_window">
+    <field name="name">Mayoristas apartados</field>
+    <field name="res_model">distri.mp.collection</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('state', '=', 'apartado')]</field>
+    <field name="context">{'search_default_by_wholesale': 1}</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_mp_collection_list')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('view_mp_collection_form')})]"/>
+  </record>
+
+  <record id="view_mp_wholesale_rule_list" model="ir.ui.view">
+    <field name="name">distri.mp.wholesale.rule.list</field>
+    <field name="model">distri.mp.wholesale.rule</field>
+    <field name="arch" type="xml">
+      <list string="Pagadores mayoristas" editable="bottom" decoration-danger="conflict">
+        <field name="cuit"/>
+        <field name="label"/>
+        <field name="note" optional="show"/>
+        <field name="payment_count"/>
+        <field name="payment_total"/>
+        <field name="conflict"/>
+        <field name="conflict_note" optional="show"/>
+        <field name="create_uid" string="Creó" optional="hide"/>
+        <field name="create_date" string="Creada" optional="hide"/>
+        <field name="currency_id" column_invisible="1"/>
+        <button name="action_refresh_conflict" type="object" string="Revisar" icon="fa-refresh"/>
+        <button name="action_undo" type="object" string="Deshacer la regla" icon="fa-undo"
+                confirm="La regla se archiva y sus pagos apartados vuelven al tablero. ¿Seguir?"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_mp_wholesale_rule_search" model="ir.ui.view">
+    <field name="name">distri.mp.wholesale.rule.search</field>
+    <field name="model">distri.mp.wholesale.rule</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="cuit"/>
+        <field name="label"/>
+        <filter name="conflicts" string="En conflicto" domain="[('conflict', '=', True)]"/>
+        <filter name="archived" string="Deshechas" domain="[('active', '=', False)]"/>
+        <group>
+          <filter name="by_label" string="Cuenta mayorista" context="{'group_by': 'label'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_mp_wholesale_rule" model="ir.actions.act_window">
+    <field name="name">Pagadores mayoristas</field>
+    <field name="res_model">distri.mp.wholesale.rule</field>
+    <field name="view_mode">list</field>
+    <field name="help" type="html">
+      <p>CUIT que se apartan solos al importar el reporte: mayoristas, revendedores,
+         distribuidoras y los clientes de un revendedor que le pagan a su cuenta. Un CUIT de un
+         cliente del sistema nunca se aparta solo: queda «En conflicto» para revisar.</p>
+    </field>
+  </record>
+
+  <!-- ================================================= menus -->
+
+  <menuitem id="menu_cobros_root" name="Cobros" sequence="46"
+            web_icon="distri_pedido,static/src/img/cobros-icon.png"
+            groups="distri_pedido.grupo_vendedor,base.group_system"/>
+  <menuitem id="menu_cobros_board" name="Tablero" parent="menu_cobros_root"
+            action="action_mp_board" sequence="10"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_cobros_receipts" name="Comprobantes por WhatsApp" parent="menu_cobros_root"
+            action="action_receipts" sequence="20"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_cobros_promises" name="Comprobantes pendientes" parent="menu_cobros_root"
+            action="action_promise" sequence="30"/>
+  <menuitem id="menu_cobros_day" name="Cierre diario" parent="menu_cobros_root"
+            action="action_mp_day" sequence="40"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_cobros_reports" name="Reportes de Mercado Pago" parent="menu_cobros_root"
+            action="action_mp_report" sequence="50"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_cobros_unknown" name="Sin identificar" parent="menu_cobros_root"
+            action="action_mp_payer_bucket" sequence="12"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_cobros_apartados" name="Mayoristas apartados" parent="menu_cobros_root"
+            action="action_mp_apartados" sequence="14"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_cobros_wholesale_rules" name="Pagadores mayoristas" parent="menu_cobros_root"
+            action="action_mp_wholesale_rule" sequence="65"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_cobros_identities" name="CUIT y teléfonos de clientes"
+            parent="menu_cobros_root" action="action_payer_identity" sequence="60"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_cobros_comprobantes_config" name="Ajustes de comprobantes"
+            parent="menu_cobros_root" action="action_comprobantes_config" sequence="70"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+
+  <!-- «Mercado Pago» bank journal (models/cobros.py): created once per company -->
+  <function model="account.journal" name="_distri_ensure_mp_journal"/>
+
+  <!-- «Esperando reporte MP»: receipts already waiting get their card
+       (idempotent, runs on every module update) -->
+  <function model="distri.whatsapp.message" name="_distri_backfill_verify_cards"/>
+
+</odoo>

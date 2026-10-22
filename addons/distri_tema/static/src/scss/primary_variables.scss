@@ -1,0 +1,16 @@
+// Paleta del proyecto (presentaciones y app de reparto).
+//   azul marino #10243f: barra superior
+//   verde azulado #0a6b5c: botones, links y acciones (6.4:1 sobre blanco)
+//   ámbar #b08900: no se usa en el backend. Sobre blanco da 3.3:1 (no sirve
+//   para texto) y como línea bajo la barra queda cortada por las entradas del
+//   menú. Queda para las piezas del proyecto (presentaciones, app).
+$distri-navy: #10243f;
+$distri-teal: #0a6b5c;
+
+$o-community-color: $distri-navy;
+$o-brand-odoo: $distri-navy;
+$o-brand-primary: $distri-teal;
+
+$o-navbar-border-bottom: 1px solid darken($distri-navy, 5%);
+
+$o-system-fonts: ("Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Ubuntu, "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");

@@ -1,0 +1,92 @@
+/* Shared look of the depot screens: the delivery driver's app (/reparto,
+   static/src/reparto/app.css adds its own parts) and the packing screen
+   (/armado). Colors and type from the mockups
+   (docs/distrineuquen-modulo/reparto/boceto). Change them here, once. */
+
+/* Figtree, self-hosted by the theme module (distri_tema). Without it the
+   system font takes over. */
+@font-face{font-family:"Figtree";font-style:normal;font-display:swap;font-weight:300 900;
+  src:url("/distri_tema/static/src/fonts/figtree-latin-wght-normal.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Figtree";font-style:normal;font-display:swap;font-weight:300 900;
+  src:url("/distri_tema/static/src/fonts/figtree-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+
+:root{
+  --navy:#10243f; --navy-2:#2b4262; --navy-bg:#e4eaf2; --teal:#0a6b5c; --teal-dark:#084f44; --mint:#5fe0c9;
+  --teal-bg:#e1f2ee;
+  --amber:#b08900; --amber-text:#6b5200; --amber-bg:#fff4d1; --amber-bg-2:#fff8e1; --amber-border:#d7b44a;
+  --red:#8f2d1c; --red-bg:#fbe6e1; --red-bg-2:#fdf3f0; --red-border:#e3a597;
+  --green:#1f6b45; --green-bg:#e3f3ea;
+  --text:#22303d; --muted:#55636f; --soft:#3c4a57; --line:#d6dde3; --line-2:#e3e8ec;
+  --input:#b9c4cd; --bg:#f7f8f7; --card:#fff; --chip:#e8ecef; --tint:#f1f4f6; --head-sub:#b9c7d6;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg)}
+body{font-family:Figtree,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--text);
+     font-size:16px;line-height:1.35}
+button,input,textarea,select{font:inherit;color:inherit}
+a{color:var(--teal)}
+
+/* header */
+.head{background:var(--navy);color:#fff;padding:18px 20px 16px;display:flex;flex-direction:column;gap:6px}
+.head .kicker{font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mint);font-weight:700}
+.head h1{margin:0;font-size:24px;font-weight:800;line-height:1.15}
+.head .sub{font-size:14px;color:var(--head-sub)}
+.head .back{color:var(--mint);font-size:14px;font-weight:700;text-decoration:none;align-self:flex-start;
+            background:none;border:0;padding:0;cursor:pointer}
+.head .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+
+/* banners */
+.banner{padding:10px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.banner.warn{background:var(--amber-bg);color:var(--amber-text)}
+.banner.err{background:var(--red-bg);color:var(--red)}
+.banner.ok{background:var(--green-bg);color:var(--green)}
+.banner.info{background:var(--navy-bg);color:var(--navy)}
+.banner a,.banner button.link{color:inherit;font-weight:800}
+.banner svg{flex:none}
+
+/* blocks */
+.label{font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;padding-top:4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;
+      flex-direction:column;gap:10px}
+.card.strong{border:2px solid var(--navy)}
+.card.warn{background:var(--amber-bg-2);border:2px solid var(--amber)}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.note{font-size:13px;color:var(--muted);background:var(--tint);border-radius:8px;padding:8px 10px}
+.amber{color:var(--amber-text)}
+.foot{padding:14px 20px calc(22px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line);
+      display:flex;flex-direction:column;gap:8px;position:sticky;bottom:0}
+.foot .hint{font-size:13px;color:var(--muted);text-align:center}
+.split{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+
+/* buttons: navy by default, teal for the main action of the packing screen */
+.btn{display:block;width:100%;text-align:center;border:0;border-radius:12px;padding:16px;font-size:18px;
+     font-weight:700;background:var(--navy);color:#fff;cursor:pointer;text-decoration:none}
+.btn.teal{background:var(--teal)}
+.btn.outline{background:#fff;color:var(--navy);border:2px solid var(--navy);padding:14px;font-size:17px}
+.btn:disabled{background:#c9d1d8;color:#fff;border-color:#c9d1d8;cursor:default}
+.btn.outline:disabled{background:#fff;color:#9aa6b1;border-color:#c9d1d8}
+.link{background:none;border:0;padding:0;color:var(--teal);font-size:15px;font-weight:700;cursor:pointer;text-align:left}
+.link.red{color:var(--red)}
+
+/* inputs */
+.inp{box-sizing:border-box;border:1px solid var(--input);border-radius:10px;padding:10px;background:#fff;font-size:15px;width:100%}
+.inp:disabled{background:#eef1f3;color:#9aa6b1}
+.inp:focus,.btn:focus-visible,.link:focus-visible{outline:3px solid var(--mint);outline-offset:1px}
+
+/* status pills */
+.pill{font-size:12px;font-weight:700;border-radius:99px;padding:3px 10px;white-space:nowrap;align-self:flex-start;
+      background:var(--chip);color:var(--soft)}
+.pill.warn{color:var(--amber-text);background:var(--amber-bg)}
+.pill.ok{color:var(--green);background:var(--green-bg)}
+.pill.err{color:var(--red);background:var(--red-bg)}
+.pill.info{color:var(--navy);background:var(--navy-bg)}
+
+/* floating message */
+#toast{position:fixed;left:12px;right:12px;bottom:calc(96px + env(safe-area-inset-bottom));z-index:9;max-width:496px;
+       margin:0 auto;border-radius:10px;padding:12px 14px;font-size:15px;font-weight:600;text-align:center;
+       box-shadow:0 6px 20px rgba(0,0,0,.2);background:var(--navy);color:#fff}
+#toast.err{background:var(--red)}
+#toast[hidden]{display:none}

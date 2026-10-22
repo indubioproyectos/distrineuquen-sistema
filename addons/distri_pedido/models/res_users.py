@@ -1,0 +1,60 @@
+from odoo import api, fields, models
+
+# Every user works in Argentina. Odoo takes the user's time zone for the
+# dates it sets by itself (invoice and credit note dates, "today" in
+# filters) and for the times it prints (reports, chatter, web pages). The
+# web client shows times in the browser's zone and warns when it differs
+# from the user's.
+DEFAULT_TZ = "America/Argentina/Buenos_Aires"
+
+
+class ResUsers(models.Model):
+    _inherit = "res.users"
+
+    etiqueta_cartera_id = fields.Many2one(
+        "res.partner.category",
+        string="Cartera de clientes",
+        help="El vendedor ve unicamente los clientes que tengan esta etiqueta.",
+    )
+
+    @property
+    def SELF_READABLE_FIELDS(self):
+        return super().SELF_READABLE_FIELDS + ["etiqueta_cartera_id"]
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """New users (internal and portal) start in Argentina's time zone."""
+        Partner = self.env["res.partner"].sudo()
+        for vals in vals_list:
+            if vals.get("tz"):
+                continue
+            partner = Partner.browse(vals["partner_id"]) if vals.get("partner_id") else Partner
+            if not partner.tz:
+                vals["tz"] = DEFAULT_TZ
+        return super().create(vals_list)
+
+    def _distri_landing(self):
+        """The screen of a user who only packs or delivers: /reparto for
+        the driver, /armado for the packer. Administración, gerencia and
+        system administrators keep the backend (empty string)."""
+        self.ensure_one()
+        user = self.sudo()
+        if user.share or user.has_group("distri_pedido.grupo_administracion") \
+                or user.has_group("base.group_system"):
+            return ""
+        if user.has_group("distri_pedido.grupo_reparto"):
+            return "/reparto"
+        if user.has_group("distri_pedido.grupo_armador"):
+            return "/armado"
+        return ""
+
+    @api.model
+    def _distri_set_argentina_tz(self):
+        """Users without a time zone (all of them before 19.0.1.8.0), the
+        public user included, get Argentina's. Called on every module update;
+        a zone set on purpose is kept."""
+        users = self.sudo().with_context(active_test=False).search([("tz", "=", False)])
+        users.write({"tz": DEFAULT_TZ})
+        companies = self.env["res.company"].sudo().search([])
+        companies.partner_id.filtered(lambda p: not p.tz).write({"tz": DEFAULT_TZ})
+        return len(users)

@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Web orders without a customer sit under a generic contact
+       (models/res_partner.py). Here: the list of those orders, the
+       «Asignar cliente» wizard and the warnings on the order and the contact. -->
+
+  <!-- ============================================ pedidos sin cliente -->
+
+  <record id="action_pedidos_sin_cliente" model="ir.actions.act_window">
+    <field name="name">Pedidos sin cliente</field>
+    <field name="res_model">sale.order</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('distri_partner_generic', '=', True), ('state', '!=', 'cancel'), ('distri_wa_state', '!=', 'waiting')]</field>
+    <field name="context">{}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No hay pedidos web sin cliente.</p>
+      <p>Los pedidos de la página que entran sin cliente aparecen acá. Abrí el pedido
+         y tocá «Asignar cliente».</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_pedidos_sin_cliente"
+            name="Pedidos sin cliente"
+            parent="sale.sale_order_menu"
+            action="action_pedidos_sin_cliente"
+            groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager"
+            sequence="3"/>
+
+  <record id="view_order_search_sin_cliente" model="ir.ui.view">
+    <field name="name">sale.order.search.sin.cliente</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <separator/>
+        <filter name="distri_sin_cliente" string="Pedidos sin cliente"
+                domain="[('distri_partner_generic', '=', True), ('state', '!=', 'cancel')]"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ pedido: botón y aviso -->
+
+  <record id="view_order_form_sin_cliente" model="ir.ui.view">
+    <field name="name">sale.order.form.sin.cliente</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="priority">20</field>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <field name="distri_partner_generic" invisible="1"/>
+        <field name="distri_origen" invisible="1"/>
+        <button name="action_distri_asignar_cliente" type="object" string="Asignar cliente"
+                class="btn-primary" icon="fa-user-plus"
+                groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager"
+                invisible="not distri_partner_generic or state == 'cancel'"/>
+      </xpath>
+      <!-- The customer is assigned only through the wizard (new process). -->
+      <xpath expr="//group[@name='partner_details']/field[@name='partner_id']" position="attributes">
+        <attribute name="readonly">distri_partner_generic or state in ['cancel', 'sale']</attribute>
+      </xpath>
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-warning d-flex align-items-center gap-3 mb-0" role="alert"
+             invisible="not distri_partner_generic or state == 'cancel'">
+          <div class="flex-grow-1">
+            <strong class="fs-5">Pedido sin cliente asignado</strong>
+            <div>
+              <span invisible="distri_origen">Entró por la página</span><span invisible="not distri_origen">Entró por WhatsApp (AgilPedido)</span> a nombre del contacto genérico. Lo que escribió el comprador:
+              <strong><field name="distri_nombre" readonly="1" class="d-inline"/></strong>
+              <span invisible="not distri_telefono"> · tel. <field name="distri_telefono" readonly="1" class="d-inline"/></span>
+            </div>
+            <div class="small">No edites el contacto genérico: asigná el cliente al pedido.</div>
+          </div>
+          <button name="action_distri_asignar_cliente" type="object" string="Asignar cliente"
+                  class="btn btn-primary btn-lg" icon="fa-user-plus"
+                  groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager"/>
+        </div>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ asistente -->
+
+  <record id="view_asignar_cliente_form" model="ir.ui.view">
+    <field name="name">distri.asignar.cliente.form</field>
+    <field name="model">distri.asignar.cliente</field>
+    <field name="arch" type="xml">
+      <form string="Asignar cliente">
+        <field name="order_id" invisible="1"/>
+        <field name="order_state" invisible="1"/>
+        <field name="mayorista" invisible="1"/>
+        <field name="currency_id" invisible="1"/>
+        <field name="modo" widget="radio" options="{'horizontal': true}" nolabel="1"/>
+        <!-- side by side: what the buyer typed and the chosen customer's card -->
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <div class="border rounded p-3 h-100 bg-light">
+              <div class="fw-bold mb-2">Lo que escribió el comprador en la web</div>
+              <div class="fs-5"><field name="web_nombre" readonly="1" class="d-inline"/></div>
+              <div>Teléfono: <field name="web_telefono" readonly="1" class="d-inline"/></div>
+              <div>Domicilio: <field name="web_domicilio" readonly="1" class="d-inline"/></div>
+              <div invisible="not web_ciudad">Ciudad: <field name="web_ciudad" class="d-inline"/></div>
+              <div invisible="not mayorista" class="mt-1"><strong>Pedido de la lista Distribuidoras.</strong></div>
+            </div>
+          </div>
+          <div class="col-md-6" invisible="modo != 'existente'">
+            <div class="border rounded p-3 h-100">
+              <div class="fw-bold mb-2">Cliente elegido</div>
+              <field name="partner_id" context="{'distri_search_phone': True}"
+                     options="{'no_create': True, 'no_open': True}" class="w-100 fs-5"
+                     placeholder="Elegí el cliente de la lista o buscalo acá"/>
+              <div invisible="not partner_id" class="mt-1">
+                <div>Teléfono: <field name="sel_telefonos" class="d-inline"
+                     decoration-success="sel_m_telefono == 'si'" decoration-warning="sel_m_telefono == 'no'"/></div>
+                <div>Domicilio: <field name="sel_domicilio" class="d-inline"
+                     decoration-success="sel_m_domicilio == 'si'" decoration-warning="sel_m_domicilio == 'no'"/>
+                  · <field name="sel_ciudad" class="d-inline"
+                     decoration-success="sel_m_ciudad == 'si'" decoration-warning="sel_m_ciudad == 'no'"/></div>
+                <div>CUIT: <field name="sel_cuit" class="d-inline"/> · Lista: <field name="sel_lista" class="d-inline"/></div>
+                <div>Saldo: <field name="sel_saldo" class="d-inline"/> · Compras: <field name="sel_compras" class="d-inline"/>
+                  <span invisible="not sel_ultima_compra"> · última el <field name="sel_ultima_compra" class="d-inline"/></span></div>
+                <field name="sel_m_nombre" invisible="1"/><field name="sel_m_telefono" invisible="1"/>
+                <field name="sel_m_domicilio" invisible="1"/><field name="sel_m_ciudad" invisible="1"/>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2 mb-2" invisible="modo != 'existente'">
+          <span class="fw-bold">Buscar otro</span>
+          <field name="busqueda" placeholder="Nombre, CUIT o teléfono" class="flex-grow-1"/>
+          <button name="action_buscar" type="object" string="Buscar" icon="fa-search" class="btn-secondary"/>
+        </div>
+        <div class="small text-muted mb-1" invisible="modo != 'existente' or not linea_ids">
+          Ordenados por coincidencias. <span class="text-success">✓ coincide</span> ·
+          ≈ parecido · <span class="text-warning">✗ distinto</span>.
+        </div>
+        <field name="linea_ids" invisible="modo != 'existente' or not linea_ids" nolabel="1"
+               class="o_distri_candidatos">
+          <list create="0" delete="0" decoration-info="elegido" decoration-bf="elegido">
+            <field name="elegido" column_invisible="1"/>
+            <field name="partner_id" column_invisible="1"/>
+            <field name="m_nombre" column_invisible="1"/>
+            <field name="m_telefono" column_invisible="1"/>
+            <field name="m_domicilio" column_invisible="1"/>
+            <field name="m_ciudad" column_invisible="1"/>
+            <field name="currency_id" column_invisible="1"/>
+            <button name="action_elegir" type="object" string="Elegir este" class="btn-primary btn-sm"
+                    invisible="elegido"/>
+            <button name="action_ver_ficha" type="object" string="Ver ficha" title="Ver la ficha completa del cliente en otra pestaña"
+                    icon="fa-external-link" class="btn-link btn-sm"/>
+            <field name="nombre" readonly="1" width="175px"
+                   decoration-success="m_nombre == 'si'" decoration-warning="m_nombre == 'no'"/>
+            <field name="telefonos" readonly="1" width="110px"
+                   decoration-success="m_telefono == 'si'" decoration-warning="m_telefono == 'no'"/>
+            <field name="domicilio" readonly="1" width="125px"
+                   decoration-success="m_domicilio == 'si'" decoration-warning="m_domicilio == 'no'"/>
+            <field name="ciudad" readonly="1" width="85px"
+                   decoration-success="m_ciudad == 'si'" decoration-warning="m_ciudad == 'no'"/>
+            <field name="cuit" readonly="1" width="85px" optional="show"/>
+            <field name="lista" readonly="1" width="80px" optional="show"/>
+            <field name="saldo" readonly="1" width="95px"/>
+            <field name="compras_texto" readonly="1" width="110px"/>
+          </list>
+        </field>
+        <div class="text-muted small" invisible="modo != 'existente' or linea_ids or not busqueda">
+          No hay clientes que coincidan con la búsqueda. Probá con otra parte del nombre, o creá el cliente nuevo.
+        </div>
+        <group invisible="modo != 'nuevo'">
+          <field name="nuevo_nombre" required="modo == 'nuevo'"/>
+          <field name="nuevo_telefono"/>
+          <field name="nuevo_domicilio"/>
+          <field name="nuevo_ciudad"/>
+          <field name="nuevo_cuit"/>
+          <field name="nuevo_lista_id" options="{'no_create': True}"
+                 placeholder="La lista por defecto"/>
+        </group>
+        <footer>
+          <button name="action_asignar_y_aprobar" type="object" string="Asignar y aprobar"
+                  class="btn-primary" invisible="order_state not in ('draft', 'sent')"/>
+          <button name="action_asignar" type="object" string="Asignar cliente"
+                  class="btn-primary" invisible="order_state in ('draft', 'sent')"/>
+          <button name="action_asignar" type="object" string="Solo asignar"
+                  class="btn-secondary" invisible="order_state not in ('draft', 'sent')"/>
+          <button string="Cancelar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- ============================================ contacto genérico -->
+
+  <record id="view_partner_form_generico" model="ir.ui.view">
+    <field name="name">res.partner.form.generico</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="before">
+        <field name="distri_generic_partner" invisible="1"/>
+        <div class="alert alert-danger d-flex align-items-center gap-3 mb-0" role="alert"
+             invisible="not distri_generic_partner">
+          <div class="flex-grow-1">
+            <strong class="fs-5">Contacto genérico de los pedidos web sin cliente</strong>
+            <div>Este es el contacto genérico de los pedidos web sin cliente. No se modifica:
+                 para asignar el cliente, abrí el pedido y tocá «Asignar cliente».</div>
+          </div>
+          <button name="%(distri_pedido.action_pedidos_sin_cliente)d" type="action"
+                  string="Ver pedidos sin cliente" class="btn btn-danger" icon="fa-list"
+                  groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager"/>
+        </div>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

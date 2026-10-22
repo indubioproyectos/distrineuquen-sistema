@@ -1,0 +1,41 @@
+{
+  "_comment": "Single source of the claim messages (models/comprobante_pendiente.py and claim.js). Placeholders: {phrase} {when} {amount} {document} {lines} {total} {company}. Text in neutral Spanish; never 'entrega sin comprobante'.",
+  "recent_hours": 3,
+  "afternoon_hour": 13,
+  "weekdays": ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"],
+  "when": {
+    "recent": "hace un rato",
+    "morning": "hoy a la mañana",
+    "afternoon": "hoy a la tarde",
+    "yesterday": "ayer",
+    "weekday": "el {weekday} {date}",
+    "date": "el {date}"
+  },
+  "kind_labels": {"done": "Transferencia sin comprobante", "unpaid": "Pedido sin cobrar"},
+  "item_line": "Faltan {amount} · {document} · entregado {when}",
+  "documents": {
+    "invoice": ["Factura {number}", "el pedido de la factura {number}"],
+    "remito": ["Remito {number}", "el pedido del remito {number}"],
+    "order": ["Pedido {number}", "el pedido {number}"]
+  },
+  "voices": {
+    "driver": {
+      "single_done": "Hola, te entregué {phrase} {when} y todavía no tengo el comprobante de la transferencia de {amount}. ¿Me lo podés mandar por acá?",
+      "single_unpaid": "Hola, te entregué {phrase} {when} y todavía no está pago: faltan {amount}. ¿Me lo podés pagar? Si ya transferiste, mandame el comprobante por acá.",
+      "multi_head": "Hola, todavía me faltan estos pagos y comprobantes:",
+      "line_done": "- {document}, entregado {when}: falta el comprobante de la transferencia de {amount}",
+      "line_unpaid": "- {document}, entregado {when}: falta el pago de {amount}",
+      "multi_tail": "Total: {total}. ¿Me mandás los comprobantes por acá? Si alguno no está pago, ¿me lo podés pagar? Si ya transferiste, mandame el comprobante.",
+      "signature": ""
+    },
+    "company": {
+      "single_done": "Hola, te entregamos {phrase} {when} y todavía no tenemos el comprobante de la transferencia de {amount}. ¿Nos lo podés mandar por acá?",
+      "single_unpaid": "Hola, te entregamos {phrase} {when} y todavía no está pago: faltan {amount}. ¿Nos lo podés pagar? Si ya transferiste, mandanos el comprobante por acá.",
+      "multi_head": "Hola, todavía nos faltan estos pagos y comprobantes:",
+      "line_done": "- {document}, entregado {when}: falta el comprobante de la transferencia de {amount}",
+      "line_unpaid": "- {document}, entregado {when}: falta el pago de {amount}",
+      "multi_tail": "Total: {total}. ¿Nos mandás los comprobantes por acá? Si alguno no está pago, ¿nos lo podés pagar? Si ya transferiste, mandanos el comprobante.",
+      "signature": "\n{company}"
+    }
+  }
+}

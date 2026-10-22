@@ -1,0 +1,920 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Pagina para mandarle a la gerencia por WhatsApp. Se lee en el celular
+       y termina entrando a la plataforma real, no a una maqueta. -->
+  <template id="presentacion" name="El proyecto, en una pagina">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>El proyecto · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{
+      --azul:#10243f; --azul2:#19334f; --claro:#f7f8f7; --blanco:#fff;
+      --texto:#42505f; --tenue:#7a8794; --turq:#00d1b2; --borde:#e2e7ec; --ambar:#b08900;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--claro);color:var(--texto);
+         font:16px/1.6 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:44rem;margin:0 auto;padding:0 1.15rem}
+    h1,h2,h3{color:var(--azul);line-height:1.25;margin:0}
+
+    .tapa{background:var(--azul);color:#e8eef5;padding:2.5rem 0 2.2rem}
+    .tapa .rotulo{color:var(--turq);font-size:.78rem;letter-spacing:.14em;
+                  text-transform:uppercase;margin:0 0 .5rem;font-weight:700}
+    .tapa h1{color:#fff;font-size:1.95rem;font-weight:700}
+    .tapa p{color:#9fb3c8;font-size:1.02rem;margin:.75rem 0 0}
+
+    .cta{display:block;background:var(--turq);color:#fff;text-align:center;font-weight:700;
+         font-size:1.05rem;padding:1rem;border-radius:10px;text-decoration:none;margin:1.5rem 0 .4rem}
+    .cta.claro{background:var(--blanco);color:var(--azul);border:1px solid var(--borde)}
+    .nota{font-size:.82rem;color:var(--tenue);text-align:center;margin:0}
+    .tapa .nota{color:#7f95ad}
+
+    section{padding:2.4rem 0;border-top:1px solid var(--borde)}
+    section.oscuro{background:var(--azul);border-top:0}
+    section.oscuro h2{color:#fff}
+    section.oscuro p{color:#c3d3e3}
+    .eyebrow{color:var(--turq);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
+             font-weight:700;margin:0 0 .5rem}
+    h2{font-size:1.5rem}
+    .bajada{font-size:1.02rem;margin:.7rem 0 0}
+
+    .cifras{display:flex;gap:.7rem;margin-top:1.3rem}
+    .cifra{flex:1;background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+           padding:1rem .8rem;text-align:center}
+    .cifra b{display:block;font-size:1.8rem;color:var(--turq);line-height:1.1}
+    .cifra span{display:block;font-size:.8rem;margin-top:.35rem}
+
+    .fase{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+          padding:1.1rem;margin-top:.8rem}
+    .fase.lista{background:#e9fbf8;border-color:var(--turq)}
+    .fase .n{font-size:.76rem;font-weight:700;color:var(--turq);letter-spacing:.1em}
+    .fase h3{font-size:1.1rem;margin:.25rem 0 .4rem}
+    .fase p{margin:0;font-size:.95rem}
+    .chip{display:inline-block;font-size:.76rem;font-weight:700;border-radius:99px;
+          padding:.2rem .7rem;margin-top:.7rem;background:var(--claro)}
+    .chip.ok{color:#1f7a4d}
+    .chip.luego{color:var(--ambar)}
+
+    .paso{margin-top:1.8rem}
+    .paso h3{font-size:1.15rem;margin-bottom:.4rem}
+    .paso p{margin:0 0 .9rem;font-size:.97rem}
+    .tel{width:100%;max-width:280px;display:block;margin:0 auto;border:1px solid var(--borde);
+         border-radius:14px}
+    .ancha{width:100%;display:block;border:1px solid var(--borde);border-radius:10px;background:#fff}
+
+    .lista-p{margin:.9rem 0 0;padding-left:1.1rem}
+    .lista-p li{margin-bottom:.5rem;font-size:.97rem}
+
+    .flujo{display:flex;flex-direction:column;gap:.55rem;margin-top:1.2rem}
+    .caja{background:var(--azul2);border-radius:12px;padding:1rem}
+    .caja h3{color:#fff;font-size:1.05rem;margin-bottom:.3rem}
+    .caja p{margin:0;font-size:.92rem;color:#c3d3e3}
+    .flecha{text-align:center;color:var(--turq);font-size:.85rem;font-weight:700}
+
+    .pie{background:var(--azul);color:#7f95ad;padding:2rem 0 2.6rem;text-align:center;font-size:.85rem}
+
+    .problemas{margin:1.2rem 0 0;padding:0;list-style:none}
+    .problemas li{background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--turq);
+                  border-radius:8px;padding:.85rem 1rem;margin-bottom:.6rem;font-size:.97rem}
+    .problemas li b{color:var(--azul);display:block;margin-bottom:.15rem}
+    .cadena{margin:1.2rem 0 0;padding:0;list-style:none;counter-reset:paso}
+    .cadena li{position:relative;padding:.95rem 0 .95rem 2.7rem;border-bottom:1px solid var(--borde);
+               font-size:.96rem;line-height:1.5}
+    .cadena li:last-child{border-bottom:0}
+    .cadena li:before{counter-increment:paso;content:counter(paso);position:absolute;left:0;top:.9rem;
+                      width:1.8rem;height:1.8rem;border-radius:50%;background:var(--azul);color:#fff;
+                      font-size:.82rem;font-weight:700;display:flex;align-items:center;
+                      justify-content:center}
+    .cadena li b{color:var(--azul)}
+    .quien{display:block;font-size:.74rem;font-weight:700;color:var(--tenue);
+           text-transform:uppercase;letter-spacing:.08em;margin:0 0 .35rem;line-height:1.2}
+
+    .dato{background:var(--azul2);border-radius:12px;padding:1.1rem;margin-top:1.2rem}
+    .dato p{margin:0;color:#c3d3e3;font-size:.95rem}
+    .dato b{color:#fff}
+    .antes-despues{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+                   padding:1rem;margin-top:1rem;font-size:.95rem}
+    .antes-despues .fila{padding:.6rem 0;border-bottom:1px solid var(--borde)}
+    .antes-despues .fila:last-child{border-bottom:0}
+    .antes-despues .et{font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+                       color:var(--tenue);display:block;margin-bottom:.2rem}
+    .luego{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.06em;
+           text-transform:uppercase;color:var(--ambar);background:#fff8e1;border:1px solid #ffe8a1;
+           border-radius:99px;padding:.15rem .55rem;margin-left:.4rem;vertical-align:.08em}
+
+    .modulos{margin-top:1.2rem}
+    .modulo{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+            padding:1rem;margin-bottom:.6rem}
+    .modulo .prob{font-size:.88rem;color:var(--tenue)}
+    .modulo .sol{font-size:1rem;color:var(--azul);font-weight:700;margin-top:.3rem;display:block}
+
+    .comparo{display:flex;flex-direction:column;gap:.7rem;margin-top:1.2rem}
+    .col{border-radius:12px;padding:1.1rem}
+    .col.hoy{background:var(--blanco);border:1px solid var(--borde)}
+    .col.nueva{background:#e9fbf8;border:1px solid var(--turq)}
+    .col h3{font-size:1.05rem;margin-bottom:.5rem}
+    .col ul{margin:0;padding-left:1.1rem}
+    .col li{font-size:.94rem;margin-bottom:.4rem}
+    .ahorro{background:var(--azul2);border-radius:12px;padding:1.1rem;margin-top:1rem}
+    .ahorro p{margin:0;color:#c3d3e3;font-size:.95rem}
+    .ahorro b{color:#fff}
+
+    table.costos{width:100%;border-collapse:collapse;margin-top:1.1rem;font-size:.92rem}
+    table.costos th{text-align:left;color:var(--azul);font-size:.8rem;text-transform:uppercase;
+                    letter-spacing:.06em;padding:.5rem .4rem;border-bottom:2px solid var(--borde)}
+    table.costos td{padding:.7rem .4rem;border-bottom:1px solid var(--borde);vertical-align:top}
+    table.costos td.cuando{color:var(--tenue);white-space:nowrap;font-size:.86rem}
+    table.costos td b{color:var(--azul);display:block;margin-bottom:.15rem}
+    .luego.lab{color:#1f7a4d;background:#e6f4ec;border-color:#bfe3cf}
+
+    .celu{max-width:300px;margin:1.3rem auto 0;background:var(--blanco);border:1px solid var(--borde);
+          border-radius:18px;padding:1rem;box-shadow:0 6px 18px rgba(16,36,63,.08)}
+    .celu .barra{font-size:.72rem;color:var(--tenue);text-transform:uppercase;letter-spacing:.1em;
+                 font-weight:700;margin:0 0 .6rem}
+    .celu .sub{font-size:.84rem;color:var(--tenue);margin:0}
+    .celu .monto{font-size:1.5rem;font-weight:700;color:var(--azul);margin:.1rem 0 .8rem}
+    .boton{display:block;text-align:center;font-weight:700;font-size:.92rem;border-radius:10px;
+           padding:.7rem;margin-top:.45rem;border:1px solid var(--borde);color:var(--azul);background:var(--claro)}
+    .boton.si{background:var(--turq);border-color:var(--turq);color:#fff}
+    .renglon{border-top:1px solid var(--borde);padding:.7rem 0}
+    .renglon .prod{display:flex;justify-content:space-between;gap:.5rem;margin:0;font-size:.9rem}
+    .renglon .prod b{color:var(--azul)}
+    .renglon .prod span{color:var(--tenue);white-space:nowrap}
+    .renglon .dos{display:flex;gap:.45rem}
+    .renglon .dos .boton{flex:1;padding:.5rem;font-size:.85rem}
+    .marca{display:inline-block;font-size:.72rem;font-weight:700;border-radius:99px;padding:.1rem .55rem;
+           margin-top:.35rem;background:#e6f4ec;color:#1f7a4d}
+    .marca.falta{background:#fff8e1;color:var(--ambar)}
+    .marca.tel2{background:#e9f0f8;color:var(--azul2)}
+    .bultos{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--borde);
+            padding:.7rem 0 0;font-size:.9rem}
+    .bultos b{font-size:1.2rem;color:var(--azul)}
+    .copiar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:var(--claro);
+            border:1px dashed var(--borde);border-radius:10px;padding:.6rem .7rem;margin:.3rem 0 .6rem}
+    .copiar b{color:var(--azul);font-size:.95rem}
+    .copiar span{font-size:.78rem;font-weight:700;color:var(--turq);white-space:nowrap}
+    html,body{overflow-x:hidden}
+    .luego.prog{color:#19334f;background:#e9f0f8;border-color:#c9d9ec}
+    .celu .wa{display:block;text-align:center;font-weight:700;font-size:.92rem;border-radius:10px;
+              padding:.7rem;margin-top:.45rem;background:#25d366;color:#fff}
+
+    /* Customer screens of /pedido (views/templates.xml) */
+    .fin{max-width:300px;margin:1.3rem auto 0;background:#f5f5f5;border:1px solid var(--borde);border-radius:18px;
+         padding:1.4rem 1rem;text-align:center;box-shadow:0 6px 18px rgba(16,36,63,.08);color:#4a4a4a}
+    .fin h4{font-size:1.2rem;margin:0 0 .35rem;color:#4a4a4a}
+    .fin .nro{font-size:.92rem;color:#7a7a7a;margin:0 0 1rem}
+    .fin .nro b{color:#4a4a4a}
+    .fin .falta{background:#fff8e1;border:1px solid #f2c94c;border-radius:8px;color:#7a5c00;font-weight:600;
+                padding:.7rem;margin:0 0 .9rem;font-size:.9rem;text-align:left}
+    .fin .wa{display:block;background:#25d366;color:#fff;font-weight:700;padding:.85rem;border-radius:10px}
+    .fin .ayuda{font-size:.8rem;color:#7a7a7a;margin:.8rem 0 0}
+    .fin .tilde{width:56px;height:56px;border-radius:50%;background:#00d1b2;color:#fff;font-size:1.6rem;
+                font-weight:700;line-height:56px;margin:0 auto 1rem}
+    .form-c{max-width:300px;margin:1.3rem auto 0;background:#fff;border:1px solid var(--borde);border-radius:18px;
+            overflow:hidden;box-shadow:0 6px 18px rgba(16,36,63,.08);color:#4a4a4a;text-align:left;font-size:.9rem}
+    .form-c .ph{border-bottom:1px solid #eee;padding:.8rem;text-align:center;font-weight:700}
+    .form-c .pcl{padding:.8rem}
+    .form-c .campo{display:block;margin:.6rem 0 0;font-size:.82rem;font-weight:600}
+    .form-c .dato{display:block;background:#fff;color:#4a4a4a;border:1px solid #dbdbdb;border-radius:4px;padding:.45rem .55rem;font-weight:400;
+                  margin-top:.2rem;min-height:2.1rem}
+    .form-c .interior{display:flex;gap:.55rem;align-items:flex-start;margin:.9rem 0 0;padding:.7rem;
+                      border:1px solid #00d1b2;border-radius:4px;background:#e6faf7;font-size:.84rem;line-height:1.35}
+    .form-c .interior .box{width:19px;height:19px;flex:none;border-radius:4px;background:#00d1b2;color:#fff;
+                           font-size:13px;line-height:19px;text-align:center;font-weight:700}
+    .form-c .caja-enc{border:1px solid #00d1b2;border-top:0;border-radius:0 0 4px 4px;padding:.1rem .7rem .7rem;margin-top:-3px}
+    .form-c .ayuda{font-size:.76rem;color:#7a7a7a;margin:.5rem 0 0}
+    .form-c .barra{border-top:1px solid #dbdbdb;background:#f5f5f5;padding:.6rem .8rem}
+    .form-c .barra span{display:block;text-align:center;background:#00d1b2;color:#fff;border-radius:4px;
+                        padding:.6rem;font-weight:600}
+
+    /* Assign-customer wizard, simplified */
+    .asignar{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;margin-top:1.2rem;
+             overflow:hidden;box-shadow:0 6px 18px rgba(16,36,63,.08);font-size:.9rem}
+    .asignar .top{background:#714b67;color:#fff;padding:.6rem .9rem;font-size:.82rem;font-weight:700}
+    .asignar .dos{display:grid;grid-template-columns:1fr;gap:0}
+    @media (min-width:600px){.asignar .dos{grid-template-columns:1fr 1fr}}
+    .asignar .lado{padding:.8rem .9rem;border-bottom:1px solid var(--borde)}
+    .asignar .lado .t{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--tenue);margin:0 0 .35rem}
+    .asignar .r{display:flex;justify-content:space-between;gap:.6rem;padding:.2rem 0}
+    .asignar .r span:first-child{color:var(--tenue)}
+    .asignar .r b{color:var(--azul);text-align:right}
+    .asignar .cand{padding:.7rem .9rem;border-bottom:1px solid var(--borde)}
+    .asignar .cand b{color:var(--azul)}
+    .asignar .marcas{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.35rem}
+    .asignar .m{font-size:.72rem;font-weight:700;border-radius:99px;padding:.08rem .5rem}
+    .asignar .m.si{background:#e6f4ec;color:#1f7a4d}
+    .asignar .m.casi{background:#eef1f4;color:#42505f}
+    .asignar .m.no{background:#fff8e1;color:#8a6b00}
+    .asignar .acc{display:flex;flex-wrap:wrap;gap:.4rem;padding:.7rem .9rem}
+    .asignar .acc span{border:1px solid var(--borde);border-radius:6px;padding:.3rem .6rem;font-weight:700;
+                       font-size:.8rem;color:var(--azul)}
+    .asignar .acc span.pri{background:#714b67;border-color:#714b67;color:#fff}
+  </style>
+</head>
+<body>
+
+  <t t-call="distri_pedido.proyecto_franja"/>
+  <t t-call="distri_pedido.roles_base"/>
+
+  <div class="tapa">
+    <div class="marco">
+      <p class="rotulo">Distri Neuquén</p>
+      <h1>Ahora AgilPedido vive dentro de Odoo</h1>
+      <p>Construimos un módulo dentro de Odoo que recibe pedidos <b>sin registración</b>, en una
+         plataforma que replica visualmente a AgilPedido.</p>
+      <p>Y al vivir adentro de Odoo, ese pedido usa <b>todo el ecosistema de forma nativa</b>:
+         clientes, listas de precios, facturación, inventario y cuentas corrientes. Ya no hay
+         dos sistemas que alguien tiene que mantener sincronizados a mano.</p>
+      <a class="cta" href="/pedido">Probar la plataforma ahora</a>
+      <p class="nota" style="color:#9fb3c8;margin-top:.9rem">Los pedidos de prueba salen a un
+         WhatsApp de prueba, no al número de la empresa. Podés cargar y mandar sin que llegue
+         a ventas.</p>
+    </div>
+  </div>
+
+  <t t-call="distri_pedido.rol_mapa">
+    <t t-set="titulo" t-value="'Cada paso del pedido y quién lo hace'"/>
+    <t t-set="bajada" t-value="'Cada etiqueta lleva a la sección que la explica.'"/>
+    <t t-set="mapa_pasos" t-value="[
+          {'id': 'hoy', 'n': '1', 't': 'Hoy', 'l': 'Cómo funciona hoy', 'acts': {'cliente': 'Recibe el mensaje editado', 'administrador': 'Factura y corrige a mano', 'armador': 'Anota faltantes en papel', 'repartidor': 'Controla con el mensaje', 'gerente': 'Reenvía el pedido'}},
+          {'id': 'cliente', 'n': '2', 't': 'Pedido', 'l': 'El cliente pide en su celular', 'acts': {'cliente': 'Pide sin registrarse'}},
+          {'id': 'falta-un-paso', 'n': '3', 't': 'WhatsApp', 'l': 'El código confirma el pedido', 'acts': {'cliente': 'Manda el mensaje', 'sistema': 'Confirma el pedido'}},
+          {'id': 'vendedor', 'n': '4', 't': 'Vendedor', 'l': 'El vendedor toma el pedido', 'acts': {'cliente': 'Recibe el enlace', 'vendedor': 'Toma el pedido y lo envía'}},
+          {'id': 'administrador', 'n': '5', 't': 'Asignación', 'l': 'Se asigna el cliente', 'acts': {'administrador': 'Compara y asigna', 'sistema': 'Recalcula los precios'}},
+          {'id': 'armador', 'n': '6', 't': 'Armado', 'l': 'El armado, en el celular', 'acts': {'armador': 'Marca faltantes y bultos', 'sistema': 'Remito, factura y código'}},
+          {'id': 'cambios', 'n': '7', 't': 'Seguimiento', 'l': 'El cliente ve cómo quedó', 'acts': {'cliente': 'Ve faltantes y total'}},
+          {'id': 'pagar', 'n': '8', 't': 'Pago', 'l': 'Cuenta corriente y pago', 'acts': {'cliente': 'Consulta y transfiere'}},
+          {'id': 'transicion', 'n': '9', 't': 'Transición', 'l': 'Los dos sistemas conviviendo', 'acts': {'cliente': 'Puede seguir en AgilPedido', 'administrador': 'Pega los pedidos de AgilPedido'}},
+          {'id': 'que-sigue', 'n': '10', 't': 'Stock', 'l': 'Primero el dato, después el stock', 'acts': {'gerente': 'Carga compras y ajusta el stock'}},
+        ]"/>
+  </t>
+
+  <section class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Una puerta que hoy no existe</p>
+      <h2>La web quedó lista para publicidad en Google</h2>
+      <p class="bajada">Además de recibir pedidos, la página se preparó para que Google la
+         entienda y la muestre: título y descripción con los términos que busca un comerciante,
+         datos estructurados que declaran qué vende y qué zona cubre, y vista previa cuando el
+         enlace se comparte por WhatsApp.</p>
+
+      <div class="antes-despues">
+        <div class="fila">
+          <span class="et">El anuncio diría</span>
+          <b>Pedí sin registrarte.</b> Golosinas, alimentos, cigarrillos y farmacia para
+          almacenes y kioscos del Alto Valle. Entrega en menos de 24 horas.
+        </div>
+        <div class="fila">
+          <span class="et">Y al hacer clic</span>
+          El comerciante encuentra exactamente eso: el catálogo abierto, sin usuario ni
+          contraseña, cargando el pedido en dos toques.
+        </div>
+      </div>
+
+      <div class="dato">
+        <p><b>Eso es lo que hace barata una campaña.</b> Google premia a las páginas que cumplen
+           lo que promete el anuncio: mejor posición, menor costo por clic. Y la página abre en
+           menos de dos décimas de segundo, que es otro de los factores que mide.</p>
+      </div>
+
+      <p class="bajada" style="margin-top:1.2rem">No hay nada que inventar para la campaña:
+         <b>el diferencial ya está construido y funcionando</b>. Comprar sin registrarse es
+         justamente lo que la competencia no ofrece.</p>
+      <a class="cta claro" href="/">Ver la página web ahora</a>
+    </div>
+  </section>
+
+  <section class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'armador', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Qué queremos resolver</p>
+      <h2>Los problemas concretos</h2>
+      <p class="bajada">Cada punto de esta lista cuesta plata y tiempo todos los días.</p>
+      <ul class="problemas">
+        <li><b>El pedido se vuelve a escribir a mano</b>Llega por WhatsApp o por AgilPedido y
+            alguien lo tipea otra vez en el sistema.</li>
+        <li><b>No se sabe qué hay en el depósito</b>Como se factura contra un producto genérico,
+            el sistema nunca supo qué entró ni qué salió de cada artículo.</li>
+        <li><b>El armador corrige en papel</b>Si falta mercadería, el ajuste queda fuera del
+            sistema y el cliente se entera cuando llega el reparto.</li>
+        <li><b>El cliente no puede consultar nada</b>Ni el estado de su pedido ni su cuenta
+            corriente. Todo pasa por una llamada.</li>
+        <li><b>No se puede planificar la compra</b>Sin saber qué se vendió, la reposición se
+            decide de memoria.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="rol-sec" id="hoy">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'armador', 'repartidor', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Cómo funciona hoy</p>
+      <h2>El mensaje que va y viene</h2>
+      <p class="bajada">Hoy un pedido es un mensaje de WhatsApp que se reenvía y se corrige
+         a mano, pasando por cinco personas.</p>
+      <ol class="cadena">
+        <li><span class="quien"><span class="rol mini rol-gerente"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-gerente"/></svg>Gerente de ventas</span></span>Manda el mensaje con el pedido
+            <b>al administrador</b>.</li>
+        <li><span class="quien"><span class="rol mini rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Administrador</span></span>Genera la factura con ese importe.</li>
+        <li><span class="quien"><span class="rol mini rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Administrador</span></span>Reenvía el mismo mensaje <b>al armador</b>.</li>
+        <li><span class="quien"><span class="rol mini rol-armador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-armador"/></svg>Armador</span></span>Prepara el pedido y anota en una planilla
+            <b>lo que faltó</b>.</li>
+        <li><span class="quien"><span class="rol mini rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Administrador</span></span>Corrige la factura y <b>edita el mensaje
+            a mano</b> con lo que realmente salió.</li>
+        <li><span class="quien"><span class="rol mini rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Administrador</span></span>Lo manda al grupo de pedidos finalizados.</li>
+        <li><span class="quien"><span class="rol mini rol-gerente"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-gerente"/></svg>Gerente de ventas</span></span>Reenvía el mensaje <b>al cliente</b>,
+            para que vea cómo quedó.</li>
+        <li><span class="quien"><span class="rol mini rol-gerente"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-gerente"/></svg>Gerente de ventas</span></span>Y también <b>al repartidor</b>, para que
+            controle al bajar la mercadería.</li>
+      </ol>
+      <div class="dato">
+        <p><b>Ocho pasos para un solo pedido.</b> El importe se escribe dos veces, el mensaje se
+           edita a mano y el faltante vive en una planilla que el sistema nunca ve. Cada reenvío
+           es una oportunidad de error, y nadie puede reconstruir después qué pasó.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'armador', 'repartidor', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Cómo queda</p>
+      <h2>Todo eso, adentro de Odoo</h2>
+      <p class="bajada">El pedido deja de ser un mensaje que circula y pasa a ser un registro
+         que cada uno consulta desde su puesto.</p>
+      <div class="antes-despues">
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'vendedor']"/><t t-set="mini" t-value="True"/></t><span class="et">El pedido</span>
+          Entra solo, con sus renglones. Nadie lo vuelve a escribir.
+        </div>
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['armador']"/><t t-set="mini" t-value="True"/></t><span class="et">El armador <span class="luego lab">Funciona en el lab</span></span>
+          Marca lo que faltó <b>en el sistema</b>, desde el celular y con su propio usuario. Se
+          acabó la planilla.
+        </div>
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><span class="et">La factura</span>
+          Sale por lo que se entregó, sola, al terminar el armado. El importe se escribe una sola vez.
+        </div>
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><span class="et">El cliente</span>
+          Ve cómo quedó su pedido desde el enlace que ya tiene. No hay que reenviarle nada.
+          Con la factura emitida, ve el importe final y el alias para transferir.
+        </div>
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t><span class="et">El repartidor <span class="luego lab">Funciona en el lab</span></span>
+          Controla contra el mismo pedido, no contra un mensaje editado a mano. Ver
+          <a href="/presentacion/reparto">la app del repartidor</a>.
+        </div>
+      </div>
+      <p class="bajada" style="margin-top:1.2rem">Buena parte de esto <b>ya existe dentro de
+         Odoo</b>: usuarios por puesto, permisos, facturación y trazabilidad. Lo que se
+         desarrolló es lo que faltaba para que encaje con la forma de trabajar de
+         Distri Neuquén.</p>
+      <p class="bajada" style="font-size:.9rem;color:var(--ambar)">Los puestos marcados como
+         <b>próxima etapa</b> están diseñados y presupuestados, pero todavía no construidos. Los
+         marcados <b>programado</b> están construidos y falta probarlos con gente real. Los
+         marcados <b>funciona en el lab</b> están construidos y probados en el entorno de
+         pruebas.</p>
+    </div>
+  </section>
+
+  <section class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">La idea central</p>
+      <h2>Qué significa «datos estructurados»</h2>
+      <p class="bajada">Es la diferencia entre un pedido que se lee y un pedido que el sistema
+         entiende.</p>
+      <div class="antes-despues">
+        <div class="fila">
+          <span class="et">Hoy</span>
+          «Mandame 3 Actron y 2 Curitas» → una persona lo lee, lo interpreta y lo escribe en
+          el sistema. Si se equivoca, nadie se entera.
+        </div>
+        <div class="fila">
+          <span class="et">Con datos estructurados</span>
+          El pedido entra con <b>qué producto</b>, <b>qué cantidad</b>, <b>a qué precio</b> y
+          <b>de qué cliente</b>, cada cosa en su lugar. El sistema puede sumarlo, restarlo del
+          stock y compararlo con lo que se compró.
+        </div>
+      </div>
+      <div class="dato">
+        <p><b>Todo lo demás depende de esto.</b> El stock y la reposición no son funciones
+           que falten instalar: son consecuencias de que el dato exista.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">La pregunta obvia</p>
+      <h2>¿Por qué no conectar AgilPedido con Odoo?</h2>
+      <p class="bajada">Fue lo primero que se evaluó. Se consultó al área técnica de AgilPedido
+         y la respuesta fue clara: <b>no tienen integración disponible</b>. No hay forma de que
+         los pedidos pasen solos de un sistema al otro.</p>
+      <div class="dato">
+        <p><b>Sin conexión posible, quedan dos caminos:</b> seguir copiando los pedidos a mano
+           para siempre, o tener una pantalla propia que ya deje el dato en su lugar.</p>
+      </div>
+      <p class="bajada" style="margin-top:1.2rem">De ahí se desprende el resto: la pantalla
+         propia tiene que ser <b>tan fácil como AgilPedido</b>, porque si no el cliente no se
+         muda. Y esa facilidad —comprar sin registrarse, en dos toques— <b>no se puede armar en
+         la versión alquilada de Odoo</b>, que no admite código propio.</p>
+    </div>
+  </section>
+
+  <section class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'vendedor', 'administrador', 'armador', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">La respuesta</p>
+      <h2>Módulos propios, uno por problema</h2>
+      <p class="bajada">Odoo Community es de código abierto: se puede modificar. Sobre esa base
+         se construyeron módulos pensados para la operación de Distri Neuquén.</p>
+      <div class="modulos">
+        <div class="modulo">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><p class="prob">Cómo hacer que el pedido entre estructurado sin que el cliente tenga
+             que registrarse</p>
+          <span class="sol">Pantalla de pedidos sin registro <span class="luego lab">Funciona en el lab</span></span>
+        </div>
+        <div class="modulo">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><p class="prob">Cómo mantener el control humano sobre a qué cliente corresponde
+             cada pedido</p>
+          <span class="sol">Asignación de cliente por el área de ventas <span class="luego lab">Funciona en el lab</span></span>
+        </div>
+        <div class="modulo">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['armador']"/><t t-set="mini" t-value="True"/></t><p class="prob">Cómo hacer que el armador ajuste el pedido según lo que hay en el
+             depósito, y quede registrado</p>
+          <span class="sol">Pantalla del armador en el celular <span class="luego lab">Funciona en el lab</span></span>
+        </div>
+        <div class="modulo">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><p class="prob">Cómo dejar que el cliente modifique su pedido por el canal que ya usa</p>
+          <span class="sol">Edición desde el mismo enlace de WhatsApp, hasta que empezamos a armarlo <span class="luego lab">Funciona en el lab</span></span>
+        </div>
+        <div class="modulo">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><p class="prob">Cómo darle al cliente su estado de cuenta, una vez que ventas le
+             asignó el cliente</p>
+          <span class="sol">Cuenta corriente en línea <span class="luego lab">Funciona en el lab</span></span>
+        </div>
+        <div class="modulo">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'sistema']"/><t t-set="mini" t-value="True"/></t><p class="prob">Cómo saber que el pedido es real y tener el WhatsApp de cada cliente</p>
+          <span class="sol">Confirmación del pedido por WhatsApp, con su código <span class="luego prog">Programado</span></span>
+        </div>
+        <div class="modulo">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor']"/><t t-set="mini" t-value="True"/></t><p class="prob">Cómo sumar al vendedor sin mensajes reenviados</p>
+          <span class="sol">Pedido tomado por el vendedor, con «Enviar al cliente» <span class="luego prog">Programado</span></span>
+        </div>
+        <div class="modulo">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'repartidor']"/><t t-set="mini" t-value="True"/></t><p class="prob">Cómo atender a los clientes del interior</p>
+          <span class="sol">Encomienda a la terminal, con «Soy del interior» <span class="luego prog">Programado</span></span>
+        </div>
+        <div class="modulo">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><p class="prob">Cómo llegar a tener stock real</p>
+          <span class="sol">Inventario, habilitado por los pedidos estructurados <span class="luego">Próxima etapa</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">El tamaño del problema</p>
+      <h2>Lo que está en juego</h2>
+      <div class="cifras">
+        <div class="cifra"><b>~34</b><span>pedidos por día sin estructura</span></div>
+        <div class="cifra"><b>1</b><span>producto genérico en la factura</span></div>
+        <div class="cifra"><b>0</b><span>control de inventario</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">El plan</p>
+      <h2>Tres fases, en este orden</h2>
+      <p class="bajada">Cada una habilita a la siguiente. No se puede contar stock mientras los
+         pedidos entren por dos canales.</p>
+      <div class="fase lista">
+        <p class="n">FASE 1</p><h3>Pedido estructurado</h3>
+        <p>El cliente pide desde una pantalla propia y el pedido entra renglón por renglón.</p>
+        <span class="chip ok">Funcionando</span>
+      </div>
+      <div class="fase lista">
+        <p class="n">FASE 2</p><h3>Transición</h3>
+        <p>AgilPedido sigue operando. Odoo manda: actualiza precios y visibilidad todos los días.</p>
+        <span class="chip ok">Funcionando</span>
+      </div>
+      <div class="fase">
+        <p class="n">FASE 3</p><h3>Inventario</h3>
+        <p>Cuando todos los pedidos entren estructurados, se cuenta el stock y se cargan las compras.</p>
+        <span class="chip luego">Planificada</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="cliente" class="rol-sec rol-sec-cliente">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente']"/><t t-set="cliente" t-value="True"/></t>
+    <div class="marco">
+      <p class="eyebrow">El cliente</p>
+      <h2>Lo que ve en su celular</h2>
+      <p class="bajada">La pantalla se copió de la que ya usa: mismos colores, mismo orden,
+         mismo tamaño de letra. La idea es que no tenga que aprender nada.</p>
+
+      <div class="paso">
+        <h3>1 · Abre y pide</h3>
+        <p>Sin registrarse. Toca una categoría, carga cantidades y ve el total abajo.</p>
+        <img class="tel" src="/distri_pedido/static/src/img/catalogo.png" alt="Catálogo"/>
+        <a class="cta claro" href="/pedido">Ver el catálogo de verdad</a>
+      </div>
+
+      <div class="paso">
+        <h3>2 · Distribuidoras y revendedores, con su usuario</h3>
+        <p>La página muestra a todos la lista mayorista general. Las distribuidoras y los
+           revendedores autorizados entran con su usuario y ven además su lista; los cigarrillos
+           entran sin precio y se valorizan con la lista del cliente.</p>
+      </div>
+
+      <div class="paso" id="interior">
+        <h3>2b · Del interior: encomienda a la terminal</h3>
+        <p>En «Tus datos», el cliente del interior marca <b>«Soy del interior»</b> y completa quién
+           retira, su DNI y la localidad. El pedido sale por encomienda desde la terminal de ómnibus de
+           Neuquén y el cliente descarga la guía desde su pedido. Ver
+           <a href="/presentacion/reparto#encomiendas">Encomiendas al interior</a>.</p>
+        <div class="form-c">
+          <div class="ph">Tus datos</div>
+          <div class="pcl">
+            <span class="campo">Nombre del comercio<span class="dato">Almacén del interior de ejemplo</span></span>
+            <div class="interior"><span class="box">✓</span><span><b>Soy del interior:</b> necesito que me lo
+              envíen por encomienda a la terminal de mi localidad</span></div>
+            <div class="caja-enc">
+              <p class="ayuda">Son los datos que pide la empresa de transporte para la guía.</p>
+              <span class="campo">Nombre completo de quien retira<span class="dato">Nombre de ejemplo</span></span>
+              <span class="campo">DNI<span class="dato">12345678</span></span>
+              <span class="campo">Localidad (terminal donde retirás)<span class="dato">Zapala</span></span>
+            </div>
+          </div>
+          <div class="barra"><span>Confirmar pedido</span></div>
+        </div>
+        <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios.</p>
+      </div>
+
+      <div class="paso">
+        <h3>3 · Manda por WhatsApp</h3>
+        <p>Se abre WhatsApp con el pedido ya escrito. El cliente solo aprieta enviar, y en Odoo
+           queda el presupuesto armado.</p>
+        <p class="nota" style="text-align:left;margin:0 0 .9rem">Mientras dure la prueba, el
+           mensaje sale a un <b>WhatsApp de prueba</b>. Al pasar a producción se cambia por el
+           número de la empresa.</p>
+        <img class="tel" src="/distri_pedido/static/src/img/whatsapp-v2.png" alt="Envío por WhatsApp"/>
+      </div>
+
+      <div class="paso" id="falta-un-paso">
+        <h3>3b · El código confirma el pedido</h3>
+        <p>Todo pedido de la página llega por WhatsApp. La pantalla final muestra el pedido con un
+           <b>código de cuatro caracteres</b> y el botón para mandar el mensaje. Cuando el mensaje con el
+           código llega al número de la empresa, el pedido pasa a «Recibido por WhatsApp» y entra al
+           armado. Mientras tanto espera, y ningún pedido que espera se cancela solo.</p>
+        <div class="vista"><span class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que ve el cliente</span></div>
+        <div class="fin">
+          <h4>Falta un paso</h4>
+          <p class="nro">Pedido <b>S00164</b> · código <b>7K3P</b></p>
+          <p class="falta">Falta un paso: enviá el mensaje por WhatsApp para que recibamos tu pedido.</p>
+          <span class="wa">Enviar por WhatsApp</span>
+          <p class="ayuda">Se abre WhatsApp con el pedido ya escrito. Solo tenés que darle enviar. Si lo
+            cambiás, dejá el código 7K3P.</p>
+        </div>
+        <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios.</p>
+        <ul class="lista-p">
+          <li>El número que manda el mensaje queda como <b>WhatsApp verificado</b> del cliente.</li>
+          <li>El administrador ve los pedidos que esperan en <b>«Pedidos sin WhatsApp»</b>, con el tiempo
+              de espera, y puede recordarle al cliente, confirmarlo a mano o cancelarlo, siempre con el
+              motivo.</li>
+          <li>La espera se activa el día que se conecte el número real de la empresa, al final del
+              proyecto. Hasta entonces, en el lab, el pedido entra sin esperar el mensaje.</li>
+        </ul>
+      </div>
+
+      <div class="paso" id="cambios">
+        <h3>4 · Ve qué le cambiaron</h3>
+        <p>El enlace del pedido siempre abre <b>«Tu pedido»</b>: el número, el detalle, el total
+           y en qué estado está. Mientras no empezamos a armarlo aparece el botón
+           <b>«Modificar mi pedido»</b>; solo ese botón lleva al catálogo, con un aviso bien visible
+           de que está modificando su pedido y no armando uno nuevo. Después, con el mismo
+           enlace ve cómo quedó: qué salió por falta de stock, qué se agregó por teléfono y cuál
+           es el total final. <b>Esto hoy no existe.</b></p>
+        <img class="tel" src="/distri_pedido/static/src/img/seguimiento.png" alt="Seguimiento del pedido"/>
+      </div>
+
+      <div class="paso" id="pagar">
+        <h3>5 · Consulta su cuenta</h3>
+        <p>Saldo y movimientos, desde el mismo enlace, una vez que el administrador le asignó
+           el cliente al pedido. Ve toda su historia, 50 movimientos por página, con el saldo de cada
+           momento: remitos, pagos y devoluciones. Nunca ve números de factura.</p>
+        <img class="tel" src="/distri_pedido/static/src/img/cuenta.png" alt="Cuenta corriente"/>
+      </div>
+
+      <div class="paso">
+        <h3>6 · Paga por transferencia</h3>
+        <p>Con el pedido armado y la factura emitida, el enlace muestra <b>«Cómo pagar»</b>: el
+           importe final y el alias de la empresa, cada uno con su botón para copiar. Antes de
+           facturar no se muestra nada para pagar, porque un faltante puede cambiar el importe.
+           La transferencia al alias no tiene comisión.</p>
+        <div class="celu">
+          <p class="barra">Pedido S00061 · Remito R-00048</p>
+          <p class="sub" style="font-weight:700;color:var(--azul);font-size:1rem">Cómo pagar</p>
+          <p class="sub" style="margin-top:.5rem">Importe final</p>
+          <div class="copiar"><b>$ 78.300</b><span>Copiar</span></div>
+          <p class="sub">Transferí al alias</p>
+          <div class="copiar"><b>alias de la empresa</b><span>Copiar</span></div>
+          <p class="sub">Cuando transfieras, mandanos el comprobante:</p>
+          <span class="wa">Mandar comprobante</span>
+        </div>
+        <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios. «Mandar comprobante»
+           abre el WhatsApp de la empresa con el texto «Comprobante del pedido S00061».</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="vendedor" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['vendedor', 'cliente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">El vendedor <span class="luego prog">Programado</span></p>
+      <h2>El vendedor toma el pedido y se lo manda al cliente</h2>
+      <p class="bajada">El vendedor entra a la misma pantalla de pedidos con su usuario. La cabecera
+         dice «Pedido tomado por» y su nombre. En el último paso elige el cliente: primero aparecen
+         los de su cartera y, al escribir, se busca en todos por nombre, CUIT o WhatsApp.</p>
+      <div class="vista"><span class="rol rol-vendedor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-vendedor"/></svg>Pantalla del vendedor</span></div>
+      <div class="fin">
+        <div class="tilde">✓</div>
+        <h4>Pedido guardado</h4>
+        <p class="nro">Quedó como <b>S00123</b> para <b>Almacén Ejemplo</b></p>
+        <span class="wa">Enviar al cliente</span>
+        <p class="ayuda">Se abre tu WhatsApp con el chat del cliente y el enlace del pedido.</p>
+        <p class="ayuda">El pedido ya está en el sistema. No hace falta mandarlo a la empresa.</p>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios.</p>
+      <ul class="lista-p">
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor']"/><t t-set="mini" t-value="True"/></t>El pedido queda <b>a nombre del cliente elegido</b>, con su lista de precios y con el
+            vendedor asignado. No espera el WhatsApp de confirmación.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'cliente']"/><t t-set="mini" t-value="True"/></t><b>«Enviar al cliente»</b> abre el WhatsApp del vendedor con el chat del cliente y el
+            mensaje: «Hola Almacén Ejemplo, te dejo tu pedido: (enlace). Desde ahí podés verlo,
+            modificarlo, ver tu cuenta y pagar.»</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'sistema']"/><t t-set="mini" t-value="True"/></t>Si el cliente le manda el comprobante al vendedor, el vendedor lo reenvía al WhatsApp de
+            la empresa y la foto entra marcada <b>«Reenviado por»</b> con su nombre. Ver
+            <a href="/presentacion/cobranza#vendedor">los comprobantes del vendedor</a>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="armador" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['armador', 'administrador', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">El armador <span class="luego lab">Funciona en el lab</span></p>
+      <h2>El armado, en el celular</h2>
+      <p class="bajada">El armador entra con su usuario y ve los pedidos del día,
+         <b>agrupados por zona</b> y en el orden de los viajes. No ve precios ni saldos
+         de los clientes.</p>
+
+      <div class="celu">
+        <p class="barra">Pedido S00061 · Almacén Ejemplo</p>
+        <div class="renglon">
+          <p class="prod"><b>Gaseosa cola 2,25 L</b><span>pidió: 6</span></p>
+          <span class="boton">Falta…</span>
+        </div>
+        <div class="renglon">
+          <p class="prod"><b>Galletitas surtidas</b><span>pidió: 12</span></p>
+          <span class="marca falta">Faltan 4 · se entregan 8</span>
+        </div>
+        <div class="renglon">
+          <p class="prod"><b>Yerba 1 kg</b><span>pidió: 2</span></p>
+          <span class="marca tel2">Agregado por teléfono</span>
+        </div>
+        <div class="bultos"><span>Bultos</span><b>3</b></div>
+        <span class="boton si">Terminar armado · Bultos: 3</span>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios.</p>
+
+      <ol class="cadena">
+        <li><b>Tomar pedido.</b> Desde ese momento el cliente y el vendedor ya no lo pueden
+            modificar. Si el cliente guarda un cambio justo cuando se toma, el cambio no se
+            aplica y el mensaje le pide que escriba por WhatsApp.</li>
+        <li><b>Falta…</b> solo en los renglones donde falta algo. El armador anota cuánto
+            falta, como en la planilla de papel. Lo que no marca se entrega completo. El sistema
+            calcula lo que se entrega y la factura sale por lo entregado.</li>
+        <li><b>Agregar producto</b> cuando un cliente llama. El precio sale de la lista del
+            cliente, y el renglón queda marcado «agregado por teléfono». El cliente lo ve en su
+            enlace.</li>
+        <li><b>Terminar armado.</b> Pide la cantidad de bultos. Un pedido sin faltantes se
+            arma con tres toques: tomar, terminar y cargar los bultos. El repartidor la usa para controlar la carga de la camioneta. El cliente no
+            ve los bultos.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Al terminar, Odoo hace el resto solo:</b> valida el remito (R-…), emite la factura
+            por lo entregado y genera el código de recibido. Si un pedido todavía no tiene cliente, la
+            factura sale cuando el administrador lo asigna.</li>
+      </ol>
+
+      <div class="antes-despues">
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['armador', 'administrador']"/><t t-set="mini" t-value="True"/></t><span class="et">En Odoo, también para administración</span>
+          La pantalla del armador tiene su propia aplicación, <b>«Armado»</b>, en el menú de Odoo, y
+          cada pedido de venta tiene el botón <b>«Armar este pedido»</b>. Así administración también arma
+          cuando hay mucho trabajo. Al iniciar sesión, el armador entra directo a su pantalla.
+        </div>
+        <div class="fila">
+          <span class="et">Faltantes del día</span>
+          Una pantalla junta todo lo marcado como faltante: producto, cantidad total y pedidos
+          afectados. <b>Reemplaza la planilla de papel</b> y sirve para compras.
+        </div>
+        <div class="fila">
+          <span class="et">Productos agotados <span class="luego">Diseñado</span></span>
+          Mientras no haya inventario cargado en Odoo, <b>el administrador oculta los
+          productos agotados</b>. Si no, siguen entrando pedidos de productos que no hay.
+          Lo que el armador marca como «faltan todas» se junta en una lista. El administrador
+          toca <b>Verificar faltantes del día</b>, confirma cuáles están agotados y esos se
+          ocultan del catálogo de los clientes. Cuando llega la mercadería, <b>Volver a
+          mostrar</b> los devuelve. Ningún producto se oculta sin la confirmación del
+          administrador, porque ocultar uno que sí hay hace perder ventas sin que nadie se
+          entere.
+        </div>
+        <div class="fila">
+          <span class="et">Stock, con la operación migrada</span>
+          Con el inventario cargado, Odoo sabe cuánto hay de cada producto. <b>Solo el
+          gerente carga las compras y ajusta el stock.</b> El resto del personal mueve stock
+          únicamente con la operación: cada entrega descuenta lo entregado, y el armador
+          anota faltantes sin tocar el stock. Un faltante pasa a ser una alerta para el
+          gerente, porque el sistema y el depósito no coinciden.
+        </div>
+        <div class="fila">
+          <span class="et">Sin hora de corte</span>
+          El pedido se puede modificar hasta que el armador lo toma. Los pedidos de las zonas
+          del segundo viaje quedan abiertos más tiempo. Un pedido aprobado que el cliente
+          modifica no vuelve a aprobación: queda marcado «modificado».
+        </div>
+        <div class="fila">
+          <span class="et">Sin esperar al administrador</span>
+          El armador también arma los pedidos que todavía no tienen cliente asignado. Llevan la
+          etiqueta «Sin cliente asignado» y la zona sale del domicilio que escribió el cliente.
+          La factura espera a que el administrador asigne el cliente; en ese momento los
+          precios se ajustan a su lista y los faltantes se mantienen. La lista muestra los
+          pedidos sin tomar de los últimos 7 días, para que uno viejo y olvidado no la
+          ensucie.
+        </div>
+        <div class="fila">
+          <span class="et">Zonas <span class="luego">A confirmar</span></span>
+          La zona sale de la ciudad del cliente, y la tabla la edita el gerente en Odoo. Esquema
+          conocido: Neuquén todos los días, Plottier los jueves, Centenario los viernes. Los
+          viajes se confirman con el gerente, porque ahora hay dos repartidores.
+        </div>
+        <div class="fila">
+          <span class="et">Etiquetas de bultos <span class="luego">Pendiente</span></span>
+          El gerente confirma qué sistema o impresora de etiquetas usa. Según eso, Odoo le pasa
+          los datos o imprime las etiquetas con la cantidad de bultos y el nombre de cada uno.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="rol-sec oscuro" id="transicion">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">La transición</p>
+      <h2>Los dos sistemas conviviendo</h2>
+      <p class="bajada">Hay comercios que compran una vez por mes. La convivencia se mide en
+         meses, no en semanas, y ningún pedido queda sin registrar.</p>
+      <p class="bajada"><b>AgilPedido se deja corriendo en paralelo</b> hasta que la mayoría de
+         los clientes se haya adaptado al sistema nuevo. Recién entonces se da de baja.</p>
+      <div class="flujo">
+        <div class="caja">
+          <h3>Odoo</h3>
+          <p>Manda. Ahí viven los productos, los precios y las listas por cliente.</p>
+        </div>
+        <p class="flecha">Excel al cierre de cada jornada · precios y visibilidad ↓</p>
+        <div class="caja">
+          <h3>AgilPedido</h3>
+          <p>Sigue operando. El cliente que todavía no se mudó pide igual que siempre.</p>
+        </div>
+        <p class="flecha">↓ El administrador pega el mensaje que llegó</p>
+        <div class="caja">
+          <h3>Odoo, otra vez</h3>
+          <p>El pedido de AgilPedido vuelve convertido en presupuesto estructurado.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="administrador" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">El administrador</p>
+      <h2>Cómo se trabaja del otro lado</h2>
+      <p class="bajada">El pedido llega solo. El trabajo del administrador es asignarle el
+         cliente; ahí Odoo recalcula los precios con la lista que le corresponde.</p>
+      <div class="paso">
+        <h3>«Asignar cliente»: lo escrito al lado de la ficha</h3>
+        <p>El botón <b>«Asignar cliente»</b> muestra lado a lado lo que escribió el comprador y la
+           ficha del cliente elegido, con su saldo, su lista de precios y sus compras. Abajo, los
+           candidatos ordenados por coincidencias, con una marca por dato: ✓ coincide, ≈ se parece,
+           ✗ es distinto.</p>
+        <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla del administrador</span></div>
+        <div class="asignar">
+          <div class="top">Asignar cliente · S00172</div>
+          <div class="dos">
+            <div class="lado"><p class="t">Lo que escribió el comprador</p>
+              <div class="r"><span>Nombre</span><b>Almacén Ejemplo</b></div>
+              <div class="r"><span>Teléfono</span><b>299 000-0000</b></div>
+              <div class="r"><span>Domicilio</span><b>Calle de ejemplo 100, Plottier</b></div>
+              <div class="r"><span>Ciudad</span><b>Plottier</b></div></div>
+            <div class="lado"><p class="t">Cliente elegido</p>
+              <div class="r"><span>Nombre</span><b>Y - ALMACÉN EJEMPLO</b></div>
+              <div class="r"><span>Lista de precios</span><b>General</b></div>
+              <div class="r"><span>Saldo</span><b>$ 12.300</b></div>
+              <div class="r"><span>Compras</span><b>48 · la última el 20/09</b></div></div>
+          </div>
+          <div class="cand"><b>Y - ALMACÉN EJEMPLO</b>
+            <div class="marcas"><span class="m si">✓ Nombre</span><span class="m si">✓ Teléfono</span>
+              <span class="m si">✓ Domicilio</span><span class="m si">✓ Ciudad</span></div></div>
+          <div class="cand"><b>ALMACÉN EJEMPLO NORTE</b>
+            <div class="marcas"><span class="m casi">≈ Nombre</span><span class="m no">✗ Teléfono</span>
+              <span class="m no">✗ Domicilio</span><span class="m si">✓ Ciudad</span></div></div>
+          <div class="acc"><span class="pri">Asignar y aprobar</span><span>Solo asignar</span><span>Crear cliente nuevo</span><span>Buscar otro</span></div>
+        </div>
+        <p class="nota" style="margin-top:.6rem">Ilustración simplificada, con datos ficticios.</p>
+        <ul class="lista-p">
+          <li>Los candidatos salen del nombre, de cualquier palabra en común y del teléfono (los últimos
+              8 números, con o sin +54 9). Cada fila tiene «Elegir este» y «Ver ficha», que abre el
+              contacto en otra pestaña.</li>
+          <li>En un pedido de la página, el campo Cliente está bloqueado: el cliente se cambia solo con
+              «Asignar cliente». Los contactos genéricos de los pedidos web tampoco se pueden editar,
+              así ningún pedido queda a nombre equivocado.</li>
+          <li>Al asignar, Odoo recalcula los precios con la lista del cliente.</li>
+        </ul>
+      </div>
+      <div class="paso">
+        <h3>Los pedidos de AgilPedido, sin tipear</h3>
+        <p>Pega el mensaje que llegó y el sistema arma el presupuesto. Reconoce los productos
+           aunque cambien mayúsculas o acentos, y detecta los que van con precio «May».</p>
+      </div>
+      <div class="paso">
+        <h3>Un archivo por día para AgilPedido</h3>
+        <p><b>Todos los días, al terminar la jornada</b>, se sube a AgilPedido una actualización
+           de precios y visibilidad. Es un paso manual, pero simple: se aprieta un botón en Odoo,
+           se descarga un Excel y se sube. No hay que revisar producto por producto ni cargar
+           precios en dos lugares.</p>
+        <img class="ancha" src="/distri_pedido/static/src/img/exportar.png" alt="Exportar catálogo"/>
+        <p class="nota" style="text-align:left;margin-top:.7rem">El archivo lo prepara Odoo con
+           los precios del día y cada producto marcado como visible u oculto según corresponda.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="rol-sec" id="que-sigue">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Qué sigue</p>
+      <h2>Primero el dato, después el stock</h2>
+      <ul class="lista-p">
+        <li>Cuando el último cliente deje de pedir por fuera, Odoo ve el 100% de la salida.</li>
+        <li>Ahí se cuenta el depósito una vez y ese número pasa a ser el punto de partida.</li>
+        <li>Desde entonces cada compra suma y cada pedido resta: el stock se sostiene solo.</li>
+        <li>Con el stock firme, la reposición deja de decidirse de memoria.</li>
+      </ul>
+
+      <div class="antes-despues">
+        <div class="fila">
+          <span class="et">Hoy, los precios</span>
+          Se cargan <b>a mano, producto por producto y lista por lista</b>. Cada aumento de un
+          proveedor es una tarde de trabajo, y siempre queda alguno sin actualizar.
+        </div>
+        <div class="fila">
+          <span class="et">Con el inventario andando</span>
+          Se carga la compra con su costo, se define <b>un porcentaje por lista de precios</b>
+          —general, distribuidoras, cada revendedor— y <b>el sistema calcula todos los precios
+          solo</b>. Cambia el costo, cambian los precios.
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <div class="pie">
+    <div class="marco">
+      <p>Distri Neuquén · Entorno de pruebas · Septiembre 2026</p>
+      <a href="/proyecto" style="color:#fff;font-weight:700;display:block;margin-top:.6rem">← Volver al centro del proyecto</a>
+      <a href="/presentacion/cobranza" style="color:#9fb3c8;display:block;margin-top:.6rem">Ver también: registro de cobranzas</a>
+      <a href="/presentacion/presupuesto" style="color:#9fb3c8;display:block;margin-top:.6rem">Ver también: presupuesto</a>
+    </div>
+  </div>
+
+</body>
+</html>
+  </template>
+
+</odoo>

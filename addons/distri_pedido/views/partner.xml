@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_partner_list_saldo" model="ir.ui.view">
+    <field name="name">res.partner.list.saldo</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_tree"/>
+    <field name="arch" type="xml">
+      <field name="email" position="after">
+        <field name="saldo_odoo" sum="Total"/>
+        <field name="facturas_sin_conciliar" optional="show"/>
+        <field name="monto_sin_conciliar" optional="hide" sum="Total"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_partner_form_saldo" model="ir.ui.view">
+    <field name="name">res.partner.form.saldo</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+      <!-- next to the tags, not after the VAT: with l10n_ar the VAT sits in a
+           row of its own and the fields there lose their labels -->
+      <xpath expr="//field[@name='category_id']" position="before">
+        <field name="saldo_odoo" readonly="1"/>
+        <field name="facturas_sin_conciliar" readonly="1"/>
+        <field name="monto_sin_conciliar" readonly="1"/>
+      </xpath>
+      <xpath expr="//sheet" position="inside">
+        <group string="Acceso web del comercio" name="distri_acceso"
+               groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia">
+          <field name="distri_usuario_id"/>
+          <field name="distri_lista_oculta"
+                 groups="distri_pedido.grupo_administracion,base.group_system"
+                 invisible="parent_id and not is_company"/>
+          <button name="action_crear_acceso_web" type="object" class="btn-primary"
+                  string="Crear acceso web" invisible="distri_usuario_id"/>
+          <button name="action_regenerar_clave_web" type="object"
+                  string="Regenerar contraseña" invisible="not distri_usuario_id"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

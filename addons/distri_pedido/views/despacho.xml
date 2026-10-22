@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- «Despacho»: the dispatcher's phone screen (controllers/despacho.py).
+       Online only; same look as the driver's app. -->
+  <template id="despacho_app" name="Despacho: control de carga">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#10243f"/>
+  <title>Despacho · <t t-esc="empresa"/></title>
+  <link rel="icon" href="/distri_pedido/static/src/reparto/icon-192.png"/>
+  <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
+  <link rel="stylesheet" t-att-href="static + 'despacho.css?v=' + version"/>
+</head>
+<body>
+  <div id="app"><div class="cargando">Cargando…</div></div>
+  <div id="toast" hidden="hidden"></div>
+  <script t-att-src="static + 'despacho.js?v=' + version" defer="defer"></script>
+</body>
+</html>
+  </template>
+
+  <record id="action_despacho_pantalla" model="ir.actions.act_url">
+    <field name="name">Despacho</field>
+    <field name="url">/despacho</field>
+    <field name="target">self</field>
+  </record>
+
+  <menuitem id="menu_reparto_despacho" name="Despacho (celular)" parent="menu_reparto_root"
+            action="action_despacho_pantalla" sequence="16"
+            groups="distri_pedido.grupo_administracion"/>
+
+</odoo>

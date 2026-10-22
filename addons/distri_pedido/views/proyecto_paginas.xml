@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Shared strip on top of every presentation: the stage of that part of
+       the project, read from distri.project.module (same data as /proyecto).
+       Expects `franja` from the controller (project_strip); without it only
+       the link back to /proyecto is shown. Styles are self-contained so it
+       works on every page. -->
+  <template id="proyecto_franja" name="Franja con la etapa del proyecto">
+      <style>
+        .franja{background:#0b1a2e;color:#9fb3c8;font:600 .8rem/1.35 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+        .franja-in{max-width:44rem;margin:0 auto;padding:.55rem 1.15rem;display:flex;align-items:center;
+                   justify-content:space-between;gap:.4rem .9rem;flex-wrap:wrap}
+        .franja a.franja-volver{color:#fff;display:inline-flex;align-items:center;min-height:32px}
+        .franja a.franja-volver:before{content:"←";color:#00d1b2;margin-right:.4rem}
+        .franja-que{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;min-width:0}
+        .franja-que b{color:#fff;font-weight:700}
+        .franja-etapa{display:inline-block;border-radius:99px;padding:.12rem .6rem;font-size:.72rem;
+                      font-weight:700;letter-spacing:.04em;white-space:nowrap}
+        .franja-etapa.e-pending{background:#2a3b52;color:#c3d3e3}
+        .franja-etapa.e-designed{background:#fff8e1;color:#8a6b00}
+        .franja-etapa.e-programmed{background:#e9f0f8;color:#19334f}
+        .franja-etapa.e-lab{background:#e6f4ec;color:#1f7a4d}
+        .franja-etapa.e-live{background:#00d1b2;color:#fff}
+        .franja a{color:#00d1b2;text-decoration:none;white-space:nowrap}
+      </style>
+      <div class="franja">
+        <div class="franja-in">
+          <a class="franja-volver" href="/proyecto">Volver al centro del proyecto</a>
+          <span t-if="franja" class="franja-que">
+            <span>Etapa actual</span>
+            <b t-esc="franja['name']"/>
+            <span t-attf-class="franja-etapa e-#{franja['stage']}" t-esc="franja['stage_label']"/>
+          </span>
+        </div>
+      </div>
+  </template>
+
+  <!-- Project hub. Public page: only the fields returned by project_rows. -->
+  <template id="proyecto" name="Centro del proyecto">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>Centro del proyecto · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{
+      --azul:#10243f; --azul2:#19334f; --claro:#f7f8f7; --blanco:#fff;
+      --texto:#42505f; --tenue:#7a8794; --turq:#00d1b2; --borde:#e2e7ec; --ambar:#b08900;
+      --verde:#1f7a4d;
+    }
+    *{box-sizing:border-box}
+    html,body{overflow-x:hidden}
+    body{margin:0;background:var(--claro);color:var(--texto);
+         font:16px/1.6 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:44rem;margin:0 auto;padding:0 1.15rem}
+    h1,h2,h3{color:var(--azul);line-height:1.25;margin:0}
+
+    .tapa{background:var(--azul);color:#e8eef5;padding:2.5rem 0 2.2rem}
+    .tapa .rotulo{color:var(--turq);font-size:.78rem;letter-spacing:.14em;
+                  text-transform:uppercase;margin:0 0 .5rem;font-weight:700}
+    .tapa h1{color:#fff;font-size:1.95rem;font-weight:700}
+    .tapa p{color:#9fb3c8;font-size:1.02rem;margin:.75rem 0 0}
+    .tapa b{color:#fff}
+
+    .cta{display:block;background:var(--turq);color:#fff;text-align:center;font-weight:700;
+         font-size:1.05rem;padding:1rem;border-radius:10px;text-decoration:none;margin:1.5rem 0 .4rem}
+    .nota{font-size:.82rem;color:var(--tenue);text-align:center;margin:0}
+    .tapa .nota{color:#7f95ad}
+
+    section{padding:2.4rem 0;border-top:1px solid var(--borde)}
+    section.oscuro{background:var(--azul);border-top:0}
+    section.oscuro h2{color:#fff}
+    section.oscuro p{color:#c3d3e3}
+    .eyebrow{color:var(--turq);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
+             font-weight:700;margin:0 0 .5rem}
+    h2{font-size:1.5rem}
+    .bajada{font-size:1.02rem;margin:.7rem 0 0}
+
+    .cifras{display:flex;gap:.7rem;margin-top:1.3rem}
+    .cifra{flex:1;background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+           padding:1rem .8rem;text-align:center}
+    .cifra b{display:block;font-size:1.8rem;color:var(--turq);line-height:1.1}
+    .cifra span{display:block;font-size:.8rem;margin-top:.35rem;color:var(--texto)}
+
+    /* Stage chip, same palette as the strip */
+    .etapa{display:inline-block;border-radius:99px;padding:.15rem .65rem;font-size:.74rem;
+           font-weight:700;letter-spacing:.03em;white-space:nowrap;vertical-align:.1em}
+    .e-pending{background:#eef1f4;color:var(--tenue)}
+    .e-designed{background:#fff8e1;color:#8a6b00}
+    .e-programmed{background:#e9f0f8;color:var(--azul2)}
+    .e-lab{background:#e6f4ec;color:var(--verde)}
+    .e-live{background:var(--turq);color:#fff}
+
+    /* Four-step track */
+    .pista{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.3rem;margin-top:.8rem}
+    .tramo{font-size:.7rem;line-height:1.25;color:var(--tenue);font-weight:600}
+    .tramo i{display:block;height:6px;border-radius:99px;background:#e5e9ee;margin-bottom:.35rem}
+    .tramo.hecho i{background:var(--turq)}
+    .tramo.hecho{color:var(--azul)}
+    .tramo.actual{color:var(--azul);font-weight:800}
+    .tramo.actual i{background:var(--azul)}
+
+    .leyenda{margin:1.2rem 0 0;padding:0;list-style:none}
+    .leyenda li{display:flex;gap:.7rem;align-items:baseline;padding:.55rem 0;
+                border-bottom:1px solid var(--borde);font-size:.94rem}
+    .leyenda li:last-child{border-bottom:0}
+    .leyenda .etapa{flex:none;min-width:8.6rem;text-align:center}
+
+    /* Dependency chain */
+    .cadena-dep{margin:1.3rem 0 0;padding:0;list-style:none}
+    .cadena-dep li{position:relative;background:var(--azul2);border-radius:12px;padding:.85rem 1rem;
+                   margin:0 0 1.35rem}
+    .cadena-dep li:after{content:"↓";position:absolute;left:50%;bottom:-1.3rem;transform:translateX(-50%);
+                         color:var(--turq);font-weight:700;font-size:.95rem;line-height:1.3rem}
+    .cadena-dep li:last-child{margin-bottom:0}
+    .cadena-dep li:last-child:after{display:none}
+    .cadena-dep .fila{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;flex-wrap:wrap}
+    .cadena-dep h3{color:#fff;font-size:1.02rem}
+    .cadena-dep p{margin:.2rem 0 0;font-size:.88rem;color:#c3d3e3}
+    .cadena-dep li.raiz{background:var(--turq)}
+    .cadena-dep li.raiz h3{color:var(--azul)}
+    .cadena-dep li.raiz p{color:var(--azul)}
+    .cadena-dep .sin{font-size:.74rem;color:#9fb3c8;font-weight:600}
+
+    /* Module cards */
+    .mod{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:1rem 1.05rem;
+         margin-top:.8rem}
+    .mod .cab{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem}
+    .mod .num{font-size:.74rem;font-weight:700;color:var(--turq);letter-spacing:.1em}
+    .mod h3{font-size:1.08rem;margin:.15rem 0 .35rem}
+    .mod p{margin:0;font-size:.93rem}
+    .mod .sigue{margin-top:.8rem;background:var(--claro);border-left:3px solid var(--turq);
+                border-radius:6px;padding:.55rem .7rem;font-size:.9rem}
+    .mod .sigue b{color:var(--azul);display:block;font-size:.72rem;letter-spacing:.08em;
+                  text-transform:uppercase;margin-bottom:.1rem}
+    .mod.m-pending .sigue,.mod.m-designed .sigue{border-left-color:var(--ambar)}
+    .mod .dep{font-size:.8rem;color:var(--tenue);margin-top:.55rem}
+    .mod .ver{display:block;margin-top:1rem;padding:1rem 1.2rem;border-radius:12px;background:var(--azul);
+              color:#fff;font-size:1.1rem;font-weight:800;text-align:center;text-decoration:none;min-height:44px}
+    .mod .ver:hover,.mod .ver:focus-visible{filter:brightness(1.15);color:#fff}
+    .mod.migra{border:2px solid var(--azul)}
+
+    /* What is left */
+    .resta{margin:1.2rem 0 0;padding:0;list-style:none}
+    .resta li{background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--ambar);
+              border-radius:8px;padding:.8rem 1rem;margin-bottom:.6rem;font-size:.95rem}
+    .resta li.hecho{border-left-color:var(--verde)}
+    .resta li b{color:var(--azul);display:block;margin-bottom:.15rem}
+    .resta .cuando{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.05em;
+                   text-transform:uppercase;border-radius:99px;padding:.05rem .5rem;margin-bottom:.3rem;
+                   background:#fff8e1;color:#8a6b00}
+    .resta li.hecho .cuando{background:#e6f4ec;color:var(--verde)}
+
+    .pie{background:var(--azul);color:#7f95ad;padding:2rem 0 2.6rem;text-align:center;font-size:.85rem}
+    .pie a{color:#9fb3c8;display:block;margin-top:.45rem}
+    @media (max-width:360px){.cifras{flex-direction:column}}
+    /* Hub: index, role cards, documentation links */
+    .indice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;margin:1.5rem 0 0}
+    .indice a{display:flex;align-items:center;justify-content:center;min-height:48px;padding:.6rem .7rem;
+              border:1px solid #2c4666;border-radius:10px;color:#fff;text-decoration:none;font-weight:700;
+              font-size:.92rem;text-align:center;line-height:1.25}
+    .indice a:hover,.indice a:focus-visible{border-color:var(--turq);color:var(--turq)}
+    .indice a.prim{background:var(--turq);border-color:var(--turq);color:#fff}
+    .roles-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:.8rem;margin-top:1.3rem}
+    .rolc{background:var(--blanco);border:1px solid var(--borde);border-top:5px solid var(--c);
+          border-radius:12px;padding:1rem 1.05rem}
+    .rolc h3{font-size:1.12rem;margin:0 0 .35rem;display:flex;align-items:center;gap:.45rem;color:var(--c-tx)}
+    .rolc h3 .rol-ic{width:1.25em;height:1.25em}
+    .rolc p{margin:0;font-size:.93rem}
+    .rolc .pant{margin-top:.7rem;font-size:.84rem;color:var(--tenue)}
+    .rolc .pant b{color:var(--c-tx)}
+    .rolc .links{display:flex;flex-direction:column;gap:.4rem;margin-top:.8rem}
+    .rolc .links a{display:flex;align-items:center;min-height:44px;padding:.5rem .8rem;border-radius:9px;
+                   background:var(--c-bg);color:var(--c-tx);font-weight:700;font-size:.92rem;text-decoration:none}
+    .rolc .links a:after{content:"→";margin-left:auto;padding-left:.5rem}
+    .rolc .links a:hover,.rolc .links a:focus-visible{filter:brightness(.95)}
+    .docs{list-style:none;margin:1.2rem 0 0;padding:0;display:grid;gap:.6rem}
+    .docs a{display:block;height:100%;background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--turq);
+            border-radius:10px;padding:.85rem 1rem;text-decoration:none;color:var(--texto);font-size:.92rem}
+    .docs a b{display:block;color:var(--azul);font-size:1.02rem;margin-bottom:.15rem}
+    .docs a span.url{display:block;color:var(--tenue);font-size:.78rem;margin-top:.3rem}
+    .docs a:hover,.docs a:focus-visible{border-color:var(--turq)}
+    .presu{background:var(--blanco);border:2px solid var(--azul);border-radius:12px;padding:1.1rem;margin-top:1.2rem}
+    .presu p{margin:0;font-size:.95rem}
+    .presu .ver{display:block;margin-top:1rem;padding:1rem 1.2rem;border-radius:12px;background:var(--azul);
+                color:#fff;font-size:1.1rem;font-weight:800;text-align:center;text-decoration:none}
+    .presu .ver:hover,.presu .ver:focus-visible{filter:brightness(1.15)}
+    @media (min-width:720px){
+      .indice{grid-template-columns:repeat(4,minmax(0,1fr))}
+      .roles-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .docs{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+  </style>
+</head>
+<body>
+
+  <t t-call="distri_pedido.roles_base"/>
+
+  <t t-set="por_codigo" t-value="dict((m['code'], m) for m in modulos)"/>
+
+  <div class="tapa">
+    <div class="marco">
+      <p class="rotulo">Distri Neuquén · Centro del proyecto</p>
+      <h1>distrineuquen.com: un solo sistema, del pedido a la rendición</h1>
+      <p>Una sola base de datos para toda la empresa. El pedido del cliente, el armado, el remito y
+         la factura, el reparto, la cobranza y la rendición de caja quedan en el mismo lugar, sin
+         volver a tipear nada. <b>Cada rol entra con su usuario y trabaja en su propia pantalla</b>:
+         el cliente pide desde el celular, el armador arma, el repartidor entrega y cobra, y
+         administración y gerencia controlan todo desde Odoo.</p>
+      <div class="cifras">
+        <div class="cifra"><b t-esc="cuentas.get('lab', 0) + cuentas.get('live', 0)"/><span>probadas en el lab</span></div>
+        <div class="cifra"><b t-esc="cuentas.get('programmed', 0)"/><span>programadas</span></div>
+        <div class="cifra"><b t-esc="cuentas.get('designed', 0) + cuentas.get('pending', 0)"/><span>diseñadas o pendientes</span></div>
+      </div>
+      <nav class="indice" aria-label="Secciones">
+        <a class="prim" href="#estado">Estado del proyecto</a>
+        <a href="#roles">Cómo se trabaja, por rol</a>
+        <a href="#capacitacion">Capacitación</a>
+        <a href="#presupuesto">Presupuesto</a>
+      </nav>
+    </div>
+  </div>
+
+  <section id="estado">
+    <div class="marco">
+      <p class="eyebrow">Estado del proyecto</p>
+      <h2>Cada parte, en qué etapa está</h2>
+      <p class="bajada">Cada parte recorre el mismo camino hasta el uso diario. La barra muestra la
+         etapa de cada una y el recuadro dice qué falta para pasar a la siguiente.</p>
+      <ul class="leyenda">
+        <li><span class="etapa e-designed">Diseñado</span><span>Relevado con el equipo y dibujado, sin código.</span></li>
+        <li><span class="etapa e-programmed">Programado</span><span>El código está hecho en el módulo.</span></li>
+        <li><span class="etapa e-lab">Probado en el lab</span><span>Funciona en el entorno de pruebas, con datos reales del catálogo.</span></li>
+        <li><span class="etapa e-live">En uso</span><span>Lo usa la empresa todos los días.</span></li>
+        <li><span class="etapa e-pending">Pendiente</span><span>Todavía no empezó.</span></li>
+      </ul>
+      <t t-foreach="modulos" t-as="m">
+        <div t-attf-class="mod m-#{m['stage']} #{'migra' if m['code'] == 'migracion' else ''}">
+          <div class="cab">
+            <span class="num" t-esc="'PARTE %s' % (m_index + 1)"/>
+            <span t-attf-class="etapa e-#{m['stage']}" t-esc="m['stage_label']"/>
+          </div>
+          <h3 t-esc="m['name']"/>
+          <p t-if="m['description']" t-esc="m['description']"/>
+          <div class="pista">
+            <t t-foreach="pasos" t-as="p">
+              <span t-attf-class="tramo #{'hecho' if p_index &lt; m['stage_index'] else ''} #{'actual' if p_index == m['stage_index'] else ''}"><i></i><t t-esc="p"/></span>
+            </t>
+          </div>
+          <div t-if="m['next_step']" class="sigue"><b>Próximo paso</b><t t-esc="m['next_step']"/></div>
+          <p t-if="m['depends_on']" class="dep">Depende de: <t t-esc="', '.join(m['depends_on'])"/></p>
+          <a t-if="m['url']" class="ver" t-att-href="m['url']"><t t-if="m['url'].startswith('/presentacion')">Ver la presentación →</t><t t-else="">Ver la página →</t></a>
+        </div>
+      </t>
+    </div>
+  </section>
+
+
+  <section id="falta">
+    <div class="marco">
+      <p class="eyebrow">Al 30 de septiembre de 2026</p>
+      <h2>Lo que falta para terminar</h2>
+      <p class="bajada">El circuito completo ya se recorrió de punta a punta en el entorno de
+         pruebas. Lo que queda depende de personas reales, de cuentas de la empresa y de
+         decisiones de la gerencia.</p>
+      <ul class="resta">
+        <li class="hecho"><span class="cuando">Hecho · 27/09</span><b>Prueba integral del circuito</b>Pedido,
+            WhatsApp, asignación, armado, factura, ruta, app del repartidor sin señal, depósito,
+            rendición, cobros de Mercado Pago y vista del cliente, con cada rol en su pantalla.
+            Se corrigieron seis problemas y el módulo pasa sus 171 pruebas automáticas.</li>
+        <li><span class="cuando">Próximo</span><b>Día de prueba con gente real</b>El personal con sus
+            propios celulares y dos o tres clientes reales, siguiendo la guía del día: un pedido para
+            retirar, uno del interior, un gasto con su comprobante y una rendición completa.</li>
+        <li><span class="cuando">Antes del día de prueba</span><b>WhatsApp de cada vendedor</b>Se carga
+            en su usuario, junto con la etiqueta de su cartera, para reconocer los comprobantes que
+            reenvía.</li>
+        <li><span class="cuando">En exploración · 30/09</span><b>Cobros por transferencia</b>La
+            conciliación con Mercado Pago funciona en el entorno de pruebas con la regla «Sin
+            reporte, no hay pago» y un tablero de cinco columnas. Probada con datos reales: los 31
+            comprobantes con número de operación quedaron unidos a su transferencia exacta.</li>
+        <li><span class="cuando">Servidor y cuenta de Mercado Pago</span><b>Fase 2 del reporte</b>Que
+            Mercado Pago deje el reporte programado en la carpeta del servidor; faltan la clave de
+            acceso y el horario. Mientras tanto, el reporte se sube a mano.</li>
+        <li><span class="cuando">Antes de la puesta en marcha</span><b>Usuarios y roles</b>Un usuario
+            por persona, con el rol que le corresponde.</li>
+        <li><span class="cuando">Antes de la puesta en marcha</span><b>Servidor de producción y
+            copias de seguridad</b>El servidor definitivo y las copias de seguridad automáticas.</li>
+        <li><span class="cuando">Antes de la migración</span><b>Datos del otro sistema</b>Los datos de
+            mayoristas y distribuidoras que hoy están en el otro sistema, y el plan de migración.</li>
+        <li><span class="cuando">Diseño</span><b>Preguntas abiertas</b>Si la conciliación va en un solo
+            módulo o en varios, y si se apoya en módulos de la OCA o en desarrollo propio.</li>
+        <li><span class="cuando">Decisiones de la gerencia</span><b>Temas pendientes</b>El precio de la
+            lista oculta cuando el cliente tiene otra lista y la compra mínima; las zonas,
+            los días y los viajes del reparto; el sistema de etiquetas de bultos. Catriel ya está
+            decidido: sus clientes retiran en el depósito.</li>
+        <li><span class="cuando">Al final del proyecto</span><b>El número real de WhatsApp</b>Se conecta
+            a Odoo cuando se apruebe el proyecto. Ese día se activa «Confirmar pedidos por WhatsApp»
+            y los pedidos de la página pasan a esperar el mensaje del cliente.</li>
+      </ul>
+    </div>
+  </section>
+
+
+  <section class="oscuro">
+    <div class="marco">
+      <p class="eyebrow">El orden</p>
+      <h2>Todo parte del catálogo</h2>
+      <p class="bajada">Cada paso usa el dato del anterior. Un producto, una unidad o un precio mal
+         cargado en el catálogo llega hasta la cobranza.</p>
+      <ol class="cadena-dep">
+        <t t-foreach="[
+            ('catalogo', 'Catálogo', 'Producto, unidad de venta y precio de cada lista.'),
+            ('pedidos', 'Pedido', 'El cliente elige productos del catálogo en la pantalla tipo AgilPedido.'),
+            ('armado', 'Armado', 'El armador prepara el pedido y carga los bultos.'),
+            (False, 'Factura', 'Sale sola al terminar el armado, por lo entregado y con los precios de la lista del cliente.'),
+            ('cuenta', 'Cuenta corriente', 'La factura y los cobros mueven el saldo del comercio.'),
+            ('reparto', 'Reparto y cobranza', 'El repartidor entrega los bultos y cobra el saldo de cada cliente.'),
+            ('conciliacion', 'Cobranza y conciliación', 'Cada cobro se compara con el saldo y con Mercado Pago.'),
+          ]" t-as="eslabon">
+          <t t-set="m" t-value="eslabon[0] and por_codigo.get(eslabon[0])"/>
+          <li t-att-class="'raiz' if eslabon[0] == 'catalogo' else None">
+            <div class="fila">
+              <h3 t-esc="eslabon[1]"/>
+              <span t-if="m" t-attf-class="etapa e-#{m['stage']}" t-esc="m['stage_label']"/>
+              <span t-if="not eslabon[0]" class="sin">Parte del armado</span>
+            </div>
+            <p t-esc="eslabon[2]"/>
+          </li>
+        </t>
+      </ol>
+    </div>
+  </section>
+
+
+  <section id="roles">
+    <div class="marco">
+      <p class="eyebrow">Cómo se trabaja, por rol</p>
+      <h2>Cada uno, en su pantalla</h2>
+      <p class="bajada">Qué hace cada rol y dónde está explicado paso a paso. Al entrar con su
+         usuario, cada uno cae directo en su pantalla.</p>
+      <div class="roles-grid">
+        <t t-foreach="[
+            ('cliente', 'Cliente', 'Pide desde el celular, confirma el pedido por WhatsApp, ve su saldo y «Cómo pagar», y deja sus horarios, su ubicación y los avisos para la entrega.', '/pedido y el enlace de su pedido', [('/presentacion#cliente', 'Lo que ve el cliente'), ('/presentacion#pagar', 'Cómo paga')]),
+            ('vendedor', 'Vendedor', 'Toma el pedido con su usuario, elige el cliente de su cartera y se lo manda con «Enviar al cliente». Los comprobantes que reenvía quedan para revisar.', '/pedido, con su usuario', [('/presentacion#vendedor', 'El vendedor toma el pedido'), ('/presentacion/cobranza#vendedor', 'Pedidos y comprobantes del vendedor')]),
+            ('administrador', 'Administración', 'Asigna el cliente a los pedidos de la página, aprueba, arma las rutas del día, controla la carga en «Despacho», rinde la caja de cada repartidor y confirma los cobros.', 'Odoo', [('/presentacion#administrador', 'Asignar cliente y aprobar'), ('/presentacion/reparto#salida', 'Despacho y control de carga'), ('/presentacion/cobranza#conciliacion', 'Tablero de cobros')]),
+            ('armador', 'Armador', 'Toma el pedido en el celular, marca solo lo que falta y carga los bultos. Al terminar salen solos el remito y la factura por lo entregado.', '/armado', [('/presentacion#armador', 'El armado, en el celular')]),
+            ('repartidor', 'Repartidor', 'Carga la camioneta tildando cada pedido, entrega, cobra, anota devoluciones y gastos, y cierra la ruta. La app funciona sin señal.', '/reparto', [('/presentacion/reparto', 'La app del repartidor'), ('/presentacion/reparto#rendicion', 'Rendición de caja')]),
+            ('gerente', 'Gerencia', 'Ve todo: saldos, créditos y cobros de Mercado Pago. Aprueba precios y cambios de productos, y hace la venta en mostrador.', 'Odoo, con todos los menús', [('/presentacion/cobranza#conexion-mp', 'Cobros y saldos'), ('/presentacion/reparto#deposito', 'Depósito y mostrador')]),
+          ]" t-as="rol">
+          <div t-attf-class="rolc rol-#{rol[0]}">
+            <h3><svg class="rol-ic" aria-hidden="true"><use t-attf-href="#rol-ic-#{rol[0]}"/></svg><t t-esc="rol[1]"/></h3>
+            <p t-esc="rol[2]"/>
+            <p class="pant">Su pantalla: <b t-esc="rol[3]"/></p>
+            <div class="links">
+              <a t-foreach="rol[4]" t-as="enlace" t-att-href="enlace[0]" t-esc="enlace[1]"/>
+            </div>
+          </div>
+        </t>
+      </div>
+    </div>
+  </section>
+
+  <t t-call="distri_pedido.rol_mapa">
+    <t t-set="mapa_id" t-value="'punta-a-punta'"/>
+    <t t-set="titulo" t-value="'Un pedido, de punta a punta'"/>
+    <t t-set="bajada" t-value="'Cada etiqueta lleva a la presentación que explica ese paso.'"/>
+    <t t-set="nota" t-value="'El armador también arma pedidos sin cliente asignado; la factura y la ruta esperan esa asignación. El código de recibido se genera al terminar el armado. Hasta que exista el envío automático por WhatsApp, el administrador lo manda a mano desde el pedido. Los pasos 8b y 8c reemplazan la entrega en la calle: el cliente retira en el depósito, o el pedido del interior sale por encomienda desde la terminal. La confirmación por WhatsApp (paso 2) se activa el día que se conecte el número real de la empresa; hasta entonces el pedido de la página entra sin esperar el mensaje.'"/>
+    <t t-set="mapa_pasos" t-value="[
+        {'id': 'pp-pedido', 'n': '1', 't': 'Pedido', 'l': 'El cliente o el vendedor hace el pedido', 'href': '/presentacion#cliente', 'acts': {'cliente': 'Pide en /pedido', 'vendedor': 'Lo toma y se lo envía al cliente'}},
+        {'id': 'pp-whatsapp', 'n': '2', 't': 'WhatsApp', 'l': 'El pedido se confirma por WhatsApp', 'href': '/presentacion#falta-un-paso', 'acts': {'cliente': 'Manda el mensaje con el código', 'sistema': 'Confirma el pedido', 'administrador': 'Confirma a mano si llama'}},
+        {'id': 'pp-aprobacion', 'n': '3', 't': 'Aprobación', 'l': 'Se asigna el cliente', 'href': '/presentacion#administrador', 'acts': {'administrador': 'Asigna el cliente y aprueba'}},
+        {'id': 'pp-armado', 'n': '4', 't': 'Armado', 'l': 'Armado del pedido', 'href': '/presentacion#armador', 'acts': {'armador': 'Arma, anota faltantes y bultos', 'sistema': 'Genera el código de recibido', 'cliente': 'Recibe el código de recibido'}},
+        {'id': 'pp-factura', 'n': '5', 't': 'Factura', 'l': 'Factura por lo entregado', 'href': '/presentacion/cobranza#transferencias', 'acts': {'sistema': 'Remito y factura de lo entregado', 'cliente': 'Ve «Cómo pagar»'}},
+        {'id': 'pp-ruta', 'n': '6', 't': 'Ruta', 'l': 'Ruta del día', 'href': '/presentacion/cobranza#asignacion', 'acts': {'administrador': 'Asigna la ruta'}},
+        {'id': 'pp-carga', 'n': '7', 't': 'Carga', 'l': 'Carga de la camioneta y salida', 'href': '/presentacion/reparto#carga', 'acts': {'repartidor': 'Carga los bultos', 'administrador': 'Controla la salida'}},
+        {'id': 'pp-entrega', 'n': '8', 't': 'Entrega', 'l': 'Entrega, devoluciones y código de recibido', 'href': '/presentacion/reparto#visita', 'acts': {'repartidor': 'Entrega y anota devoluciones', 'cliente': 'Controla y dicta el código'}},
+        {'id': 'pp-retiro', 'n': '8b', 't': 'Retiro', 'l': 'Retiro en el depósito o venta en mostrador', 'href': '/presentacion/reparto#deposito', 'acts': {'cliente': 'Retira en el depósito', 'administrador': 'Registra la entrega', 'gerente': 'Venta en mostrador'}},
+        {'id': 'pp-encomienda', 'n': '8c', 't': 'Encomienda', 'l': 'Encomienda al interior', 'href': '/presentacion/reparto#encomiendas', 'acts': {'cliente': 'Descarga la guía', 'vendedor': 'Avisa al cliente', 'repartidor': 'Despacha en la terminal'}},
+        {'id': 'pp-cobro', 'n': '9', 't': 'Cobro', 'l': 'Cobro en la puerta', 'href': '/presentacion/reparto#visita', 'acts': {'cliente': 'Paga o transfiere', 'repartidor': 'Cobra y reclama el comprobante'}},
+        {'id': 'pp-cierre', 'n': '10', 't': 'Cierre', 'l': 'Gastos y cierre de la ruta', 'href': '/presentacion/reparto#gastos', 'acts': {'repartidor': 'Carga gastos y cierra'}},
+        {'id': 'pp-rendicion', 'n': '11', 't': 'Rendición', 'l': 'Rendición de caja', 'href': '/presentacion/reparto#rendicion', 'acts': {'administrador': 'Cuenta el efectivo, controla devoluciones y gastos', 'repartidor': 'Rinde el efectivo'}},
+        {'id': 'pp-mp', 'n': '12', 't': 'Cobros', 'l': 'Tablero de cobros de Mercado Pago', 'href': '/presentacion/cobranza#conciliacion', 'acts': {'administrador': 'Confirma en el tablero y cierra el día', 'sistema': 'Reporte de Mercado Pago'}},
+        {'id': 'pp-saldos', 'n': '13', 't': 'Saldos', 'l': 'Saldos y créditos', 'href': '/presentacion/cobranza#conexion-mp', 'acts': {'gerente': 'Revisa saldos y decide créditos'}},
+      ]"/>
+  </t>
+  <section id="capacitacion">
+    <div class="marco">
+      <p class="eyebrow">Capacitación y documentación</p>
+      <h2>Las presentaciones</h2>
+      <p class="bajada">Para leer antes de usar el sistema o para mostrarle a quien empieza. Cada
+         una tiene un enlace para volver acá.</p>
+      <ul class="docs">
+        <li><a href="/presentacion"><b>El sistema de pedidos</b>Cliente, vendedor, armador y administración: del pedido a la factura.<span class="url">/presentacion</span></a></li>
+        <li><a href="/presentacion/reparto"><b>La app del repartidor</b>Carga, despacho, visitas, encomiendas, gastos, rendición y depósito.<span class="url">/presentacion/reparto</span></a></li>
+        <li><a href="/presentacion/cobranza"><b>Registro de cobranzas</b>Rutas, rendición, comprobantes por WhatsApp y Mercado Pago.<span class="url">/presentacion/cobranza</span></a></li>
+        <li><a href="/presentacion/migracion"><b>La migración desde AgilPedido</b>Por qué se empezó por el catálogo y cómo conviven los dos sistemas.<span class="url">/presentacion/migracion</span></a></li>
+      </ul>
+      <p class="bajada">Documentación técnica en preparación.</p>
+    </div>
+  </section>
+
+  <section id="presupuesto">
+    <div class="marco">
+      <p class="eyebrow">Presupuesto</p>
+      <h2>Odoo Online o un Odoo propio</h2>
+      <div class="presu">
+        <p>Odoo Online (la versión alquilada de hoy) contra un Odoo Community propio, las licencias
+           por usuario y qué incluye el servicio mensual, todo junto.</p>
+        <a class="ver" href="/presentacion/presupuesto">Ver el presupuesto →</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="pie">
+    <div class="marco">
+      <p>Distri Neuquén · Entorno de pruebas · Septiembre 2026</p>
+      <a href="/presentacion">El sistema de pedidos</a>
+      <a href="/presentacion/reparto">La app del repartidor</a>
+      <a href="/presentacion/cobranza">Registro de cobranzas</a>
+      <a href="/presentacion/migracion">La migración desde AgilPedido</a>
+      <a href="/presentacion/presupuesto">Presupuesto</a>
+    </div>
+  </div>
+
+</body>
+</html>
+  </template>
+
+</odoo>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- El cliente ve el remito, nunca la factura (models/remito.py): la pagina
+       del pedido en el portal no muestra "Ultimas facturas" a un cliente.
+       Las entregas (remitos) las sigue mostrando sale_stock. -->
+  <template id="portal_pedido_sin_facturas" inherit_id="sale.sale_order_portal_content"
+            name="Pedido en el portal: sin facturas para el cliente">
+    <xpath expr="//div[@id='sale_invoices']" position="attributes">
+      <attribute name="t-if">invoices and sale_order.state in ['sale', 'cancel'] and not (request and request.env.user.share)</attribute>
+    </xpath>
+  </template>
+</odoo>

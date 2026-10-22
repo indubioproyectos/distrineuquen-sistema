@@ -1,0 +1,1609 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <template id="pantalla" name="Toma de pedidos">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Armá tu pedido · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    /* Paleta tomada de la pantalla que el cliente ya usa (AgilPedido, Bulma):
+       fondo gris claro, tarjetas blancas, texto gris oscuro y el turquesa
+       como unico color de acento. El objetivo es que no note el cambio. */
+    :root{
+      --fondo:#f5f5f5; --tarjeta:#fff; --texto:#4a4a4a; --tenue:#7a7a7a;
+      --borde:#eee; --linea:#dbdbdb; --acento:#00d1b2; --alerta:#c92a2a;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{margin:0;background:var(--fondo);color:var(--texto);padding-bottom:5rem;
+         font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:1024px;margin:0 auto}
+
+    /* cabecera: logo redondo, nombre y las cuatro lineas de datos, centradas */
+    .cab{background:var(--fondo);padding:1.2rem 1rem 1.4rem;text-align:center}
+    .cab .logo{width:96px;height:96px;border-radius:50%;object-fit:cover;display:block;margin:0 auto}
+    .cab h1{margin:.7rem 0 .25rem;font-size:1.25rem;font-weight:700;color:var(--texto)}
+    .cab .dato{margin:.2rem 0 0;font-size:.8rem;line-height:1.5;color:var(--texto)}
+    .ic{width:1em;height:1em;fill:currentColor;vertical-align:-.125em}
+    .cab .dato .ic{margin-right:.35rem}
+    .cab .sub{margin:.5rem 0 0;font-size:.85rem;color:var(--tenue)}
+
+    /* buscador: caja blanca con el boton de limpiar, igual que el de ellos */
+    .caja-buscar{display:flex;padding:0 1rem 1rem}
+    .buscar{flex:1;border:1px solid var(--linea);border-right:0;border-radius:4px 0 0 4px;
+            padding:.6rem .75rem;font-size:1rem;color:var(--texto);background:var(--tarjeta)}
+    .buscar:focus{outline:0;border-color:var(--acento)}
+    .limpiar{border:1px solid var(--linea);background:var(--tarjeta);border-radius:0 4px 4px 0;
+             width:3rem;font-size:1rem;color:var(--texto);cursor:pointer}
+    .aviso{font-size:.8rem;color:var(--tenue);padding:0 1rem .6rem;text-align:center}
+
+    /* secciones: nombre centrado con el icono de libro y la flecha a la derecha */
+    .lista{background:var(--tarjeta);border-top:1px solid var(--borde)}
+    .bloque{border-bottom:1px solid var(--borde)}
+    .cabsec{position:relative;display:flex;align-items:center;justify-content:center;
+            gap:.5rem;padding:1.15rem 3rem;cursor:pointer;user-select:none}
+    .cabsec .nom{font-weight:700;font-size:1rem;color:var(--texto);text-align:center}
+    .cabsec .nom .ic{margin-right:.45rem}
+    .flecha{position:absolute;right:1.1rem;color:var(--texto);font-size:1.1rem;
+            transition:transform .15s}
+    .chip{position:absolute;left:1.1rem;font-size:.75rem;background:var(--acento);color:#fff;
+          border-radius:99px;padding:.1rem .5rem;display:none}
+
+    /* producto */
+    .cuerpo{display:none;background:var(--tarjeta)}
+    .fila{display:flex;align-items:center;gap:.75rem;padding:.6rem 1rem;
+          border-top:1px solid var(--borde)}
+    .fila img{width:56px;height:56px;object-fit:contain;flex:0 0 56px;background:var(--fondo);
+              border-radius:4px}
+    .fila .datos{flex:1;min-width:0}
+    .fila .pnom{font-size:.92rem;line-height:1.3;font-weight:600;color:var(--texto)}
+    .fila .ppre{font-size:.85rem;color:var(--tenue);margin-top:.1rem}
+    .fila .ppre b{color:var(--acento);font-weight:700}
+    .ppre .aconf{color:#b08900;font-weight:600}
+
+    .stepper{display:flex;align-items:center;gap:.25rem;flex:0 0 auto}
+    .stepper button{width:2.1rem;height:2.1rem;border:1px solid var(--linea);background:var(--tarjeta);
+                    border-radius:4px;font-size:1.15rem;line-height:1;color:var(--acento);
+                    font-weight:700;padding:0;cursor:pointer}
+    .stepper button:active{background:#e6faf7}
+    .cant{width:3rem;height:2.1rem;text-align:center;border:1px solid var(--linea);
+          border-radius:4px;font-size:1rem;padding:0;color:var(--texto)}
+
+    /* barra inferior: vacia dice lo mismo que la de AgilPedido */
+    .barra{position:fixed;left:0;right:0;bottom:0;background:var(--fondo);
+           border-top:1px solid var(--linea);z-index:40;
+           padding:.7rem 1rem calc(.7rem + env(safe-area-inset-bottom,0px))}
+    .barra .marco{display:flex;align-items:center;gap:.8rem}
+    .barra.vacia .marco{justify-content:center}
+    .barra .invitacion{font-size:.95rem;color:var(--texto)}
+    .barra .invitacion .ic{margin-right:.4rem}
+    .barra .carga{flex:1;min-width:0;font-size:.85rem;color:var(--tenue);display:none}
+    .barra .carga b{display:block;font-size:1.1rem;color:var(--texto)}
+    .barra.cargada .invitacion{display:none}
+    .barra.cargada .carga{display:block}
+    .barra .falta{color:var(--alerta);font-size:.78rem;display:none}
+
+    .btn{border:0;border-radius:4px;padding:.7rem 1.2rem;font-size:1rem;font-weight:600;cursor:pointer}
+    .btn-p{background:var(--acento);color:#fff}
+    .btn-p:disabled{background:var(--linea);color:#fff}
+    .btn-s{background:var(--tarjeta);color:var(--texto);border:1px solid var(--linea)}
+    .barra.vacia .btn-p{display:none}
+
+    /* pasos 2 y 3 */
+    .pantalla{display:none;position:fixed;inset:0;background:var(--fondo);z-index:50;
+              overflow-y:auto;padding-bottom:6rem}
+    .pantalla.ver{display:block}
+    .ph{background:var(--tarjeta);border-bottom:1px solid var(--borde);padding:1rem;
+        position:sticky;top:0;text-align:center}
+    .ph h2{margin:0;font-size:1.15rem;color:var(--texto)}
+    .pc{background:var(--tarjeta);padding:1rem;max-width:1024px;margin:0 auto}
+    .res{display:flex;justify-content:space-between;gap:.8rem;padding:.6rem 0;
+         border-bottom:1px solid var(--borde);font-size:.92rem}
+    .res .q{color:var(--tenue);white-space:nowrap}
+    .tot{display:flex;justify-content:space-between;padding:.9rem 0 0;font-size:1.2rem;
+         font-weight:700;color:var(--texto)}
+    .opt{display:block;border:1px solid var(--linea);border-radius:4px;padding:.85rem;
+         margin:.5rem 0;cursor:pointer;background:var(--tarjeta)}
+    .opt.sel{border-color:var(--acento);background:#e6faf7}
+    .opt.no{opacity:.55;cursor:not-allowed;background:var(--fondo)}
+    .opt.no b{color:var(--tenue)}
+    .opt b{display:block;color:var(--texto)}
+    .opt span{font-size:.85rem;color:var(--tenue)}
+    label.campo{display:block;margin:.8rem 0 0;font-size:.88rem;font-weight:600;color:var(--texto)}
+    input.dato{width:100%;border:1px solid var(--linea);border-radius:4px;padding:.65rem;
+               font-size:1rem;margin-top:.25rem;color:var(--texto)}
+    input.dato:focus{outline:0;border-color:var(--acento)}
+    input.dato.mal{border-color:var(--alerta);background:#fff5f5}
+    .err{color:var(--alerta);font-size:.8rem;display:none;margin-top:.2rem}
+    .interior{display:flex;gap:.7rem;align-items:flex-start;margin:1.1rem 0 0;padding:.85rem;
+              border:1px solid var(--linea);border-radius:4px;background:#fff;cursor:pointer;
+              font-size:.92rem;line-height:1.35;color:var(--texto)}
+    .interior input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--acento)}
+    .interior.sel{border-color:var(--acento);background:#e6faf7}
+    .caja-enc{border:1px solid var(--acento);border-top:0;border-radius:0 0 4px 4px;
+              padding:.2rem .85rem .9rem;background:#fff;margin-top:-3px}
+    .caja-enc .ayuda{font-size:.8rem;color:var(--tenue);margin:.6rem 0 0}
+
+    /* lo nuestro que AgilPedido no tiene: presente, pero discreto */
+    .lista-general{margin:.2rem 1rem .6rem;font-size:.85rem;color:var(--tenue);text-align:center}
+    .tuslistas{background:#e6faf7;border:1px solid var(--acento);border-radius:4px;
+               padding:.5rem .75rem;margin:0 1rem .8rem;font-size:.85rem;color:#00806f;
+               text-align:center}
+    /* destacados: siempre abiertos, sin cabecera de seccion */
+    .bloque.siempre>.cuerpo{display:block}
+    .bloque.siempre>.chip{display:none}
+    .bloque.siempre .fila:first-child{border-top:0}
+    .fila .vence{font-size:.78rem;color:var(--tenue);margin-top:.1rem}
+
+    .puerta{padding:1.1rem 1rem 1.3rem;text-align:center}
+    .puerta.separador{border-top:1px solid var(--linea);background:var(--fondo);
+                      padding:.8rem 1rem}
+    .puerta p{margin:0 0 .3rem;font-size:.92rem;color:var(--tenue)}
+    .puerta .minimo{font-weight:700;color:var(--texto)}
+    .puerta .btn{display:inline-block;margin-top:.9rem;text-decoration:none}
+
+    /* modificando un pedido que ya existe: franja fija arriba, para que no
+       se confunda con un pedido nuevo */
+    .editando{position:sticky;top:0;z-index:30;background:#fff8e1;
+              border-bottom:2px solid #f2c94c;padding:.7rem 1rem;
+              padding-top:calc(.7rem + env(safe-area-inset-top,0px))}
+    .editando .marco{display:flex;align-items:center;justify-content:space-between;gap:.8rem}
+    .editando p{margin:0;font-size:1rem;font-weight:700;color:#7a5c00;line-height:1.3}
+    .editando p b{white-space:nowrap}
+    .editando a{flex:none;background:var(--tarjeta);color:var(--texto);border:1px solid var(--linea);
+                border-radius:6px;padding:.6rem .8rem;font-size:.9rem;font-weight:600;
+                text-decoration:none;white-space:nowrap}
+
+    /* el personal elige el cliente */
+    .elegir{border:1px solid var(--acento);border-radius:6px;padding:.8rem;background:#f3fdfb}
+    .elegir .tit{font-weight:700;font-size:.95rem;margin:0 0 .3rem}
+    .elegir .ayuda{font-size:.8rem;color:var(--tenue);margin:.3rem 0 0}
+    .resultados{margin-top:.4rem;max-height:16rem;overflow-y:auto}
+    .resultados button{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--borde);
+                       background:#fff;padding:.6rem .4rem;font:inherit;font-size:.92rem;cursor:pointer}
+    .resultados button small{display:block;color:var(--tenue);font-size:.78rem}
+    .resultados .mio{color:#00806f;font-weight:600}
+    .elegido{display:none;justify-content:space-between;align-items:center;gap:.6rem;
+             font-weight:700;margin-top:.3rem}
+    .elegido button{border:1px solid var(--linea);background:#fff;border-radius:4px;
+                    padding:.35rem .7rem;font:inherit;font-size:.85rem;cursor:pointer}
+  </style>
+</head>
+<body>
+
+  <!-- Iconos de Font Awesome Free 5.13 (CC BY 4.0, fontawesome.com), embebidos
+       para no depender de un CDN en una pantalla de cara al cliente. Son los
+       mismos ocho iconos que usa la pantalla que el cliente ya conoce. -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="ic-map-marker-alt" viewBox="0 0 384 512"><path fill="currentColor" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0zM192 272c44.183 0 80-35.817 80-80s-35.817-80-80-80-80 35.817-80 80 35.817 80 80 80z"/></symbol>
+    <symbol id="ic-clock" viewBox="0 0 512 512"><path fill="currentColor" d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm0 448c-110.5 0-200-89.5-200-200S145.5 56 256 56s200 89.5 200 200-89.5 200-200 200zm61.8-104.4l-84.9-61.7c-3.1-2.3-4.9-5.9-4.9-9.7V116c0-6.6 5.4-12 12-12h32c6.6 0 12 5.4 12 12v141.7l66.8 48.6c5.4 3.9 6.5 11.4 2.6 16.8L334.6 349c-3.9 5.3-11.4 6.5-16.8 2.6z"/></symbol>
+    <symbol id="ic-bullhorn" viewBox="0 0 576 512"><path fill="currentColor" d="M576 240c0-23.63-12.95-44.04-32-55.12V32.01C544 23.26 537.02 0 512 0c-7.12 0-14.19 2.38-19.98 7.02l-85.03 68.03C364.28 109.19 310.66 128 256 128H64c-35.35 0-64 28.65-64 64v96c0 35.35 28.65 64 64 64h33.7c-1.39 10.48-2.18 21.14-2.18 32 0 39.77 9.26 77.35 25.56 110.94 5.19 10.69 16.52 17.06 28.4 17.06h74.28c26.05 0 41.69-29.84 25.9-50.56-16.4-21.52-26.15-48.36-26.15-77.44 0-11.11 1.62-21.79 4.41-32H256c54.66 0 108.28 18.81 150.98 52.95l85.03 68.03a32.023 32.023 0 0 0 19.98 7.02c24.92 0 32-22.78 32-32V295.13C563.05 284.04 576 263.63 576 240zm-96 141.42l-33.05-26.44C392.95 311.78 325.12 288 256 288v-96c69.12 0 136.95-23.78 190.95-66.98L480 98.58v282.84z"/></symbol>
+    <symbol id="ic-phone" viewBox="0 0 512 512"><path fill="currentColor" d="M493.4 24.6l-104-24c-11.3-2.6-22.9 3.3-27.5 13.9l-48 112c-4.2 9.8-1.4 21.3 6.9 28l60.6 49.6c-36 76.7-98.9 140.5-177.2 177.2l-49.6-60.6c-6.8-8.3-18.2-11.1-28-6.9l-112 48C3.9 366.5-2 378.1.6 389.4l24 104C27.1 504.2 36.7 512 48 512c256.1 0 464-207.5 464-464 0-11.2-7.7-20.9-18.6-23.4z"/></symbol>
+    <symbol id="ic-times" viewBox="0 0 352 512"><path fill="currentColor" d="M242.72 256l100.07-100.07c12.28-12.28 12.28-32.19 0-44.48l-22.24-22.24c-12.28-12.28-32.19-12.28-44.48 0L176 189.28 75.93 89.21c-12.28-12.28-32.19-12.28-44.48 0L9.21 111.45c-12.28 12.28-12.28 32.19 0 44.48L109.28 256 9.21 356.07c-12.28 12.28-12.28 32.19 0 44.48l22.24 22.24c12.28 12.28 32.2 12.28 44.48 0L176 322.72l100.07 100.07c12.28 12.28 32.2 12.28 44.48 0l22.24-22.24c12.28-12.28 12.28-32.19 0-44.48L242.72 256z"/></symbol>
+    <symbol id="ic-book-open" viewBox="0 0 576 512"><path fill="currentColor" d="M542.22 32.05c-54.8 3.11-163.72 14.43-230.96 55.59-4.64 2.84-7.27 7.89-7.27 13.17v363.87c0 11.55 12.63 18.85 23.28 13.49 69.18-34.82 169.23-44.32 218.7-46.92 16.89-.89 30.02-14.43 30.02-30.66V62.75c.01-17.71-15.35-31.74-33.77-30.7zM264.73 87.64C197.5 46.48 88.58 35.17 33.78 32.05 15.36 31.01 0 45.04 0 62.75V400.6c0 16.24 13.13 29.78 30.02 30.66 49.49 2.6 149.59 12.11 218.77 46.95 10.62 5.35 23.21-1.94 23.21-13.46V100.63c0-5.29-2.62-10.14-7.27-12.99z"/></symbol>
+    <symbol id="ic-caret-left" viewBox="0 0 192 512"><path fill="currentColor" d="M192 127.338v257.324c0 17.818-21.543 26.741-34.142 14.142L29.196 270.142c-7.81-7.81-7.81-20.474 0-28.284l128.662-128.662c12.599-12.6 34.142-3.676 34.142 14.142z"/></symbol>
+    <symbol id="ic-hand-pointer" viewBox="0 0 448 512"><path fill="currentColor" d="M448 240v96c0 3.084-.356 6.159-1.063 9.162l-32 136C410.686 499.23 394.562 512 376 512H168a40.004 40.004 0 0 1-32.35-16.473l-127.997-176c-12.993-17.866-9.043-42.883 8.822-55.876 17.867-12.994 42.884-9.043 55.877 8.823L104 315.992V40c0-22.091 17.908-40 40-40s40 17.909 40 40v200h8v-40c0-22.091 17.908-40 40-40s40 17.909 40 40v40h8v-24c0-22.091 17.908-40 40-40s40 17.909 40 40v24h8c0-22.091 17.908-40 40-40s40 17.909 40 40zm-256 80h-8v96h8v-96zm88 0h-8v96h8v-96zm88 0h-8v96h8v-96z"/></symbol>
+  </svg>
+
+
+  <div class="editando" t-if="pedido" id="editando">
+    <div class="marco">
+      <p>Estás modificando tu pedido <b t-esc="pedido.name"/></p>
+      <a t-att-href="url_volver or '/pedido/%s' % token">Volver sin cambios</a>
+    </div>
+  </div>
+
+  <div class="cab">
+    <div class="marco">
+      <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id"
+           t-att-alt="ficha['nombre']"/>
+      <h1 t-esc="ficha['nombre']"/>
+      <p class="dato">
+        <svg class="ic"><use href="#ic-map-marker-alt"/></svg><t t-esc="ficha['localidad']"/>
+      </p>
+      <p class="dato"><svg class="ic"><use href="#ic-clock"/></svg><t t-esc="ficha['horario']"/></p>
+      <p class="dato"><svg class="ic"><use href="#ic-bullhorn"/></svg><t t-esc="ficha['leyenda']"/></p>
+      <p class="dato" t-if="ficha['telefono']"><svg class="ic"><use href="#ic-phone"/></svg><t t-esc="ficha['telefono']"/></p>
+      <p class="sub" t-if="personal and not pedido">
+        Pedido tomado por <b t-esc="vendedor"/>. Al final elegís el cliente.
+      </p>
+    </div>
+  </div>
+
+  <div class="marco">
+    <p class="lista-general" t-if="not lista_propia">Precios de la lista mayorista general</p>
+    <div class="tuslistas" t-if="lista_propia">
+      Estás viendo los precios de <b t-esc="quien"/> (lista <t t-esc="lista_propia"/>).
+      <a t-if="socio_logueado" href="/mi-cuenta" class="micuenta">Ver mi cuenta corriente</a>
+    </div>
+    <div class="caja-buscar">
+      <input type="text" id="buscar" class="buscar"
+             placeholder="Ingresá lo que estás buscando.." autocomplete="off"/>
+      <button type="button" class="limpiar" id="limpiar" aria-label="Limpiar la búsqueda">
+        <svg class="ic"><use href="#ic-times"/></svg>
+      </button>
+    </div>
+    <div class="aviso" id="aviso"></div>
+  </div>
+
+  <form action="/pedido/enviar" method="post" id="frm">
+    <input type="hidden" name="renglones" id="renglones"/>
+    <input type="hidden" name="token" t-att-value="token"/>
+    <input type="hidden" name="entrega" id="entrega" value="domicilio"/>
+    <!-- every visitor: /pedido/enviar checks it (19.0.1.29.0) -->
+    <input type="hidden" name="csrf_token" t-att-value="csrf"/>
+    <t t-if="personal">
+      <input type="hidden" name="cliente_id" id="cliente_id" value=""/>
+    </t>
+    <div t-if="recarga" class="aviso" role="alert"
+         style="color:#c92a2a;font-weight:600;font-size:.95rem;padding:.8rem 1rem">
+      La página había vencido y el pedido no se envió. Lo dejamos cargado como estaba:
+      revisalo y tocá de nuevo el botón para enviarlo.
+    </div>
+
+    <!-- Ofertas relampago: productos sueltos, sin categoria y siempre
+         abiertos. Es el lugar donde AgilPedido pone su tarjeta de
+         "SUPER OFERTA". Van dentro de un .bloque para que el contador del
+         pedido los sume como a cualquier otro. -->
+    <div class="lista marco" t-if="destacados">
+      <div class="bloque siempre">
+        <span class="chip">0</span>
+        <div class="cuerpo">
+          <t t-foreach="destacados" t-as="prod">
+            <div class="fila" t-att-data-id="prod['id']" t-att-data-precio="prod['precio']"
+                 t-att-data-sinprecio="'1' if prod['sin_precio'] else ''"
+                 t-att-data-nombre="prod['nombre'].lower()">
+              <img t-att-src="'/web/image/product.template/%s/image_128' % prod['id']"
+                   t-att-alt="prod['nombre']" loading="lazy"/>
+              <div class="datos">
+                <div class="pnom"><t t-esc="prod['nombre']"/></div>
+                <div class="ppre">
+                  <b t-if="not prod['sin_precio']">$ <t t-esc="prod['precio_texto']"/></b>
+                  <span t-if="prod['sin_precio']" class="aconf">precio a confirmar</span>
+                  <t t-if="prod['por_bulto']"> · bulto de <t t-esc="prod['contiene']"/></t>
+                </div>
+                <div class="vence" t-if="prod['vence']">Vence <t t-esc="prod['vence']"/></div>
+              </div>
+              <div class="stepper">
+                <button type="button" class="menos" aria-label="Quitar uno">&#8722;</button>
+                <input type="number" min="0" step="1" inputmode="numeric" class="cant"
+                       t-att-value="cantidades.get(prod['id']) or ''" placeholder="0"/>
+                <button type="button" class="mas" aria-label="Agregar uno">+</button>
+              </div>
+            </div>
+          </t>
+        </div>
+      </div>
+    </div>
+
+    <div class="lista marco">
+    <t t-foreach="secciones" t-as="seccion">
+      <div class="bloque">
+        <div class="cabsec">
+          <span class="chip">0</span>
+          <span class="nom"><svg class="ic"><use href="#ic-book-open"/></svg><t t-esc="seccion[0]"/></span>
+          <span class="flecha"><svg class="ic"><use href="#ic-caret-left"/></svg></span>
+        </div>
+        <div class="cuerpo">
+          <t t-foreach="seccion[1]" t-as="prod">
+            <div class="fila" t-att-data-id="prod['id']" t-att-data-precio="prod['precio']"
+                 t-att-data-sinprecio="'1' if prod['sin_precio'] else ''"
+                 t-att-data-nombre="prod['nombre'].lower()">
+              <img t-att-src="'/web/image/product.template/%s/image_128' % prod['id']"
+                   t-att-alt="prod['nombre']" loading="lazy"/>
+              <div class="datos">
+                <div class="pnom"><t t-esc="prod['nombre']"/></div>
+                <div class="ppre">
+                  <b t-if="not prod['sin_precio']">$ <t t-esc="prod['precio_texto']"/></b>
+                  <span t-if="prod['sin_precio']" class="aconf">precio a confirmar</span>
+                  <t t-if="prod['por_bulto']"> · bulto de <t t-esc="prod['contiene']"/></t>
+                </div>
+              </div>
+              <div class="stepper">
+                <button type="button" class="menos" aria-label="Quitar uno">&#8722;</button>
+                <input type="number" min="0" step="1" inputmode="numeric" class="cant"
+                       t-att-value="cantidades.get(prod['id']) or ''" placeholder="0"/>
+                <button type="button" class="mas" aria-label="Agregar uno">+</button>
+              </div>
+            </div>
+          </t>
+        </div>
+      </div>
+    </t>
+
+    <!-- DISTRIBUIDORAS: la lista oculta, una seccion mas de la misma pagina,
+         como en AgilPedido. Solo para distribuidoras y revendedores
+         autorizados y para Gerencia y Administración (el vendedor ve solo la
+         General, regla del 30/09/2026): para cualquier otro visitante el
+         controlador manda `mayoristas` y `presupuestar` vacios y la seccion
+         no llega al HTML. Adentro van los productos con precio «May» propio
+         cargado y los cigarrillos a presupuestar. -->
+    <div class="bloque" t-if="mayoristas or presupuestar">
+      <div class="cabsec">
+        <span class="chip">0</span>
+        <span class="nom">
+          <svg class="ic"><use href="#ic-book-open"/></svg><t t-esc="distribuidoras['nombre']"/>
+        </span>
+        <span class="flecha"><svg class="ic"><use href="#ic-caret-left"/></svg></span>
+      </div>
+      <div class="cuerpo">
+        <div class="puerta">
+          <p t-esc="distribuidoras['detalle']"/>
+          <p class="minimo" t-esc="distribuidoras['minimo']"/>
+        </div>
+        <t t-foreach="mayoristas" t-as="prod">
+          <div class="fila" t-att-data-id="prod['id']" t-att-data-precio="prod['precio']"
+               data-may="1" t-att-data-nombre="prod['nombre'].lower()">
+            <img t-att-src="'/web/image/product.template/%s/image_128' % prod['id']"
+                 t-att-alt="prod['nombre']" loading="lazy"/>
+            <div class="datos">
+              <div class="pnom"><t t-esc="prod['nombre']"/></div>
+              <div class="ppre">
+                <b>$ <t t-esc="prod['precio_texto']"/></b>
+                <t t-if="prod['por_bulto']"> · bulto de <t t-esc="prod['contiene']"/></t>
+              </div>
+            </div>
+            <div class="stepper">
+              <button type="button" class="menos" aria-label="Quitar uno">&#8722;</button>
+              <input type="number" min="0" step="1" inputmode="numeric" class="cant"
+                     t-att-value="cantidades_may.get(prod['id']) or ''" placeholder="0"/>
+              <button type="button" class="mas" aria-label="Agregar uno">+</button>
+            </div>
+          </div>
+        </t>
+
+        <!-- Cigarrillos y tabaco van sin precio: no hay precio publico,
+             cada revendedor tiene el suyo. El vendedor los valoriza al
+             asignarle la lista al pedido. -->
+        <t t-if="presupuestar">
+          <div class="puerta separador">
+            <p class="minimo">Cigarrillos y tabaco a presupuestar</p>
+            <p>Cargá las cantidades. El precio se confirma con tu lista de revendedor.</p>
+          </div>
+          <t t-foreach="presupuestar" t-as="prod">
+            <div class="fila" t-att-data-id="prod['id']" data-precio="0"
+                 data-may="1" data-sinprecio="1"
+                 t-att-data-nombre="prod['nombre'].lower()">
+              <img t-att-src="'/web/image/product.template/%s/image_128' % prod['id']"
+                   t-att-alt="prod['nombre']" loading="lazy"/>
+              <div class="datos">
+                <div class="pnom"><t t-esc="prod['nombre']"/></div>
+                <div class="ppre">
+                  <span class="aconf">precio a confirmar</span>
+                  <t t-if="prod['por_bulto']"> · bulto de <t t-esc="prod['contiene']"/></t>
+                </div>
+              </div>
+              <div class="stepper">
+                <button type="button" class="menos" aria-label="Quitar uno">&#8722;</button>
+                <input type="number" min="0" step="1" inputmode="numeric" class="cant"
+                       t-att-value="cantidades_may.get(prod['id']) or ''" placeholder="0"/>
+                <button type="button" class="mas" aria-label="Agregar uno">+</button>
+              </div>
+            </div>
+          </t>
+        </t>
+      </div>
+    </div>
+    </div>
+
+    <div class="barra vacia" id="barra">
+      <div class="marco">
+        <span class="invitacion">
+          <svg class="ic"><use href="#ic-hand-pointer"/></svg>Seleccioná para armar tu pedido
+        </span>
+        <div class="carga">
+          <b id="resumen">$ 0</b>
+          <span id="cuantos">ningún producto</span>
+          <span class="falta" id="falta"></span>
+        </div>
+        <button type="button" class="btn btn-p" id="ver" disabled="disabled">Ver pedido</button>
+      </div>
+    </div>
+
+    <!-- paso 2: vista previa -->
+    <div class="pantalla" id="p2">
+      <div class="ph"><h2>Tu pedido</h2></div>
+      <div class="pc">
+        <div id="detalle"></div>
+        <div class="tot"><span>Total</span><span id="tot2">$ 0</span></div>
+
+        <h3 style="font-size:1rem;margin:1.4rem 0 .3rem">¿Cómo lo recibís?</h3>
+        <div class="opt sel" id="op_dom" data-modo="domicilio">
+          <b>Envío a domicilio</b>
+          <span id="nota_dom">Reparto de lunes a viernes, 9 a 19 h</span>
+        </div>
+        <div class="opt" id="op_ret" data-modo="retira">
+          <b>Lo voy a retirar</b>
+          <span>Pasás por el depósito. Sin mínimo de compra.</span>
+        </div>
+      </div>
+      <div class="barra">
+        <div class="marco">
+          <button type="button" class="btn btn-s" id="volver1">Seguir comprando</button>
+          <button type="button" class="btn btn-p" id="ir3" style="flex:1">Continuar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- paso 3: datos -->
+    <div class="pantalla" id="p3">
+      <div class="ph">
+        <h2><t t-if="pedido">Confirmá tus datos</t><t t-elif="personal">Datos del cliente</t><t t-else="">Tus datos</t></h2>
+      </div>
+      <div class="pc">
+        <div class="elegir" t-if="personal and not pedido">
+          <p class="tit">Cliente</p>
+          <input type="text" id="buscar_cliente" class="dato" autocomplete="off"
+                 placeholder="Buscá por nombre, CUIT o WhatsApp"/>
+          <div class="elegido" id="elegido"><span id="elegido_nombre"></span>
+            <button type="button" id="cambiar_cliente">Cambiar</button></div>
+          <div class="resultados" id="resultados"></div>
+          <p class="ayuda">Primero aparecen tus clientes. Si no está, dejalo vacío y
+            completá los datos: el administrador lo asigna.</p>
+        </div>
+        <label class="campo">Nombre del comercio
+          <input type="text" name="nombre" id="f_nombre" class="dato"
+                 autocomplete="organization" t-att-value="datos['nombre']"/>
+        </label>
+        <div class="err" id="e_nombre">Poné el nombre del comercio</div>
+
+        <label class="campo">Teléfono
+          <input type="tel" name="telefono" id="f_tel" class="dato"
+                 autocomplete="tel" t-att-value="datos['telefono']"/>
+        </label>
+        <div class="err" id="e_tel">Poné un teléfono de contacto</div>
+
+        <div id="caja_dom">
+          <label class="campo">Domicilio de entrega
+            <input type="text" name="domicilio" id="f_dom" class="dato"
+                   autocomplete="street-address" t-att-value="datos['domicilio']"/>
+          </label>
+          <div class="err" id="e_dom">Poné el domicilio de entrega</div>
+        </div>
+
+        <label class="interior" id="lbl_enc" t-att-class="'interior sel' if datos['encomienda'] else 'interior'">
+          <input type="checkbox" name="encomienda" id="f_enc" value="1"
+                 t-att-checked="'checked' if datos['encomienda'] else None"/>
+          <span><b>Soy del interior:</b> necesito que me lo envíen por encomienda a la
+            terminal de mi localidad</span>
+        </label>
+        <div class="caja-enc" id="caja_enc" t-att-style="None if datos['encomienda'] else 'display:none'">
+          <p class="ayuda">Son los datos que pide la empresa de transporte para la guía.</p>
+          <label class="campo">Nombre completo de quien retira
+            <input type="text" name="enc_nombre" id="f_enc_nombre" class="dato"
+                   autocomplete="name" t-att-value="datos['enc_nombre']"/>
+          </label>
+          <div class="err" id="e_enc_nombre">Poné el nombre completo de quien retira</div>
+          <label class="campo">DNI
+            <input type="text" name="enc_dni" id="f_enc_dni" class="dato" inputmode="numeric"
+                   maxlength="12" autocomplete="off" t-att-value="datos['enc_dni']"/>
+          </label>
+          <div class="err" id="e_enc_dni">El DNI tiene que tener 7 u 8 números</div>
+          <label class="campo">Localidad (terminal donde retirás)
+            <input type="text" name="enc_localidad" id="f_enc_localidad" class="dato"
+                   list="localidades_enc" autocomplete="off" t-att-value="datos['enc_localidad']"/>
+          </label>
+          <datalist id="localidades_enc">
+            <t t-foreach="localidades_encomienda" t-as="loc"><option t-att-value="loc"/></t>
+          </datalist>
+          <div class="err" id="e_enc_localidad">Poné la localidad de la terminal</div>
+          <p class="ayuda">Sale desde la terminal de ómnibus de Neuquén. Te avisamos por
+            WhatsApp el número de guía cuando lo despachamos.</p>
+        </div>
+      </div>
+      <div class="barra">
+        <div class="marco">
+          <button type="button" class="btn btn-s" id="volver2">Volver al pedido</button>
+          <button type="submit" class="btn btn-p" style="flex:1">
+            <t t-if="pedido">Confirmar los cambios</t><t t-else="">Confirmar pedido</t>
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <script type="text/javascript">
+    (function () {
+      var MINIMO = 70000;
+      // El cliente que entra con su usuario no tiene compra minima: siempre
+      // puede elegir envio gratis o retirar. El minimo es para el que pide
+      // sin identificarse.
+      var SIN_MINIMO = <t t-esc="'true' if lista_propia else 'false'"/>;
+      var filas = [].slice.call(document.querySelectorAll('.fila'));
+      var bloques = [].slice.call(document.querySelectorAll('.bloque'));
+      var p2 = document.getElementById('p2'), p3 = document.getElementById('p3');
+      var modo = 'domicilio';
+      var ultimoTotal = 0;
+      // hay renglones cuyo precio sale de la lista del cliente, no de la
+      // pantalla: mientras existan, el total de aca es parcial
+      var haySinPrecio = false;
+
+      function elegir(opt) {
+        document.querySelectorAll('.opt').forEach(function (o) { o.classList.remove('sel'); });
+        opt.classList.add('sel');
+        modo = opt.dataset.modo;
+        document.getElementById('entrega').value = modo;
+        pintarEncomienda();
+      }
+
+      // «Soy del interior»: parcel to the terminal of the customer's town.
+      // The street address is not needed; the carrier asks for who picks it
+      // up and their DNI.
+      var enc = document.getElementById('f_enc');
+      function pintarEncomienda() {
+        var si = enc.checked;
+        document.getElementById('lbl_enc').classList.toggle('sel', si);
+        document.getElementById('caja_enc').style.display = si ? 'block' : 'none';
+        document.getElementById('caja_dom').style.display = (si || modo === 'retira') ? 'none' : 'block';
+      }
+      enc.addEventListener('change', pintarEncomienda);
+      function dniValido(texto) {
+        return /^\d{7,8}$/.test(String(texto || '').replace(/[\s.\-]/g, ''));
+      }
+
+      function plata(n) {
+        return '$ ' + n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+      }
+
+      function abrir(b, si) {
+        // los destacados no se pliegan: no tienen cabecera para volver a abrirlos
+        if (b.classList.contains('siempre')) { return; }
+        b.querySelector('.cuerpo').style.display = si ? 'block' : 'none';
+        b.querySelector('.flecha').style.transform = si ? 'rotate(-90deg)' : 'none';
+      }
+
+      function recalcular() {
+        var total = 0, items = 0, datos = [];
+        haySinPrecio = false;
+        bloques.forEach(function (b) {
+          var aca = 0;
+          b.querySelectorAll('.fila').forEach(function (f) {
+            var c = parseInt(f.querySelector('.cant').value || 0, 10);
+            if (c > 0) {
+              aca++; items += c;
+              if (f.dataset.sinprecio) { haySinPrecio = true; }
+              total += c * parseFloat(f.dataset.precio || 0);
+              var r = { id: f.dataset.id, cantidad: c };
+              if (f.dataset.may) { r.may = 1; }
+              datos.push(r);
+            }
+          });
+          var chip = b.querySelector('.chip');
+          chip.textContent = aca;
+          chip.style.display = aca ? 'inline-block' : 'none';
+        });
+        document.getElementById('renglones').value = JSON.stringify(datos);
+        document.getElementById('resumen').textContent =
+          (haySinPrecio ? (total ? plata(total) + ' + a confirmar' : 'a confirmar')
+                        : plata(total));
+        document.getElementById('cuantos').textContent =
+          datos.length === 0 ? 'ningún producto'
+            : datos.length + (datos.length === 1 ? ' producto' : ' productos');
+        var faltan = MINIMO - total, av = document.getElementById('falta');
+        if (datos.length &amp;&amp; faltan > 0 &amp;&amp; !haySinPrecio &amp;&amp; !SIN_MINIMO) {
+          av.textContent = 'Faltan ' + plata(faltan) + ' para el envío a domicilio';
+          av.style.display = 'block';
+        } else { av.style.display = 'none'; }
+        // el mínimo condiciona el envío, no el pedido: siempre se puede avanzar
+        document.getElementById('ver').disabled = !datos.length;
+        var barra = document.getElementById('barra');
+        barra.classList.toggle('vacia', !datos.length);
+        barra.classList.toggle('cargada', !!datos.length);
+        ultimoTotal = total;
+        return { total: total, datos: datos };
+      }
+
+      function pintarDetalle() {
+        var cont = document.getElementById('detalle'), html = '', total = 0;
+        filas.forEach(function (f) {
+          var c = parseInt(f.querySelector('.cant').value || 0, 10);
+          if (c &lt;= 0) { return; }
+          var pu = parseFloat(f.dataset.precio || 0);
+          total += c * pu;
+          var derecha = f.dataset.sinprecio
+            ? c + ' &#215; a confirmar'
+            : c + ' &#215; ' + plata(pu);
+          html += '<div class="res"><span>' + f.querySelector('.pnom').textContent +
+                  '</span><span class="q">' + derecha + '</span></div>';
+        });
+        cont.innerHTML = html;
+        document.getElementById('tot2').textContent =
+          (haySinPrecio ? (total ? plata(total) + ' + a confirmar' : 'a confirmar')
+                        : plata(total));
+      }
+
+      document.addEventListener('click', function (ev) {
+        var cab = ev.target.closest('.cabsec');
+        if (cab) {
+          var b = cab.closest('.bloque');
+          abrir(b, b.querySelector('.cuerpo').style.display !== 'block');
+          return;
+        }
+        var mas = ev.target.closest('.mas'), menos = ev.target.closest('.menos');
+        if (mas || menos) {
+          var inp = (mas || menos).parentNode.querySelector('.cant');
+          var v = parseInt(inp.value || 0, 10) + (mas ? 1 : -1);
+          inp.value = v > 0 ? v : '';
+          recalcular();
+          return;
+        }
+        var opt = ev.target.closest('.opt');
+        if (opt &amp;&amp; !opt.classList.contains('no')) { elegir(opt); }
+      });
+
+      document.addEventListener('input', function (ev) {
+        if (ev.target.classList.contains('cant')) { recalcular(); }
+        if (ev.target.id === 'buscar') {
+          var t = ev.target.value.toLowerCase().trim(), n = 0;
+          bloques.forEach(function (b) {
+            var vis = 0;
+            b.querySelectorAll('.fila').forEach(function (f) {
+              var ok = !t || f.dataset.nombre.indexOf(t) !== -1;
+              f.style.display = ok ? 'flex' : 'none';
+              if (ok) { vis++; }
+            });
+            b.style.display = (!t || vis) ? '' : 'none';
+            abrir(b, !!t &amp;&amp; vis > 0);
+            n += vis;
+          });
+          var av = document.getElementById('aviso');
+          if (!t) {
+            av.textContent = '';
+            bloques.forEach(function (b) {
+              abrir(b, b.querySelector('.chip').style.display !== 'none');
+            });
+          } else {
+            av.textContent = n ? n + (n === 1 ? ' producto' : ' productos') : 'Nada coincide';
+          }
+        }
+      });
+
+      function ajustarEntrega() {
+        // El cliente identificado elige libremente. Y con cigarrillos sin valorizar
+        // tampoco se sabe el total, asi que el minimo no puede empujar al
+        // cliente a retirar en el deposito.
+        var alcanza = SIN_MINIMO || haySinPrecio || ultimoTotal >= MINIMO;
+        var dom = document.getElementById('op_dom');
+        var ret = document.getElementById('op_ret');
+        dom.classList.toggle('no', !alcanza);
+        var nota = 'Reparto de lunes a viernes, 9 a 19 h';
+        if (!alcanza) {
+          nota = 'Desde ' + plata(MINIMO) + '. Te faltan ' + plata(MINIMO - ultimoTotal);
+        } else if (SIN_MINIMO) {
+          nota = 'Envío gratis, sin compra mínima. Lunes a viernes, 9 a 19 h';
+        } else if (haySinPrecio) {
+          nota = 'Reparto de lunes a viernes, 9 a 19 h. Te confirmamos el total.';
+        }
+        document.getElementById('nota_dom').textContent = nota;
+        if (!alcanza) { elegir(ret); } else if (modo === 'domicilio') { elegir(dom); }
+      }
+
+      document.getElementById('ver').addEventListener('click', function () {
+        pintarDetalle(); ajustarEntrega(); p2.classList.add('ver');
+      });
+      document.getElementById('volver1').addEventListener('click', function () {
+        p2.classList.remove('ver');
+      });
+      document.getElementById('ir3').addEventListener('click', function () {
+        p2.classList.remove('ver'); p3.classList.add('ver');
+      });
+      document.getElementById('volver2').addEventListener('click', function () {
+        p3.classList.remove('ver'); pintarDetalle(); p2.classList.add('ver');
+      });
+
+      document.getElementById('frm').addEventListener('submit', function (ev) {
+        var falla = false;
+        var pares = [['f_nombre', 'e_nombre'], ['f_tel', 'e_tel']];
+        if (enc.checked) {
+          pares.push(['f_enc_nombre', 'e_enc_nombre'], ['f_enc_dni', 'e_enc_dni', dniValido],
+                     ['f_enc_localidad', 'e_enc_localidad']);
+        } else if (modo !== 'retira') { pares.push(['f_dom', 'e_dom']); }
+        pares.forEach(function (par) {
+          var i = document.getElementById(par[0]), e = document.getElementById(par[1]);
+          var vacio = par[2] ? !par[2](i.value) : !i.value.trim();
+          i.classList.toggle('mal', vacio);
+          e.style.display = vacio ? 'block' : 'none';
+          if (vacio &amp;&amp; !falla) { i.focus(); falla = true; }
+        });
+        if (falla) { ev.preventDefault(); }
+      });
+
+      document.getElementById('limpiar').addEventListener('click', function () {
+        var b = document.getElementById('buscar');
+        b.value = '';
+        b.dispatchEvent(new Event('input', { bubbles: true }));
+        b.focus();
+      });
+
+      // staff: pick the customer (their portfolio first, all when typing)
+      var buscarCliente = document.getElementById('buscar_cliente');
+      if (buscarCliente) {
+        var resultados = document.getElementById('resultados');
+        var elegido = document.getElementById('elegido');
+        var espera = null;
+        function esc(t) {
+          return String(t || '').replace(/[&amp;&lt;&gt;"]/g, function (c) {
+            return {'&amp;': '&amp;amp;', '&lt;': '&amp;lt;', '&gt;': '&amp;gt;', '"': '&amp;quot;'}[c];
+          });
+        }
+        function buscar() {
+          fetch('/pedido/clientes?q=' + encodeURIComponent(buscarCliente.value), {credentials: 'same-origin'})
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (filas) {
+              resultados.innerHTML = filas.length ? filas.map(function (f, i) {
+                return '&lt;button type="button" data-i="' + i + '"&gt;&lt;span class="' + (f.mio ? 'mio' : '') + '"&gt;' +
+                  esc(f.nombre) + '&lt;/span&gt;&lt;small&gt;' + esc([f.ciudad, f.whatsapp, f.mio ? 'tu cliente' : ''].filter(Boolean).join(' · ')) +
+                  '&lt;/small&gt;&lt;/button&gt;';
+              }).join('') : '&lt;p class="ayuda"&gt;Ningún cliente coincide.&lt;/p&gt;';
+              resultados.querySelectorAll('button').forEach(function (b) {
+                b.addEventListener('click', function () { elegir_cliente(filas[+b.dataset.i]); });
+              });
+            });
+        }
+        function elegir_cliente(f) {
+          document.getElementById('cliente_id').value = f.id;
+          document.getElementById('elegido_nombre').textContent = f.nombre;
+          elegido.style.display = 'flex';
+          buscarCliente.style.display = 'none';
+          resultados.innerHTML = '';
+          document.getElementById('f_nombre').value = f.nombre;
+          if (f.whatsapp) { document.getElementById('f_tel').value = f.whatsapp; }
+          if (f.domicilio) { document.getElementById('f_dom').value = f.domicilio + (f.ciudad ? ', ' + f.ciudad : ''); }
+        }
+        document.getElementById('cambiar_cliente').addEventListener('click', function () {
+          document.getElementById('cliente_id').value = '';
+          elegido.style.display = 'none';
+          buscarCliente.style.display = '';
+          buscarCliente.focus();
+          buscar();
+        });
+        buscarCliente.addEventListener('input', function () {
+          clearTimeout(espera);
+          espera = setTimeout(buscar, 250);
+        });
+        buscar();
+      }
+
+      recalcular();
+      pintarEncomienda();
+    })();
+  </script>
+</body>
+</html>
+  </template>
+
+  <template id="seguimiento" name="Como quedo tu pedido">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Tu pedido · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{
+      --fondo:#f5f5f5; --tarjeta:#fff; --texto:#4a4a4a; --tenue:#7a7a7a;
+      --borde:#eee; --linea:#dbdbdb; --acento:#00d1b2; --alerta:#c92a2a; --aviso:#b08900;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--fondo);color:var(--texto);
+         font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:1024px;margin:0 auto}
+    .cab{padding:1.2rem 1rem 1.4rem;text-align:center}
+    .cab .logo{width:72px;height:72px;border-radius:50%;object-fit:cover;display:block;margin:0 auto}
+    .cab h1{margin:.7rem 0 .25rem;font-size:1.25rem;font-weight:700}
+    .cab .dato{margin:.2rem 0 0;font-size:.8rem;line-height:1.5}
+    .tarjeta{background:var(--tarjeta);border-top:1px solid var(--borde);
+             border-bottom:1px solid var(--borde);padding:1rem}
+    .aviso{padding:.9rem 1rem;font-size:.9rem;text-align:center;border-bottom:1px solid var(--borde)}
+    .encomienda{text-align:center}
+    .encomienda p{margin:.2rem 0}
+    .encomienda .enc-t{font-weight:700;font-size:1rem;color:#00806f}
+    .encomienda .enc-d{font-size:.9rem}
+    .encomienda .btn{margin-top:.7rem}
+    .aviso.cambios{background:#fff8e1;color:var(--aviso)}
+    .aviso.sincambios{background:#e6faf7;color:#00806f}
+    .fila{display:flex;justify-content:space-between;gap:.8rem;padding:.7rem 0;
+          border-bottom:1px solid var(--borde);font-size:.92rem}
+    .fila:last-child{border-bottom:0}
+    .izq{min-width:0}
+    .nom{font-weight:600}
+    .det{font-size:.8rem;color:var(--tenue);margin-top:.1rem}
+    .der{text-align:right;white-space:nowrap}
+    .marca{display:inline-block;font-size:.72rem;border-radius:99px;padding:.05rem .5rem;
+           margin-top:.2rem}
+    .sacado .nom{text-decoration:line-through;color:var(--tenue)}
+    .sacado .marca{background:#ffe3e3;color:var(--alerta)}
+    .cambio .marca{background:#fff3bf;color:var(--aviso)}
+    .agregado .marca{background:#d3f9d8;color:#2b8a3e}
+    .telefono .marca{background:#e7f5ff;color:#1864ab}
+    .cab .estado{display:inline-block;margin:.5rem 0 0;font-size:.85rem;font-weight:700;
+                 border-radius:99px;padding:.2rem .8rem;background:#fff3bf;color:var(--aviso)}
+    .cab .estado.armado{background:#e6faf7;color:#00806f}
+    .cab .estado.alerta{background:#ffe3e3;color:var(--alerta)}
+    .aviso.cliente{background:#fff8e1;color:var(--aviso);font-weight:600}
+    .aviso.cliente span{font-weight:400}
+    .aviso.tarde{background:#ffe3e3;color:var(--alerta)}
+    .tot{display:flex;justify-content:space-between;padding:.9rem 0 0;font-size:1.15rem;
+         font-weight:700}
+    .pie{padding:1.2rem 1rem 2rem;text-align:center;font-size:.85rem;color:var(--tenue)}
+    .btn{display:inline-block;background:var(--acento);color:#fff;border-radius:4px;
+         padding:.7rem 1.2rem;font-weight:600;text-decoration:none;margin:.3rem}
+    .btn.s{background:var(--tarjeta);color:var(--texto);border:1px solid var(--linea)}
+    .personal{color:var(--aviso);font-size:.8rem;margin:.6rem 0 1.2rem}
+    .mp{background:var(--tarjeta);border-bottom:1px solid var(--borde);padding:1.1rem 1rem;
+        text-align:center}
+    .mp form{margin:0}
+    .mp .pagar{display:inline-block;width:100%;max-width:22rem;background:#009ee3;color:#fff;
+               border:0;border-radius:6px;padding:.95rem 1.2rem;font:inherit;font-weight:700;
+               font-size:1.05rem;cursor:pointer}
+    .mp .nota{font-size:.8rem;color:var(--tenue);margin:.6rem 0 0}
+    .mp .pagado{color:#00806f;font-weight:700}
+    .mp .aviso-mp{font-size:.88rem;color:var(--aviso);margin:0 0 .8rem}
+    .mp .error-mp{font-size:.88rem;color:var(--alerta);margin:0 0 .8rem}
+    .pagar-tr{background:var(--tarjeta);border-bottom:1px solid var(--borde);padding:1.1rem 1rem}
+    .pagar-tr h2{margin:0 0 .3rem;font-size:1.05rem}
+    .pagar-tr .nota{font-size:.82rem;color:var(--tenue);margin:0 0 .8rem}
+    .pagar-tr .dato-p{display:flex;justify-content:space-between;align-items:center;gap:.8rem;
+                      padding:.7rem 0;border-top:1px solid var(--borde)}
+    .pagar-tr .rot{font-size:.8rem;color:var(--tenue)}
+    .pagar-tr .val{font-size:1.2rem;font-weight:700;word-break:break-all}
+    .pagar-tr .copiar{flex:none;border:1px solid var(--acento);background:var(--tarjeta);
+                      color:#00806f;border-radius:6px;padding:.55rem .9rem;font:inherit;
+                      font-weight:600;cursor:pointer;min-width:6.5rem}
+    .pagar-tr .copiar.listo{background:var(--acento);color:#fff}
+    .pagar-tr .pagado{color:#00806f;font-weight:700;margin:0;text-align:center}
+    .espera{padding:.9rem 1rem;font-size:.88rem;text-align:center;color:var(--tenue);
+            border-bottom:1px solid var(--borde)}
+    .modificar{background:var(--tarjeta);border-bottom:1px solid var(--borde);padding:1rem;
+               text-align:center}
+    .modificar .btn{display:block;max-width:22rem;margin:0 auto;padding:.9rem 1.2rem;
+                    font-size:1.05rem;background:var(--tarjeta);color:#00806f;
+                    border:2px solid var(--acento);border-radius:6px}
+    .modificar p{margin:.6rem 0 0;font-size:.85rem;color:var(--tenue)}
+    .aviso.guardado{background:#d3f9d8;color:#2b8a3e;font-size:1rem;font-weight:700}
+    .aviso.guardado .btn{font-size:.9rem;font-weight:600}
+  </style>
+</head>
+<body>
+  <div class="cab marco">
+    <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id"
+         t-att-alt="ficha['nombre']"/>
+    <h1>Tu pedido <t t-esc="pedido.name"/></h1>
+    <p class="dato" t-if="cancelado">Este pedido fue cancelado.</p>
+    <p class="estado armado" t-elif="pedido.distri_delivery_state == 'delivered'">Tu pedido fue entregado</p>
+    <p class="estado armado" t-elif="pedido.distri_delivery_state == 'dispatched'">Despachado por encomienda</p>
+    <t t-elif="reparto and reparto['kind'] == 'not_delivered'">
+      <p class="estado alerta">No pudimos entregarlo</p>
+      <p class="dato">Vamos a coordinar una nueva entrega<t t-if="url_entrega">. Si querés, contanos
+        en «Datos para la entrega» qué día te queda mejor</t>.</p>
+    </t>
+    <p class="estado armado" t-elif="reparto and reparto['kind'] == 'on_route'">Tu pedido salió a repartir</p>
+    <p class="estado armado" t-elif="reparto and reparto['kind'] == 'assigned'">Tu pedido está en la ruta del <t t-esc="reparto['day']"/></p>
+    <p class="estado armado" t-elif="pedido.distri_armado == 'armado'">Tu pedido está armado</p>
+    <p class="estado" t-elif="pedido.distri_armado == 'en_armado'">Tu pedido se está armando</p>
+    <p class="estado" t-elif="espera">Falta tu WhatsApp</p>
+    <p class="dato" t-else="">Recibimos tu pedido. Todavía no empezamos a armarlo.</p>
+  </div>
+
+  <div class="marco">
+    <div class="aviso guardado" t-if="guardado" id="guardado">
+      Listo, actualizamos tu pedido.
+      <t t-if="avisar_cambio">
+        <br/><a class="btn s" t-att-href="avisar_cambio" target="_blank" rel="noopener">Avisar el cambio por WhatsApp</a>
+      </t>
+    </div>
+    <div class="tarjeta encomienda" t-if="encomienda and not cancelado">
+      <t t-if="encomienda['despachada']">
+        <p class="enc-t">Despachado por encomienda</p>
+        <p class="enc-d" t-if="encomienda['transportista']">Transportista: <b t-esc="encomienda['transportista']"/></p>
+        <p class="enc-d">Guía N° <b t-esc="encomienda['guia'] or 'en el comprobante'"/>
+          <t t-if="encomienda['fecha']"> · <t t-esc="encomienda['fecha']"/></t></p>
+        <p class="enc-d"><b t-esc="encomienda['paga']"/></p>
+        <p class="enc-d">Lo retirás en la terminal de <t t-esc="encomienda['localidad']"/> con
+          esta guía<t t-if="encomienda['retira']">. Retira: <t t-esc="encomienda['retira']"/></t>.</p>
+        <a class="btn" t-if="encomienda['descarga']" t-att-href="'/pedido/%s/guia' % token">Descargar comprobante de guía</a>
+      </t>
+      <t t-else="">
+        <p class="enc-t">Sale por encomienda</p>
+        <p class="enc-d">A la terminal de <t t-esc="encomienda['localidad']"/>
+          <t t-if="encomienda['retira']">. Retira: <t t-esc="encomienda['retira']"/></t>.
+          Te avisamos el número de guía cuando lo despachamos.</p>
+      </t>
+    </div>
+    <div class="aviso cambios" t-if="espera">
+      <p style="margin:0 0 .6rem;font-weight:600">Falta un paso: enviá el mensaje por WhatsApp para que recibamos tu pedido.</p>
+      <a class="btn" style="background:#25d366" t-att-href="espera['url']" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+      <p style="margin:.5rem 0 0;font-size:.82rem">Código <b t-esc="espera['codigo']"/></p>
+    </div>
+    <div class="aviso cliente" t-if="aviso_cliente" id="aviso">
+      Tu aviso: «<t t-esc="aviso_cliente"/>» <span>— lo vamos a tener en cuenta.</span>
+    </div>
+    <div class="modificar" t-if="puede_modificar and not cancelado" id="modificar">
+      <a class="btn" t-att-href="url_modificar">Modificar mi pedido</a>
+      <p>Podés agregar o quitar productos hasta que empecemos a armarlo.</p>
+    </div>
+    <div class="modificar" t-if="url_entrega" id="entrega">
+      <a class="btn" t-att-href="url_entrega">Datos para la entrega</a>
+      <p>Días y horarios en que recibís, la ubicación de tu negocio o un aviso para esta entrega.</p>
+    </div>
+    <div class="aviso tarde" t-if="llego_tarde">
+      <t t-esc="ya_se_esta_armando"/> El cambio no se guardó.
+    </div>
+    <div class="aviso cambios" t-if="hubo_cambios and not puede_modificar">
+      Hubo cambios al preparar tu pedido. Abajo está el detalle.
+    </div>
+    <div class="aviso sincambios" t-if="not puede_modificar and not hubo_cambios and sabemos_el_original">
+      Tu pedido quedó tal como lo mandaste.
+    </div>
+    <div class="aviso" t-if="not puede_modificar and not sabemos_el_original">
+      Así quedó tu pedido. De este no guardamos el original para comparar.
+    </div>
+
+    <div class="tarjeta">
+      <t t-foreach="filas" t-as="f">
+        <div class="fila" t-att-class="'fila ' + f['estado']">
+          <div class="izq">
+            <div class="nom"><t t-esc="f['nombre']"/></div>
+            <div class="det" t-if="f['estado'] == 'cambio'">
+              Pediste <t t-esc="'{:g}'.format(f['pedida'])"/>,
+              quedaron <t t-esc="'{:g}'.format(f['quedo'])"/>
+            </div>
+            <div class="det" t-if="f['estado'] not in ('cambio', 'sacado')">
+              <t t-esc="'{:g}'.format(f['quedo'])"/>
+              <t t-if="f['unidad']"> <t t-esc="f['unidad']"/></t>
+              <t t-if="not f['sin_precio']"> × $ <t t-esc="f['precio']"/></t>
+            </div>
+            <span class="marca" t-if="f['estado'] == 'sacado'">sin stock o reemplazado</span>
+            <span class="marca" t-if="f['estado'] == 'cambio'">cantidad cambiada</span>
+            <span class="marca" t-if="f['estado'] == 'agregado'">agregado</span>
+            <span class="marca" t-if="f['estado'] == 'telefono'">agregado por teléfono</span>
+          </div>
+          <div class="der">
+            <t t-if="f['estado'] == 'sacado'">—</t>
+            <t t-elif="f['sin_precio']">a confirmar</t>
+            <t t-else="">$ <t t-esc="f['subtotal']"/></t>
+          </div>
+        </div>
+      </t>
+      <div class="tot"><span>Total</span><span>$ <t t-esc="total"/></span></div>
+    </div>
+
+    <div class="pagar-tr" t-if="deuda" id="deuda" style="border:2px solid #e3a597;background:#fdf3f0">
+      <h2>Tenés pagos pendientes</h2>
+      <p class="nota" t-if="deuda['debe']">Debés <b t-esc="deuda['debe']"/> de pedidos anteriores.</p>
+      <p class="nota" t-if="deuda['comprobantes']">Nos faltan los comprobantes de estas transferencias:</p>
+      <p class="nota" t-foreach="deuda['comprobantes']" t-as="c">
+        Pedido <t t-esc="c['pedido']"/> del <t t-esc="c['fecha']"/> · <t t-esc="c['importe']"/>
+      </p>
+      <p class="nota">Para recibir este pedido, el repartidor te va a pedir lo que se debe antes de
+        descargar. Si ya transferiste, mandanos el comprobante.</p>
+      <a class="btn" style="background:#25d366" t-att-href="comprobante" target="_blank"
+         rel="noopener">Mandar comprobante</a>
+    </div>
+
+    <div class="pagar-tr" t-if="pago and pago['facturado']" id="como-pagar">
+      <p class="nota remito" t-if="pago.get('remitos')">Remito <b t-esc="pago['remitos']"/></p>
+      <p class="pagado" t-if="pago['pagado']">Pagado</p>
+      <t t-else="">
+        <h2>Cómo pagar</h2>
+        <p class="nota">Transferí el importe de tu pedido<t t-if="pago['alias']"> al alias de abajo</t>.
+          Tocá «Copiar» y pegalo en la app de tu banco o de Mercado Pago.</p>
+        <div class="dato-p">
+          <div>
+            <div class="rot">Importe a pagar</div>
+            <div class="val">$ <t t-esc="pago['importe']"/></div>
+          </div>
+          <button type="button" class="copiar" t-att-data-copiar="pago['importe_copiar']">Copiar</button>
+        </div>
+        <div class="dato-p" t-if="pago['alias']">
+          <div>
+            <div class="rot">Alias</div>
+            <div class="val"><t t-esc="pago['alias']"/></div>
+          </div>
+          <button type="button" class="copiar" t-att-data-copiar="pago['alias']">Copiar</button>
+        </div>
+        <p class="nota" t-if="not pago['alias']" style="margin:.4rem 0 0">
+          Escribinos por WhatsApp y te pasamos los datos para transferir.</p>
+        <p class="nota" style="margin:.8rem 0 0">Cuando transfieras, mandanos el comprobante:</p>
+        <a class="btn" style="background:#25d366" t-att-href="comprobante" target="_blank" rel="noopener">Mandar comprobante</a>
+      </t>
+    </div>
+    <div class="espera" t-if="pago and not pago['facturado'] and not cancelado">
+      <t t-if="reparto">Cuando esté listo el comprobante vas a ver acá el importe final y
+        cómo pagarlo.</t>
+      <t t-elif="pedido.distri_armado == 'armado'">Tu pedido ya está armado. Cuando esté listo el
+        comprobante vas a ver acá el importe final y cómo pagarlo.</t>
+      <t t-else="">Te avisamos el importe final cuando el pedido esté armado.</t>
+    </div>
+
+    <div class="mp" t-if="mp and (mp['boton'] or mp['pagos'] or mp['devoluciones'] or mp['aviso'] or mp['error'])">
+      <p class="error-mp" t-if="mp['error']"><t t-esc="mp['error']"/></p>
+      <p class="aviso-mp" t-if="mp['aviso']"><t t-esc="mp['aviso']"/></p>
+      <t t-foreach="mp['devoluciones']" t-as="devuelto">
+        <p class="aviso-mp">
+          Te devolvimos $ <t t-esc="devuelto['monto']"/> el <t t-esc="devuelto['fecha']"/>
+          (operación <t t-esc="devuelto['id']"/>). La plata vuelve al mismo medio con el que pagaste.
+        </p>
+      </t>
+      <t t-foreach="mp['pagos']" t-as="pago">
+        <p class="pagado">Pagado con Mercado Pago</p>
+        <p class="nota">
+          $ <t t-esc="pago['monto']"/> el <t t-esc="pago['fecha']"/> · operación <t t-esc="pago['id']"/>
+        </p>
+      </t>
+      <form t-if="mp['boton']" method="post" t-att-action="'/pedido/%s/pagar' % token">
+        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+        <button type="submit" class="pagar">Pagar con Mercado Pago</button>
+        <p class="nota">Pagás $ <t t-esc="total"/> con tarjeta, débito o dinero en cuenta, en el sitio de Mercado Pago.</p>
+      </form>
+    </div>
+
+    <div class="pie">
+      <t t-if="cliente">
+        <a class="btn" t-att-href="'/pedido/%s/cuenta' % token">Ver mi cuenta corriente</a>
+        <p class="personal">
+          Este link es personal. No lo compartas: da acceso a tu cuenta corriente.
+        </p>
+      </t>
+      <a class="btn" t-if="not cancelado and not (pago and pago['facturado'] and not pago['pagado'])"
+         style="background:#25d366" t-att-href="comprobante" target="_blank" rel="noopener">Mandar comprobante</a>
+      <p>¿Algo no cierra? Escribinos y lo vemos.</p>
+      <a class="btn" t-att-href="'https://wa.me/%s' % whatsapp" target="_blank" rel="noopener">
+        Consultar por WhatsApp
+      </a>
+      <a class="btn s" href="/pedido">Armar otro pedido</a>
+    </div>
+  </div>
+  <script>
+    (function () {
+      // navigator.clipboard pide https; si no esta, se copia con un textarea
+      function copiarViejo(texto) {
+        var t = document.createElement('textarea');
+        t.value = texto;
+        t.setAttribute('readonly', '');
+        t.style.position = 'fixed';
+        t.style.opacity = '0';
+        document.body.appendChild(t);
+        t.select();
+        t.setSelectionRange(0, texto.length);
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(t);
+        return ok;
+      }
+      function avisar(boton, ok) {
+        boton.textContent = ok ? 'Copiado' : 'No se pudo';
+        boton.classList.toggle('listo', ok);
+        setTimeout(function () {
+          boton.textContent = 'Copiar';
+          boton.classList.remove('listo');
+        }, 2000);
+      }
+      document.querySelectorAll('[data-copiar]').forEach(function (boton) {
+        boton.addEventListener('click', function () {
+          var texto = boton.getAttribute('data-copiar');
+          if (navigator.clipboard &amp;&amp; window.isSecureContext) {
+            navigator.clipboard.writeText(texto).then(
+              function () { avisar(boton, true); },
+              function () { avisar(boton, copiarViejo(texto)); }
+            );
+          } else {
+            avisar(boton, copiarViejo(texto));
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
+  </template>
+
+  <template id="cuenta_corriente" name="Cuenta corriente del cliente">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>Tu cuenta · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{
+      --fondo:#f5f5f5; --tarjeta:#fff; --texto:#4a4a4a; --tenue:#7a7a7a;
+      --borde:#eee; --linea:#dbdbdb; --acento:#00d1b2; --alerta:#c92a2a; --aviso:#b08900;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--fondo);color:var(--texto);
+         font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:1024px;margin:0 auto}
+    .cab{padding:1.2rem 1rem 1rem;text-align:center}
+    .cab .logo{width:64px;height:64px;border-radius:50%;object-fit:cover;display:block;margin:0 auto}
+    .cab h1{margin:.6rem 0 .2rem;font-size:1.15rem;font-weight:700}
+    .cab .quien{font-size:.85rem;color:var(--tenue)}
+    .saldo{background:var(--tarjeta);border-top:1px solid var(--borde);
+           border-bottom:1px solid var(--borde);padding:1.2rem 1rem;text-align:center}
+    .saldo .rotulo{font-size:.8rem;color:var(--tenue)}
+    .saldo .monto{font-size:1.8rem;font-weight:700;margin-top:.2rem}
+    .saldo.debe .monto{color:var(--alerta)}
+    .saldo.favor .monto{color:var(--acento)}
+    .saldo.aldia .monto{color:var(--acento)}
+    .movs{background:var(--tarjeta);border-bottom:1px solid var(--borde)}
+    .mov{display:flex;justify-content:space-between;gap:.8rem;padding:.7rem 1rem;
+         border-top:1px solid var(--borde);font-size:.9rem}
+    .mov .izq{min-width:0}
+    .mov .fecha{font-weight:600}
+    .mov .det{font-size:.78rem;color:var(--tenue);margin-top:.1rem;
+              overflow:hidden;text-overflow:ellipsis}
+    .mov .der{text-align:right;white-space:nowrap;font-weight:600}
+    .mov .debe{color:var(--alerta)}
+    .mov .haber{color:var(--acento)}
+    .mov .sal{display:block;font-size:.75rem;font-weight:400;color:var(--tenue);margin-top:.1rem}
+    .mov.prov{background:#fff9db}
+    .mov .ctrl{display:inline-block;font-size:.7rem;border-radius:99px;padding:0 .5rem;
+               background:#fff3bf;color:var(--aviso);margin-left:.3rem;font-weight:600}
+    .saldo .nota{font-size:.8rem;color:var(--aviso);margin-top:.3rem}
+    .paginas{display:flex;justify-content:center;flex-wrap:wrap;gap:.4rem;padding:1rem 1rem 0}
+    .paginas a,.paginas span{display:inline-block;min-width:2.2rem;padding:.4rem .6rem;
+                             border:1px solid var(--linea);border-radius:4px;text-decoration:none;
+                             color:var(--texto);background:var(--tarjeta);font-size:.9rem}
+    .paginas span.act{background:var(--acento);border-color:var(--acento);color:#fff}
+    .pie{padding:1.2rem 1rem 2rem;text-align:center;font-size:.85rem;color:var(--tenue)}
+    .personal{color:var(--aviso);font-size:.8rem;margin:0 0 1rem}
+    .btn{display:inline-block;background:var(--acento);color:#fff;border-radius:4px;
+         padding:.7rem 1.2rem;font-weight:600;text-decoration:none;margin:.3rem}
+    .btn.s{background:var(--tarjeta);color:var(--texto);border:1px solid var(--linea)}
+  </style>
+</head>
+<body>
+  <div class="cab marco">
+    <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id"
+         t-att-alt="ficha['nombre']"/>
+    <h1>Tu cuenta corriente</h1>
+    <p class="quien"><t t-esc="socio.name"/></p>
+  </div>
+
+  <div class="marco">
+    <div t-attf-class="saldo #{'aldia' if al_dia else ('favor' if a_favor else 'debe')}">
+      <div class="rotulo">
+        <t t-if="al_dia">Estás al día</t>
+        <t t-elif="a_favor">Saldo a tu favor</t>
+        <t t-else="">Saldo pendiente</t>
+      </div>
+      <div class="monto">$ <t t-esc="saldo"/></div>
+      <div class="nota" t-if="a_controlar">
+        Ya descontamos $ <t t-esc="a_controlar"/> de devoluciones que informó el repartidor.
+        Se confirman cuando la mercadería vuelve al depósito.
+      </div>
+    </div>
+
+    <div class="movs">
+      <t t-foreach="movimientos" t-as="m">
+        <div t-att-class="'mov prov' if m['provisorio'] else 'mov'">
+          <div class="izq">
+            <div class="fecha"><t t-esc="m['fecha']"/> · <t t-esc="m['tipo']"/><span class="ctrl" t-if="m['provisorio']">a controlar</span></div>
+            <div class="det" t-if="m['comprobante']"><t t-esc="m['comprobante']"/></div>
+          </div>
+          <div class="der">
+            <span class="debe" t-if="m['debe']">$ <t t-esc="m['debe']"/></span>
+            <span class="haber" t-if="m['haber']">- $ <t t-esc="m['haber']"/></span>
+            <span class="sal">Saldo <t t-esc="m['saldo']"/></span>
+          </div>
+        </div>
+      </t>
+    </div>
+
+    <div class="paginas" t-if="paginas &gt; 1">
+      <t t-foreach="range(1, paginas + 1)" t-as="n">
+        <span class="act" t-if="n == pagina"><t t-esc="n"/></span>
+        <a t-else="" t-att-href="'%s?pagina=%s' % (url_cuenta, n)"><t t-esc="n"/></a>
+      </t>
+      <span class="act" t-if="not pagina">Todo</span>
+      <a t-else="" t-att-href="'%s?pagina=todo' % url_cuenta">Ver todo</a>
+    </div>
+
+    <div class="pie">
+      <p t-if="cuantos">
+        Movimientos <t t-esc="desde"/> a <t t-esc="hasta"/> de <t t-esc="cuantos"/>,
+        del más nuevo al más viejo.
+      </p>
+      <p class="personal">
+        Este link es personal. No lo compartas: muestra tu cuenta corriente.
+      </p>
+      <a class="btn" t-att-href="'https://wa.me/%s' % whatsapp" target="_blank" rel="noopener">
+        Consultar por WhatsApp
+      </a>
+      <a class="btn s" t-if="token" t-att-href="'/pedido/%s' % token">Volver a mi pedido</a>
+      <a class="btn s" t-if="not token" href="/pedido">Armar un pedido</a>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+
+  <template id="mi_clave" name="Cambiar la contraseña">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>Tu contraseña · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{--fondo:#f5f5f5;--tarjeta:#fff;--texto:#4a4a4a;--tenue:#7a7a7a;
+          --borde:#eee;--linea:#dbdbdb;--acento:#00d1b2;--alerta:#c92a2a;--aviso:#b08900}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--fondo);color:var(--texto);
+         font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:26rem;margin:0 auto;padding:1.5rem 1rem 3rem}
+    .logo{width:72px;height:72px;border-radius:50%;object-fit:cover;display:block;margin:0 auto}
+    h1{font-size:1.2rem;text-align:center;margin:.8rem 0 .3rem}
+    .sub{font-size:.85rem;color:var(--tenue);text-align:center;margin:0 0 1.2rem}
+    .caja{background:var(--tarjeta);border:1px solid var(--borde);border-radius:4px;padding:1rem}
+    label{display:block;font-size:.85rem;font-weight:600;margin:.8rem 0 .2rem}
+    label:first-child{margin-top:0}
+    input{width:100%;border:1px solid var(--linea);border-radius:4px;padding:.65rem;font-size:1rem;
+          color:var(--texto)}
+    input:focus{outline:0;border-color:var(--acento)}
+    .btn{width:100%;border:0;background:var(--acento);color:#fff;border-radius:4px;
+         padding:.8rem;font-size:1rem;font-weight:600;margin-top:1.2rem;cursor:pointer}
+    .err{background:#fff5f5;color:var(--alerta);border:1px solid #ffc9c9;border-radius:4px;
+         padding:.6rem .8rem;font-size:.85rem;margin-bottom:1rem}
+    .obliga{background:#fff8e1;color:var(--aviso);border:1px solid #ffe8a1;border-radius:4px;
+            padding:.6rem .8rem;font-size:.85rem;margin-bottom:1rem}
+    .pista{font-size:.78rem;color:var(--tenue);margin-top:.3rem}
+  </style>
+</head>
+<body>
+  <div class="marco">
+    <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id"
+         t-att-alt="ficha['nombre']"/>
+    <h1>Tu contraseña</h1>
+    <p class="sub">Usuario: <t t-esc="login"/></p>
+
+    <div class="obliga" t-if="obligatorio">
+      Esta contraseña te la mandamos nosotros. Cambiala por una tuya para seguir.
+    </div>
+    <div class="err" t-if="error"><t t-esc="error"/></div>
+
+    <form method="post" class="caja">
+      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+      <label>Contraseña actual
+        <input type="password" name="actual" autocomplete="current-password" required="required"/>
+      </label>
+      <label>Contraseña nueva
+        <input type="password" name="nueva" autocomplete="new-password" required="required"/>
+      </label>
+      <p class="pista">Ocho caracteres o más.</p>
+      <label>Repetila
+        <input type="password" name="repetida" autocomplete="new-password" required="required"/>
+      </label>
+      <button type="submit" class="btn">Guardar la contraseña</button>
+    </form>
+  </div>
+</body>
+</html>
+  </template>
+
+  <template id="gracias" name="Pedido recibido">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Pedido recibido · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{--fondo:#f5f5f5;--tarjeta:#fff;--texto:#4a4a4a;--tenue:#7a7a7a;
+          --borde:#eee;--linea:#dbdbdb;--acento:#00d1b2}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--fondo);color:var(--texto);
+         font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+    .caja{width:100%;max-width:26rem;text-align:center}
+    .tilde{width:72px;height:72px;border-radius:50%;background:var(--acento);margin:0 auto 1.2rem;
+           display:flex;align-items:center;justify-content:center}
+    .tilde svg{width:34px;height:34px;fill:#fff}
+    h1{font-size:1.3rem;color:var(--texto);margin:0 0 .4rem}
+    .nro{font-size:1rem;color:var(--tenue);margin:0 0 1.6rem}
+    .nro b{color:var(--texto)}
+    .wa{display:flex;align-items:center;justify-content:center;gap:.6rem;background:#25d366;
+        color:#fff;font-size:1.08rem;font-weight:700;padding:1.05rem;border-radius:10px;
+        text-decoration:none}
+    .wa svg{width:22px;height:22px;fill:#fff}
+    .ayuda{font-size:.88rem;color:var(--tenue);margin:.9rem 0 0}
+    .falta{background:#fff8e1;border:1px solid #f2c94c;border-radius:8px;color:#7a5c00;
+           font-weight:600;padding:.8rem;margin:0 0 1rem}
+    .editar{font-size:.85rem;color:var(--tenue);margin:1.6rem 0 0;padding-top:1.2rem;
+            border-top:1px solid var(--linea)}
+    .volver{display:inline-block;margin-top:1.4rem;font-size:.95rem;color:var(--texto);
+            text-decoration:none;border-bottom:1px solid var(--linea);padding-bottom:.15rem}
+  </style>
+</head>
+<body>
+  <div class="caja">
+    <div class="tilde" t-if="not espera">
+      <svg viewBox="0 0 512 512" aria-hidden="true"><path d="M173.9 439.4l-166.4-166.4c-9.4-9.4-9.4-24.6 0-33.9l33.9-33.9c9.4-9.4 24.6-9.4 33.9 0L192 344.7 400.6 136.1c9.4-9.4 24.6-9.4 33.9 0l33.9 33.9c9.4 9.4 9.4 24.6 0 33.9L207.8 439.4c-9.4 9.4-24.6 9.4-33.9 0z"/></svg>
+    </div>
+
+    <t t-if="personal">
+      <h1>Pedido guardado</h1>
+      <p class="nro">Quedó como <b t-esc="pedido.name"/><t t-if="cliente_nombre"> para <b t-esc="cliente_nombre"/></t></p>
+      <a class="wa" t-att-href="enviar_al_cliente" target="_blank" rel="noopener">
+        <svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>
+        Enviar al cliente
+      </a>
+      <p class="ayuda" t-if="cliente_numero">Se abre tu WhatsApp con el chat del cliente y el enlace del pedido.</p>
+      <p class="ayuda" t-else="">El cliente no tiene WhatsApp cargado: se abre tu WhatsApp para que elijas el chat.</p>
+      <p class="ayuda">El pedido ya está en el sistema. No hace falta mandarlo a la empresa.</p>
+    </t>
+    <t t-elif="espera">
+      <h1>Falta un paso</h1>
+      <p class="nro">Pedido <b t-esc="pedido.name"/> · código <b t-esc="pedido.distri_wa_code"/></p>
+      <p class="falta">Falta un paso: enviá el mensaje por WhatsApp para que recibamos tu pedido.</p>
+      <a class="wa" t-att-href="whatsapp" target="_blank" rel="noopener">
+        <svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>
+        Enviar por WhatsApp
+      </a>
+      <p class="ayuda">Se abre WhatsApp con el pedido ya escrito. Solo tenés que darle enviar.
+        Si lo cambiás, dejá el código <b t-esc="pedido.distri_wa_code"/>.</p>
+    </t>
+    <t t-else="">
+    <h1>Recibimos tu pedido</h1>
+    <p class="nro">Quedó como <b t-esc="pedido.name"/></p>
+
+    <a class="wa" t-att-href="whatsapp" target="_blank" rel="noopener">
+      <svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>
+      Enviar por WhatsApp
+    </a>
+    <p class="ayuda">Se abre WhatsApp con el pedido ya escrito. Solo tenés que darle enviar.</p>
+    </t>
+
+    <p class="editar">
+      Podés agregar o quitar productos hasta que empecemos a armarlo,
+      con el enlace que va dentro del mensaje.
+    </p>
+    <p class="ayuda" t-if="paga_por_transferencia">
+      Cuando tu pedido esté armado, en ese mismo enlace vas a ver el importe final
+      y el alias para transferir.
+    </p>
+    <p class="ayuda" t-if="mp_habilitado">
+      Cuando tu pedido esté preparado, con ese mismo enlace vas a poder pagarlo con Mercado Pago.
+    </p>
+
+    <a class="volver" href="/pedido">Volver al catálogo</a>
+  </div>
+</body>
+</html>
+  </template>
+
+  <template id="cerrado" name="Pedido cerrado">
+    <t t-call="website.layout">
+      <div id="wrap" class="oe_structure">
+        <div class="container" style="max-width:40rem;padding:3rem 0">
+          <h1>Este pedido ya se cerró</h1>
+          <p class="lead">
+            El pedido <strong t-esc="pedido.name"/> ya se está armando.
+          </p>
+          <p class="text-muted">Si necesitás algo más, armá un pedido nuevo.</p>
+          <a href="/pedido" class="btn btn-primary">Armar otro pedido</a>
+        </div>
+      </div>
+    </t>
+  </template>
+
+  <!-- «Datos para la entrega» (controllers/main.py entrega, models/datos_entrega.py) -->
+  <template id="datos_entrega" name="Datos para la entrega">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex"/>
+  <title>Datos para la entrega · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{
+      --fondo:#f5f5f5; --tarjeta:#fff; --texto:#4a4a4a; --tenue:#7a7a7a;
+      --borde:#eee; --linea:#dbdbdb; --acento:#00d1b2; --alerta:#c92a2a; --aviso:#b08900;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--fondo);color:var(--texto);
+         font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:640px;margin:0 auto}
+    .cab{padding:1.2rem 1rem 1rem;text-align:center}
+    .cab .logo{width:64px;height:64px;border-radius:50%;object-fit:cover;display:block;margin:0 auto}
+    .cab h1{margin:.6rem 0 .2rem;font-size:1.25rem;font-weight:700}
+    .cab .dato{margin:.15rem 0 0;font-size:.85rem;color:var(--tenue)}
+    .volver{display:block;padding:.2rem 1rem .8rem;font-size:.9rem;color:#00806f;text-decoration:none}
+    .aviso{padding:.9rem 1rem;font-size:.95rem;text-align:center;border-bottom:1px solid var(--borde)}
+    [hidden]{display:none !important}
+    .listo{background:#d3f9d8;color:#2b8a3e;font-weight:700;border-radius:6px;padding:.6rem .8rem;
+           font-size:.9rem;margin:0 0 .8rem}
+    .error{background:#ffe3e3;color:var(--alerta);border-radius:6px;padding:.6rem .8rem;
+           font-size:.9rem;font-weight:600;margin:0 0 .8rem}
+    .tarjeta{background:var(--tarjeta);border-top:1px solid var(--borde);
+             border-bottom:1px solid var(--borde);padding:1.1rem 1rem;margin-bottom:.8rem}
+    .tarjeta h2{margin:0 0 .25rem;font-size:1.08rem}
+    .nota{font-size:.85rem;color:var(--tenue);margin:0 0 .9rem}
+    .nota b{color:var(--texto)}
+    form{margin:0}
+    .chips{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}
+    .chip{position:relative}
+    .chip input{position:absolute;opacity:0;pointer-events:none}
+    .chip span{display:inline-block;border:1px solid var(--linea);border-radius:99px;
+               padding:.5rem .85rem;font-size:.92rem;font-weight:600;background:var(--tarjeta);cursor:pointer}
+    .chip input:checked + span{background:#00806f;border-color:#00806f;color:#fff}
+    .chip input:focus-visible + span{outline:2px solid #00806f;outline-offset:2px}
+    .dias .chip span{min-width:3.1rem;text-align:center;padding:.5rem .5rem}
+    .rango{display:flex;align-items:center;gap:.5rem;margin:0 0 .6rem;font-size:.9rem}
+    .rango .rot{width:6.2rem;color:var(--tenue)}
+    .rango input{flex:1;min-width:0;font:inherit;padding:.5rem;border:1px solid var(--linea);
+                 border-radius:6px;background:#fff;color:var(--texto)}
+    textarea{width:100%;font:inherit;font-size:.95rem;padding:.6rem;border:1px solid var(--linea);
+             border-radius:6px;resize:vertical;min-height:4.5rem;color:var(--texto)}
+    .cuenta{font-size:.75rem;color:var(--tenue);text-align:right;margin:.2rem 0 .8rem}
+    .btn{display:block;width:100%;background:var(--acento);color:#fff;border:0;border-radius:6px;
+         padding:.9rem 1rem;font:inherit;font-weight:700;font-size:1rem;cursor:pointer;
+         text-align:center;text-decoration:none}
+    .btn.s{background:var(--tarjeta);color:#00806f;border:2px solid var(--acento)}
+    .btn.gps{background:#10243f}
+    .link{background:none;border:0;padding:.6rem 0 0;font:inherit;font-size:.88rem;color:var(--alerta);
+          text-decoration:underline;cursor:pointer}
+    .actual{background:#fff8e1;color:var(--aviso);border-radius:6px;padding:.6rem .8rem;
+            font-size:.9rem;margin:0 0 .9rem}
+    .gps-estado{font-size:.9rem;margin:.8rem 0 0}
+    .gps-estado.mal{color:var(--alerta);font-weight:600}
+    .gps-estado.bien{color:#2b8a3e;font-weight:600}
+    .gps-estado a{color:#00806f}
+    #gps-enviar{margin-top:.7rem}
+    .pie{padding:.6rem 1rem 2rem;text-align:center;font-size:.85rem;color:var(--tenue)}
+    .pie a{color:#00806f}
+  </style>
+</head>
+<body>
+  <div class="cab marco">
+    <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id"
+         t-att-alt="ficha['nombre']"/>
+    <h1>Datos para la entrega</h1>
+    <p class="dato"><t t-esc="nombre"/><t t-if="domicilio"> · <t t-esc="domicilio"/></t></p>
+    <p class="dato">Pedido <t t-esc="pedido.name"/></p>
+  </div>
+
+  <div class="marco">
+    <a class="volver" t-att-href="'/pedido/%s' % token">‹ Volver a tu pedido</a>
+
+    <div class="tarjeta" id="aviso" t-if="puede_avisar">
+      <h2>Aviso para esta entrega</h2>
+      <p class="nota">Si pasa algo con la entrega de este pedido, avisanos acá y lo tenemos en cuenta.</p>
+      <p class="error" t-if="error and error_en in ('aviso', 'borrar_aviso')"><t t-esc="error"/></p>
+      <p class="listo" t-if="listo and listo_en == 'borrar_aviso'"><t t-esc="listo"/></p>
+      <p class="actual" t-if="aviso_actual">Tu aviso: «<t t-esc="aviso_actual"/>»</p>
+      <form method="post" t-att-action="'/pedido/%s/entrega' % token">
+        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+        <input type="hidden" name="accion" value="aviso"/>
+        <div class="chips">
+          <t t-foreach="tipos_aviso" t-as="tipo">
+            <label class="chip">
+              <input type="radio" name="tipo" t-att-value="tipo[0]" t-att-checked="tipo[0] == aviso_tipo or None" required="required"/>
+              <span><t t-esc="tipo[1]"/></span>
+            </label>
+          </t>
+        </div>
+        <textarea name="texto" t-att-maxlength="aviso_maximo" rows="3"
+                  placeholder="Ej.: hoy cierro a las 18, o traémelo el jueves"><t t-esc="aviso_texto"/></textarea>
+        <p class="cuenta">Hasta <t t-esc="aviso_maximo"/> letras.</p>
+        <button type="submit" class="btn">Enviar aviso</button>
+      </form>
+      <form t-if="aviso_actual" method="post" t-att-action="'/pedido/%s/entrega' % token">
+        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+        <input type="hidden" name="accion" value="borrar_aviso"/>
+        <button type="submit" class="link">Ya no hace falta: borrar mi aviso</button>
+      </form>
+    </div>
+
+    <div class="tarjeta" id="horarios">
+      <h2>Días y horarios en que recibís</h2>
+      <p class="nota" t-if="recibe">Hoy tenemos: <b t-esc="recibe"/>. Los ve el repartidor en su celular.</p>
+      <p class="nota" t-else="">Todavía no tenemos tus días y horarios. Los ve el repartidor en su celular.</p>
+      <p class="error" t-if="error and error_en == 'horarios'"><t t-esc="error"/></p>
+      <p class="listo" t-if="listo and listo_en == 'horarios'"><t t-esc="listo"/></p>
+      <form method="post" t-att-action="'/pedido/%s/entrega' % token">
+        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+        <input type="hidden" name="accion" value="horarios"/>
+        <div class="chips dias">
+          <t t-foreach="nombres_dias" t-as="dia">
+            <label class="chip">
+              <input type="checkbox" t-att-name="'dia_%s' % dia_index" value="1" t-att-checked="dia_index in dias or None"/>
+              <span><t t-esc="dia"/></span>
+            </label>
+          </t>
+        </div>
+        <t t-foreach="rangos" t-as="rango">
+          <div class="rango">
+            <span class="rot"><t t-if="rango_index == 0">Horario</t><t t-elif="rango_index == 1">Otro horario</t><t t-else="">Horario <t t-esc="rango_index + 1"/></t></span>
+            <input type="time" t-att-name="'desde_%s' % rango_index" t-att-value="rango[0]" aria-label="Desde"/>
+            <span>a</span>
+            <input type="time" t-att-name="'hasta_%s' % rango_index" t-att-value="rango[1]" aria-label="Hasta"/>
+          </div>
+        </t>
+        <p class="nota">Si cortás al mediodía, poné el horario de la mañana y el de la tarde.</p>
+        <button type="submit" class="btn">Guardar días y horarios</button>
+      </form>
+    </div>
+
+    <div class="tarjeta" id="ubicacion">
+      <h2>Ubicación de tu negocio</h2>
+      <p class="nota">Si estás en tu negocio, tocá el botón y mandanos la ubicación desde el celular.
+        Así el repartidor llega sin vueltas.</p>
+      <p class="nota" t-if="ubicacion_cliente">La última que mandaste: <b t-esc="ubicacion_cliente"/>.</p>
+      <p class="nota" t-elif="tiene_ubicacion">Ya tenemos una ubicación de tu negocio. Si cambiaste de lugar, mandanos la nueva.</p>
+      <p class="error" t-if="error and error_en == 'ubicacion'"><t t-esc="error"/></p>
+      <p class="listo" t-if="listo and listo_en == 'ubicacion'"><t t-esc="listo"/></p>
+      <button type="button" class="btn gps" id="gps-leer" t-att-data-max="precision_maxima">Estoy en mi negocio, usar mi ubicación</button>
+      <p class="gps-estado" id="gps-estado" hidden="hidden"></p>
+      <form method="post" t-att-action="'/pedido/%s/entrega' % token" id="gps-form">
+        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+        <input type="hidden" name="accion" value="ubicacion"/>
+        <input type="hidden" name="lat"/>
+        <input type="hidden" name="lng"/>
+        <input type="hidden" name="precision"/>
+        <button type="submit" class="btn s" id="gps-enviar" hidden="hidden">Mandar esta ubicación</button>
+      </form>
+    </div>
+
+    <div class="pie">
+      ¿Dudas? <a t-att-href="'https://wa.me/%s' % whatsapp" target="_blank" rel="noopener">Escribinos por WhatsApp</a>.
+    </div>
+  </div>
+  <script>
+    (function () {
+      var leer = document.getElementById('gps-leer');
+      var estado = document.getElementById('gps-estado');
+      var form = document.getElementById('gps-form');
+      var enviar = document.getElementById('gps-enviar');
+      var maximo = Number(leer.getAttribute('data-max')) || 150;
+      function mostrar(texto, clase, mapa) {
+        estado.hidden = false;
+        estado.className = 'gps-estado ' + (clase || '');
+        estado.textContent = texto;
+        if (mapa) {
+          var a = document.createElement('a');
+          a.href = mapa; a.target = '_blank'; a.rel = 'noopener';
+          a.textContent = ' Ver en el mapa';
+          estado.appendChild(a);
+        }
+      }
+      leer.addEventListener('click', function () {
+        enviar.hidden = true;
+        if (!navigator.geolocation) {
+          mostrar('Este navegador no deja leer la ubicación. Probá desde el celular con Chrome.', 'mal');
+          return;
+        }
+        mostrar('Buscando tu ubicación…');
+        leer.disabled = true;
+        navigator.geolocation.getCurrentPosition(function (pos) {
+          leer.disabled = false;
+          var c = pos.coords, precision = Math.max(1, Math.round(c.accuracy || 0));
+          if (!c.accuracy || precision > maximo) {
+            mostrar('La ubicación no es precisa (±' + precision + ' m). Salí a la vereda o prendé ' +
+                    'el GPS del celular y probá de nuevo.', 'mal');
+            return;
+          }
+          form.lat.value = c.latitude;
+          form.lng.value = c.longitude;
+          form.precision.value = c.accuracy;
+          mostrar('Te encontramos, con una precisión de ±' + precision + ' m.', 'bien',
+                  'https://www.google.com/maps?q=' + c.latitude + ',' + c.longitude);
+          enviar.hidden = false;
+        }, function (err) {
+          leer.disabled = false;
+          mostrar(err.code === 1 ? 'No diste permiso para ver la ubicación. Habilitalo en el ' +
+                  'navegador y probá de nuevo.' : 'No pudimos leer tu ubicación. Probá de nuevo.', 'mal');
+        }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+      });
+    })();
+  </script>
+</body>
+</html>
+  </template>
+
+</odoo>

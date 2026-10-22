@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+  <!-- El link de Mercado Pago cobra comision: queda apagado y el cliente paga
+       por transferencia al alias (distri_pedido.alias_transferencia). Con "1"
+       vuelve el boton "Pagar con Mercado Pago" para casos puntuales. -->
+  <record id="param_mp_link_habilitado" model="ir.config_parameter">
+    <field name="key">distri_pedido.mp_link_habilitado</field>
+    <field name="value">0</field>
+  </record>
+
+  <!-- La factura del armado se emite sola (models/factura_armado.py). Con "0"
+       queda en borrador y la emite administracion. Si el diario pide el CAE a
+       ARCA queda en borrador igual, sin importar este valor. -->
+  <record id="param_factura_auto_emitir" model="ir.config_parameter">
+    <field name="key">distri_pedido.factura_auto_emitir</field>
+    <field name="value">1</field>
+  </record>
+
+  <!-- Ultimo numero de factura de Odoo Online: la serie del lab sigue desde
+       el siguiente (models/factura_numeracion.py). Se actualiza el dia que el
+       lab reemplace a Online. -->
+  <record id="param_factura_ultimo_numero_online" model="ir.config_parameter">
+    <field name="key">distri_pedido.factura_ultimo_numero_online</field>
+    <field name="value">0001/2026/06275</field>
+  </record>
+
+  <!-- Carpeta donde Mercado Pago deja el reporte diario por SFTP
+       (models/cobros.py). Dentro del volumen de datos de Odoo; el usuario
+       SFTP que solo puede dejar archivos se crea aparte en el servidor. -->
+  <record id="param_mp_carpeta_reportes" model="ir.config_parameter">
+    <field name="key">distri_pedido.mp_carpeta_reportes</field>
+    <field name="value">/var/lib/odoo/mercadopago/entrada</field>
+  </record>
+
+  <!-- Tablero de cobros: horas que una tarjeta puede esperar en «Asignar
+       cliente» o «Sin transferencia» antes de la alerta diaria. -->
+  <record id="param_cobros_alerta_horas" model="ir.config_parameter">
+    <field name="key">distri_pedido.cobros_alerta_horas</field>
+    <field name="value">24</field>
+  </record>
+
+  <!-- La cuenta propia de la empresa: CUIT, titular, CVU/CBU y alias, separados
+       por coma (models/ocr_comprobante.py). Nunca se toma como quien paga:
+       un comprobante donde paga la cuenta propia es una devolucion. -->
+  <record id="param_cuenta_propia" model="ir.config_parameter">
+    <field name="key">distri_pedido.cuenta_propia</field>
+    <!-- vacío en el código: el valor real lo carga cada servidor con
+         /srv/odoo-lab/scripts/cargar-datos-empresa.sh desde un archivo privado -->
+    <field name="value"></field>
+  </record>
+
+  <!-- «Cliente en rojo» (models/comprobante_pendiente.py): APAGADO hasta poner
+       al día las cuentas corrientes (hoy muestran deudas que ya se pagaron).
+       Se cambia en Cobros › Ajustes de comprobantes. -->
+  <record id="param_cliente_en_rojo" model="ir.config_parameter">
+    <field name="key">distri_pedido.cliente_en_rojo</field>
+    <field name="value">0</field>
+  </record>
+
+</odoo>

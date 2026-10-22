@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Reportes que Mercado Pago deja por SFTP en la carpeta del parámetro
+       distri_pedido.mp_carpeta_reportes (models/cobros.py). Sin la carpeta,
+       no hace nada. -->
+  <record id="cron_mp_report_folder" model="ir.cron">
+    <field name="name">Mercado Pago: importar reportes de la carpeta SFTP</field>
+    <field name="model_id" ref="model_distri_mp_report"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_import_folder()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">15</field>
+    <field name="interval_type">minutes</field>
+    <field name="active">True</field>
+  </record>
+
+  <!-- Comprobantes pendientes (models/comprobante_pendiente.py): los de días
+       anteriores vencen en la rendición del día siguiente y se cargan al
+       repartidor. Si no hubo rendición, este paso los vence igual desde el
+       segundo día. -->
+  <record id="cron_promise_steps" model="ir.cron">
+    <field name="name">Comprobantes pendientes: vencer los que no llegaron</field>
+    <field name="model_id" ref="model_distri_promised_transfer"/>
+    <field name="state">code</field>
+    <field name="code">model._distri_cron_expire()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">1</field>
+    <field name="interval_type">hours</field>
+    <field name="active">True</field>
+  </record>
+
+  <!-- Tablero de cobros: una actividad para administración por cada tarjeta
+       que espera en «Asignar cliente» o «Sin transferencia» (o una entrega
+       autorizada a mano que sigue esperando el reporte) más horas que
+       distri_pedido.cobros_alerta_horas (24 si no está). Corre cada hora, así
+       el límite se cumple con una hora de margen; nunca repite una actividad
+       abierta. Solo actividades: no manda correo ni WhatsApp. -->
+  <record id="cron_mp_board_alerts" model="ir.cron">
+    <field name="name">Tablero de cobros: alertas de tarjetas sin resolver</field>
+    <field name="model_id" ref="model_distri_mp_collection"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_alerts()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">1</field>
+    <field name="interval_type">hours</field>
+    <field name="active">True</field>
+  </record>
+
+  <!-- Límites de /pedido/enviar (models/limites.py): borra los usos de más de
+       dos días. -->
+  <record id="cron_rate_hit_cleanup" model="ir.cron">
+    <field name="name">Formularios públicos: limpiar el registro de usos</field>
+    <field name="model_id" ref="model_distri_rate_hit"/>
+    <field name="state">code</field>
+    <field name="code">model._distri_cleanup()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">1</field>
+    <field name="interval_type">days</field>
+    <field name="active">True</field>
+  </record>
+
+</odoo>

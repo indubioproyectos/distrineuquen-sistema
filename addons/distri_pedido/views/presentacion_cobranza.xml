@@ -1,0 +1,1320 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Propuesta de cobranza en ruta para la gerencia. Mismo formato que
+       /presentacion: una sola pagina, pensada para leer en el celular.
+       Los ejemplos son ficticios; no usar datos de clientes reales. -->
+  <template id="presentacion_cobranza" name="Registro de cobranzas, en una pagina">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>Registro de cobranzas · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{
+      --azul:#10243f; --azul2:#19334f; --claro:#f7f8f7; --blanco:#fff;
+      --texto:#42505f; --tenue:#7a8794; --turq:#00d1b2; --borde:#e2e7ec; --ambar:#b08900;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--claro);color:var(--texto);
+         font:16px/1.6 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:44rem;margin:0 auto;padding:0 1.15rem}
+    h1,h2,h3{color:var(--azul);line-height:1.25;margin:0}
+
+    .tapa{background:var(--azul);color:#e8eef5;padding:2.5rem 0 2.2rem}
+    .tapa .rotulo{color:var(--turq);font-size:.78rem;letter-spacing:.14em;
+                  text-transform:uppercase;margin:0 0 .5rem;font-weight:700}
+    .tapa h1{color:#fff;font-size:1.95rem;font-weight:700}
+    .tapa p{color:#9fb3c8;font-size:1.02rem;margin:.75rem 0 0}
+
+    .cta{display:block;background:var(--turq);color:#fff;text-align:center;font-weight:700;
+         font-size:1.05rem;padding:1rem;border-radius:10px;text-decoration:none;margin:1.5rem 0 .4rem}
+    .cta.claro{background:var(--blanco);color:var(--azul);border:1px solid var(--borde)}
+    .nota{font-size:.82rem;color:var(--tenue);text-align:center;margin:0}
+    .tapa .nota{color:#7f95ad}
+
+    section{padding:2.4rem 0;border-top:1px solid var(--borde)}
+    section.oscuro{background:var(--azul);border-top:0}
+    section.oscuro h2{color:#fff}
+    section.oscuro p{color:#c3d3e3}
+    .eyebrow{color:var(--turq);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
+             font-weight:700;margin:0 0 .5rem}
+    h2{font-size:1.5rem}
+    .bajada{font-size:1.02rem;margin:.7rem 0 0}
+
+    .cifras{display:flex;gap:.7rem;margin-top:1.3rem}
+    .cifra{flex:1;background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+           padding:1rem .8rem;text-align:center}
+    .cifra b{display:block;font-size:1.8rem;color:var(--turq);line-height:1.1}
+    .cifra span{display:block;font-size:.8rem;margin-top:.35rem}
+
+    .fase{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+          padding:1.1rem;margin-top:.8rem}
+    .fase.lista{background:#e9fbf8;border-color:var(--turq)}
+    .fase .n{font-size:.76rem;font-weight:700;color:var(--turq);letter-spacing:.1em}
+    .fase h3{font-size:1.1rem;margin:.25rem 0 .4rem}
+    .fase p{margin:0;font-size:.95rem}
+    .chip{display:inline-block;font-size:.76rem;font-weight:700;border-radius:99px;
+          padding:.2rem .7rem;margin-top:.7rem;background:var(--claro)}
+    .chip.ok{color:#1f7a4d}
+    .chip.luego{color:var(--ambar)}
+
+    .paso{margin-top:1.8rem}
+    .paso h3{font-size:1.15rem;margin-bottom:.4rem}
+    .paso p{margin:0 0 .9rem;font-size:.97rem}
+    .tel{width:100%;max-width:280px;display:block;margin:0 auto;border:1px solid var(--borde);
+         border-radius:14px}
+    .ancha{width:100%;display:block;border:1px solid var(--borde);border-radius:10px;background:#fff}
+
+    .lista-p{margin:.9rem 0 0;padding-left:1.1rem}
+    .lista-p li{margin-bottom:.5rem;font-size:.97rem}
+
+    .flujo{display:flex;flex-direction:column;gap:.55rem;margin-top:1.2rem}
+    .caja{background:var(--azul2);border-radius:12px;padding:1rem}
+    .caja h3{color:#fff;font-size:1.05rem;margin-bottom:.3rem}
+    .caja p{margin:0;font-size:.92rem;color:#c3d3e3}
+    .flecha{text-align:center;color:var(--turq);font-size:.85rem;font-weight:700}
+
+    .pie{background:var(--azul);color:#7f95ad;padding:2rem 0 2.6rem;text-align:center;font-size:.85rem}
+
+    .problemas{margin:1.2rem 0 0;padding:0;list-style:none}
+    .problemas li{background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--turq);
+                  border-radius:8px;padding:.85rem 1rem;margin-bottom:.6rem;font-size:.97rem}
+    .problemas li b{color:var(--azul);display:block;margin-bottom:.15rem}
+    .cadena{margin:1.2rem 0 0;padding:0;list-style:none;counter-reset:paso}
+    .cadena li{position:relative;padding:.95rem 0 .95rem 2.7rem;border-bottom:1px solid var(--borde);
+               font-size:.96rem;line-height:1.5}
+    .cadena li:last-child{border-bottom:0}
+    .cadena li:before{counter-increment:paso;content:counter(paso);position:absolute;left:0;top:.9rem;
+                      width:1.8rem;height:1.8rem;border-radius:50%;background:var(--azul);color:#fff;
+                      font-size:.82rem;font-weight:700;display:flex;align-items:center;
+                      justify-content:center}
+    .cadena li b{color:var(--azul)}
+    .quien{display:block;font-size:.74rem;font-weight:700;color:var(--tenue);
+           text-transform:uppercase;letter-spacing:.08em;margin:0 0 .35rem;line-height:1.2}
+
+    .dato{background:var(--azul2);border-radius:12px;padding:1.1rem;margin-top:1.2rem}
+    .dato p{margin:0;color:#c3d3e3;font-size:.95rem}
+    .dato b{color:#fff}
+    .antes-despues{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+                   padding:1rem;margin-top:1rem;font-size:.95rem}
+    .antes-despues .fila{padding:.6rem 0;border-bottom:1px solid var(--borde)}
+    .antes-despues .fila:last-child{border-bottom:0}
+    .antes-despues .et{font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+                       color:var(--tenue);display:block;margin-bottom:.2rem}
+    .luego{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.06em;
+           text-transform:uppercase;color:var(--ambar);background:#fff8e1;border:1px solid #ffe8a1;
+           border-radius:99px;padding:.15rem .55rem;margin-left:.4rem;vertical-align:.08em}
+
+    .modulos{margin-top:1.2rem}
+    .modulo{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+            padding:1rem;margin-bottom:.6rem}
+    .modulo .prob{font-size:.88rem;color:var(--tenue)}
+    .modulo .sol{font-size:1rem;color:var(--azul);font-weight:700;margin-top:.3rem;display:block}
+
+    .comparo{display:flex;flex-direction:column;gap:.7rem;margin-top:1.2rem}
+    .col{border-radius:12px;padding:1.1rem}
+    .col.hoy{background:var(--blanco);border:1px solid var(--borde)}
+    .col.nueva{background:#e9fbf8;border:1px solid var(--turq)}
+    .col h3{font-size:1.05rem;margin-bottom:.5rem}
+    .col ul{margin:0;padding-left:1.1rem}
+    .col li{font-size:.94rem;margin-bottom:.4rem}
+    .ahorro{background:var(--azul2);border-radius:12px;padding:1.1rem;margin-top:1rem}
+    .ahorro p{margin:0;color:#c3d3e3;font-size:.95rem}
+    .ahorro b{color:#fff}
+
+    table.costos{width:100%;border-collapse:collapse;margin-top:1.1rem;font-size:.92rem}
+    table.costos th{text-align:left;color:var(--azul);font-size:.8rem;text-transform:uppercase;
+                    letter-spacing:.06em;padding:.5rem .4rem;border-bottom:2px solid var(--borde)}
+    table.costos td{padding:.7rem .4rem;border-bottom:1px solid var(--borde);vertical-align:top}
+    table.costos td.cuando{color:var(--tenue);white-space:nowrap;font-size:.86rem}
+    table.costos td b{color:var(--azul);display:block;margin-bottom:.15rem}
+    html,body{overflow-x:hidden}
+    .tapa .cifra span{color:var(--texto);margin-top:.35rem}
+    .cifra b{font-size:1.45rem;white-space:nowrap}
+    .tabla{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:1.1rem}
+    .tabla table.costos{margin-top:0;min-width:20rem}
+    .flujo .rama{display:flex;gap:.55rem}
+    .flujo .rama .caja{flex:1;padding:.8rem}
+    .flujo .rama .caja h3{font-size:.95rem}
+    .flujo .rama .caja p{font-size:.84rem}
+    .caja.fin{background:#0d3b3a;border:1px solid var(--turq)}
+
+    .celu{max-width:300px;margin:1.3rem auto 0;background:var(--blanco);border:1px solid var(--borde);
+          border-radius:18px;padding:1rem;box-shadow:0 6px 18px rgba(16,36,63,.08)}
+    .celu .barra{font-size:.72rem;color:var(--tenue);text-transform:uppercase;letter-spacing:.1em;
+                 font-weight:700;margin-bottom:.6rem}
+    .celu .cli{font-weight:700;color:var(--azul);font-size:1.05rem}
+    .celu .sub{font-size:.84rem;color:var(--tenue);margin-bottom:.8rem}
+    .celu .monto{font-size:1.5rem;font-weight:700;color:var(--azul);margin:.1rem 0 .8rem}
+    .boton{display:block;text-align:center;font-weight:700;font-size:.92rem;border-radius:10px;
+           padding:.7rem;margin-top:.45rem;border:1px solid var(--borde);color:var(--azul);background:var(--claro)}
+    .boton.si{background:var(--turq);border-color:var(--turq);color:#fff}
+    .boton.wa{background:#25d366;border-color:#25d366;color:#fff}
+    .alias{display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:var(--claro);
+           border:1px dashed var(--borde);border-radius:10px;padding:.6rem .7rem;margin-top:.3rem}
+    .alias code{font-size:.95rem;color:var(--azul);font-weight:700;word-break:break-all}
+    .alias span{font-size:.78rem;font-weight:700;color:var(--turq);white-space:nowrap}
+    .alias b{font-size:.95rem;color:var(--azul)}
+
+    .rendir{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:1rem;
+            margin-top:1.1rem;font-size:.95rem}
+    .rendir .r{display:flex;justify-content:space-between;gap:.8rem;padding:.45rem 0;
+               border-bottom:1px solid var(--borde)}
+    .rendir .r:last-child{border-bottom:0}
+    .rendir .r b{color:var(--azul)}
+    .rendir .dif{color:#b3261e;font-weight:700}
+    .paso-celu{text-align:center;font-size:.85rem;font-weight:700;color:var(--turq);margin:1rem 0 0}
+    .wachat{max-width:300px;margin:.6rem auto 0;border:1px solid var(--borde);border-radius:18px;
+            overflow:hidden;box-shadow:0 6px 18px rgba(16,36,63,.08);background:#efeae2}
+    .wachat .top{background:#075e54;color:#fff;padding:.65rem .9rem;display:flex;align-items:center;gap:.6rem}
+    .wachat .avatar{width:32px;height:32px;border-radius:50%;background:#25d366;color:#fff;font-weight:700;
+                    display:flex;align-items:center;justify-content:center;font-size:.8rem;flex:none}
+    .wachat .top b{display:block;font-size:.92rem}
+    .wachat .top small{font-size:.72rem;opacity:.8}
+    .wachat .msgs{padding:.8rem .7rem;display:flex;flex-direction:column;gap:.45rem}
+    .wachat .m{max-width:85%;padding:.45rem .6rem .3rem;border-radius:9px;font-size:.86rem;line-height:1.35;
+               color:#111b21;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+    .wachat .m.out{align-self:flex-end;background:#d9fdd3;border-top-right-radius:2px}
+    .wachat .m.in{align-self:flex-start;background:#fff;border-top-left-radius:2px}
+    .wachat .m .h{display:block;text-align:right;font-size:.66rem;color:#667781;margin-top:.15rem}
+    .wachat .comp{background:#fff;border-radius:6px;padding:.6rem;border:1px solid #e3e3e3;min-width:170px}
+    .wachat .comp .t{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:#667781;font-weight:700}
+    .wachat .comp .v{font-size:1.15rem;font-weight:700;color:#111b21;margin:.15rem 0}
+    .wachat .comp .d{font-size:.72rem;color:#667781;line-height:1.4}
+    .wachat .auto{font-size:.66rem;color:#667781;font-style:italic;display:block;margin-bottom:.1rem}
+    .enlace{display:block;color:#9fb3c8;margin-top:.6rem}
+    .wachat .m.in .comp{border-color:#e9edef}
+    .wachat .dia{align-self:center;font-size:.68rem;color:#54656f;background:#fff;border-radius:6px;
+                 padding:.15rem .55rem;box-shadow:0 1px 1px rgba(0,0,0,.06)}
+
+    .odoo{margin-top:1.3rem;background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+          overflow:hidden;box-shadow:0 6px 18px rgba(16,36,63,.08)}
+    .odoo .top{background:#714b67;color:#fff;padding:.6rem .9rem;font-size:.8rem;font-weight:700}
+    .odoo .top small{font-weight:400;opacity:.8}
+    .odoo .fila{display:flex;align-items:center;gap:.7rem;padding:.65rem .9rem;
+                border-top:1px solid var(--borde);font-size:.86rem;line-height:1.35}
+    .odoo .fila.cab{border-top:0;background:var(--claro);font-size:.7rem;font-weight:700;color:var(--tenue);
+                    text-transform:uppercase;letter-spacing:.06em;padding:.45rem .9rem}
+    .odoo .mini{width:34px;height:42px;flex:none;border:1px solid var(--borde);border-radius:4px;
+                background:#f2f5f8;display:flex;flex-direction:column;justify-content:center;
+                align-items:center;font-size:.55rem;color:var(--tenue);line-height:1.2}
+    .odoo .mini b{font-size:.6rem;color:var(--azul)}
+    .odoo .quien2{flex:1;min-width:0}
+    .odoo .quien2 b{display:block;color:var(--azul);font-size:.88rem}
+    .odoo .quien2 span{color:var(--tenue);font-size:.78rem}
+    .odoo .der{text-align:right;flex:none;font-size:.78rem;color:var(--tenue)}
+    .estado{display:inline-block;font-size:.68rem;font-weight:700;border-radius:99px;padding:.1rem .5rem;
+            margin-top:.2rem;background:#e6f4ec;color:#1f7a4d}
+
+    .tablero{display:grid;grid-template-columns:1fr;gap:.8rem;margin-top:1.3rem}
+    @media (min-width:600px){.tablero{grid-template-columns:1fr 1fr}}
+    .columna{background:#eef1f4;border-radius:12px;padding:.75rem}
+    .columna .cab{display:flex;justify-content:space-between;align-items:center;gap:.5rem;
+                  font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+                  color:var(--azul);margin-bottom:.55rem}
+    .columna .cab span{background:var(--blanco);border-radius:99px;padding:.05rem .5rem;color:var(--tenue)}
+    .tarjeta{background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--tenue);
+             border-radius:8px;padding:.7rem .75rem;font-size:.84rem;line-height:1.4;margin-top:.5rem}
+    .tarjeta .monto2{font-size:1.1rem;font-weight:700;color:var(--azul)}
+    .tarjeta .cli2{font-weight:700;color:var(--azul)}
+    .tarjeta .det{color:var(--tenue);font-size:.76rem}
+    .tarjeta .marca{display:inline-block;font-size:.7rem;font-weight:700;border-radius:99px;
+                    padding:.1rem .5rem;margin-top:.35rem}
+    .tarjeta .boton{padding:.45rem;font-size:.82rem;margin-top:.5rem}
+    .tarjeta.verde{border-left-color:#1f7a4d}
+    .tarjeta.verde .marca{background:#e6f4ec;color:#1f7a4d}
+    .tarjeta.amarilla{border-left-color:var(--ambar)}
+    .tarjeta.amarilla .marca{background:#fff8e1;color:var(--ambar)}
+    .tarjeta.roja{border-left-color:#b3261e}
+    .tarjeta.roja .marca{background:#fdecea;color:#b3261e}
+    .tarjeta.alerta{border-left-color:#c25e00}
+    .tarjeta.alerta .marca{background:#fff0e0;color:#c25e00}
+    .boton.todos{background:#1f7a4d;border-color:#1f7a4d;color:#fff;margin-top:.1rem;font-size:.84rem;padding:.5rem}
+    @media (max-width:360px){.cifras{flex-direction:column}.flujo .rama{flex-direction:column}}
+    /* Final screen of /pedido (views/templates.xml) */
+    .fin{max-width:300px;margin:1.3rem auto 0;background:#f5f5f5;border:1px solid var(--borde);border-radius:18px;
+         padding:1.4rem 1rem;text-align:center;box-shadow:0 6px 18px rgba(16,36,63,.08);color:#4a4a4a}
+    .fin h4{font-size:1.2rem;margin:0 0 .35rem;color:#4a4a4a}
+    .fin .nro{font-size:.92rem;color:#7a7a7a;margin:0 0 1rem}
+    .fin .nro b{color:#4a4a4a}
+    .fin .falta{background:#fff8e1;border:1px solid #f2c94c;border-radius:8px;color:#7a5c00;font-weight:600;
+                padding:.7rem;margin:0 0 .9rem;font-size:.9rem;text-align:left}
+    .fin .wa{display:block;background:#25d366;color:#fff;font-weight:700;padding:.85rem;border-radius:10px}
+    .fin .ayuda{font-size:.8rem;color:#7a7a7a;margin:.8rem 0 0}
+    .fin .tilde{width:56px;height:56px;border-radius:50%;background:#00d1b2;color:#fff;font-size:1.6rem;
+                font-weight:700;line-height:56px;margin:0 auto 1rem}
+    .odoo .fila.ambar{background:#fff8e1}
+    .odoo .fila.rojo{background:#fdecea}
+    .odoo .acc{display:flex;flex-wrap:wrap;gap:.3rem .7rem;margin-top:.3rem;font-size:.74rem;font-weight:700}
+    .odoo .acc span{color:#017e84}
+    .odoo .acc span.no{color:#b3261e}
+    .tarjeta .reenv{display:block;color:#0b6e99;font-size:.72rem;font-weight:700;margin-top:.3rem}
+    .tarjeta .rev{display:block;color:var(--ambar);font-size:.72rem;font-weight:700;margin-top:.3rem}
+    .tarjeta .dos{display:flex;gap:.35rem}
+    .tarjeta .dos .boton{flex:1}
+    .boton.imp{background:var(--blanco);border-color:var(--borde);color:var(--azul);margin-bottom:.8rem}
+    .rendir .aviso{color:#8a6b00;background:#fff8e1;border-radius:8px;padding:.5rem .6rem;margin-top:.4rem;font-size:.88rem}
+  </style>
+</head>
+<body>
+
+  <t t-call="distri_pedido.proyecto_franja"/>
+  <t t-call="distri_pedido.roles_base"/>
+
+  <div class="tapa">
+    <div class="marco">
+      <p class="rotulo">Distri Neuquén</p>
+      <h1>Registro de cobranzas</h1>
+      <p>Cada cobro queda registrado <b>en el momento</b>, en el celular del repartidor. Las
+         transferencias llegan a Odoo cada mañana en el reporte de Mercado Pago, listas para que
+         el administrador las confirme.</p>
+      <p>Todo usa los canales que el cliente ya conoce: <b>WhatsApp y Mercado Pago</b>. El
+         cliente no instala nada ni aprende pantallas nuevas.</p>
+      <div class="cifras">
+        <div class="cifra"><b>0%</b><span>de comisión en transferencias</span></div>
+        <div class="cifra"><b>$ 0</b><span>de costo de WhatsApp</span></div>
+        <div class="cifra"><b>&lt;10 s</b><span>para marcar un cobro</span></div>
+      </div>
+    </div>
+  </div>
+
+  <t t-call="distri_pedido.rol_mapa">
+    <t t-set="titulo" t-value="'Cada paso del cobro y quién lo hace'"/>
+    <t t-set="bajada" t-value="'Cada etiqueta lleva a la sección que la explica.'"/>
+    <t t-set="mapa_pasos" t-value="[
+          {'id': 'hoy', 'n': '1', 't': 'Hoy', 'l': 'Cómo se cobra hoy', 'acts': {'cliente': 'Paga o transfiere', 'vendedor': 'Reenvía fotos', 'administrador': 'Imprime y carga a mano', 'repartidor': 'Cobra y anota en papel', 'gerente': 'Reenvía fotos'}},
+          {'id': 'problemas', 'n': '2', 't': 'Problemas', 'l': 'Qué problemas trae', 'acts': {'cliente': 'Pagos sin imputar', 'administrador': 'Carga con atraso', 'repartidor': 'Anota de memoria', 'gerente': 'Decide tarde'}},
+          {'id': 'vistazo', 'n': '3', 't': 'Vistazo', 'l': 'La propuesta en un vistazo', 'acts': {'administrador': 'Asigna y confirma', 'repartidor': 'Marca cada visita', 'sistema': 'Reporte de las 6:00'}},
+          {'id': 'asignacion', 'n': '4', 't': 'Asignación', 'l': 'Paso 1 · Asignación diaria', 'acts': {'administrador': 'Asigna por zona', 'repartidor': 'Recibe la ruta'}},
+          {'id': 'app-repartidor', 'n': '5', 't': 'App', 'l': 'Paso 2 · La app del repartidor', 'acts': {'cliente': 'Paga en la visita', 'repartidor': 'Marca el cobro'}},
+          {'id': 'rendicion', 'n': '6', 't': 'Rendición', 'l': 'Paso 3 · Rendición de caja', 'acts': {'administrador': 'Cuenta y compara', 'repartidor': 'Rinde el efectivo'}},
+          {'id': 'transferencias', 'n': '7', 't': 'Transferir', 'l': 'Transferencias sin comisión', 'acts': {'cliente': 'Transfiere y avisa', 'administrador': 'Asigna un CUIT nuevo', 'armador': 'Termina el armado', 'sistema': 'Cobro en borrador'}},
+          {'id': 'whatsapp', 'n': '8', 't': 'WhatsApp', 'l': 'WhatsApp de la empresa', 'acts': {'cliente': 'Confirma el pedido y manda fotos', 'administrador': 'Responde a mano', 'gerente': 'Responde a mano', 'sistema': 'Lee las fotos y confirma pedidos'}},
+          {'id': 'vendedor', 'n': '9', 't': 'Vendedor', 'l': 'Pedidos del vendedor', 'acts': {'cliente': 'Recibe el enlace', 'vendedor': 'Toma y envía el pedido', 'gerente': 'Ve el pedido en Odoo'}},
+          {'id': 'conexion-mp', 'n': '10', 't': 'Conexión', 'l': 'Conexión con Mercado Pago', 'acts': {'administrador': 'Confirma a las 06:30', 'armador': 'Arma a las 08:00', 'repartidor': 'Reparte de 10 a 19', 'gerente': 'Revisa saldos', 'sistema': 'Reporte por SFTP'}},
+          {'id': 'conciliacion', 'n': '11', 't': 'Conciliar', 'l': 'Tablero de cobros y cierre diario', 'acts': {'administrador': 'Confirma y cierra el día', 'sistema': 'Propone el cliente'}},
+          {'id': 'comprobantes', 'n': '12', 't': 'Comprobantes', 'l': 'Comprobantes en la entrega', 'acts': {'cliente': 'Manda el comprobante', 'vendedor': 'Reclama lo pendiente', 'administrador': 'Registra pagos y rinde', 'repartidor': 'Reclama y reenvía', 'gerente': 'Ve lo pendiente', 'sistema': 'Vence y carga al repartidor'}},
+          {'id': 'link-pago', 'n': '13', 't': 'Link', 'l': 'Link de pago · Descartado', 'acts': {'cliente': 'Tarjeta en cuotas', 'sistema': 'Confirma solo'}},
+          {'id': 'seguridad', 'n': '14', 't': 'Seguridad', 'l': 'Seguridad y control', 'acts': {'gerente': 'Puede cortar la llave', 'sistema': 'Verifica cada aviso'}},
+          {'id': 'estado', 'n': '15', 't': 'Estado', 'l': 'Dónde estamos', 'acts': {'cliente': 'Cómo pagar: en el lab', 'vendedor': 'Programado', 'administrador': 'Tablero: en el lab', 'repartidor': 'App: en el lab', 'sistema': 'Mensajes: en el lab'}},
+          {'id': 'proximos', 'n': '16', 't': 'Próximos', 'l': 'Qué necesitamos de la gerencia', 'acts': {'gerente': 'Cuatro temas'}},
+        ]"/>
+  </t>
+
+  <section id="hoy" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'vendedor', 'administrador', 'repartidor', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Cómo se cobra hoy</p>
+      <h2>Papel, memoria y fotos reenviadas</h2>
+      <p class="bajada">Así llega la plata desde el comercio hasta Odoo.</p>
+      <ol class="cadena">
+        <li><span class="quien"><span class="rol mini rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Administrador</span></span>Exporta las facturas del día a Excel e
+            <b>imprime la hoja de ruta</b>. La reparte entre los dos repartidores según la carga.</li>
+        <li><span class="quien"><span class="rol mini rol-repartidor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-repartidor"/></svg>Repartidor</span></span>Cobra en efectivo y <b>lo anota en la planilla
+            de papel</b>, muchas veces al final del día y de memoria.</li>
+        <li><span class="quien"><span class="rol mini rol-repartidor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-repartidor"/></svg>Repartidor</span></span>Si el cliente transfiere, le muestran la
+            transferencia o <b>se la mandan después</b> al vendedor o al gerente de ventas.</li>
+        <li><span class="quien"><span class="rol mini rol-vendedor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-vendedor"/></svg><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-gerente"/></svg>Vendedor o gerente</span></span>Reenvía la foto al <b>grupo de WhatsApp
+            de comprobantes</b> y aclara de qué cliente es.</li>
+        <li><span class="quien"><span class="rol mini rol-repartidor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-repartidor"/></svg>Repartidor</span></span>Al día siguiente <b>rinde la caja</b> con la
+            planilla.</li>
+        <li><span class="quien"><span class="rol mini rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Administrador</span></span>Cuenta el efectivo y <b>carga cada
+            comprobante a mano</b> en Odoo.</li>
+      </ol>
+      <div class="dato">
+        <p><b>El 99% de las transferencias entra a una sola cuenta de Mercado Pago.</b> Aun así,
+           cada una pasa por una foto, un reenvío y una carga manual.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="problemas" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'repartidor', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Qué problemas trae</p>
+      <h2>Lo que hoy se pierde en el camino</h2>
+      <ul class="problemas">
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t><b>Se anota todo al final del día, de memoria</b>Planillas incompletas y sobrantes
+            de los que nadie sabe el dueño.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'gerente', 'administrador']"/><t t-set="mini" t-value="True"/></t><b>El comprobante llega después y se olvida</b>Pagos que el cliente hizo y que
+            nunca se imputan a su cuenta.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>La foto no siempre muestra quién pagó</b>No se puede saber a qué cliente
+            corresponde la transferencia.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t><b>Clientes que demoran al repartidor</b>Se va sin cobrar y la deuda hay que
+            perseguirla después.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'gerente']"/><t t-set="mini" t-value="True"/></t><b>Los pagos se cargan con atraso</b>El reporte semanal de saldos llega con datos
+            viejos y la gerencia decide tarde.</li>
+      </ul>
+      <div class="dato">
+        <p><b>La causa de fondo es una sola:</b> el cobro se registra después y en papel.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="vistazo" class="rol-sec oscuro">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'repartidor', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">La propuesta en un vistazo</p>
+      <h2>Del depósito a la cuenta del cliente</h2>
+      <p class="bajada">Cada visita termina con un estado cargado en el celular. Lo que entra por
+         Mercado Pago llega a Odoo con el cliente propuesto.</p>
+      <div class="flujo">
+        <div class="caja">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><h3>1 · Asignación</h3>
+          <p>El administrador reparte las facturas del día entre los repartidores, en Odoo.</p>
+        </div>
+        <p class="flecha">↓ el celular descarga la ruta antes de salir</p>
+        <div class="caja">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t><h3>2 · Visita al cliente</h3>
+          <p>El repartidor marca cómo terminó la visita. Funciona sin señal.</p>
+        </div>
+        <p class="flecha">↓</p>
+        <div class="rama">
+          <div class="caja">
+            <h3>Cobrado</h3>
+            <p>Efectivo registrado con su monto.</p>
+          </div>
+          <div class="caja">
+            <h3>Transferencia</h3>
+            <p>Con el importe. El repartidor reclama el comprobante y lo reenvía a la empresa.</p>
+          </div>
+          <div class="caja">
+            <h3>No pagó</h3>
+            <p>El pedido queda pendiente a nombre del repartidor hasta que se cobra.</p>
+          </div>
+        </div>
+        <p class="flecha">↓ al volver, el celular sincroniza</p>
+        <div class="rama">
+          <div class="caja">
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'repartidor']"/><t t-set="mini" t-value="True"/></t><h3>3 · Rendición</h3>
+            <p>Efectivo esperado contra efectivo contado.</p>
+          </div>
+          <div class="caja">
+            <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><h3>3 · Mercado Pago</h3>
+            <p>El reporte de las 6:00 arma un cobro en borrador por cada transferencia, con el
+               cliente propuesto.</p>
+          </div>
+        </div>
+        <p class="flecha">↓ el administrador confirma</p>
+        <div class="caja fin">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><h3>4 · Cuenta del cliente al día</h3>
+          <p>El pago queda imputado a las facturas más viejas. Lo que el sistema no reconoce, el
+             administrador lo asigna una sola vez.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="asignacion" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 1 · Asignación diaria</p>
+      <h2>La hoja de ruta sale de Odoo</h2>
+      <p class="bajada">Una pantalla del administrador reemplaza el Excel impreso. Las facturas
+         del día aparecen agrupadas por ciudad del cliente —Neuquén, Plottier, Centenario— y se
+         asignan en bloque a cada repartidor.</p>
+      <div class="antes-despues">
+        <div class="fila">
+          <span class="et">Hoy</span>
+          Exportar, imprimir y repartir hojas de papel. Lo que se anota ahí vuelve a Odoo a mano.
+        </div>
+        <div class="fila">
+          <span class="et">Con el módulo</span>
+          Se asigna por zona, en bloque. La ruta llega al celular del repartidor con cada factura y el
+          <b>saldo total del cliente</b>, así también puede cobrar deudas anteriores.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="app-repartidor" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 2 · La app del repartidor</p>
+      <h2>Un cobro, menos de 10 segundos</h2>
+      <p class="bajada">Se abre desde el celular como cualquier aplicación y <b>funciona sin
+         señal</b>, pensando en las zonas de Plottier, Centenario y partes de Neuquén donde se
+         corta. Los cobros quedan guardados en el teléfono y se envían solos cuando vuelve la
+         conexión.</p>
+
+      <div class="vista"><span class="rol rol-repartidor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-repartidor"/></svg>Pantalla del repartidor</span></div>
+      <div class="celu">
+        <p class="barra">Ruta de hoy · 14 de 22 visitas</p>
+        <p class="cli" style="margin:0">Almacén Ejemplo</p>
+        <p class="sub" style="margin:0 0 .6rem">Saldo total del cliente · 2 facturas</p>
+        <p class="monto">$ 84.500</p>
+        <span class="boton si">Efectivo</span>
+        <span class="boton">¿Paga con transferencia? Sí · $ 84.500</span>
+        <span class="boton">Reenviar el comprobante a la empresa</span>
+        <span class="boton">No pagó nada</span>
+        <span class="boton">No se pudo entregar</span>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios.</p>
+
+      <ul class="lista-p">
+        <li>Cada visita termina con un estado: pagó, no pagó o no se entregó.
+            <b>La ruta no se puede cerrar</b> con visitas sin marcar.</li>
+        <li><b>«¿Paga con transferencia?»</b> se responde con el importe transferido. El repartidor
+            reclama el comprobante en el acto y lo reenvía a la empresa (ver
+            <a href="#comprobantes">Comprobantes en la entrega</a>).</li>
+        <li>Un cliente puede pagar una parte en efectivo y otra por transferencia: todo queda en
+            la misma visita.</li>
+        <li>Si el celular reintenta el envío, <b>el cobro no se duplica</b>.</li>
+        <li>En la visita el repartidor confirma el WhatsApp del cliente. Ese número sirve para
+            reconocer sus comprobantes y para reclamarle lo que falta.</li>
+        <li>Las pantallas completas, con devoluciones, gastos y encomiendas, están en
+            <a href="/presentacion/reparto">la presentación de la app del repartidor</a>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="rendicion" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'repartidor']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Paso 3 · Rendición de caja</p>
+      <h2>Esperado contra contado</h2>
+      <p class="bajada">Como cada cobro en efectivo ya está cargado, el sistema sabe cuánto tiene
+         que traer cada repartidor. El administrador solo cuenta y compara.</p>
+
+      <div class="rendir">
+        <div class="r"><span>Efectivo esperado</span><b>$ 1.250.000</b></div>
+        <div class="r"><span>Efectivo contado</span><b>$ 1.240.000</b></div>
+        <div class="r"><span>Diferencia</span><span class="dif">− $ 10.000 · caso abierto</span></div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ejemplo ficticio.</p>
+
+      <ul class="lista-p">
+        <li><b>Toda diferencia queda como un caso abierto</b>, con la explicación del
+            repartidor, lo que se investigó y cómo se resolvió.</li>
+        <li><b>Si sobra plata</b>, el sistema sugiere de quién puede ser: clientes que figuran
+            como «no pagó», o cobros cuyo monto explica la diferencia.</li>
+        <li><b>Si falta</b> y no se repone, se suma al saldo deudor del repartidor.</li>
+        <li><b>Los gastos del día ya están descontados</b>: el efectivo esperado es lo cobrado menos
+            los gastos que el repartidor cargó con foto. Cada gasto necesita su comprobante en papel;
+            sin papel, abre un caso como un faltante.</li>
+        <li><b>Las devoluciones se controlan acá.</b> Cada una se marca «Recibido en el depósito» o «No
+            volvió», y al cerrar la rendición se emite su nota de crédito.</li>
+      </ul>
+      <div class="dato">
+        <p><b>Cada repartidor tiene su saldo deudor.</b> Ahí se acumulan los faltantes que no
+           repuso, con el detalle de cada caso.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="transferencias" class="rol-sec rol-sec-cliente">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'armador', 'sistema']"/><t t-set="cliente" t-value="True"/></t>
+    <div class="marco">
+      <p class="eyebrow">Transferencias sin comisión</p>
+      <h2>El cliente transfiere como siempre</h2>
+      <p class="bajada">El cliente paga por transferencia al alias de la empresa, sin comisión.
+         Cuando el armador termina y se emite la factura, la página de su pedido —la misma que
+         ya recibe por WhatsApp— muestra <b>«Cómo pagar»</b>: el importe final y el alias, cada
+         uno con un botón para copiarlo. Transfiere desde su banco o su billetera, como hace
+         hoy.</p>
+      <p class="bajada">Antes de la factura la página no muestra nada para pagar, porque un
+         faltante del armado puede cambiar el importe.</p>
+
+      <div class="vista"><span class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que ve el cliente</span></div>
+      <div class="celu">
+        <p class="barra">Pedido S00061 · Remito R-00048</p>
+        <p class="cli" style="margin:0 0 .6rem">Cómo pagar</p>
+        <p class="sub" style="margin:0">Importe final</p>
+        <div class="alias"><b>$ 84.500</b><span>Copiar</span></div>
+        <p class="sub" style="margin:.6rem 0 0">Transferí al alias</p>
+        <div class="alias"><b>alias de la empresa</b><span>Copiar</span></div>
+        <p class="sub" style="margin:.8rem 0 0">Cuando transfieras, mandanos el comprobante:</p>
+        <span class="boton wa" style="margin-top:.4rem">Mandar comprobante</span>
+      </div>
+
+      <p class="paso-celu">↓ Toca «Mandar comprobante» y se abre WhatsApp</p>
+      <div class="vista"><span class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que ve el cliente</span></div>
+      <div class="wachat">
+        <div class="top">
+          <span class="avatar">DN</span>
+          <span><b>Distri Neuquén</b><small>Cuenta de empresa</small></span>
+        </div>
+        <div class="msgs">
+          <div class="m out">Comprobante del pedido S00061<span class="h">10:42 ✓✓</span></div>
+          <div class="m out">
+            <div class="comp">
+              <div class="t">Comprobante de transferencia</div>
+              <div class="v">$ 84.500</div>
+              <div class="d">Para: Distri Neuquén<br/>Operación 000123456789<br/>25/09 · 10:41</div>
+            </div>
+            <span class="h">10:42 ✓✓</span>
+          </div>
+          <div class="m in"><span class="auto">Respondido a mano desde la app</span>¡Gracias!
+            Recibimos el comprobante. Te avisamos cuando lo registremos.<span class="h">10:50</span></div>
+        </div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios. El mensaje del
+         cliente ya viene escrito. Solo adjunta la foto del comprobante.</p>
+
+      <ol class="cadena">
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Cada mañana a las 6:00 llega el reporte de Mercado Pago</b> con las
+            transferencias del día anterior.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Cada ingreso arma un cobro en borrador con un cliente propuesto.</b> Lo propone
+            por el CUIT de quien pagó, que el reporte trae en las transferencias desde Mercado
+            Pago. Si no hay CUIT, busca una foto de comprobante llegada por WhatsApp con el mismo
+            número de operación, o con monto y hora parecidos. Odoo lee esos datos de la foto.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>Si el CUIT es nuevo</b>, el administrador elige el cliente una sola vez. Desde ahí,
+            ese CUIT queda asociado al comercio. Sirve también para los comercios que pagan desde
+            dos o tres cuentas distintas.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><b>El botón «Mandar comprobante»</b> abre el WhatsApp de la empresa con el texto
+            «Comprobante del pedido S00061». El cliente adjunta la foto del comprobante si quiere,
+            como respaldo. El número de pedido identifica al cliente sin adivinar.</li>
+      </ol>
+
+      <div class="antes-despues">
+        <div class="fila">
+          <span class="et">Monto, fecha y número de operación</span>
+          Confirmado en las pruebas del reporte.
+        </div>
+        <div class="fila">
+          <span class="et">CUIT de quien paga, desde Mercado Pago</span>
+          Confirmado en las pruebas del reporte. La mayoría de los clientes paga así, y el cobro
+          va directo a «Confirmado contra reporte MP».
+        </div>
+        <div class="fila">
+          <span class="et">CUIT de quien paga, desde un banco</span>
+          El reporte no lo trae, aun con todas sus columnas. El cliente sale de la foto del
+          comprobante o lo asigna el administrador una vez.
+        </div>
+      </div>
+
+      <div class="dato">
+        <p><b>Sin comisión.</b> La transferencia a la cuenta de Mercado Pago no tiene costo.
+           <b>Mismo canal, sin aplicación nueva para el cliente.</b> Las transferencias del día
+           aparecen en Odoo a la mañana siguiente, sin carga manual.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="whatsapp" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">WhatsApp de la empresa</p>
+      <h2>Pedidos y comprobantes en el mismo WhatsApp</h2>
+      <p class="bajada">El cliente sigue escribiendo al mismo número de siempre. Ese WhatsApp
+         Business se conecta a Odoo con la API oficial de Meta, en modo coexistencia. El número
+         sigue funcionando en la app como hasta hoy.</p>
+
+      <div class="wachat">
+        <div class="top">
+          <span class="avatar">DN</span>
+          <span><b>WhatsApp de la empresa</b><small>Mensajes recibidos</small></span>
+        </div>
+        <div class="msgs">
+          <span class="dia">Hoy</span>
+          <div class="m in"><span class="auto">Almacén Don Tito</span>
+            <div class="comp">
+              <div class="t">Mercado Pago · Transferencia</div>
+              <div class="v">$ 120.000</div>
+              <div class="d">De: Almacén Don Tito<br/>Para: Distri Neuquén<br/>25/09 · 10:15</div>
+            </div>
+            te paso el comprobante<span class="h">10:16</span>
+          </div>
+          <div class="m in"><span class="auto">Despensa El Molino</span>
+            <div class="comp">
+              <div class="t">Banco Ejemplo · Transferencia</div>
+              <div class="v">$ 80.000</div>
+              <div class="d">De: María Gómez<br/>Para: Distri Neuquén<br/>25/09 · 10:42</div>
+            </div>
+            pago del pedido de hoy<span class="h">10:42</span>
+          </div>
+        </div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Mensajes de dos clientes, vistos desde el WhatsApp
+         de la empresa. Ilustración con datos ficticios.</p>
+
+      <p class="paso-celu">↓ En menos de un minuto, en Odoo</p>
+      <div class="odoo">
+        <div class="top">Mensajes WhatsApp <small>· Ventas</small></div>
+        <div class="fila cab"><span style="width:34px">📎</span><span class="quien2">Remitente</span>
+          <span class="der">Hora · Descarga</span></div>
+        <div class="fila">
+          <span class="mini"><b>MP</b>$ 120k</span>
+          <span class="quien2"><b>Almacén Don Tito</b><span>te paso el comprobante</span></span>
+          <span class="der">10:16<br/><span class="estado">Descargada</span></span>
+        </div>
+        <div class="fila">
+          <span class="mini"><b>BCO</b>$ 80k</span>
+          <span class="quien2"><b>Despensa El Molino</b><span>pago del pedido de hoy</span></span>
+          <span class="der">10:42<br/><span class="estado">Descargada</span></span>
+        </div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios.</p>
+
+      <ul class="lista-p">
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Odoo solo recibe mensajes.</b> Los pedidos y los comprobantes entran solos.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t>Las fotos y los PDF de los comprobantes se guardan en Odoo como adjuntos <b>en menos
+            de un minuto</b>.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente', 'administrador']"/><t t-set="mini" t-value="True"/></t><b>El gerente y el administrador responden a mano</b> desde la app WhatsApp Business,
+            en el celular de la empresa o en WhatsApp Web.</li>
+        <li>Si llega un comprobante de un teléfono desconocido, se asigna una vez y el teléfono
+            queda guardado en el cliente.</li>
+      </ul>
+
+      <h3 style="margin-top:1.8rem;font-size:1.15rem">Odoo lee cada comprobante</h3>
+      <p class="bajada" style="font-size:.97rem">Cuando llega una foto o un PDF, Odoo lee el texto
+         <b>dentro del propio servidor</b>: ningún comprobante de un cliente sale a un servicio externo.
+         Saca el importe, el número de operación, la fecha y hora, quién pagó con su CUIT, el destino
+         (alias, CVU o CBU) y el banco o la billetera.</p>
+      <div class="antes-despues">
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><span class="et">Lectura segura · «Leído»</span>
+          El importe tiene su rótulo («Monto», «Importe», «Total»…) o es el único con $, y todos los
+          importes leídos coinciden. Se completa solo.
+        </div>
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><span class="et">Con dudas · «Revisar importe»</span>
+          Dos importes distintos, una foto borrosa o un importe distinto del que escribió el cliente.
+          El administrador toca «Usar importe leído» o lo escribe; la tarjeta del tablero muestra
+          «Revisar importe de la foto».
+        </div>
+        <div class="fila">
+          <span class="et">Medido en 240 comprobantes de prueba</span>
+          Ocho diseños (Mercado Pago, Ualá, Brubank, Galicia, Santander, Banco Nación, Banco Provincia
+          del Neuquén y Naranja X), limpios, como foto de celular y borrosos o girados: el importe se
+          leyó bien en el 100 % y ninguno quedó «Leído» con un valor equivocado. El comprobante real de
+          prueba se leyó completo.
+        </div>
+      </div>
+
+      <h3 id="pedido-whatsapp" style="margin-top:1.8rem;font-size:1.15rem">Todo pedido de la página llega por WhatsApp</h3>
+      <p class="bajada" style="font-size:.97rem">WhatsApp es el canal confiable con el cliente. Por
+         eso, un pedido de la página entra a la operación recién cuando llega al número de la empresa
+         el mensaje del cliente con el código del pedido. Mientras tanto queda en <b>«Esperando el
+         WhatsApp»</b>: no se arma, no va a una ruta y no se factura.</p>
+      <div class="vista"><span class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que ve el cliente</span></div>
+      <div class="fin">
+        <h4>Falta un paso</h4>
+        <p class="nro">Pedido <b>S00164</b> · código <b>7K3P</b></p>
+        <p class="falta">Falta un paso: enviá el mensaje por WhatsApp para que recibamos tu pedido.</p>
+        <span class="wa">Enviar por WhatsApp</span>
+        <p class="ayuda">Se abre WhatsApp con el pedido ya escrito. Solo tenés que darle enviar. Si lo
+          cambiás, dejá el código 7K3P.</p>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Pantalla final de /pedido. Ilustración con datos ficticios.</p>
+
+      <p class="paso-celu">↓ Mientras esperan, en Odoo</p>
+      <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla del administrador</span></div>
+      <div class="odoo">
+        <div class="top">Pedidos sin WhatsApp <small>· Ventas</small></div>
+        <div class="fila cab"><span class="quien2">Pedido · Comercio</span><span class="der">Espera · Total</span></div>
+        <div class="fila">
+          <span class="quien2"><b>S00166 · Kiosco La Esquina</b><span>299 000-0001 · código 4HX9</span>
+            <span class="acc"><span>Llamar / abrir WhatsApp</span><span>Confirmar a mano</span><span class="no">Cancelar</span></span></span>
+          <span class="der">hace 40 min<br/>$ 31.900</span>
+        </div>
+        <div class="fila ambar">
+          <span class="quien2"><b>S00164 · Almacén Ejemplo</b><span>299 000-0000 · código 7K3P</span>
+            <span class="acc"><span>Llamar / abrir WhatsApp</span><span>Confirmar a mano</span><span class="no">Cancelar</span></span></span>
+          <span class="der">hace 3 h<br/>$ 48.200</span>
+        </div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios. Normal hasta 2 horas, en
+         ámbar de 2 a 24 horas y en rojo después.</p>
+
+      <ul class="lista-p">
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'sistema']"/><t t-set="mini" t-value="True"/></t><b>El código se busca en cualquier parte del mensaje</b>, sin importar mayúsculas. Si
+            el cliente cambia el texto pero deja el código, el pedido se confirma igual y pasa a
+            «Recibido por WhatsApp».</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t>El número que mandó el mensaje queda como <b>WhatsApp verificado</b> del pedido y del
+            cliente, y sirve después para reconocer sus comprobantes.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>Ningún pedido que espera se cancela solo.</b> El administrador abre el chat con
+            un recordatorio listo, lo confirma a mano con el motivo (por ejemplo, el cliente llamó) o lo
+            cancela con el motivo. Cada acción queda registrada con quién y cuándo.</li>
+        <li>No esperan el mensaje los pedidos que toma el personal con su usuario (vendedor,
+            administración, gerencia) ni la venta en mostrador. El cliente de esos pedidos necesita un
+            WhatsApp cargado.</li>
+        <li><b>En el lab la espera está apagada</b> hasta conectar el número real de la empresa: el
+            número de prueba de Meta solo recibe mensajes de cinco teléfonos registrados. Se activa el día
+            de la conexión, al final del proyecto. Mientras tanto el pedido entra directo y el cliente
+            igual manda el mensaje.</li>
+      </ul>
+
+      <div class="antes-despues">
+        <div class="fila">
+          <span class="et">Recibir mensajes y comprobantes</span>
+          Funciona en el lab con el número de prueba gratuito de Meta.
+        </div>
+        <div class="fila">
+          <span class="et">Número de la empresa <span class="luego">Pendiente</span></span>
+          Se conecta por coexistencia, sin cambiar de número, al final del proyecto, cuando se
+          apruebe. Ese día se activa la confirmación de pedidos por WhatsApp.
+        </div>
+      </div>
+
+      <div class="cifras">
+        <div class="cifra"><b>$ 0</b><span>por recibir mensajes</span></div>
+        <div class="cifra"><b>$ 0</b><span>por responder desde la app</span></div>
+      </div>
+      <p class="nota" style="text-align:left;margin-top:.9rem">Meta cobra solo los mensajes que
+         se envían por la API. Odoo no envía mensajes, así que WhatsApp no genera gasto.</p>
+    </div>
+  </section>
+
+  <section id="vendedor" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'vendedor', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Pedidos del vendedor</p>
+      <h2>El vendedor le manda el pedido al cliente</h2>
+      <p class="bajada">El vendedor, por ejemplo, Italo, levanta el pedido en la app de pedidos
+         con su usuario y el pedido queda en Odoo. En la pantalla final toca <b>«Enviar al
+         cliente»</b>: se abre su WhatsApp con el chat del cliente y el mensaje ya escrito.</p>
+      <ul class="lista-p">
+        <li>La cabecera dice <b>«Pedido tomado por»</b> y el nombre del vendedor.</li>
+        <li>En el último paso, <b>«Datos del cliente»</b>, aparecen primero los clientes de su cartera; al
+            escribir se busca en todos por nombre, CUIT o WhatsApp.</li>
+        <li>El pedido queda a nombre del cliente elegido, con su lista de precios y con el vendedor
+            asignado. No espera el WhatsApp de confirmación.</li>
+      </ul>
+
+      <div class="vista"><span class="rol rol-vendedor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-vendedor"/></svg>Pantalla del vendedor</span></div>
+      <div class="fin">
+        <div class="tilde">✓</div>
+        <h4>Pedido guardado</h4>
+        <p class="nro">Quedó como <b>S00123</b> para <b>Almacén Ejemplo</b></p>
+        <span class="wa">Enviar al cliente</span>
+        <p class="ayuda">Se abre tu WhatsApp con el chat del cliente y el enlace del pedido.</p>
+        <p class="ayuda">El pedido ya está en el sistema. No hace falta mandarlo a la empresa.</p>
+      </div>
+
+      <p class="paso-celu">↓ Toca «Enviar al cliente»</p>
+      <div class="vista"><span class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que recibe el cliente</span></div>
+      <div class="wachat">
+        <div class="top">
+          <span class="avatar">AE</span>
+          <span><b>Almacén Ejemplo</b><small>Desde el WhatsApp del vendedor</small></span>
+        </div>
+        <div class="msgs">
+          <div class="m out">Hola Almacén Ejemplo, te dejo tu pedido:
+            distrineuquen.piadevs.com/pedido/ab12cd. Desde ahí podés verlo, modificarlo, ver tu
+            cuenta y pagar.<span class="h">18:20 ✓✓</span></div>
+        </div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios.</p>
+
+      <ul class="lista-p">
+        <li>Desde el enlace, el cliente <b>ve el pedido, lo modifica hasta que empezamos a
+            armarlo y consulta su cuenta</b>. Con la factura emitida, ve cómo pagar.</li>
+        <li>El mensaje queda en el chat del cliente como registro del pedido.</li>
+      </ul>
+
+      <h3 style="margin-top:1.8rem;font-size:1.15rem">Los comprobantes llegan por dos caminos</h3>
+      <div class="antes-despues">
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><span class="et">El cliente lo manda a la empresa</span>
+          La página del pedido tiene el botón <b>«Mandar comprobante»</b>. Abre el WhatsApp de la
+          empresa con el texto «Comprobante del pedido S00123». El número de pedido identifica al
+          cliente.
+        </div>
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor']"/><t t-set="mini" t-value="True"/></t><span class="et">El vendedor lo reenvía, como hoy</span>
+          Escribe abajo el cliente o su CUIT. El WhatsApp de cada vendedor se carga en su usuario
+          de Odoo, así que la foto entra marcada <b>«Reenviado por»</b> con el nombre del vendedor.
+          El sistema busca el cliente por el texto escrito, nunca por el número del vendedor, y la
+          tarjeta va siempre a la columna «Revisar».
+        </div>
+      </div>
+      <p class="bajada" style="font-size:.95rem">En los dos casos, Mercado Pago identifica la
+         plata por el CUIT. La foto queda como respaldo.</p>
+
+      <h3 style="margin-top:1.8rem;font-size:1.15rem">La empresa ve el pedido en Odoo</h3>
+      <div class="antes-despues">
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'gerente']"/><t t-set="mini" t-value="True"/></t><span class="et">Pedido del vendedor</span>
+          El pedido que toma el vendedor con su usuario ya queda en Odoo, a nombre del cliente y con
+          el vendedor asignado. No pasa por el WhatsApp de la empresa.
+        </div>
+        <div class="fila">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'gerente']"/><t t-set="mini" t-value="True"/></t><span class="et">Pedido de la página</span>
+          El cliente lo manda al WhatsApp de la empresa con su código, como antes de Odoo. El gerente
+          lo sigue viendo llegar por WhatsApp.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="conexion-mp" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'armador', 'repartidor', 'gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Conexión con Mercado Pago</p>
+      <h2>Un reporte cada mañana, sin llaves en el servidor</h2>
+      <p class="bajada">Hay dos formas de traer las transferencias a Odoo. Elegimos la que no deja
+         ninguna llave de la cuenta de Mercado Pago en el servidor.</p>
+
+      <div class="fase lista">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema', 'gerente']"/><t t-set="mini" t-value="True"/></t><p class="n">OPCIÓN ELEGIDA</p><h3>Reporte diario por SFTP</h3>
+        <p>A las 6:00 Mercado Pago deja el reporte «Todas las transacciones» en una carpeta del
+           servidor. Entra con un usuario que solo puede dejar archivos. El servidor no guarda
+           ninguna llave de Mercado Pago. Durante el día, el gerente puede pedir un reporte
+           manual si quiere ver las transferencias antes.</p>
+        <span class="chip ok">Elegida</span>
+      </div>
+      <div class="fase">
+        <p class="n">ETAPA 2</p><h3>Conexión en el momento</h3>
+        <p>Muestra las transferencias en el momento y con el CUIT también en las que llegan
+           desde un banco. Se suma cuando la llave de Mercado Pago quede asegurada en un entorno
+           independiente de Odoo, o cuando se logre darle solo permiso de lectura.</p>
+        <span class="chip luego">Etapa 2</span>
+      </div>
+
+      <h3 style="margin-top:1.8rem;font-size:1.15rem">Cómo queda el día</h3>
+      <div class="tabla">
+        <table class="costos">
+          <tr><th style="width:32%">Hora</th><th>Qué pasa</th></tr>
+          <tr><td class="cuando">06:00</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t>Llega el reporte con las transferencias del día anterior.</td></tr>
+          <tr><td class="cuando">Mañana</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t>El gerente revisa saldos y decide créditos.</td></tr>
+          <tr><td class="cuando">06:30</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t>El administrador confirma los cobros en el tablero.</td></tr>
+          <tr><td class="cuando">08:00</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['armador', 'sistema']"/><t t-set="mini" t-value="True"/></t>Armado de pedidos. Cada pedido se cierra cuando el armador lo toma. Al
+              terminar el armado, el sistema emite la factura por lo entregado; un pedido sin cliente
+              asignado se factura cuando el administrador le asigna el cliente y lo aprueba.</td></tr>
+          <tr><td class="cuando">10:00 a 19:00</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t>Reparto. Las transferencias de hoy se ven mañana a las 6:00.</td></tr>
+        </table>
+      </div>
+
+      <div class="dato">
+        <p><b>Por qué el reporte.</b> Permite arrancar sin ninguna llave de Mercado Pago en el
+           servidor: <b>un ataque al servidor no alcanza la cuenta de Mercado Pago</b>. La conexión
+           en el momento sigue en la etapa 2.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="conciliacion" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Conciliación con Mercado Pago</p>
+      <h2>El administrador confirma cada cobro</h2>
+      <p class="bajada">Un ingreso del reporte de Mercado Pago es plata que ya está en la cuenta. Una
+         foto se puede editar o reenviar vieja. Por eso <b>una foto nunca genera un pago por sí
+         sola</b>. Sirve para saber quién pagó y queda como respaldo.</p>
+      <p class="bajada">Los cobros en borrador se ordenan en un tablero de cuatro columnas, en el menú
+         <b>Cobros</b> de Odoo. Cada 15 minutos Odoo toma el reporte que Mercado Pago deja en la carpeta
+         del servidor; durante el día el administrador también puede subir uno con <b>«Importar
+         reporte»</b>. Cada operación se carga una sola vez.</p>
+
+      <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla del administrador</span></div>
+      <span class="boton imp" style="margin-top:1.3rem">Importar reporte</span>
+      <div class="tablero" style="margin-top:0">
+        <div class="columna">
+          <p class="cab">Confirmado contra reporte MP <span>2</span></p>
+          <span class="boton todos">Confirmar todos</span>
+          <div class="tarjeta verde">
+            <span class="monto2">$ 120.000</span> · <span class="cli2">Almacén Don Tito</span>
+            <div class="det">Mercado Pago · 10:15 · CUIT 30-12345678-9</div>
+            <span class="marca">CUIT conocido</span>
+            <div class="dos"><span class="boton si">Confirmar</span><span class="boton">Corregir cliente</span></div>
+          </div>
+          <div class="tarjeta verde">
+            <span class="monto2">$ 45.000</span> · <span class="cli2">Kiosco La Esquina</span>
+            <div class="det">Mercado Pago · 11:02 · CUIT 20-23456789-1</div>
+            <span class="marca">CUIT conocido</span>
+            <div class="dos"><span class="boton si">Confirmar</span><span class="boton">Corregir cliente</span></div>
+          </div>
+        </div>
+        <div class="columna">
+          <p class="cab">Revisar <span>2</span></p>
+          <div class="tarjeta amarilla">
+            <span class="monto2">$ 80.000</span> · <span class="cli2">Despensa El Molino</span>
+            <div class="det">Mercado Pago · 10:44 · CUIT 27-34567890-4, sin cliente asociado</div>
+            <span class="marca">Coincide con la foto de las 10:42</span>
+            <span class="boton">Ver foto</span>
+            <span class="boton si">Confirmar</span>
+          </div>
+          <div class="tarjeta amarilla">
+            <span class="monto2">$ 52.700</span> · <span class="cli2">Almacén Los Pinos</span>
+            <div class="det">Banco · 16:05 · sin CUIT</div>
+            <span class="marca">Coincide con la foto de las 16:07</span>
+            <span class="reenv">Reenviado por Vendedor de ejemplo</span>
+            <span class="rev">Revisar importe de la foto</span>
+            <div class="dos"><span class="boton">Ver foto</span><span class="boton si">Confirmar</span></div>
+          </div>
+        </div>
+        <div class="columna">
+          <p class="cab">Asignar cliente <span>1</span></p>
+          <div class="tarjeta roja">
+            <span class="monto2">$ 30.000</span>
+            <div class="det">Sin cliente · Mercado Pago · 12:20 · CUIT 20-45678901-2 · Juan Pérez</div>
+            <span class="marca">Sin CUIT conocido</span>
+            <div class="dos"><span class="boton">Elegir cliente</span><span class="boton">Descartar</span></div>
+          </div>
+        </div>
+        <div class="columna">
+          <p class="cab">Sin transferencia <span>1</span></p>
+          <div class="tarjeta alerta">
+            <span class="monto2">$ 60.000</span> · <span class="cli2">Minimercado Sur</span>
+            <div class="det">Foto recibida ayer 17:30 por WhatsApp. No aparece en el reporte
+              de hoy.</div>
+            <span class="marca">Sin ingreso en el reporte</span>
+            <span class="boton">Investigar</span>
+          </div>
+        </div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios.</p>
+
+      <div class="tabla">
+        <table class="costos">
+          <tr><th style="width:55%">Columna</th><th>Qué hace el administrador</th></tr>
+          <tr><td><b>Confirmado contra reporte MP</b>CUIT conocido y un solo cliente posible.</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t>Confirma varios juntos.</td></tr>
+          <tr><td><b>Revisar</b>El cliente sale de la foto, por monto y hora.</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t>Mira la foto y confirma o corrige.</td></tr>
+          <tr><td><b>Asignar cliente</b>Sin CUIT conocido ni foto que coincida.</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t>Asigna el cliente.</td></tr>
+          <tr><td><b>Sin transferencia</b>Comprobante recibido que no aparece en el reporte
+              siguiente de Mercado Pago.</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t>Investiga si es un error, una demora o un comprobante falso.</td></tr>
+        </table>
+      </div>
+
+      <ul class="lista-p">
+        <li><b>«Confirmar todos»</b> registra juntos los de «Confirmado contra reporte MP». «Elegir cliente» ofrece
+            <b>«Asignar y confirmar»</b> o <b>«Solo asignar»</b>; «Descartar» deja afuera, con el motivo,
+            un ingreso que no es de un cliente; «Investigar» registra si una foto sin transferencia fue un error,
+            una demora o un comprobante falso; «Deshacer» anula un pago confirmado con el cliente
+            equivocado.</li>
+        <li><b>Al confirmar, el cobro pasa a contabilidad</b> en el diario Mercado Pago y se imputa a
+            las facturas pendientes del cliente, la más vieja primero. El administrador puede corregir
+            la imputación.</li>
+        <li><b>El monto sale de Mercado Pago y no se edita.</b> El administrador solo decide a qué
+            cliente va.</li>
+        <li>Cada confirmación guarda <b>quién la hizo y cuándo</b>.</li>
+        <li><b>Cierre diario.</b> La suma de lo confirmado se compara con el total de
+            transferencias del reporte. Una diferencia genera una alerta.</li>
+        <li><b>Cada CUIT o teléfono asignado una vez queda guardado en el cliente</b>, y las otras
+            transferencias pendientes de ese CUIT pasan solas a «Confirmado contra reporte MP».</li>
+      </ul>
+
+      <h3 style="margin-top:1.8rem;font-size:1.15rem">El cierre del día</h3>
+      <div class="rendir">
+        <div class="r"><span>Transferencias del reporte</span><b>$ 335.000</b></div>
+        <div class="r"><span>Confirmado en el diario Mercado Pago</span><b>$ 305.000</b></div>
+        <div class="r"><span>Descartado</span><b>$ 30.000</b></div>
+        <div class="r"><span>Pendientes</span><b>0</b></div>
+        <div class="r"><span>Diferencia</span><b>$ 0</b></div>
+        <p class="aviso">Reporte incompleto: el último reporte llega hasta las 23:05. Cerrar igual pide
+           escribir el motivo.</p>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ejemplo ficticio.</p>
+      <ul class="lista-p">
+        <li><b>«Cerrar el día»</b> exige que no queden cobros pendientes. Con una diferencia pide la
+            explicación, el día queda «Cerrado con diferencia» y gerencia recibe un aviso.</li>
+        <li>Un día está cubierto cuando algún reporte llega hasta las 23:59. Si no, el cierre avisa
+            <b>«Reporte incompleto»</b> y el día queda marcado «Cerrado con el reporte incompleto», con el
+            motivo en su historial.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="comprobantes" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'vendedor', 'administrador', 'repartidor', 'gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Comprobantes en la entrega</p>
+      <h2>El repartidor responde por cada transferencia y cada pedido sin cobrar</h2>
+      <p class="bajada">El repartidor reclama los pagos y comprobantes que faltan, entrega y reclama en
+         el acto el comprobante de esa entrega. Todo lo que queda sin llegar está a su nombre hasta que
+         llega, y lo que no llega para la rendición del día siguiente se carga a su cuenta.</p>
+
+      <div class="tabla">
+        <table class="costos">
+          <tr><th style="width:32%">Cuándo</th><th>Qué pasa</th></tr>
+          <tr><td class="cuando">En la visita</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor', 'cliente']"/><t t-set="mini" t-value="True"/></t><b>Transferencia con importe</b>«¿Paga con transferencia?» se responde
+              con el importe transferido. El cliente manda el comprobante al WhatsApp del repartidor y
+              él lo reenvía a la empresa con «Reenviar a la empresa». Si no paga, «No pagó nada» deja el
+              pedido sin cobrar a su nombre.</td></tr>
+          <tr><td class="cuando">Durante el día</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'administrador', 'gerente']"/><t t-set="mini" t-value="True"/></t><b>Comprobantes pendientes</b>Vendedor, administración y gerencia
+              ven en Cobros › Comprobantes pendientes cada transferencia sin comprobante y cada pedido
+              sin cobrar, con el repartidor responsable, y los reclaman con un toque. El mensaje es el
+              mismo que arma el repartidor, con todo lo que debe el cliente, en nombre de la empresa:
+              «Hola, te entregamos el pedido…». El vendedor reclama a los clientes de su cartera.</td></tr>
+          <tr><td class="cuando">Al llegar el pago o el comprobante</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Se resuelve solo</b>Con el comprobante por WhatsApp, el reporte
+              de Mercado Pago o el pago que registra administración. Queda anotado quién lo resolvió,
+              cuándo y por qué vía. El mismo comprobante se cuenta una sola vez.</td></tr>
+          <tr><td class="cuando">En la rendición del día siguiente</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema', 'repartidor']"/><t t-set="mini" t-value="True"/></t><b>Vence y se carga al repartidor</b>Lo que todavía falta pasa a
+              Reparto › Cargos al repartidor. Si no hubo rendición, vence igual desde el segundo día. El
+              cargo se cierra solo cuando aparece el pago o el comprobante.</td></tr>
+          <tr><td class="cuando">Con un pago parcial</td>
+              <td><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'sistema']"/><t t-set="mini" t-value="True"/></t><b>El cargo baja al saldo</b>Un pedido sin cobrar sigue el saldo de
+              su factura: cada pago baja el pendiente y el cargo a lo que falta, nunca por encima del
+              importe original. El historial del importe guarda la fecha, el importe anterior, el nuevo
+              y el pago que lo causó.</td></tr>
+        </table>
+      </div>
+
+      <div class="vista"><span class="rol cliente-exp"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-cliente"/></svg>Lo que recibe el cliente del repartidor</span></div>
+      <div class="wachat">
+        <div class="top">
+          <span class="avatar">AE</span>
+          <span><b>Almacén Ejemplo</b><small>Desde el WhatsApp del repartidor</small></span>
+        </div>
+        <div class="msgs">
+          <span class="dia">Un pendiente</span>
+          <div class="m out"><span class="auto">Reclamo del repartidor</span>Hola, te entregué el pedido de
+            la factura 0001-00001234 ayer y todavía no tengo el comprobante de la transferencia de
+            $ 45.000. ¿Me lo podés mandar por acá?<span class="h">10:05 ✓✓</span></div>
+          <span class="dia">Varios pendientes</span>
+          <div class="m out"><span class="auto">Un solo mensaje, del más viejo al más nuevo</span>Hola, todavía
+            me faltan estos pagos y comprobantes:<br/>- Factura 0001-00001198, entregado el martes 20/10:
+            falta el comprobante de la transferencia de $ 30.000<br/>- Factura 0001-00001234, entregado
+            ayer: falta el pago de $ 15.000<br/>Total: $ 45.000. ¿Me mandás los comprobantes por acá? Si
+            alguno no está pago, ¿me lo podés pagar? Si ya transferiste, mandame el
+            comprobante.<span class="h">10:06 ✓✓</span></div>
+        </div>
+      </div>
+      <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios. La fecha se escribe como se
+         dice: «hace un rato», «hoy a la mañana», «hoy a la tarde», «ayer», «el martes 20/10» o «el
+         14/10», con la hora de Argentina.</p>
+
+      <ul class="lista-p">
+        <li>En la app, cada pendiente muestra el tipo (transferencia sin comprobante o pedido sin
+            cobrar), cuánto falta, la factura y cuándo se entregó: «Faltan $ 45.000 · Factura
+            0001-00001234 · entregado ayer».</li>
+        <li><b>El repartidor exige el total.</b> Si la transferencia no cubre el pedido de hoy, la
+            diferencia queda a su cargo en el momento.</li>
+        <li>El cierre de la ruta muestra todo lo que está a su nombre, con «Reclamar por WhatsApp».</li>
+        <li>Un cargo que administración ya decidió a mano no cambia solo.</li>
+        <li><b>Cliente en rojo.</b> Un ajuste hace que la visita de un cliente que debe plata o
+            comprobantes de días anteriores salga en rojo: el repartidor cobra lo que se debe y reenvía
+            los comprobantes antes de descargar, y el cliente ve el aviso en su pedido. Se activa
+            cuando las cuentas corrientes estén al día.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="link-pago" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Link de pago de Mercado Pago · Descartado</p>
+      <h2>Pago con tarjeta en cuotas</h2>
+      <p class="bajada">Está <b>construido y probado</b> en el entorno de pruebas. El botón
+         «Pagar con Mercado Pago» deja pagar con tarjeta de crédito, en cuotas, y el pago se
+         confirma solo, sin comprobante.</p>
+      <p class="bajada"><b>Queda descartado por la comisión.</b> Mercado Pago cobra entre
+         ≈ 1,8% y ≈ 7,6% según cuándo se libera la plata, y la transferencia al alias no cobra
+         nada. El link queda como opción para casos especiales.</p>
+      <ul class="lista-p">
+        <li><b>Las cuotas las paga el cliente.</b> El interés de las cuotas lo cobra Mercado Pago
+            directamente al comprador. La empresa recibe el total del pedido.</li>
+        <li><b>La comisión la absorbe la empresa.</b> Los términos de Mercado Pago y la ley de
+            tarjetas de crédito (Ley 25.065, art. 37) no permiten cobrarle un recargo al cliente
+            por pagar con tarjeta.</li>
+      </ul>
+
+      <div class="tabla">
+        <table class="costos">
+          <tr><th style="width:62%">Prueba realizada</th><th>Resultado</th></tr>
+          <tr><td><b>Pago aprobado con dinero en cuenta</b>Pedido S00061</td>
+              <td style="color:#1f7a4d">Registrado, aviso en 10 s</td></tr>
+          <tr><td><b>Pago rechazado con tarjeta de prueba</b>Pedido S00063</td>
+              <td style="color:#1f7a4d">Registrado, el botón sigue disponible</td></tr>
+          <tr><td><b>Devolución desde la app</b>Mercado Pago avisó tres veces</td>
+              <td style="color:#1f7a4d">Registrada una sola vez y visible para el cliente</td></tr>
+          <tr><td><b>Aviso falso, sin firma</b></td>
+              <td style="color:#1f7a4d">Rechazado</td></tr>
+          <tr><td><b>Datos con formato inválido o pagos inexistentes</b></td>
+              <td style="color:#1f7a4d">Rechazados, sin registrar nada</td></tr>
+        </table>
+      </div>
+      <p class="nota" style="text-align:left;margin-top:.7rem">Pruebas del 25/09/2026 con cuentas
+         de prueba de Mercado Pago, sin dinero real.</p>
+
+      <h3 style="margin-top:1.8rem;font-size:1.15rem">Lo que cuesta</h3>
+      <p class="bajada" style="margin-top:.4rem">La comisión depende de cuándo se quiere tener la
+         plata disponible. Es la misma para cualquier medio de pago.</p>
+      <div class="tabla">
+        <table class="costos">
+          <tr><th style="width:44%">Plata disponible</th><th style="width:26%">Comisión con IVA</th>
+              <th style="width:30%">Sobre $ 100.000</th></tr>
+          <tr><td><b>En el momento</b></td><td>≈ 7,6%</td><td>$ 7.610</td></tr>
+          <tr><td><b>A 10 días</b></td><td>≈ 5,3%</td><td>$ 5.310</td></tr>
+          <tr><td><b>A 18 días</b></td><td>≈ 4,1%</td><td>$ 4.100</td></tr>
+          <tr><td><b>A 35 días</b></td><td>≈ 1,8%</td><td>$ 1.800</td></tr>
+          <tr><td><b>Transferencia al alias (elegida)</b></td><td style="color:#1f7a4d"><b>0%</b></td>
+              <td style="color:#1f7a4d"><b>$ 0</b></td></tr>
+        </table>
+      </div>
+      <p class="nota" style="text-align:left;margin-top:.7rem">Tabla oficial de Mercado Pago
+         vigente desde el 1/08/2025. La tarifa exacta de la cuenta de la empresa se confirma en
+         su panel.</p>
+    </div>
+  </section>
+
+  <section id="seguridad" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['gerente', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Seguridad y control</p>
+      <h2>Ninguna llave de Mercado Pago en el servidor</h2>
+      <p class="bajada">Para leer las transferencias, el servidor solo recibe el reporte diario.
+         Mercado Pago lo deja con un usuario que solo puede dejar archivos en una carpeta.
+         <b>Nadie recibe la contraseña</b> y el servidor no guarda ninguna llave de la cuenta, así
+         que un ataque al servidor no alcanza la cuenta de Mercado Pago.</p>
+      <p class="nota" style="text-align:left;margin-top:.7rem">La conexión en el momento sigue en
+         la etapa 2: se suma cuando la llave quede asegurada en un entorno independiente de Odoo,
+         o cuando se logre darle solo permiso de lectura.</p>
+
+      <ul class="lista-p">
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>Si alguna vez se usa una llave, el gerente puede cortarla cuando quiera</b> desde
+            su cuenta de Mercado Pago, en Seguridad → Aplicaciones. Cambiar la contraseña también
+            la corta.</li>
+        <li><b>Sacar plata a otra cuenta por la API</b> requiere una habilitación especial de
+            Mercado Pago y una llave de firma aparte. El sistema no pide ninguna de las dos.</li>
+        <li><b>Recomendamos activar la verificación en dos pasos</b> y la «persona de
+            confianza» en la cuenta de la empresa.</li>
+        <li><b>Todo queda registrado</b> en Odoo: cada cobro, cada transferencia reconocida, cada
+            devolución, con fecha y número de operación.</li>
+        <li>El monto de un pago se toma siempre del pedido guardado en el sistema. Nadie puede
+            cambiarlo desde el celular o la computadora del cliente.</li>
+        <li>Los avisos que manda Mercado Pago se verifican con una firma y se vuelven a consultar
+            antes de registrar nada.</li>
+        <li><b>Los datos de tarjeta nunca pasan por nuestro servidor</b>: el cliente los escribe
+            en la página de Mercado Pago. Por eso la empresa queda en el nivel más simple de la
+            norma de tarjetas (cuestionario SAQ A), que se entrega completado.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="estado" class="rol-sec">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'vendedor', 'administrador', 'repartidor', 'sistema']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Dónde estamos</p>
+      <h2>Estado de cada parte</h2>
+      <div class="fase">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'repartidor']"/><t t-set="mini" t-value="True"/></t><p class="n">PASOS 1 A 3</p><h3>Asignación, app del repartidor y rendición</h3>
+        <p>Probado en el lab en la prueba integral del 27/09, con un celular simulado y sin señal:
+           ningún cobro se duplicó al reenviar, la rendición abrió el caso por la diferencia y la
+           devolución salió con su nota de crédito. Los gastos con foto y las encomiendas se sumaron
+           después y están programados. Falta el día de prueba con el repartidor real.</p>
+        <span class="chip ok">Probado en el lab</span>
+      </div>
+      <div class="fase">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><p class="n">MERCADO PAGO</p><h3>Reporte diario por SFTP</h3>
+        <p>Programado, sin llaves en el servidor: Odoo toma el reporte de una carpeta del servidor
+           cada 15 minutos y también se puede subir a mano. Probado con seis reportes reales: trae
+           el CUIT en las transferencias desde Mercado Pago y no en las que llegan desde un banco.
+           Falta crear en el servidor el usuario SFTP que solo deja archivos y que la gerencia
+           programe el reporte en la cuenta de la empresa. Si en las primeras semanas quedan
+           muchos cobros sin identificar, la conexión en el momento llega en la etapa 2.</p>
+        <span class="chip luego">Programado</span>
+      </div>
+      <div class="fase">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'cliente']"/><t t-set="mini" t-value="True"/></t><p class="n">VENDEDOR</p><h3>Pedido al cliente y comprobantes del vendedor</h3>
+        <p>Programado: el pedido a nombre del cliente con el vendedor asignado, «Enviar al cliente»,
+           «Mandar comprobante» y las fotos marcadas «Reenviado por». Falta cargar el WhatsApp de cada
+           vendedor y probarlo el día de prueba.</p>
+        <span class="chip luego">Programado</span>
+      </div>
+      <div class="fase">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'administrador']"/><t t-set="mini" t-value="True"/></t><p class="n">PEDIDOS POR WHATSAPP</p><h3>Confirmación con el código del pedido</h3>
+        <p>Programado: «Falta un paso», la lista «Pedidos sin WhatsApp» y la confirmación sola con el
+           código. Apagado en el lab hasta conectar el número real de la empresa, al final del
+           proyecto.</p>
+        <span class="chip luego">Programado</span>
+      </div>
+      <div class="fase">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><p class="n">CONCILIACIÓN</p><h3>Tablero de cobros en borrador</h3>
+        <p>En el menú Cobros: cuatro columnas, confirmación de a uno o todos juntos,
+           imputación a la factura más vieja en el diario Mercado Pago y cierre diario contra el
+           reporte, con el aviso de reporte incompleto. Cada CUIT o teléfono asignado una vez queda
+           guardado en el cliente. Probado con los reportes reales de prueba y en la prueba integral;
+           falta usarlo con el reporte de la cuenta de la empresa.</p>
+        <span class="chip ok">Probado en el lab</span>
+      </div>
+      <div class="fase">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor', 'administrador']"/><t t-set="mini" t-value="True"/></t><p class="n">COMPROBANTES</p><h3>Comprobantes en la entrega</h3>
+        <p>Transferencia con importe, reenvío del comprobante a la empresa, pendientes a nombre del
+           repartidor (transferencias sin comprobante y pedidos sin cobrar), vencimiento en la
+           rendición del día siguiente, cargo que baja con los pagos parciales y cierre automático
+           cuando llega el pago o el comprobante. «Cliente en rojo» queda listo y apagado hasta poner
+           al día las cuentas corrientes.</p>
+        <span class="chip ok">Probado en el lab</span>
+      </div>
+      <div class="fase lista">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><p class="n">WHATSAPP</p><h3>Recepción de mensajes y descarga de comprobantes</h3>
+        <p>Los mensajes, las fotos y los PDF entran a Odoo con el número de prueba gratuito de
+           Meta, y Odoo lee cada comprobante dentro del servidor. Falta conectar el número de la
+           empresa, al final del proyecto.</p>
+        <span class="chip ok">Funciona en el lab</span>
+      </div>
+      <div class="fase lista">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><p class="n">PAGO DEL CLIENTE</p><h3>«Cómo pagar» en el enlace del pedido</h3>
+        <p>Transferencia al alias de la empresa, sin comisión. Aparece con la factura emitida,
+           con el importe final y el alias listos para copiar. La factura sale por lo entregado,
+           cuando el armador termina y el pedido tiene cliente asignado. Si el cliente paga una
+           parte, el recuadro muestra lo que falta.</p>
+        <span class="chip ok">Funciona en el lab</span>
+      </div>
+      <div class="fase">
+        <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><p class="n">LINK DE PAGO</p><h3>Pago con tarjeta en cuotas</h3>
+        <p>Construido y probado en el entorno de pruebas. Descartado por la comisión. Queda
+           como opción para casos especiales.</p>
+        <span class="chip luego">Casos especiales</span>
+      </div>
+      <p class="bajada" style="font-size:.9rem;color:var(--ambar)">El módulo se construye sobre el
+         Odoo propio, junto con el sistema de pedidos. Entra en uso cuando se haga la migración.</p>
+    </div>
+  </section>
+
+  <section id="proximos" class="rol-sec oscuro">
+    <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['gerente']"/></t>
+    <div class="marco">
+      <p class="eyebrow">Próximos pasos</p>
+      <h2>Qué necesitamos de la gerencia</h2>
+      <div class="flujo">
+        <div class="caja">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><h3>Programar el reporte diario de Mercado Pago</h3>
+          <p>En la cuenta de la empresa, programar el reporte «Todas las transacciones» a las
+             6:00, con las columnas del pagador y entrega por SFTP al servidor. Las pruebas hasta
+             ahora se hicieron con una cuenta personal.</p>
+        </div>
+        <div class="caja">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><h3>Proteger la cuenta de Mercado Pago</h3>
+          <p>Activar la verificación en dos pasos y la persona de confianza en la cuenta de la
+             empresa.</p>
+        </div>
+        <div class="caja">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><h3>Conectar el WhatsApp de la empresa</h3>
+          <p>Una cuenta de Meta Business a nombre de la empresa y acceso al WhatsApp Business de
+             siempre, para conectarlo a Odoo por coexistencia sin cambiar de número. No tiene
+             costo. Se conecta al final del proyecto, cuando se apruebe.</p>
+        </div>
+        <div class="caja">
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><h3>Decidir el precio de la lista oculta</h3>
+          <p>Pendiente de la decisión del gerente. En la prueba integral, un pedido con precios «May»
+             cambió de precio al asignarle un cliente con la lista General. La propuesta: la lista
+             Distribuidoras toma el precio «May» de cada producto y, si no tiene, el de la General; el
+             distribuidor ve los dos precios; «Asignar cliente» avisa la diferencia de lista; y la compra
+             mínima queda como aviso.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="pie">
+    <div class="marco">
+      <p>Distri Neuquén · Entorno de pruebas · Septiembre 2026</p>
+      <a href="/proyecto" style="color:#fff;font-weight:700;display:block;margin-top:.6rem">← Volver al centro del proyecto</a>
+      <a class="enlace" href="/presentacion">Ver también: el sistema de pedidos</a>
+    </div>
+  </div>
+
+</body>
+</html>
+  </template>
+
+</odoo>

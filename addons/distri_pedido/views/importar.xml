@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="importar_pedido_form" model="ir.ui.view">
+    <field name="name">distri.importar.pedido.form</field>
+    <field name="model">distri.importar.pedido</field>
+    <field name="arch" type="xml">
+      <form string="Cargar un pedido de AgilPedido">
+        <group>
+          <field name="mensaje" widget="text" placeholder="Pegá acá el mensaje de WhatsApp, tal como llegó."
+                 nolabel="1" colspan="2"/>
+        </group>
+        <footer position="replace"/>
+        <div class="mt8">
+          <button name="action_analizar" type="object" string="Leer el mensaje"
+                  class="btn-primary"/>
+        </div>
+        <group invisible="not linea_ids">
+          <field name="resumen" nolabel="1" colspan="2" readonly="1"/>
+          <field name="partner_id" required="linea_ids"/>
+          <field name="pricelist_id"/>
+        </group>
+        <div class="text-muted mb8" invisible="not linea_ids">
+          Podés agregar renglones a mano: los cigarrillos de los revendedores no vienen
+          en el mensaje de AgilPedido, porque el revendedor los pide aparte.
+        </div>
+        <field name="linea_ids" invisible="not linea_ids" nolabel="1">
+          <list editable="bottom">
+            <field name="cantidad"/>
+            <field name="nombre_mensaje" readonly="1"
+                   placeholder="(agregado a mano)"/>
+            <field name="product_tmpl_id" required="1"
+                   options="{'no_create': True}"/>
+            <field name="unidades_ids" column_invisible="1"/>
+            <field name="product_uom_id" optional="show"
+                   options="{'no_create': True, 'no_open': True}"/>
+            <field name="equivalencia_id" optional="show" options="{'no_open': True}"/>
+            <field name="es_mayorista" optional="show"/>
+            <field name="parecido" readonly="1" optional="show"/>
+            <field name="importe_mensaje" readonly="1" optional="hide"/>
+          </list>
+        </field>
+        <footer>
+          <button name="action_crear_presupuesto" type="object" class="btn-primary"
+                  string="Crear el presupuesto" invisible="not linea_ids"/>
+          <button string="Cancelar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="accion_importar_pedido" model="ir.actions.act_window">
+    <field name="name">Cargar pedido de AgilPedido</field>
+    <field name="res_model">distri.importar.pedido</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <menuitem id="menu_transicion"
+            name="Transición AgilPedido"
+            parent="sale.sale_menu_root"
+            groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia"
+            sequence="90"/>
+
+  <menuitem id="menu_importar_pedido"
+            name="Cargar pedido de AgilPedido"
+            action="accion_importar_pedido"
+            parent="menu_transicion"
+            sequence="10"/>
+
+  <record id="exportar_agilpedido_form" model="ir.ui.view">
+    <field name="name">distri.exportar.agilpedido.form</field>
+    <field name="model">distri.exportar.agilpedido</field>
+    <field name="arch" type="xml">
+      <form string="Exportar catálogo para AgilPedido">
+        <div class="text-muted mb8">
+          Genera el Excel con el formato que AgilPedido acepta: precios al día
+          y cada producto en visible u oculto según cómo esté en Odoo.
+          Las fotos no viajan en el archivo.
+        </div>
+        <group>
+          <field name="resumen" nolabel="1" colspan="2" readonly="1" invisible="not resumen"/>
+          <field name="archivo" filename="nombre_archivo" readonly="1"
+                 invisible="not archivo" string="Descargar"/>
+          <field name="nombre_archivo" invisible="1"/>
+        </group>
+        <footer>
+          <button name="action_exportar" type="object" class="btn-primary"
+                  string="Generar el archivo"/>
+          <button string="Cerrar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="accion_exportar_agilpedido" model="ir.actions.act_window">
+    <field name="name">Exportar catálogo para AgilPedido</field>
+    <field name="res_model">distri.exportar.agilpedido</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <menuitem id="menu_exportar_agilpedido"
+            name="Exportar catálogo para AgilPedido"
+            action="accion_exportar_agilpedido"
+            parent="menu_transicion"
+            sequence="20"/>
+
+  <menuitem id="menu_visibilidad"
+            name="Visible u oculto en la página"
+            action="producto_visibilidad_accion"
+            parent="menu_transicion"
+            sequence="30"/>
+
+  <!-- Las mismas tres herramientas, tambien como app propia en el menu
+       principal, para no tener que entrar a Ventas cada vez. -->
+  <menuitem id="menu_transicion_app"
+            name="Transición AgilPedido"
+            web_icon="distri_pedido,static/description/icon.png"
+            groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia"
+            sequence="85"/>
+
+  <menuitem id="menu_app_importar"
+            name="Cargar pedido de AgilPedido"
+            action="accion_importar_pedido"
+            parent="menu_transicion_app"
+            sequence="10"/>
+
+  <menuitem id="menu_app_exportar"
+            name="Exportar catálogo para AgilPedido"
+            action="accion_exportar_agilpedido"
+            parent="menu_transicion_app"
+            sequence="20"/>
+
+  <menuitem id="menu_app_visibilidad"
+            name="Visible u oculto en la página"
+            action="producto_visibilidad_accion"
+            parent="menu_transicion_app"
+            sequence="30"/>
+
+</odoo>

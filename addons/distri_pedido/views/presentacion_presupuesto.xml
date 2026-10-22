@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Budget: Odoo Online vs own Odoo Community, and the service costs. Same style
+       as /presentacion, where this section used to live. -->
+  <template id="presentacion_presupuesto" name="Presupuesto del proyecto">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>Presupuesto · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    :root{
+      --azul:#10243f; --azul2:#19334f; --claro:#f7f8f7; --blanco:#fff;
+      --texto:#42505f; --tenue:#7a8794; --turq:#00d1b2; --borde:#e2e7ec; --ambar:#b08900;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--claro);color:var(--texto);
+         font:16px/1.6 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:44rem;margin:0 auto;padding:0 1.15rem}
+    h1,h2,h3{color:var(--azul);line-height:1.25;margin:0}
+
+    .tapa{background:var(--azul);color:#e8eef5;padding:2.5rem 0 2.2rem}
+    .tapa .rotulo{color:var(--turq);font-size:.78rem;letter-spacing:.14em;
+                  text-transform:uppercase;margin:0 0 .5rem;font-weight:700}
+    .tapa h1{color:#fff;font-size:1.95rem;font-weight:700}
+    .tapa p{color:#9fb3c8;font-size:1.02rem;margin:.75rem 0 0}
+
+    .cta{display:block;background:var(--turq);color:#fff;text-align:center;font-weight:700;
+         font-size:1.05rem;padding:1rem;border-radius:10px;text-decoration:none;margin:1.5rem 0 .4rem}
+    .cta.claro{background:var(--blanco);color:var(--azul);border:1px solid var(--borde)}
+    .nota{font-size:.82rem;color:var(--tenue);text-align:center;margin:0}
+    .tapa .nota{color:#7f95ad}
+
+    section{padding:2.4rem 0;border-top:1px solid var(--borde)}
+    section.oscuro{background:var(--azul);border-top:0}
+    section.oscuro h2{color:#fff}
+    section.oscuro p{color:#c3d3e3}
+    .eyebrow{color:var(--turq);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
+             font-weight:700;margin:0 0 .5rem}
+    h2{font-size:1.5rem}
+    .bajada{font-size:1.02rem;margin:.7rem 0 0}
+
+    .cifras{display:flex;gap:.7rem;margin-top:1.3rem}
+    .cifra{flex:1;background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+           padding:1rem .8rem;text-align:center}
+    .cifra b{display:block;font-size:1.8rem;color:var(--turq);line-height:1.1}
+    .cifra span{display:block;font-size:.8rem;margin-top:.35rem}
+
+    .fase{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+          padding:1.1rem;margin-top:.8rem}
+    .fase.lista{background:#e9fbf8;border-color:var(--turq)}
+    .fase .n{font-size:.76rem;font-weight:700;color:var(--turq);letter-spacing:.1em}
+    .fase h3{font-size:1.1rem;margin:.25rem 0 .4rem}
+    .fase p{margin:0;font-size:.95rem}
+    .chip{display:inline-block;font-size:.76rem;font-weight:700;border-radius:99px;
+          padding:.2rem .7rem;margin-top:.7rem;background:var(--claro)}
+    .chip.ok{color:#1f7a4d}
+    .chip.luego{color:var(--ambar)}
+
+    .paso{margin-top:1.8rem}
+    .paso h3{font-size:1.15rem;margin-bottom:.4rem}
+    .paso p{margin:0 0 .9rem;font-size:.97rem}
+    .tel{width:100%;max-width:280px;display:block;margin:0 auto;border:1px solid var(--borde);
+         border-radius:14px}
+    .ancha{width:100%;display:block;border:1px solid var(--borde);border-radius:10px;background:#fff}
+
+    .lista-p{margin:.9rem 0 0;padding-left:1.1rem}
+    .lista-p li{margin-bottom:.5rem;font-size:.97rem}
+
+    .flujo{display:flex;flex-direction:column;gap:.55rem;margin-top:1.2rem}
+    .caja{background:var(--azul2);border-radius:12px;padding:1rem}
+    .caja h3{color:#fff;font-size:1.05rem;margin-bottom:.3rem}
+    .caja p{margin:0;font-size:.92rem;color:#c3d3e3}
+    .flecha{text-align:center;color:var(--turq);font-size:.85rem;font-weight:700}
+
+    .pie{background:var(--azul);color:#7f95ad;padding:2rem 0 2.6rem;text-align:center;font-size:.85rem}
+
+    .problemas{margin:1.2rem 0 0;padding:0;list-style:none}
+    .problemas li{background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--turq);
+                  border-radius:8px;padding:.85rem 1rem;margin-bottom:.6rem;font-size:.97rem}
+    .problemas li b{color:var(--azul);display:block;margin-bottom:.15rem}
+    .cadena{margin:1.2rem 0 0;padding:0;list-style:none;counter-reset:paso}
+    .cadena li{position:relative;padding:.95rem 0 .95rem 2.7rem;border-bottom:1px solid var(--borde);
+               font-size:.96rem;line-height:1.5}
+    .cadena li:last-child{border-bottom:0}
+    .cadena li:before{counter-increment:paso;content:counter(paso);position:absolute;left:0;top:.9rem;
+                      width:1.8rem;height:1.8rem;border-radius:50%;background:var(--azul);color:#fff;
+                      font-size:.82rem;font-weight:700;display:flex;align-items:center;
+                      justify-content:center}
+    .cadena li b{color:var(--azul)}
+    .quien{display:block;font-size:.74rem;font-weight:700;color:var(--tenue);
+           text-transform:uppercase;letter-spacing:.08em;margin:0 0 .35rem;line-height:1.2}
+
+    .dato{background:var(--azul2);border-radius:12px;padding:1.1rem;margin-top:1.2rem}
+    .dato p{margin:0;color:#c3d3e3;font-size:.95rem}
+    .dato b{color:#fff}
+    .antes-despues{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+                   padding:1rem;margin-top:1rem;font-size:.95rem}
+    .antes-despues .fila{padding:.6rem 0;border-bottom:1px solid var(--borde)}
+    .antes-despues .fila:last-child{border-bottom:0}
+    .antes-despues .et{font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+                       color:var(--tenue);display:block;margin-bottom:.2rem}
+    .luego{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.06em;
+           text-transform:uppercase;color:var(--ambar);background:#fff8e1;border:1px solid #ffe8a1;
+           border-radius:99px;padding:.15rem .55rem;margin-left:.4rem;vertical-align:.08em}
+
+    .modulos{margin-top:1.2rem}
+    .modulo{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
+            padding:1rem;margin-bottom:.6rem}
+    .modulo .prob{font-size:.88rem;color:var(--tenue)}
+    .modulo .sol{font-size:1rem;color:var(--azul);font-weight:700;margin-top:.3rem;display:block}
+
+    .comparo{display:flex;flex-direction:column;gap:.7rem;margin-top:1.2rem}
+    .col{border-radius:12px;padding:1.1rem}
+    .col.hoy{background:var(--blanco);border:1px solid var(--borde)}
+    .col.nueva{background:#e9fbf8;border:1px solid var(--turq)}
+    .col h3{font-size:1.05rem;margin-bottom:.5rem}
+    .col ul{margin:0;padding-left:1.1rem}
+    .col li{font-size:.94rem;margin-bottom:.4rem}
+    .ahorro{background:var(--azul2);border-radius:12px;padding:1.1rem;margin-top:1rem}
+    .ahorro p{margin:0;color:#c3d3e3;font-size:.95rem}
+    .ahorro b{color:#fff}
+
+    table.costos{width:100%;border-collapse:collapse;margin-top:1.1rem;font-size:.92rem}
+    table.costos th{text-align:left;color:var(--azul);font-size:.8rem;text-transform:uppercase;
+                    letter-spacing:.06em;padding:.5rem .4rem;border-bottom:2px solid var(--borde)}
+    table.costos td{padding:.7rem .4rem;border-bottom:1px solid var(--borde);vertical-align:top}
+    table.costos td.cuando{color:var(--tenue);white-space:nowrap;font-size:.86rem}
+    table.costos td b{color:var(--azul);display:block;margin-bottom:.15rem}
+    .luego.lab{color:#1f7a4d;background:#e6f4ec;border-color:#bfe3cf}
+
+    .celu{max-width:300px;margin:1.3rem auto 0;background:var(--blanco);border:1px solid var(--borde);
+          border-radius:18px;padding:1rem;box-shadow:0 6px 18px rgba(16,36,63,.08)}
+    .celu .barra{font-size:.72rem;color:var(--tenue);text-transform:uppercase;letter-spacing:.1em;
+                 font-weight:700;margin:0 0 .6rem}
+    .celu .sub{font-size:.84rem;color:var(--tenue);margin:0}
+    .celu .monto{font-size:1.5rem;font-weight:700;color:var(--azul);margin:.1rem 0 .8rem}
+    .boton{display:block;text-align:center;font-weight:700;font-size:.92rem;border-radius:10px;
+           padding:.7rem;margin-top:.45rem;border:1px solid var(--borde);color:var(--azul);background:var(--claro)}
+    .boton.si{background:var(--turq);border-color:var(--turq);color:#fff}
+    .renglon{border-top:1px solid var(--borde);padding:.7rem 0}
+    .renglon .prod{display:flex;justify-content:space-between;gap:.5rem;margin:0;font-size:.9rem}
+    .renglon .prod b{color:var(--azul)}
+    .renglon .prod span{color:var(--tenue);white-space:nowrap}
+    .renglon .dos{display:flex;gap:.45rem}
+    .renglon .dos .boton{flex:1;padding:.5rem;font-size:.85rem}
+    .marca{display:inline-block;font-size:.72rem;font-weight:700;border-radius:99px;padding:.1rem .55rem;
+           margin-top:.35rem;background:#e6f4ec;color:#1f7a4d}
+    .marca.falta{background:#fff8e1;color:var(--ambar)}
+    .marca.tel2{background:#e9f0f8;color:var(--azul2)}
+    .bultos{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--borde);
+            padding:.7rem 0 0;font-size:.9rem}
+    .bultos b{font-size:1.2rem;color:var(--azul)}
+    .copiar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:var(--claro);
+            border:1px dashed var(--borde);border-radius:10px;padding:.6rem .7rem;margin:.3rem 0 .6rem}
+    .copiar b{color:var(--azul);font-size:.95rem}
+    .copiar span{font-size:.78rem;font-weight:700;color:var(--turq);white-space:nowrap}
+  </style>
+</head>
+<body>
+
+  <t t-call="distri_pedido.proyecto_franja"/>
+
+  <div class="tapa">
+    <div class="marco">
+      <p class="rotulo">Distri Neuquén</p>
+      <h1>Presupuesto del proyecto</h1>
+      <p>Qué cuesta hoy Odoo Online, qué cuesta un Odoo Community propio y qué incluye el
+         servicio, en una sola página.</p>
+    </div>
+  </div>
+
+  <section>
+    <div class="marco">
+      <p class="eyebrow">La decisión de fondo</p>
+      <h2>Por qué conviene un Odoo propio</h2>
+      <p class="bajada">Hoy el sistema corre en Odoo Online, la versión alquilada. Todo lo que se
+         mostró acá está construido como un módulo propio, y <b>en la versión alquilada no se
+         puede instalar código propio</b>. Para que esto funcione de verdad, el sistema tiene
+         que vivir en un servidor de la empresa.</p>
+
+      <div class="comparo">
+        <div class="col hoy">
+          <h3>Odoo Online (hoy)</h3>
+          <ul>
+            <li>Se paga todos los meses, por usuario, para siempre.</li>
+            <li>No admite el módulo de pedidos que ya está hecho.</li>
+            <li>Los datos viven en el servidor del proveedor.</li>
+            <li>Las copias y las actualizaciones las maneja Odoo.</li>
+          </ul>
+        </div>
+        <div class="col nueva">
+          <h3>Odoo Community, propio</h3>
+          <ul>
+            <li>Sin licencia por usuario: se puede dar acceso a todo el personal.</li>
+            <li>Corre el módulo de pedidos, el de cuenta corriente y lo que venga después.</li>
+            <li>Los datos quedan en un servidor de la empresa.</li>
+            <li>Las copias y el mantenimiento pasan a estar contemplados en el servicio.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="ahorro">
+        <p><b>Hoy se paga US$ 17 por usuario, por mes.</b> Con 2 usuarios son US$ 34. Pero el
+           proyecto necesita <b>8 personas</b> con acceso —gerencia, administración, 2 vendedores,
+           2 armadores y 2 repartidores—, y ahí la cuenta pasa a <b>US$ 136 por mes</b>, o sea
+           <b>US$ 1.632 al año</b> solo en licencias.</p>
+      </div>
+      <div class="ahorro">
+        <p><b>Y cuando AgilPedido se da de baja, se dejan de pagar $ 16.000 por mes.</b> Ese
+           gasto se mantiene solo mientras dure la convivencia; el día que el último cliente se
+           mude, desaparece.</p>
+      </div>
+      <table class="costos">
+        <tr><th style="width:52%">Usuarios con acceso</th><th style="width:24%">Por mes (USD)</th>
+            <th style="width:24%">Por año (USD)</th></tr>
+        <tr><td><b>Hoy: 2 usuarios</b></td><td>US$ 34</td><td>US$ 408</td></tr>
+        <tr><td><b>Lo que el proyecto necesita: 8</b></td><td>US$ 136</td><td>US$ 1.632</td></tr>
+        <tr><td><b>Con Odoo Community</b>Todos los usuarios que hagan falta</td>
+            <td style="color:#1f7a4d">US$ 0</td><td style="color:#1f7a4d">US$ 0</td></tr>
+      </table>
+      <p class="bajada" style="margin-top:1.1rem">Con servidor propio, <b>pasar de 2 a 8 personas
+         no cambia el precio</b>. Hoy, en cambio, cada puesto que se suma al sistema cuesta
+         US$ 17 más por mes, para siempre.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="marco">
+      <p class="eyebrow">Lo que hay que tener en cuenta</p>
+      <h2>Qué incluye el servicio</h2>
+      <p class="bajada">Con un servidor propio, algunas tareas que hoy hace Odoo pasan a estar
+         de este lado. Ninguna queda librada al azar: todas están contempladas y presupuestadas.</p>
+
+      <table class="costos">
+        <tr>
+          <th style="width:52%">Concepto</th>
+          <th style="width:26%">Importe</th>
+          <th style="width:22%">Cuándo</th>
+        </tr>
+        <tr>
+          <td><b>Servicio mensual, todo incluido</b>Servidor, copias de seguridad con prueba de
+              restauración, seguridad, mantenimiento, actualizaciones de Odoo y atención ante
+              fallas.</td>
+          <td><b style="color:var(--azul)">USD 100</b><br/><span style="font-size:.8rem;color:var(--tenue)">dólares</span></td>
+          <td class="cuando">Por mes</td>
+        </tr>
+        <tr>
+          <td><b>Dominio propio</b>distrineuquen.com.ar, para que el cliente entre a una dirección
+              de la empresa.</td>
+          <td><b style="color:var(--azul)">USD 20</b><br/><span style="font-size:.8rem;color:var(--tenue)">dólares</span></td>
+          <td class="cuando">Por año</td>
+        </tr>
+        <tr>
+          <td><b>Desarrollo y puesta en marcha</b>Los módulos, la migración de los datos, el
+              acompañamiento durante la transición y el entrenamiento del personal.</td>
+          <td><b style="color:var(--azul)">A confirmar</b></td>
+          <td class="cuando"></td>
+        </tr>
+      </table>
+      <p class="nota" style="text-align:left;margin-top:.9rem">Los montos en <b>USD</b> son dólares
+         y se facturan al tipo de cambio del día.</p>
+
+
+    </div>
+  </section>
+
+  <div class="pie">
+    <div class="marco">
+      <p>Distri Neuquén · Entorno de pruebas · Septiembre 2026</p>
+      <a href="/proyecto" style="color:#fff;font-weight:700;display:block;margin-top:.6rem">← Volver al centro del proyecto</a>
+    </div>
+  </div>
+
+</body>
+</html>
+  </template>
+
+</odoo>

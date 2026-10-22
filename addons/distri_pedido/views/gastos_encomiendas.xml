@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ========================================================= expenses -->
+
+  <record id="view_expense_list" model="ir.ui.view">
+    <field name="name">distri.route.expense.list</field>
+    <field name="model">distri.route.expense</field>
+    <field name="arch" type="xml">
+      <list string="Gastos del repartidor" create="0" delete="0"
+            decoration-muted="state == 'cancelled'" decoration-danger="state == 'rejected'"
+            decoration-warning="amount_review">
+        <field name="photo" widget="image" options="{'size': [48, 48]}" string="Foto"/>
+        <field name="date"/>
+        <field name="driver_id"/>
+        <field name="route_id" optional="show"/>
+        <field name="kind"/>
+        <field name="comment" optional="show"/>
+        <field name="amount" sum="Total"/>
+        <field name="ocr_state" widget="badge" decoration-success="ocr_state == 'ok'"
+               decoration-warning="ocr_state == 'review'" decoration-muted="ocr_state in ('pending', 'none')"/>
+        <field name="ocr_amount" optional="show"/>
+        <field name="paper_received" widget="boolean_toggle"
+               readonly="state in ('approved', 'cancelled')"/>
+        <field name="state" widget="badge" decoration-success="state == 'approved'"
+               decoration-danger="state == 'rejected'"/>
+        <field name="account_id" optional="hide"/>
+        <field name="move_id" optional="hide"/>
+        <field name="amount_review" column_invisible="1"/>
+        <field name="currency_id" column_invisible="1"/>
+        <button name="action_reject" type="object" string="Rechazar" icon="fa-times"
+                invisible="state != 'reported'"/>
+        <button name="action_undo_reject" type="object" string="Deshacer el rechazo" icon="fa-undo"
+                invisible="state != 'rejected' or move_id"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_expense_form" model="ir.ui.view">
+    <field name="name">distri.route.expense.form</field>
+    <field name="model">distri.route.expense</field>
+    <field name="arch" type="xml">
+      <form string="Gasto del repartidor" create="0" delete="0">
+        <header>
+          <button name="action_reject" type="object" string="Rechazar"
+                  invisible="state != 'reported'"/>
+          <button name="action_undo_reject" type="object" string="Deshacer el rechazo"
+                  invisible="state != 'rejected'"/>
+          <field name="state" widget="statusbar" statusbar_visible="reported,approved"/>
+        </header>
+        <sheet>
+          <div class="alert alert-warning" role="alert" invisible="not amount_review">
+            Revisar importe: el repartidor cargó <field name="amount" readonly="1" class="fw-bold"/>
+            y la foto dice <field name="ocr_amount" readonly="1" class="fw-bold"/>.
+          </div>
+          <group>
+            <group>
+              <field name="kind"/>
+              <field name="amount"/>
+              <field name="comment"/>
+              <field name="driver_id"/>
+              <field name="route_id"/>
+              <field name="stop_id" invisible="not stop_id"/>
+              <field name="captured_at"/>
+            </group>
+            <group>
+              <field name="paper_received" readonly="state in ('approved', 'cancelled')"/>
+              <field name="reject_reason" readonly="state in ('approved', 'cancelled')"/>
+              <field name="ocr_state"/>
+              <field name="ocr_amount" invisible="not ocr_amount"/>
+              <field name="account_id"/>
+              <field name="move_id" invisible="not move_id"/>
+              <field name="case_id" invisible="not case_id"/>
+              <field name="currency_id" invisible="1"/>
+              <field name="amount_review" invisible="1"/>
+            </group>
+          </group>
+          <field name="photo" widget="image" options="{'size': [0, 900]}" nolabel="1"/>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_expense_search" model="ir.ui.view">
+    <field name="name">distri.route.expense.search</field>
+    <field name="model">distri.route.expense</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="driver_id"/>
+        <field name="route_id"/>
+        <field name="comment"/>
+        <filter name="to_check" string="Sin controlar" domain="[('state', '=', 'reported')]"/>
+        <filter name="review" string="Revisar importe" domain="[('amount_review', '=', True)]"/>
+        <filter name="approved" string="Aprobados" domain="[('state', '=', 'approved')]"/>
+        <filter name="rejected" string="Rechazados o sin papel" domain="[('state', '=', 'rejected')]"/>
+        <separator/>
+        <filter name="not_cancelled" string="Sin los anulados" domain="[('state', '!=', 'cancelled')]"/>
+        <group>
+          <filter name="by_kind" string="Tipo" context="{'group_by': 'kind'}"/>
+          <filter name="by_driver" string="Repartidor" context="{'group_by': 'driver_id'}"/>
+          <filter name="by_month" string="Mes" context="{'group_by': 'date:month'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_expense" model="ir.actions.act_window">
+    <field name="name">Gastos del repartidor</field>
+    <field name="res_model">distri.route.expense</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'search_default_not_cancelled': 1}</field>
+    <field name="help" type="html">
+      <p>Los gastos que el repartidor carga en la app con la foto del comprobante: nafta,
+         repuestos, estacionamiento, encomiendas. Se pagan con el efectivo del día y se
+         controlan en la rendición contra el comprobante en papel.</p>
+    </field>
+  </record>
+
+  <!-- ======================================================= settlement -->
+
+  <record id="view_route_form_expenses" model="ir.ui.view">
+    <field name="name">distri.route.form.expenses</field>
+    <field name="model">distri.route</field>
+    <field name="inherit_id" ref="distri_pedido.view_route_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//page[@name='settlement']//field[@name='cash_expected']" position="before">
+        <field name="cash_collected"/>
+        <field name="expense_total"/>
+      </xpath>
+      <xpath expr="//page[@name='settlement']/separator[1]" position="before">
+        <separator string="Gastos del repartidor"/>
+        <div class="text-muted mb-2">Pagados con el efectivo del día. Tildá «Comprobante en papel
+          recibido» al recibir cada papel. Al cerrar la rendición, los gastos con papel se
+          registran en la contabilidad; un gasto rechazado o sin papel abre un caso contra la
+          ruta. Tocá la fila para ver la foto grande.</div>
+        <field name="expense_ids" context="{'form_view_ref': 'distri_pedido.view_expense_form'}"
+               readonly="state == 'settled'">
+          <list create="0" delete="0" decoration-danger="state == 'rejected'"
+                decoration-warning="amount_review">
+            <field name="photo" widget="image" options="{'size': [56, 56]}" string="Foto"/>
+            <field name="kind"/>
+            <field name="comment"/>
+            <field name="amount" sum="Total"/>
+            <field name="ocr_state" widget="badge" decoration-success="ocr_state == 'ok'"
+                   decoration-warning="ocr_state == 'review'"/>
+            <field name="ocr_amount" optional="show"/>
+            <field name="paper_received" widget="boolean_toggle"
+                   readonly="state in ('approved', 'cancelled') or parent.state == 'settled'"/>
+            <field name="state" widget="badge" decoration-success="state == 'approved'"
+                   decoration-danger="state == 'rejected'"/>
+            <field name="amount_review" column_invisible="1"/>
+            <field name="move_id" column_invisible="1"/>
+            <field name="currency_id" column_invisible="1"/>
+            <button name="action_reject" type="object" string="Rechazar" icon="fa-times"
+                    invisible="state != 'reported' or parent.state == 'settled'"/>
+            <button name="action_undo_reject" type="object" string="Deshacer" icon="fa-undo"
+                    invisible="state != 'rejected' or parent.state == 'settled'"/>
+          </list>
+        </field>
+        <separator string="Encomiendas despachadas" invisible="not parcel_ids"/>
+        <field name="parcel_ids" readonly="1" invisible="not parcel_ids">
+          <list>
+            <field name="photo" widget="image" options="{'size': [56, 56]}" string="Guía"/>
+            <field name="order_id"/>
+            <field name="partner_id"/>
+            <field name="carrier_id"/>
+            <field name="guide_number"/>
+            <field name="payer"/>
+            <field name="cost"/>
+            <field name="notified" widget="boolean"/>
+            <field name="currency_id" column_invisible="1"/>
+          </list>
+        </field>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ========================================================= parcels -->
+
+  <record id="view_parcel_list" model="ir.ui.view">
+    <field name="name">distri.parcel.list</field>
+    <field name="model">distri.parcel</field>
+    <field name="arch" type="xml">
+      <list string="Encomiendas despachadas" create="0" delete="0"
+            decoration-warning="not notified" decoration-danger="guide_review">
+        <field name="photo" widget="image" options="{'size': [48, 48]}" string="Guía"/>
+        <field name="dispatched_at"/>
+        <field name="order_id"/>
+        <field name="remito" optional="show"/>
+        <field name="partner_id"/>
+        <field name="recipient" optional="show"/>
+        <field name="town"/>
+        <field name="carrier_id"/>
+        <field name="guide_number"/>
+        <field name="payer"/>
+        <field name="cost" optional="show"/>
+        <field name="driver_id" optional="show"/>
+        <field name="salesperson_id" optional="show"/>
+        <field name="notified" widget="boolean"/>
+        <field name="guide_review" column_invisible="1"/>
+        <field name="currency_id" column_invisible="1"/>
+        <button name="action_notify_whatsapp" type="object" string="Avisar por WhatsApp"
+                icon="fa-whatsapp" invisible="notified"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_parcel_form" model="ir.ui.view">
+    <field name="name">distri.parcel.form</field>
+    <field name="model">distri.parcel</field>
+    <field name="arch" type="xml">
+      <form string="Encomienda despachada" create="0" delete="0">
+        <header>
+          <button name="action_notify_whatsapp" type="object" string="Avisar al cliente por WhatsApp"
+                  class="btn-primary" invisible="notified"/>
+          <button name="action_mark_notified" type="object" string="Marcar avisado"
+                  invisible="notified"/>
+        </header>
+        <sheet>
+          <div class="alert alert-warning" role="alert" invisible="not guide_review">
+            Revisar el número de guía: <span invisible="guide_number">no hay número cargado</span>
+            <span invisible="not guide_number">en la foto se lee <field name="guide_number_read"
+                  readonly="1" class="fw-bold"/></span>.
+          </div>
+          <div class="oe_title"><h1>Guía <field name="guide_number" placeholder="Número de guía"/></h1></div>
+          <group>
+            <group>
+              <field name="order_id"/>
+              <field name="remito"/>
+              <field name="partner_id"/>
+              <field name="recipient"/>
+              <field name="town"/>
+              <field name="carrier_id" options="{'no_create': True}"/>
+              <field name="payer"/>
+              <field name="cost"/>
+              <field name="packages"/>
+            </group>
+            <group>
+              <field name="route_id"/>
+              <field name="driver_id"/>
+              <field name="salesperson_id"/>
+              <field name="dispatched_at"/>
+              <field name="expense_id" invisible="not expense_id"/>
+              <field name="notified"/>
+              <field name="notified_at" invisible="not notified"/>
+              <field name="notified_by_id" invisible="not notified"/>
+              <field name="comment" invisible="not comment"/>
+              <field name="guide_review" invisible="1"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+          <group string="Mensaje para el cliente">
+            <field name="message_text" nolabel="1" colspan="2"/>
+            <field name="whatsapp_url" widget="url" invisible="not whatsapp_url"/>
+          </group>
+          <field name="photo" widget="image" options="{'size': [0, 900]}" nolabel="1"/>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_parcel_search" model="ir.ui.view">
+    <field name="name">distri.parcel.search</field>
+    <field name="model">distri.parcel</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="guide_number"/>
+        <field name="order_id"/>
+        <field name="partner_id"/>
+        <field name="carrier_id"/>
+        <filter name="not_notified" string="Sin avisar al cliente" domain="[('notified', '=', False)]"/>
+        <filter name="review" string="Revisar guía" domain="[('guide_review', '=', True)]"/>
+        <separator/>
+        <filter name="distri_pays" string="Envío pago por Distrineuquén" domain="[('payer', '=', 'distri')]"/>
+        <filter name="customer_pays" string="Envío a pagar en destino" domain="[('payer', '=', 'customer')]"/>
+        <group>
+          <filter name="by_carrier" string="Transportista" context="{'group_by': 'carrier_id'}"/>
+          <filter name="by_day" string="Día" context="{'group_by': 'dispatched_at:day'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_parcel" model="ir.actions.act_window">
+    <field name="name">Encomiendas despachadas</field>
+    <field name="res_model">distri.parcel</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p>Cada encomienda que el repartidor despacha en la terminal, con la foto de la guía.
+         Avisale al cliente por WhatsApp con el número de guía para que la retire.</p>
+    </field>
+  </record>
+
+  <!-- ======================================================= carriers -->
+
+  <record id="view_carrier_list" model="ir.ui.view">
+    <field name="name">distri.carrier.list</field>
+    <field name="model">distri.carrier</field>
+    <field name="arch" type="xml">
+      <list string="Transportistas" editable="bottom">
+        <field name="sequence" widget="handle"/>
+        <field name="name"/>
+        <field name="phone"/>
+        <field name="note"/>
+        <field name="active" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_carrier" model="ir.actions.act_window">
+    <field name="name">Transportistas de encomiendas</field>
+    <field name="res_model">distri.carrier</field>
+    <field name="view_mode">list</field>
+  </record>
+
+  <!-- ========================================================== zones -->
+
+  <record id="view_zona_list_encomienda" model="ir.ui.view">
+    <field name="name">distri.zona.list.encomienda</field>
+    <field name="model">distri.zona</field>
+    <field name="inherit_id" ref="distri_pedido.view_zona_list"/>
+    <field name="arch" type="xml">
+      <field name="viaje" position="after">
+        <field name="retira_deposito"/>
+        <field name="encomienda"/>
+        <field name="carrier_id" options="{'no_create': True}" invisible="not encomienda"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_zona_form_encomienda" model="ir.ui.view">
+    <field name="name">distri.zona.form.encomienda</field>
+    <field name="model">distri.zona</field>
+    <field name="inherit_id" ref="distri_pedido.view_zona_form"/>
+    <field name="arch" type="xml">
+      <field name="active" position="after">
+        <field name="retira_deposito"/>
+        <field name="encomienda" invisible="retira_deposito"/>
+        <field name="carrier_id" options="{'no_create': True}" invisible="not encomienda"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_pricelist_form_encomienda" model="ir.ui.view">
+    <field name="name">product.pricelist.form.encomienda</field>
+    <field name="model">product.pricelist</field>
+    <field name="inherit_id" ref="product.product_pricelist_view"/>
+    <field name="arch" type="xml">
+      <xpath expr="//group[@name='pricelist_settings']" position="inside">
+        <field name="distri_mayorista"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ========================================================== order -->
+
+  <record id="view_order_form_encomienda" model="ir.ui.view">
+    <field name="name">sale.order.form.encomienda</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="distri_pedido.view_order_form_reparto"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <field name="distri_encomienda" invisible="1"/>
+        <field name="distri_parcel_dispatched" invisible="1"/>
+        <button name="action_distri_toggle_envio_paga" type="object"
+                string="Cambiar quién paga el envío"
+                groups="distri_pedido.grupo_administracion"
+                invisible="not distri_encomienda or distri_parcel_dispatched or state == 'cancel'"/>
+        <button name="action_distri_parcel_whatsapp" type="object" string="Avisar encomienda"
+                class="btn-primary" invisible="not distri_parcel_dispatched"/>
+      </xpath>
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-info mb-0" role="status" invisible="not distri_encomienda">
+          <field name="distri_encomienda_resumen" readonly="1" nolabel="1" class="fw-bold"/>
+        </div>
+      </xpath>
+      <xpath expr="//page[@name='distri_reparto']/group" position="after">
+        <group string="Encomienda" name="distri_encomienda" groups="distri_pedido.grupo_administracion">
+          <group>
+            <field name="distri_encomienda" readonly="distri_parcel_dispatched"/>
+            <field name="distri_carrier_id" invisible="not distri_encomienda"
+                   options="{'no_create': True}" readonly="distri_parcel_dispatched"/>
+            <field name="distri_envio_paga" widget="radio" invisible="not distri_encomienda"
+                   readonly="distri_parcel_dispatched"/>
+            <field name="distri_encomienda_manual" invisible="1"/>
+            <field name="distri_envio_paga_manual" invisible="1"/>
+            <div colspan="2" class="text-muted small" invisible="not distri_encomienda">
+              Por defecto paga Distrineuquén; con lista de distribuidoras o un pedido chico, el cliente en
+              destino. Lo que se elija acá queda para este pedido.
+            </div>
+          </group>
+          <group invisible="not distri_encomienda">
+            <field name="distri_encomienda_pedida"/>
+            <field name="distri_encomienda_nombre"/>
+            <field name="distri_encomienda_dni"/>
+            <field name="distri_encomienda_localidad"/>
+          </group>
+        </group>
+        <group string="Guías despachadas" invisible="not distri_parcel_ids">
+        <field name="distri_parcel_ids" nolabel="1" colspan="2">
+          <list>
+            <field name="photo" widget="image" options="{'size': [56, 56]}" string="Guía"/>
+            <field name="dispatched_at"/>
+            <field name="carrier_id"/>
+            <field name="guide_number"/>
+            <field name="payer"/>
+            <field name="notified" widget="boolean"/>
+          </list>
+        </field>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ===================================================== remito (PDF) -->
+
+  <!-- The delivery note that travels with the goods: for a parcel, what the
+       carrier and the terminal need to see. -->
+  <template id="report_delivery_document_encomienda" inherit_id="stock.report_delivery_document">
+    <xpath expr="//div[@id='informations']" position="after">
+      <t t-set="distri_so" t-value="o.sale_id.sudo() if 'sale_id' in o._fields else False"/>
+      <div t-if="distri_so and distri_so.distri_encomienda" class="mb-4"
+           style="border:2px solid #000;padding:8px 12px">
+        <strong style="font-size:1.2em">ENCOMIENDA</strong>
+        <span> · Terminal de <t t-esc="distri_so._distri_parcel_town()"/></span>
+        <span t-if="distri_so.distri_carrier_id"> · <t t-esc="distri_so.distri_carrier_id.name"/></span>
+        <div><strong t-esc="distri_so.distri_envio_paga_label"/></div>
+        <div>Destinatario: <t t-esc="distri_so.partner_id.name"/>
+          <t t-if="distri_so.partner_id._distri_whatsapp_shown()"> · Tel. <t t-esc="distri_so.partner_id._distri_whatsapp_shown()"/></t></div>
+        <div t-if="distri_so.distri_encomienda_retira">Retira: <t t-esc="distri_so.distri_encomienda_retira"/></div>
+        <div t-if="distri_so.distri_bultos">Bultos: <t t-esc="distri_so.distri_bultos"/></div>
+      </div>
+    </xpath>
+  </template>
+
+  <!-- ========================================================== menus -->
+
+  <menuitem id="menu_reparto_parcels" name="Encomiendas despachadas" parent="menu_reparto_root"
+            action="action_parcel" sequence="25"/>
+  <menuitem id="menu_reparto_expenses" name="Gastos del repartidor" parent="menu_reparto_root"
+            action="action_expense" sequence="26"/>
+  <menuitem id="menu_reparto_carriers" name="Transportistas" parent="menu_reparto_root"
+            action="action_carrier" sequence="55"/>
+
+</odoo>

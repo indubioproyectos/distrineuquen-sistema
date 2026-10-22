@@ -1,0 +1,65 @@
+# Distrineuquén lab — what never goes into git (real data, secrets, backups).
+# Policy: documentacion/proyecto/entornos-y-operacion.md («Control de versiones»).
+
+# secrets and private files
+*.env
+.env*
+.master_password
+config/odoo.conf
+config/*.bak*
+*.key
+*.pem
+
+# backups and dumps
+backups-db/
+backups-codigo/
+*.dump
+*.sql
+*.sql.gz
+*.tgz
+*.tar.gz
+*.zip
+*.rar
+*.bak
+*.bak-*
+
+# real data
+insumos/
+capturas/
+precios_revendedores.csv
+productos.xlsx
+settlement_*.csv
+*.xlsx
+
+# python / tooling
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# OCA modules: unmodified upstream copies, documented in OCA.md (not vendored here)
+oca-addons/
+
+# scripts: outputs and one-off scripts that work on real data
+scripts/l10n_ar/out/
+scripts/mp_prueba_alcance.py
+scripts/l10n_ar/distri_pedido-remito.patch
+scripts/l10n_ar/flow.py
+scripts/l10n_ar/limpieza.py
+scripts/l10n_ar/limpieza_demo.py
+scripts/l10n_ar/limpieza_dia_prueba.py
+scripts/l10n_ar/ocr_accuracy.py
+scripts/l10n_ar/ocr_retry.py
+scripts/l10n_ar/ocr_whatsapp.py
+scripts/l10n_ar/practica_demo.py
+scripts/l10n_ar/practica_web.py
+scripts/l10n_ar/precargar_cuit_body.py
+scripts/l10n_ar/prueba_validacion.py
+scripts/l10n_ar/sync_online_body.py
+scripts/l10n_ar/verify_decisiones.py
+
+# legacy compose backup
+compose.yaml.bak-*
+
+# screenshots with real data (kept only on the server; see entornos-y-operacion.md)
+addons/distri_pedido/static/src/img/catalogo.png
+addons/distri_pedido/static/src/img/cotizacion.png

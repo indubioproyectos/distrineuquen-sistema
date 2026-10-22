@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_whatsapp_message_list" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.list</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="arch" type="xml">
+      <list string="Mensajes WhatsApp" create="false" delete="false"
+            decoration-info="direction == 'in'"
+            decoration-danger="status == 'failed'">
+        <field name="timestamp"/>
+        <field name="direction"/>
+        <field name="wa_id"/>
+        <field name="profile_name" optional="show"/>
+        <field name="message_type" optional="show"/>
+        <field name="body"/>
+        <field name="has_attachment" string="Archivo" widget="boolean_icon"
+               options="{'icon': 'fa-paperclip'}" optional="show"/>
+        <field name="media_state" widget="badge" optional="show"
+               decoration-success="media_state == 'done'"
+               decoration-warning="media_state == 'pending'"
+               decoration-danger="media_state == 'error'"/>
+        <field name="status" optional="show"/>
+        <field name="status_date" optional="hide"/>
+        <field name="create_date" string="Recibido" optional="hide"/>
+        <field name="wa_message_id" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_whatsapp_message_form" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.form</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="arch" type="xml">
+      <form string="Mensaje WhatsApp" create="false" delete="false" edit="false">
+        <header>
+          <button name="action_wa_download_media" type="object" string="Descargar ahora"
+                  class="btn-primary" groups="base.group_system"
+                  invisible="not media_id or media_state == 'done'"/>
+          <field name="media_state" widget="statusbar" invisible="not media_id"/>
+        </header>
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="profile_name" class="oe_inline"/> <field name="wa_id" class="oe_inline"/></h1>
+          </div>
+          <group>
+            <group string="Mensaje">
+              <field name="direction"/>
+              <field name="message_type"/>
+              <field name="body"/>
+              <field name="wa_message_id"/>
+              <field name="phone_number_id"/>
+            </group>
+            <group string="Fechas">
+              <field name="timestamp"/>
+              <field name="status"/>
+              <field name="status_date"/>
+              <field name="create_date" string="Recibido"/>
+              <field name="write_date" string="Actualizado"/>
+            </group>
+          </group>
+          <group string="Archivo recibido" invisible="not media_id">
+            <group>
+              <field name="media_mime_type"/>
+              <field name="media_filename" invisible="not media_filename"/>
+              <field name="media_attempts"/>
+              <field name="media_error" invisible="not media_error"/>
+              <field name="media_id"/>
+              <field name="media_sha256"/>
+            </group>
+            <group>
+              <field name="media_is_image" invisible="1"/>
+              <field name="media_name" invisible="1"/>
+              <field name="media_data" string="Comprobante" widget="image"
+                     invisible="not media_is_image" options="{'size': [0, 400]}"/>
+              <field name="media_data" string="Comprobante" widget="binary"
+                     filename="media_name" invisible="not attachment_id or media_is_image"/>
+              <field name="attachment_id" invisible="1"/>
+            </group>
+          </group>
+          <group string="Aviso recibido">
+            <field name="payload" nolabel="1" colspan="2" widget="text"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_whatsapp_message_search" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.search</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="wa_id"/>
+        <field name="profile_name"/>
+        <field name="body"/>
+        <filter name="recibidos" string="Recibidos" domain="[('direction', '=', 'in')]"/>
+        <filter name="enviados" string="Enviados" domain="[('direction', '=', 'out')]"/>
+        <filter name="fallidos" string="Fallidos" domain="[('status', '=', 'failed')]"/>
+        <separator/>
+        <filter name="con_archivo" string="Con archivo" domain="[('has_attachment', '=', True)]"/>
+        <filter name="descarga_pendiente" string="Descarga pendiente" domain="[('media_state', '=', 'pending')]"/>
+        <filter name="descarga_error" string="Descarga con error" domain="[('media_state', '=', 'error')]"/>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_whatsapp_message" model="ir.actions.act_window">
+    <field name="name">Mensajes WhatsApp</field>
+    <field name="res_model">distri.whatsapp.message</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <menuitem id="menu_whatsapp_message"
+            name="Mensajes WhatsApp"
+            parent="sale.sale_order_menu"
+            action="action_whatsapp_message"
+            groups="base.group_system,sales_team.group_sale_manager"
+            sequence="41"/>
+
+</odoo>

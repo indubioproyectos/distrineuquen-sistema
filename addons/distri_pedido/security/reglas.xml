@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data noupdate="0">
+
+    <record id="regla_partner_vendedor" model="ir.rule">
+      <field name="name">Vendedor: solo los clientes de su cartera</field>
+      <field name="model_id" ref="base.model_res_partner"/>
+      <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
+      <field name="domain_force">[('category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="perm_read" eval="True"/>
+      <field name="perm_write" eval="True"/>
+      <field name="perm_create" eval="True"/>
+      <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="regla_partner_todos" model="ir.rule">
+      <field name="name">Administración y gerencia: todos los clientes</field>
+      <field name="model_id" ref="base.model_res_partner"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+    <!-- «Comprobantes pendientes» (19.0.1.25.0): the seller sees the ones of
+         his portfolio, administración and gerencia all of them -->
+    <record id="regla_comprobante_pendiente_vendedor" model="ir.rule">
+      <field name="name">Vendedor: comprobantes pendientes de su cartera</field>
+      <field name="model_id" ref="model_distri_promised_transfer"/>
+      <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
+      <field name="domain_force">[('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+    </record>
+
+    <record id="regla_comprobante_historial_vendedor" model="ir.rule">
+      <field name="name">Vendedor: historial de los pendientes de su cartera</field>
+      <field name="model_id" ref="model_distri_promised_transfer_history"/>
+      <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
+      <field name="domain_force">[('promise_id.partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+    </record>
+
+    <record id="regla_comprobante_historial_todos" model="ir.rule">
+      <field name="name">Administración y gerencia: historial de todos los pendientes</field>
+      <field name="model_id" ref="model_distri_promised_transfer_history"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+    <record id="regla_comprobante_pendiente_todos" model="ir.rule">
+      <field name="name">Administración y gerencia: todos los comprobantes pendientes</field>
+      <field name="model_id" ref="model_distri_promised_transfer"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+    <!-- «Deudas de empleados» (19.0.1.30.0): only administración and gerencia.
+         Vendedores and repartidores get no row even if an access is added by
+         mistake; administración (which implies those groups) sees all. -->
+    <record id="regla_deudas_empleados_vendedor" model="ir.rule">
+      <field name="name">Deudas de empleados: no para vendedores</field>
+      <field name="model_id" ref="model_distri_employee_debt"/>
+      <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
+      <field name="domain_force">[(0, '=', 1)]</field>
+    </record>
+    <record id="regla_deudas_empleados_reparto" model="ir.rule">
+      <field name="name">Deudas de empleados: no para repartidores</field>
+      <field name="model_id" ref="model_distri_employee_debt"/>
+      <field name="groups" eval="[(4, ref('grupo_reparto'))]"/>
+      <field name="domain_force">[(0, '=', 1)]</field>
+    </record>
+    <record id="regla_deudas_empleados_admin" model="ir.rule">
+      <field name="name">Deudas de empleados: administración y gerencia</field>
+      <field name="model_id" ref="model_distri_employee_debt"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+    <record id="regla_cuenta_vendedor" model="ir.rule">
+      <field name="name">Vendedor: cuenta corriente de su cartera</field>
+      <field name="model_id" ref="model_distri_cuenta_movimiento"/>
+      <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
+      <field name="domain_force">[('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="perm_read" eval="True"/>
+      <field name="perm_write" eval="False"/>
+      <field name="perm_create" eval="False"/>
+      <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="regla_cuenta_todas" model="ir.rule">
+      <field name="name">Administración y gerencia: todas las cuentas</field>
+      <field name="model_id" ref="model_distri_cuenta_movimiento"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+
+    <record id="regla_parcel_vendedor" model="ir.rule">
+      <field name="name">Vendedor: encomiendas de sus pedidos</field>
+      <field name="model_id" ref="model_distri_parcel"/>
+      <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
+      <field name="domain_force">['|', ('salesperson_id', '=', user.id), ('salesperson_id', '=', False)]</field>
+      <field name="perm_read" eval="True"/>
+      <field name="perm_write" eval="False"/>
+      <field name="perm_create" eval="False"/>
+      <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="regla_parcel_todas" model="ir.rule">
+      <field name="name">Administración y gerencia: todas las encomiendas</field>
+      <field name="model_id" ref="model_distri_parcel"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+    <!-- El cliente ve el remito, nunca la factura (models/remito.py). Reglas
+         globales que solo filtran a los usuarios externos (portal y visitante
+         web): sin facturas ni notas de credito de cliente, ni sus apuntes.
+         El personal interno no cambia. Las paginas del cliente leen la
+         cuenta corriente con sudo y muestran el remito. -->
+    <record id="regla_cliente_sin_facturas" model="ir.rule">
+      <field name="name">Clientes: sin facturas (ven el remito)</field>
+      <field name="model_id" ref="account.model_account_move"/>
+      <field name="domain_force">[('move_type', 'not in', ('out_invoice', 'out_refund', 'out_receipt'))] if user.share else [(1, '=', 1)]</field>
+    </record>
+
+    <record id="regla_cliente_sin_apuntes_de_facturas" model="ir.rule">
+      <field name="name">Clientes: sin apuntes de facturas (ven el remito)</field>
+      <field name="model_id" ref="account.model_account_move_line"/>
+      <field name="domain_force">[('move_id.move_type', 'not in', ('out_invoice', 'out_refund', 'out_receipt'))] if user.share else [(1, '=', 1)]</field>
+    </record>
+
+    <!-- Lista oculta (regla del 30/09/2026): el vendedor trabaja con comercios
+         chicos y ve solo la lista General; distribuidoras y revendedores los
+         manejan Gerencia y Administración (models/lista_oculta.py). Reglas
+         globales que solo filtran al vendedor sin Administración: no lee las
+         listas ocultas (Distribuidoras y las marcadas «Lista de
+         distribuidoras»), sus reglas de precio, ni los pedidos de
+         distribuidoras (lista oculta o cliente con la marca). Escribir o crear
+         un pedido así lo frena models/lista_oculta.py con un mensaje claro;
+         por eso esas reglas no aplican a escribir ni crear. Lo que corre con
+         sudo (/pedido, cron, asistentes) no cambia. -->
+    <record id="regla_vendedor_sin_listas_ocultas" model="ir.rule">
+      <field name="name">Vendedor: sin listas de precios ocultas</field>
+      <field name="model_id" ref="product.model_product_pricelist"/>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', '|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')]</field>
+    </record>
+
+    <record id="regla_vendedor_sin_precios_ocultos" model="ir.rule">
+      <field name="name">Vendedor: sin precios de las listas ocultas</field>
+      <field name="model_id" ref="product.model_product_pricelist_item"/>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')])]</field>
+    </record>
+
+    <!-- Clientes y visitantes (portal y público, 19.0.1.24.2): website_sale
+         les da lectura de todas las listas y reglas de precio, y la API de
+         datos (/web/dataset/call_kw, /json/2) las expone. Solo leen las listas
+         no ocultas y su propia lista oculta si la empresa tiene la marca
+         (res.users.distri_lista_cliente_id, models/lista_oculta.py). /pedido y
+         la tienda calculan los precios con sudo. -->
+    <record id="regla_cliente_listas_propias" model="ir.rule">
+      <field name="name">Clientes: solo las listas públicas y la propia autorizada</field>
+      <field name="model_id" ref="product.model_product_pricelist"/>
+      <field name="domain_force">['|', ('id', '=', user.distri_lista_cliente_id.id), '!', '|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')] if user.share else [(1, '=', 1)]</field>
+    </record>
+
+    <record id="regla_cliente_precios_propios" model="ir.rule">
+      <field name="name">Clientes: solo precios de las listas públicas y la propia autorizada</field>
+      <field name="model_id" ref="product.model_product_pricelist_item"/>
+      <field name="domain_force">['|', ('pricelist_id', '=', user.distri_lista_cliente_id.id), '!', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')])] if user.share else [(1, '=', 1)]</field>
+    </record>
+
+    <record id="regla_vendedor_sin_pedidos_de_distribuidoras" model="ir.rule">
+      <field name="name">Vendedor: pedido de distribuidora, lo gestiona Administración</field>
+      <field name="model_id" ref="sale.model_sale_order"/>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', '|', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')]), ('partner_id.commercial_partner_id.distri_lista_oculta', '=', True)]</field>
+      <field name="perm_write" eval="False"/>
+      <field name="perm_create" eval="False"/>
+    </record>
+
+    <record id="regla_vendedor_sin_renglones_de_distribuidoras" model="ir.rule">
+      <field name="name">Vendedor: renglones de pedidos de distribuidoras, los gestiona Administración</field>
+      <field name="model_id" ref="sale.model_sale_order_line"/>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', ('order_id', 'any', ['|', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')]), ('partner_id.commercial_partner_id.distri_lista_oculta', '=', True)])]</field>
+    </record>
+
+  </data>
+</odoo>

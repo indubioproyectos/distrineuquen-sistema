@@ -1,0 +1,17 @@
+[options]
+proxy_mode = True
+addons_path = /mnt/extra-addons,/mnt/oca-addons
+# Evaluación OCA Mercado Pago (2026-09-25): la copia distri_lab_mp no se sirve por HTTP
+# ni corre crons; el sitio sigue atado a distri_lab. Revertir: odoo.conf.bak-oca
+dbfilter = ^distri_lab$
+db_name = distri_lab
+data_dir = /var/lib/odoo
+admin_passwd = CAMBIAR_EN_CADA_SERVIDOR
+db_host = db
+db_port = 5432
+db_user = odoo
+db_password = CAMBIAR
+list_db = True
+limit_time_cpu = 600
+limit_time_real = 1200
+workers = 2

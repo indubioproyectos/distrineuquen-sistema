@@ -1,0 +1,144 @@
+/* Tablero de cobros (views/cobros.xml, static/src/js/cobros_board.js).
+   Project palette (static/src/css/distri_ui.css): navy #10243f, teal
+   #0a6b5c, Figtree (served by distri_tema). One accent per column, always
+   next to the column name and its icon: the colour is never the only
+   signal. Text colours keep a 4.5:1 contrast on their background. */
+@font-face{font-family:"Figtree";font-style:normal;font-display:swap;font-weight:300 900;
+  src:url("/distri_tema/static/src/fonts/figtree-latin-wght-normal.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+.o_distri_cobros{
+  --distri-navy:#10243f; --distri-teal:#0a6b5c; --distri-text:#22303d; --distri-muted:#55636f;
+  --distri-line:#d6dde3; --distri-chip:#e8ecef;
+  --col:#55636f; --col-bg:#f1f4f6; --col-text:#3c4a57;
+}
+.o_distri_cobros .o_distri_col_verify{--col:#1d5fb4; --col-bg:#e6effb; --col-text:#1d4f8f}
+.o_distri_cobros .o_distri_col_confirm{--col:#1f7a4d; --col-bg:#e3f3ea; --col-text:#1f6b45}
+.o_distri_cobros .o_distri_col_review{--col:#c08a00; --col-bg:#fff4d1; --col-text:#6b5200}
+.o_distri_cobros .o_distri_col_unidentified{--col:#6b7883; --col-bg:#eef1f3; --col-text:#3c4a57}
+.o_distri_cobros .o_distri_col_no_money{--col:#c2410c; --col-bg:#fdebe3; --col-text:#8f2d1c}
+
+/* five columns side by side on a 1280 px screen; on a tablet the board
+   scrolls sideways and each column keeps a usable width */
+.o_distri_cobros .o_kanban_renderer.o_kanban_grouped .o_kanban_group{
+  flex:1 1 0;min-width:232px;width:auto;max-width:none}
+.o_distri_cobros .o_kanban_renderer,
+.o_distri_col_help{font-family:Figtree,var(--o-font-family-sans-serif,system-ui),sans-serif}
+
+/* ------------------------------------------------------------ header */
+.o_distri_cobros .o_kanban_renderer .o_kanban_group.o_distri_col .o_kanban_header{
+  background:var(--col-bg);border-top:4px solid var(--col);border-radius:8px;
+  padding:8px 10px!important;margin-bottom:8px}
+.o_distri_cobros .o_distri_col .o_column_title{align-items:center;color:var(--col-text);font-size:.98rem;line-height:1.2}
+/* the whole name is the instruction: wrap it instead of cutting it */
+.o_distri_cobros .o_distri_col .o_column_title .text-truncate{white-space:normal;overflow:visible;text-overflow:clip}
+.o_distri_cobros .o_distri_col_icon{color:var(--col);font-size:1rem}
+.o_distri_cobros .o_distri_col_count{
+  display:inline-flex;align-items:center;justify-content:center;min-width:1.6em;height:1.6em;
+  padding:0 .45em;border-radius:99px;background:var(--col-text);color:#fff;font-size:.8rem;font-weight:700}
+.o_distri_cobros .o_distri_col_info{
+  margin-left:auto;padding:0 2px;line-height:1;color:var(--col-text);font-size:1.15rem;
+  min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center}
+.o_distri_cobros .o_distri_col_info .fa{pointer-events:none}
+.o_distri_cobros .o_distri_col_info:hover,
+.o_distri_cobros .o_distri_col_info_open{color:var(--distri-navy)}
+.o_distri_cobros .o_distri_col_info:focus-visible{outline:2px solid var(--col);outline-offset:2px;border-radius:50%}
+.o_distri_cobros .o_distri_col_total{
+  font-weight:700;font-size:1.05rem;color:var(--distri-navy);font-variant-numeric:tabular-nums}
+.o_distri_cobros .o_kanban_no_records .o_distri_col_total{color:var(--distri-muted);font-weight:500}
+
+/* priority: «Asignar cliente» and «Sin transferencia» need a person, the
+   other three columns are checked with a light touch and stay calm */
+.o_distri_cobros .o_distri_col_sub{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.o_distri_cobros .o_distri_col_unidentified.o_distri_col_priority{--col:#4b5863}
+.o_distri_cobros .o_kanban_renderer .o_kanban_group.o_distri_col_calm .o_kanban_header{background:#f7f8f9}
+.o_distri_cobros .o_distri_col_calm .o_distri_col_total{font-weight:600;color:var(--distri-muted)}
+.o_distri_cobros .o_kanban_renderer .o_kanban_group.o_distri_col_priority .o_kanban_header{background:var(--col);border-top-color:var(--col);
+  box-shadow:0 2px 6px rgba(16,36,63,.18)}
+.o_distri_cobros .o_distri_col_priority .o_column_title,
+.o_distri_cobros .o_distri_col_priority .o_distri_col_icon,
+.o_distri_cobros .o_distri_col_priority .o_distri_col_info,
+.o_distri_cobros .o_distri_col_priority .o_distri_col_total,
+.o_distri_cobros .o_distri_col_priority .o_kanban_config .btn{color:#fff!important}
+.o_distri_cobros .o_distri_col_priority .o_distri_col_info:focus-visible{outline-color:#fff}
+.o_distri_cobros .o_distri_col_priority .o_distri_col_count{background:#fff;color:var(--col);
+  font-size:.95rem;min-width:1.9em;height:1.9em}
+.o_distri_cobros .o_distri_col_priority .o_distri_col_total{font-size:1.2rem;font-weight:800}
+.o_distri_cobros .o_distri_col_priority_badge{display:inline-flex;align-items:center;gap:4px;
+  background:#fff;color:var(--col);border-radius:99px;padding:1px 9px;font-size:.75rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.04em}
+.o_distri_cobros .o_distri_col_priority.o_kanban_no_records .o_distri_col_total{color:#fff;font-weight:600}
+
+/* popover of the «i» (rendered outside the board) */
+.o_distri_col_help_popover{max-width:330px}
+.o_distri_col_help{padding:12px 14px;max-width:320px;width:max-content}
+.o_distri_col_help_title{font-weight:800;color:#10243f;margin-bottom:4px}
+.o_distri_col_help_text{margin:0;color:#22303d;line-height:1.4}
+
+/* ------------------------------------------------------------ card */
+.o_distri_cobros .o_distri_col .o_kanban_record{
+  border-left:4px solid var(--col);border-radius:8px;margin-bottom:8px;
+  box-shadow:0 1px 2px rgba(16,36,63,.08)}
+.o_distri_cobros .o_distri_card{padding:10px 12px!important;display:flex;flex-direction:column;gap:4px;color:var(--distri-text)}
+.o_distri_cobros .o_distri_card_main{display:flex;gap:8px;align-items:flex-start}
+.o_distri_cobros .o_distri_card_text{flex:1 1 auto;min-width:0}
+.o_distri_cobros .o_distri_amount{display:block;white-space:nowrap;font-size:1.4rem;font-weight:800;line-height:1.15;
+  color:var(--distri-navy);font-variant-numeric:tabular-nums}
+.o_distri_cobros .o_distri_customer{font-weight:700;font-size:.98rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.o_distri_cobros .o_distri_no_customer{font-weight:500;font-style:italic;color:var(--distri-muted)}
+.o_distri_cobros .o_distri_when{font-size:.82rem;color:var(--distri-muted)}
+.o_distri_cobros .o_distri_when .fa{margin-right:3px}
+.o_distri_cobros .o_distri_thumb{width:48px;height:48px;object-fit:cover;border-radius:6px;
+  border:1px solid var(--distri-line);flex:0 0 auto;background:var(--distri-chip)}
+
+.o_distri_cobros .o_distri_badges{display:flex;flex-wrap:wrap;gap:4px}
+.o_distri_cobros .o_distri_badges:empty{display:none}
+.o_distri_cobros .o_distri_badge{display:inline-flex;align-items:center;gap:3px;border-radius:99px;
+  padding:1px 8px;font-size:.76rem;font-weight:700;line-height:1.5;white-space:nowrap}
+.o_distri_cobros .o_distri_badge_source{background:var(--col-bg);color:var(--col-text);box-shadow:inset 0 0 0 1px var(--col)}
+.o_distri_cobros .o_distri_badge_warn{background:#fff4d1;color:#6b5200}
+.o_distri_cobros .o_distri_badge_info{background:#e4eaf2;color:#10243f}
+.o_distri_cobros .o_distri_badge_danger{background:#fbe6e1;color:#8f2d1c}
+
+.o_distri_cobros .o_distri_note{font-size:.82rem;color:var(--col-text);background:var(--col-bg);
+  border-radius:6px;padding:3px 7px}
+.o_distri_cobros .o_distri_note_danger{background:#fbe6e1;color:#8f2d1c;font-weight:700}
+.o_distri_cobros .o_distri_badge_ok{background:#e3f3ea;color:#1f6b45}
+.o_distri_cobros .o_distri_badge_muted{background:var(--distri-chip);color:var(--distri-muted)}
+
+/* «Revisar»: why the card needs attention, first thing after the customer */
+.o_distri_cobros .o_distri_reason{display:flex;gap:6px;align-items:flex-start;font-size:.84rem;
+  color:#6b5200;background:#fff4d1;border-left:3px solid #c08a00;border-radius:4px;padding:4px 8px}
+.o_distri_cobros .o_distri_reason .fa{margin-top:2px}
+
+/* the data to double-check a card, as label / value rows */
+.o_distri_cobros .o_distri_facts{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:1px;
+  font-size:.8rem;line-height:1.35}
+.o_distri_cobros .o_distri_facts:empty{display:none}
+.o_distri_cobros .o_distri_fact_key{color:var(--distri-muted);white-space:nowrap}
+.o_distri_cobros .o_distri_fact_value{color:var(--distri-text);min-width:0;overflow-wrap:anywhere}
+.o_distri_cobros .o_distri_fact_value.font-monospace{letter-spacing:.02em}
+.o_distri_cobros .o_distri_report_link{font-size:.8rem;text-align:left;color:var(--distri-teal);
+  text-decoration:underline;vertical-align:baseline;border:0}
+
+/* actions: the column's main one full width, the rest in a compact row */
+.o_distri_cobros .o_distri_primary:empty{display:none}
+.o_distri_cobros .o_distri_primary{margin-top:4px}
+.o_distri_cobros .o_distri_primary .btn{width:100%;min-height:36px;font-weight:700;border-radius:6px}
+.o_distri_cobros .o_distri_col .o_distri_primary .btn-primary{background:var(--col);border-color:var(--col);color:#fff}
+.o_distri_cobros .o_distri_col_review .o_distri_primary .btn-primary{background:#8a6400;border-color:#8a6400}
+.o_distri_cobros .o_distri_col_unidentified .o_distri_primary .btn-primary{background:#4b5863;border-color:#4b5863}
+.o_distri_cobros .o_distri_col .o_distri_primary .btn-primary:hover{filter:brightness(.92)}
+.o_distri_cobros .o_distri_secondary{display:flex;flex-wrap:wrap;gap:4px}
+.o_distri_cobros .o_distri_secondary:empty{display:none}
+.o_distri_cobros .o_distri_secondary .btn{min-height:30px;padding:2px 8px;font-size:.8rem}
+.o_distri_cobros .o_distri_secondary .btn-light{background:var(--distri-chip);border-color:transparent;color:var(--distri-text)}
+
+/* counters bar on top of the board (19.0.1.31.0) */
+.o_distri_counters{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;padding:.5rem 1rem;
+  border-bottom:1px solid var(--border-color,#dee2e6);background:var(--o-view-background-color,#fff)}
+.o_distri_counter{font-size:.95rem;padding:.15rem .5rem;border-radius:.4rem}
+.o_distri_counter small{opacity:.75;margin-left:.35rem}
+.o_distri_counter_act{background:rgba(0,160,157,.10)}
+.o_distri_counter_older{background:rgba(220,140,0,.12)}
+.o_distri_counter_unknown,.o_distri_counter_apart{text-decoration:none}

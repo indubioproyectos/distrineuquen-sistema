@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Users without a time zone get America/Argentina/Buenos_Aires
+       (models/res_users.py). Runs on every update; a zone set on purpose stays. -->
+  <function model="res.users" name="_distri_set_argentina_tz"/>
+</odoo>

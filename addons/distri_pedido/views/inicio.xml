@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- La portada. Los textos salen de la web que la empresa ya tiene en
+       distrineuquen.odoo.com; la paleta es la misma de la pantalla de pedidos,
+       para que el cliente no sienta que cambia de sitio al entrar a comprar. -->
+  <template id="inicio" name="Inicio">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Distribuidora mayorista en Neuquén | Golosinas, alimentos y cigarrillos · Distri Neuquén</title>
+  <meta name="description" content="Distribuidora mayorista en Neuquén y Alto Valle de Río Negro. Golosinas, alimentos, cigarrillos y farmacia para almacenes y kioscos. Pedí en línea sin registrarte y recibí en menos de 24 horas."/>
+  <link rel="canonical" t-att-href="base_url"/>
+  <meta name="robots" content="index,follow"/>
+  <meta name="geo.region" content="AR-Q"/>
+  <meta name="geo.placename" content="Neuquén"/>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa.id"/>
+
+  <!-- Para que el enlace se vea bien cuando lo comparten por WhatsApp, que es
+       por donde circula todo en este negocio. -->
+  <meta property="og:type" content="website"/>
+  <meta property="og:site_name" content="Distri Neuquén"/>
+  <meta property="og:title" content="Distribuidora mayorista en Neuquén · Distri Neuquén"/>
+  <meta property="og:description" content="Golosinas, alimentos, cigarrillos y farmacia para almacenes y kioscos del Alto Valle. Pedí en línea sin registrarte."/>
+  <meta property="og:locale" content="es_AR"/>
+  <meta property="og:url" t-att-content="base_url"/>
+  <meta property="og:image" t-att-content="base_url + '/web/image/res.company/%s/logo' % empresa.id"/>
+  <meta name="twitter:card" content="summary"/>
+
+  <!-- Datos estructurados: le dicen a Google qué es este negocio, dónde está
+       y qué vende. Es lo que habilita la ficha en los resultados. -->
+  <script type="application/ld+json">{
+    "@context": "https://schema.org",
+    "@type": "Wholesaler",
+    "name": "Distri Neuquén",
+    "description": "Distribuidora mayorista de golosinas, alimentos y cigarrillos para almacenes y kioscos del Alto Valle de Río Negro y Neuquén.",
+    "telephone": "+549<t t-esc="ficha['telefono']"/>",
+    "areaServed": ["Neuquén", "Alto Valle de Río Negro"],
+    "address": {"@type": "PostalAddress", "addressLocality": "Neuquén", "addressRegion": "Neuquén", "addressCountry": "AR"},
+    "openingHours": "Mo-Fr 09:00-19:00",
+    "url": "<t t-esc="base_url"/>",
+    "makesOffer": [
+      {"@type": "Offer", "itemOffered": {"@type": "Product", "name": "Golosinas"}},
+      {"@type": "Offer", "itemOffered": {"@type": "Product", "name": "Cigarrillos y tabaco"}},
+      {"@type": "Offer", "itemOffered": {"@type": "Product", "name": "Alimentos y almacén"}},
+      {"@type": "Offer", "itemOffered": {"@type": "Product", "name": "Farmacia"}}
+    ]
+  }</script>
+  <style>
+    :root{
+      --fondo:#f5f5f5; --tarjeta:#fff; --texto:#4a4a4a; --tenue:#7a7a7a;
+      --borde:#eee; --linea:#dbdbdb; --acento:#00d1b2; --azul:#10243f;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--fondo);color:var(--texto);
+         font:16px/1.6 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:44rem;margin:0 auto;padding:0 1.15rem}
+    h1,h2,h3{color:var(--azul);line-height:1.25;margin:0}
+
+    .tapa{background:var(--azul);color:#e8eef5;padding:2.4rem 0 2.2rem;text-align:center}
+    .tapa .logo{width:96px;height:96px;border-radius:50%;object-fit:cover;display:block;margin:0 auto}
+    .tapa h1{color:#fff;font-size:1.9rem;margin:1rem 0 .35rem}
+    .tapa .lugar{color:#9fb3c8;font-size:.95rem;margin:0 0 1.5rem}
+    .cta{display:block;background:var(--acento);color:#fff;text-align:center;font-weight:700;
+         font-size:1.08rem;padding:1rem;border-radius:10px;text-decoration:none}
+    .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:.45rem;margin-top:1.3rem}
+    .chip{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:99px;
+          padding:.32rem .9rem;font-size:.82rem;color:#c3d3e3}
+
+    section{padding:2.3rem 0;border-top:1px solid var(--borde)}
+    .eyebrow{color:var(--acento);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
+             font-weight:700;margin:0 0 .5rem}
+    h2{font-size:1.4rem}
+    .bajada{font-size:1rem;margin:.7rem 0 0}
+
+    .pasos{margin:1.3rem 0 0;padding:0;list-style:none;counter-reset:paso}
+    .pasos li{position:relative;background:var(--tarjeta);border:1px solid var(--borde);
+              border-radius:12px;padding:1rem 1rem 1rem 3.6rem;margin-bottom:.65rem}
+    .pasos li:before{counter-increment:paso;content:counter(paso);position:absolute;left:1rem;top:1rem;
+                     width:1.9rem;height:1.9rem;border-radius:50%;background:var(--acento);color:#fff;
+                     font-weight:700;font-size:.9rem;display:flex;align-items:center;justify-content:center}
+    .pasos b{display:block;color:var(--azul);margin-bottom:.15rem}
+    .pasos span{font-size:.95rem}
+
+    .grilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5rem,1fr));gap:.8rem;margin-top:1.2rem}
+    .caja{display:block;text-decoration:none;color:inherit;border:1px solid var(--borde);
+          border-radius:10px;overflow:hidden;background:var(--tarjeta)}
+    .caja img{width:100%;height:104px;object-fit:contain;background:var(--fondo);display:block;padding:.5rem}
+    .caja .sinfoto{width:100%;height:104px;background:var(--fondo);display:flex;align-items:center;
+                   justify-content:center;color:#c9d2d9;font-size:1.7rem;font-weight:700}
+    .caja .pie{padding:.6rem .7rem}
+    .caja .nom{font-size:.88rem;font-weight:600;line-height:1.25;display:block;color:var(--azul)}
+    .caja .cant{font-size:.76rem;color:var(--tenue)}
+
+    .dos{display:flex;flex-direction:column;gap:.65rem;margin-top:1.2rem}
+    .bloque{background:var(--tarjeta);border:1px solid var(--borde);border-radius:12px;padding:1.1rem}
+    .bloque h3{font-size:1.05rem;margin-bottom:.3rem}
+    .bloque p{margin:0;font-size:.95rem}
+
+    .flota{position:fixed;right:1rem;bottom:1rem;z-index:50;display:flex;align-items:center;
+           gap:.55rem;background:#25d366;color:#fff;font-weight:700;font-size:.95rem;
+           padding:.8rem 1.1rem;border-radius:99px;text-decoration:none;
+           box-shadow:0 6px 20px rgba(0,0,0,.25)}
+    .flota svg{width:22px;height:22px;fill:#fff;flex:0 0 22px}
+    @media (max-width:420px){ .flota span{display:none} .flota{padding:.9rem;border-radius:50%} }
+
+    .asesor{background:var(--tarjeta);border:1px solid var(--borde);border-radius:12px;
+            padding:1.2rem;margin-top:1.2rem;text-align:center}
+    .asesor h3{font-size:1.05rem;margin-bottom:.35rem}
+    .asesor p{margin:0 0 1rem;font-size:.95rem}
+    .asesor .boton{display:inline-flex;align-items:center;gap:.5rem;background:#25d366;color:#fff;
+                   font-weight:700;padding:.8rem 1.4rem;border-radius:10px;text-decoration:none}
+    .asesor .boton svg{width:20px;height:20px;fill:#fff}
+
+    .pie-sitio{background:var(--azul);color:#7f95ad;padding:2rem 0 2.4rem;text-align:center;font-size:.88rem}
+    .pie-sitio a{color:#c3d3e3;text-decoration:none}
+    .pie-sitio p{margin:.2rem 0}
+  </style>
+</head>
+<body>
+
+  <div class="tapa">
+    <div class="marco">
+      <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa.id" alt="Distri Neuquén"/>
+      <h1>Distri Neuquén</h1>
+      <p class="lugar">Distribuidora mayorista de golosinas, alimentos y cigarrillos · Neuquén y Alto Valle</p>
+      <a class="cta" href="/pedido">Armá tu pedido</a>
+      <div class="chips">
+        <span class="chip"><t t-esc="ficha['reparto']"/></span>
+        <span class="chip"><t t-esc="ficha['leyenda']"/></span>
+        <span class="chip">Envío sin cargo desde $ <t t-esc="compra_minima_texto"/></span>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="marco">
+      <p class="eyebrow">Quiénes somos</p>
+      <h2>Más de una década abasteciendo el Alto Valle</h2>
+      <p class="bajada">En Distri Neuquén nos especializamos en la distribución de golosinas,
+         alimentos y cigarrillos. Abastecemos almacenes y kioscos en todo el Alto Valle de
+         Río Negro y Neuquén, garantizando variedad, calidad y un servicio eficiente.</p>
+      <p class="bajada">Realizamos envíos a toda la provincia, asegurando que tus productos
+         lleguen a tiempo y en perfectas condiciones. <b>Entregamos en menos de 24 horas</b>,
+         para que siempre tengas stock disponible cuando lo necesites.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="marco">
+      <p class="eyebrow">Cómo se hacen los pedidos</p>
+      <h2>Cuatro pasos, sin registrarte</h2>
+      <p class="bajada">No hace falta usuario ni contraseña. Entrás, cargás y mandás.</p>
+      <ol class="pasos">
+        <li><b>Entrá al catálogo</b><span>Tocá «Armá tu pedido». Se abre el catálogo completo,
+            ordenado por categoría, con el buscador arriba.</span></li>
+        <li><b>Cargá las cantidades</b><span>Abrís la categoría que necesitás y ponés cuánto
+            querés de cada producto. Abajo vas viendo el total todo el tiempo.</span></li>
+        <li><b>Confirmá y mandalo por WhatsApp</b><span>Elegís si lo retirás o te lo llevamos,
+            dejás el nombre del comercio y un teléfono, y se abre WhatsApp con el pedido ya
+            escrito. Solo apretás enviar.</span></li>
+        <li><b>Podés cambiarlo hasta las 8 de la mañana</b><span>Con el enlace que te queda en
+            el mensaje agregás o quitás productos. Después de esa hora el pedido entra a
+            preparación, y con ese mismo enlace ves cómo quedó.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <div class="marco">
+      <p class="eyebrow">Qué vas a encontrar</p>
+      <h2>Nuestras secciones</h2>
+      <div class="grilla">
+        <t t-foreach="secciones" t-as="s">
+          <a href="/pedido" class="caja">
+            <t t-if="s['foto']">
+              <img t-att-src="s['foto']" t-att-alt="s['nombre']" loading="lazy"/>
+            </t>
+            <t t-else="">
+              <div class="sinfoto"><t t-esc="s['nombre'][:1]"/></div>
+            </t>
+            <div class="pie">
+              <span class="nom"><t t-esc="s['nombre']"/></span>
+              <span class="cant"><t t-esc="s['cantidad']"/> productos</span>
+            </div>
+          </a>
+        </t>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="marco">
+      <p class="eyebrow">Para comercios</p>
+      <h2>Almacenes, kioscos y revendedores</h2>
+      <div class="dos">
+        <div class="bloque">
+          <h3>Almacenes y kioscos</h3>
+          <p>Lista mayorista general, con envío sin cargo desde $ <t t-esc="compra_minima_texto"/>.
+             Si preferís retirar en el depósito, no hay mínimo.</p>
+        </div>
+        <div class="bloque">
+          <h3>Clientes con usuario</h3>
+          <p>Entrá con tu usuario y vas a ver tus precios y tu cuenta corriente. Los
+             cigarrillos y el tabaco se cargan sin precio y te confirmamos el total con el
+             pedido.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="marco">
+      <div class="asesor">
+        <h3>¿Necesitás ayuda con tu pedido?</h3>
+        <p>Escribinos y te atiende un asesor de ventas. Te ayudamos a armar el pedido,
+           consultar precios mayoristas o coordinar la entrega.</p>
+        <a class="boton" t-att-href="'https://wa.me/%s?text=%s' % (whatsapp, consulta)"
+           target="_blank" rel="noopener"><svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>Hablar con un asesor</a>
+      </div>
+      <a class="cta" href="/pedido" style="margin-top:1.2rem">Armá tu pedido</a>
+    </div>
+  </section>
+
+  <div class="pie-sitio">
+    <div class="marco">
+      <p><b style="color:#fff">Distri Neuquén</b></p>
+      <p><t t-esc="ficha['localidad']"/><t t-if="ficha['telefono']"> · <a t-att-href="'tel:%s' % ficha['telefono']"><t t-esc="ficha['telefono']"/></a></t></p>
+      <p><a t-att-href="'https://wa.me/%s' % whatsapp">Escribinos por WhatsApp</a></p>
+    </div>
+  </div>
+
+  <a class="flota" t-att-href="'https://wa.me/%s?text=%s' % (whatsapp, consulta)"
+     target="_blank" rel="noopener" aria-label="Hablar con un asesor por WhatsApp">
+    <svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg><span>Hablar con un asesor</span>
+  </a>
+
+</body>
+</html>
+  </template>
+
+</odoo>
