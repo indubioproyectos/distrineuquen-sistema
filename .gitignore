@@ -60,6 +60,3 @@ scripts/l10n_ar/verify_decisiones.py
 # legacy compose backup
 compose.yaml.bak-*
 
-# screenshots with real data (kept only on the server; see entornos-y-operacion.md)
-addons/distri_pedido/static/src/img/catalogo.png
-addons/distri_pedido/static/src/img/cotizacion.png
