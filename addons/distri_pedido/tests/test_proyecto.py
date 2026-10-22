@@ -70,12 +70,16 @@ class TestProyecto(HttpCase):
         proyecto = self.url_open("/proyecto").text
         self.assertIn("Un pedido, de punta a punta", proyecto)
         self.assertIn('href="/presentacion/reparto#rendicion"', proyecto)
-        self.assertIn('id="armador"', self.url_open("/presentacion").text)
+        presentacion = self.url_open("/presentacion").text
+        self.assertIn('id="armador"', presentacion)
+        self.assertNotIn('Etiquetas de bultos <span class="luego">Pendiente', presentacion)
 
     def test_strip_follows_record(self):
         rows = {r["code"]: r for r in self.env["distri.project.module"].project_rows()}
         self.assertEqual(rows["catalogo"]["stage_index"], 2)
-        self.assertEqual(rows["etiquetas"]["stage_index"], -1)
+        # 19.0.1.36.0: the labels are done (migration for the noupdate card)
+        self.assertEqual(rows["etiquetas"]["stage_index"], 2)
+        self.assertEqual(rows["stock"]["stage_index"], -1)
         self.assertEqual(set(rows["migracion"]) - {"code", "name", "description", "stage",
                                                    "stage_label", "stage_index", "next_step",
                                                    "url", "depends_on"}, set())

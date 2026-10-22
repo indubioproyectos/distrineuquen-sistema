@@ -182,9 +182,9 @@
       <field name="code">etiquetas</field>
       <field name="sequence">120</field>
       <field name="name">Etiquetas de bultos</field>
-      <field name="description">Etiquetas con la cantidad de bultos y el nombre de cada cliente.</field>
-      <field name="stage">pending</field>
-      <field name="next_step">El gerente confirma qué sistema o impresora de etiquetas usa.</field>
+      <field name="description">Una etiqueta de 100 x 50 mm por bulto para la impresora térmica del depósito: cliente, localidad, pedido, «Bulto 2 de 3» y código de barras. Se imprimen al terminar el armado, desde el pedido o todas las de un viaje desde la ruta.</field>
+      <field name="stage">lab</field>
+      <field name="next_step">Imprimir la etiqueta de prueba en la impresora real del depósito y calibrarla.</field>
       <field name="depends_on_ids" eval="[(6, 0, [ref('project_armado')])]"/>
     </record>
 

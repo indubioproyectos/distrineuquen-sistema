@@ -774,9 +774,11 @@
           viajes se confirman con el gerente, porque ahora hay dos repartidores.
         </div>
         <div class="fila">
-          <span class="et">Etiquetas de bultos <span class="luego">Pendiente</span></span>
-          El gerente confirma qué sistema o impresora de etiquetas usa. Según eso, Odoo le pasa
-          los datos o imprime las etiquetas con la cantidad de bultos y el nombre de cada uno.
+          <span class="et">Etiquetas de bultos <span class="luego lab">Funciona en el lab</span></span>
+          Odoo imprime una etiqueta de 100 x 50 mm por bulto en la impresora térmica del
+          depósito: cliente, localidad, pedido, «Bulto 2 de 3» y un código de barras. Se
+          imprimen al terminar el armado, desde el pedido o todas las de un viaje desde la ruta.
+          Falta probarlas en la impresora real.
         </div>
       </div>
     </div>
