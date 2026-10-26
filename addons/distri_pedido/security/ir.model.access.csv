@@ -100,3 +100,15 @@ acceso_gps_config_admin,distri.gps.config administracion,model_distri_gps_config
 acceso_gps_config_sistema,distri.gps.config sistema,model_distri_gps_config,base.group_system,1,1,1,1
 acceso_reparto_tiempos_admin,distri.reparto.tiempos administracion,model_distri_reparto_tiempos,distri_pedido.grupo_administracion,1,1,1,1
 acceso_reparto_tiempos_sistema,distri.reparto.tiempos sistema,model_distri_reparto_tiempos,base.group_system,1,1,1,1
+acceso_online_payment_admin,distri.online.payment administracion,model_distri_online_payment,distri_pedido.grupo_administracion,1,0,0,0
+acceso_online_payment_sistema,distri.online.payment sistema,model_distri_online_payment,base.group_system,1,1,1,1
+acceso_online_export_admin,distri.online.export administracion,model_distri_online_export,distri_pedido.grupo_administracion,1,0,0,0
+acceso_online_export_sistema,distri.online.export sistema,model_distri_online_export,base.group_system,1,1,1,1
+acceso_online_export_wizard_admin,distri.online.export.wizard administracion,model_distri_online_export_wizard,distri_pedido.grupo_administracion,1,1,1,1
+acceso_online_export_wizard_sistema,distri.online.export.wizard sistema,model_distri_online_export_wizard,base.group_system,1,1,1,1
+acceso_online_balance_admin,distri.online.balance administracion,model_distri_online_balance,distri_pedido.grupo_administracion,1,1,1,1
+acceso_online_balance_sistema,distri.online.balance sistema,model_distri_online_balance,base.group_system,1,1,1,1
+acceso_chat_import_admin,distri.whatsapp.chat.import administracion,model_distri_whatsapp_chat_import,distri_pedido.grupo_administracion,1,0,0,0
+acceso_chat_import_sistema,distri.whatsapp.chat.import sistema,model_distri_whatsapp_chat_import,base.group_system,1,1,1,1
+acceso_chat_import_wizard_admin,distri.whatsapp.chat.import.wizard administracion,model_distri_whatsapp_chat_import_wizard,distri_pedido.grupo_administracion,1,1,1,1
+acceso_chat_import_wizard_sistema,distri.whatsapp.chat.import.wizard sistema,model_distri_whatsapp_chat_import_wizard,base.group_system,1,1,1,1

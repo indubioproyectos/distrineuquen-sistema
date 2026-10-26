@@ -24,6 +24,8 @@
                   groups="distri_pedido.grupo_administracion"/>
           <button name="action_import_report" type="object" display="always"
                   string="Importar reporte"/>
+          <button name="action_open_export" type="object" display="always"
+                  string="Exportar para Odoo Online" groups="distri_pedido.grupo_administracion"/>
           <button name="action_check_alerts" type="object" display="always"
                   string="Revisar alertas" groups="distri_pedido.grupo_administracion"/>
         </header>
@@ -100,7 +102,7 @@
               <span t-if="kind == 'verify' and draft" class="o_distri_badge o_distri_badge_info">
                 <i class="fa fa-hourglass-half" aria-hidden="true"/> Aún sin registro en Mercado Pago
               </span>
-              <span t-if="kind == 'verify' and authorized and not record.report_review.raw_value"
+              <span t-if="kind == 'verify' and authorized and !record.report_review.raw_value"
                     class="o_distri_badge o_distri_badge_warn"
                     title="Se vio en la app de Mercado Pago. No hay ningún pago registrado: se registra cuando el reporte traiga la transferencia.">
                 <i class="fa fa-truck" aria-hidden="true"/> Autorizado para entregar · falta el reporte
@@ -234,7 +236,7 @@
                       name="action_confirm" type="object" class="btn btn-sm btn-light">
                 Confirmar
               </button>
-              <button t-if="record.report_review.raw_value and not authorized" name="action_clear_review"
+              <button t-if="record.report_review.raw_value and !authorized" name="action_clear_review"
                       type="object" class="btn btn-sm btn-light"
                       groups="distri_pedido.grupo_administracion">
                 Revisado
@@ -253,7 +255,7 @@
                 <t t-if="kind == 'receipt'">Investigar</t>
                 <t t-else="">Descartar</t>
               </button>
-              <button t-if="record.report_review.raw_value and not authorized" name="action_undo"
+              <button t-if="record.report_review.raw_value and !authorized" name="action_undo"
                       type="object" class="btn btn-sm btn-link text-danger"
                       groups="distri_pedido.grupo_administracion"
                       confirm="Se anula el pago registrado y el comprobante vuelve a «Esperando reporte MP». ¿Seguir?">

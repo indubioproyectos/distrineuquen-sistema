@@ -38,3 +38,4 @@ from . import retiro_deposito
 from . import mayoristas
 from . import etiquetas
 from . import reparto_gps
+from . import puesta_al_dia

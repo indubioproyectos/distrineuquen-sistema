@@ -25,3 +25,4 @@ from . import test_mayoristas
 from . import test_etiquetas
 from . import test_reparto_gps
 from . import test_cobertura
+from . import test_puesta_al_dia

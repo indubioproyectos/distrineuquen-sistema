@@ -345,9 +345,85 @@ def parse_operation(text):
     return match.group(1) if match else ""
 
 
+# «Todas las transacciones» downloaded by hand from Mercado Pago comes as .xlsx
+# with Spanish headers (settlement_v2-…xlsx); the scheduled report uses the
+# technical ones. Both end up as the technical names (19.0.1.38.0).
+SPANISH_COLUMNS = {
+    "ID DE OPERACIÓN EN MERCADO PAGO": "SOURCE_ID",
+    "TIPO DE OPERACIÓN": "TRANSACTION_TYPE",
+    "VALOR DE LA COMPRA": "TRANSACTION_AMOUNT",
+    "FECHA DE ORIGEN": "TRANSACTION_DATE",
+    "TIPO DE MEDIO DE PAGO": "PAYMENT_METHOD_TYPE",
+    "MEDIO DE PAGO": "PAYMENT_METHOD",
+    "PAGADOR": "PAYER_NAME",
+    "TIPO DE IDENTIFICACIÓN DEL PAGADOR": "PAYER_ID_TYPE",
+    "NÚMERO DE IDENTIFICACIÓN DEL PAGADOR": "PAYER_ID_NUMBER",
+    "DETALLE DE LA VENTA": "SALE_DETAIL",
+    "DETALLE DEL SEGMENTO": "SEGMENT_DETAIL",
+    "COMISIONES + IVA": "FEE_AMOUNT",
+}
+# TIPO DE OPERACIÓN of the Spanish file -> TRANSACTION_TYPE
+SPANISH_TYPES = (("pago aprobado", "SETTLEMENT"), ("devoluci", "REFUND"),
+                 ("contracargo", "CHARGEBACK"), ("disputa", "DISPUTE"), ("reclamo", "DISPUTE"))
+
+
+def _cell_text(value):
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer() and abs(value) >= 1e6:
+        return str(int(value))  # an operation number stored as a number
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value).strip()
+
+
+def _xlsx_rows(data):
+    """Rows of the first sheet of an .xlsx, the first row being the header."""
+    try:
+        import openpyxl
+        book = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception:
+        raise UserError("No se pudo leer el archivo .xlsx.") from None
+    sheet = book.worksheets[0]
+    header, rows = None, []
+    for values in sheet.iter_rows(values_only=True):
+        cells = [_cell_text(v) for v in values]
+        if header is None:
+            if any(cells):
+                header = [c.upper() for c in cells]
+            continue
+        if any(cells):
+            rows.append(dict(zip(header, cells)))
+    book.close()
+    return header or [], rows
+
+
+def _technical_row(row):
+    """A row with Spanish headers, as the technical ones."""
+    out = {}
+    for key, value in row.items():
+        name = SPANISH_COLUMNS.get(key)
+        if name:
+            out[name] = value
+    kind = (row.get("TIPO DE OPERACIÓN") or "").lower()
+    out["TRANSACTION_TYPE"] = next((t for word, t in SPANISH_TYPES if word in kind),
+                                   kind.upper().replace(" ", "_"))
+    return out
+
+
 def read_report(data):
     """Rows of a Mercado Pago report as dicts. Raises UserError if the file
     is not one."""
+    if isinstance(data, bytes) and data[:2] == b"PK":
+        header, rows = _xlsx_rows(data)
+        if "SOURCE_ID" not in header and "ID DE OPERACIÓN EN MERCADO PAGO" in header:
+            rows = [_technical_row(r) for r in rows]
+            header = list(REQUIRED_COLUMNS)
+        missing = [c for c in REQUIRED_COLUMNS if c not in header]
+        if missing:
+            raise UserError("No parece un reporte «Todas las transacciones» de Mercado Pago: "
+                            "faltan las columnas %s." % ", ".join(missing))
+        return rows
     if isinstance(data, bytes):
         text = None
         for encoding in ("utf-8-sig", "latin-1"):
@@ -635,9 +711,16 @@ class DistriMpReport(models.Model):
             ends = [d for d in (report.period_end, report.generated_at) if d]
             report.covers_until = max(ends) if ends else False
 
-    def _import_file(self, filename, data, source="manual"):
-        """Loads one report. Returns the distri.mp.report record."""
+    def _import_file(self, filename, data, source="manual", date_from=None, date_to=None):
+        """Loads one report. Returns the distri.mp.report record. With a date
+        range, only the operations of those Argentine days."""
         rows = read_report(data)
+        if date_from or date_to:
+            def inside(row):
+                day = local_day(parse_mp_datetime(row.get("TRANSACTION_DATE")))
+                return bool(day) and (not date_from or day >= date_from) and \
+                    (not date_to or day <= date_to)
+            rows = [r for r in rows if inside(r)]
         company = self.env.company
         report = self.sudo().create({
             "name": filename or "reporte.csv",
@@ -648,7 +731,8 @@ class DistriMpReport(models.Model):
         report.attachment_id = self.env["ir.attachment"].sudo().create({
             "name": filename or "reporte.csv",
             "raw": data if isinstance(data, bytes) else data.encode(),
-            "mimetype": "text/csv",
+            "mimetype": "text/csv" if not (isinstance(data, bytes) and data[:2] == b"PK")
+            else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "res_model": report._name,
             "res_id": report.id,
         })
@@ -2186,21 +2270,26 @@ class DistriMpImport(models.TransientModel):
     _name = "distri.mp.import"
     _description = "Importar reporte de Mercado Pago"
 
-    file = fields.Binary(string="Reporte (.csv)", required=True)
+    file = fields.Binary(string="Reporte (.csv o .xlsx)", required=True)
     filename = fields.Char(string="Nombre del archivo")
+    date_from = fields.Date(
+        string="Solo desde", help="Opcional: se cargan solo las operaciones desde ese día "
+                                  "(por ejemplo, para la puesta al día).")
+    date_to = fields.Date(string="Solo hasta", help="Opcional: hasta ese día inclusive.")
     report_id = fields.Many2one("distri.mp.report", readonly=True)
     summary = fields.Text(related="report_id.summary")
 
     def action_import(self):
         self.ensure_one()
         _check_admin(self.env)
-        if self.filename and not self.filename.lower().endswith(".csv"):
-            raise UserError("Subí el reporte en formato .csv (separado por punto y coma).")
+        if self.filename and not self.filename.lower().endswith((".csv", ".xlsx")):
+            raise UserError("Subí el reporte en formato .csv o .xlsx.")
         data = base64.b64decode(self.file or b"")
         if len(data) > MAX_REPORT_BYTES:
             raise UserError("El archivo pasa los 20 MB.")
         self.report_id = self.env["distri.mp.report"]._import_file(
-            self.filename or "reporte.csv", data, source="manual")
+            self.filename or "reporte.csv", data, source="manual",
+            date_from=self.date_from, date_to=self.date_to)
         return {
             "type": "ir.actions.act_window",
             "res_model": self._name,
@@ -2527,7 +2616,8 @@ class WhatsappMessageComprobante(models.Model):
         texts = [self.body or ""]
         # a seller forwards receipts of many customers in a row: only the
         # text written right next to the photo belongs to it
-        window = SELLER_TEXT_WINDOW if self.distri_forwarded_by_id else RECEIPT_TEXT_WINDOW
+        window = SELLER_TEXT_WINDOW if (self.distri_forwarded_by_id
+                                        or self.distri_chat_import_id) else RECEIPT_TEXT_WINDOW
         if self.timestamp and self.wa_id:
             texts += self.sudo().search([
                 ("wa_id", "=", self.wa_id), ("direction", "=", "in"), ("id", "!=", self.id),
@@ -2675,12 +2765,15 @@ class WhatsappMessageComprobante(models.Model):
                     if order and not order.partner_id.distri_generic_partner:
                         partner = order.partner_id.commercial_partner_id
                         source = "Pedido %s escrito junto a la foto" % order.name
-                if not partner and msg.distri_forwarded_by_id:
+                if not partner and (msg.distri_forwarded_by_id or msg.distri_chat_import_id):
                     # the seller wrote the customer (name or CUIT) next to it;
-                    # the seller's own number says nothing about the customer
+                    # the seller's own number says nothing about the customer.
+                    # A receipt of the staff's transfers group (chat imported,
+                    # puesta_al_dia.py) works the same way.
                     partners = Partner._distri_partners_by_text(msg._distri_nearby_text())
                     partner = partners if len(partners) == 1 else Partner.browse()
-                    source = "Nota de %s junto a la foto" % msg.distri_forwarded_by_id.name
+                    source = "Nota de %s junto a la foto" % (
+                        msg.distri_forwarded_by_id.name or msg.distri_chat_sender or "")
                 elif not partner:
                     partners = Partner._distri_partners_by_phone(msg.wa_id)
                     partner = partners if len(partners) == 1 else Partner.browse()

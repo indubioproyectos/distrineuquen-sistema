@@ -47,6 +47,24 @@
 
     <t t-name="distri_pedido.CobrosCounters">
         <div t-if="state.data" class="o_distri_counters" role="region" aria-label="Resumen del tablero">
+            <span t-if="state.data.review" class="o_distri_counter o_distri_counter_review"
+                  t-att-class="{ 'o_distri_counter_done': !state.data.review.count }">
+                <b>Pendientes de revisar: <t t-esc="state.data.review.count"/></b>
+                <t t-if="state.data.review.count"> · <t t-esc="money(state.data.review.total)"/></t>
+            </span>
+            <button t-if="state.data.online and state.data.online.count" type="button"
+                    class="btn btn-link o_distri_counter o_distri_counter_online"
+                    t-on-click="() => this.open('action_open_online_already')">
+                <i class="fa fa-check-circle" aria-hidden="true"/>
+                Ya cargados en Online (<t t-esc="state.data.online.count"/>)
+            </button>
+            <button t-if="state.data.export and state.data.export.count" type="button"
+                    class="btn btn-link o_distri_counter o_distri_counter_export"
+                    t-on-click="() => this.open('action_open_export')">
+                <i class="fa fa-upload" aria-hidden="true"/>
+                Para exportar a Online: <t t-esc="state.data.export.count"/> ·
+                <t t-esc="money(state.data.export.total)"/>
+            </button>
             <span class="o_distri_counter o_distri_counter_act">
                 <b>Para actuar</b>
                 <t t-esc="state.data.act.count"/> · <t t-esc="money(state.data.act.total)"/>
