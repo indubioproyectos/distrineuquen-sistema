@@ -26,3 +26,4 @@ from . import test_etiquetas
 from . import test_reparto_gps
 from . import test_cobertura
 from . import test_puesta_al_dia
+from . import test_revision_cliente

@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Revisión por cliente» y «Venta sin registrar» (19.0.1.39.0,
+     models/revision_cliente.py). Guía: documentacion/integraciones/puesta-al-dia-cobros.md -->
+<odoo>
+
+  <record id="view_balance_review_line_list" model="ir.ui.view">
+    <field name="name">distri.balance.review.line.list</field>
+    <field name="model">distri.balance.review.line</field>
+    <field name="arch" type="xml">
+      <list string="Pagos nuevos" create="0" edit="0" delete="0"
+            decoration-danger="red_flag" decoration-muted="review_state != 'pending'">
+        <field name="date"/>
+        <field name="origin"/>
+        <field name="amount" sum="Total"/>
+        <field name="operation"/>
+        <field name="note"/>
+        <field name="balance_after"/>
+        <field name="red_flag" widget="boolean_toggle" readonly="1" optional="hide"/>
+        <field name="excess" invisible="not red_flag"/>
+        <field name="review_state" widget="badge" decoration-warning="review_state == 'pending'"
+               decoration-success="review_state == 'reviewed'"
+               decoration-danger="review_state == 'unrecorded_sale'"/>
+        <field name="vsr_invoice_id" optional="show"/>
+        <field name="card_state" optional="hide"/>
+        <field name="payment_id" optional="hide"/>
+        <field name="collection_id" column_invisible="1"/>
+        <field name="currency_id" column_invisible="1"/>
+        <button name="action_confirm_card" type="object" string="Confirmar" icon="fa-check"
+                class="btn-link" invisible="origin != 'card' or card_state != 'draft'"
+                groups="distri_pedido.grupo_administracion"
+                confirm="Se registra el pago con la confirmación del tablero. ¿Seguir?"/>
+        <button name="action_mark_reviewed" type="object" string="Marcar revisado"
+                icon="fa-eye" class="btn-link" invisible="review_state != 'pending'"
+                groups="distri_pedido.grupo_administracion"/>
+        <button name="action_unrecorded_sale" type="object" string="Venta sin registrar"
+                icon="fa-file-text-o" class="btn-link text-danger"
+                invisible="not red_flag or vsr_invoice_id"
+                groups="distri_pedido.grupo_administracion"
+                />
+        <button name="action_view_payment" type="object" string="Pago" icon="fa-money"
+                class="btn-link" invisible="not payment_id"/>
+        <button name="action_view_card" type="object" string="Tarjeta" icon="fa-id-card-o"
+                class="btn-link" invisible="not collection_id"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_balance_review_form" model="ir.ui.view">
+    <field name="name">distri.balance.review.form</field>
+    <field name="model">distri.balance.review</field>
+    <field name="arch" type="xml">
+      <form string="Revisión por cliente" create="0" delete="0">
+        <header>
+          <button name="action_refresh" type="object" string="Actualizar"
+                  class="btn-secondary"/>
+          <button name="action_view_account" type="object" string="Cuenta corriente"
+                  class="btn-secondary"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <div class="alert alert-danger mb-0" role="alert" invisible="not has_flag">
+          <b>Posible venta sin registrar:</b> <field name="flag_count" class="oe_inline"/>
+          pago(s) dejan al cliente con saldo a favor. Si fue una venta hecha fuera del sistema,
+          «Venta sin registrar» factura solo el excedente.
+        </div>
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="partner_id" readonly="1"/></h1>
+          </div>
+          <group>
+            <group string="Punto de partida">
+              <field name="online_balance"/>
+              <field name="summary"/>
+            </group>
+            <group string="Después de los pagos nuevos">
+              <field name="lab_balance"/>
+              <field name="vsr_amount" invisible="not vsr_amount"/>
+              <field name="pending_amount"/>
+              <field name="final_balance"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+          <p class="text-muted">Primero los pagos ya registrados en el lab (Mercado Pago y
+             efectivo que Online no tiene), después las tarjetas pendientes del tablero
+             propuestas para este cliente. «Saldo después» es el saldo corrido desde Online;
+             en rojo, las que lo dejan con saldo a favor.</p>
+          <field name="line_ids" context="{'list_view_ref': 'distri_pedido.view_balance_review_line_list'}"/>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_balance_review_list" model="ir.ui.view">
+    <field name="name">distri.balance.review.list</field>
+    <field name="model">distri.balance.review</field>
+    <field name="arch" type="xml">
+      <list string="Revisión por cliente" create="0" delete="0" edit="0"
+            decoration-danger="has_flag" decoration-muted="state == 'reviewed'">
+        <header>
+          <button name="action_refresh" type="object" string="Actualizar" display="always"/>
+        </header>
+        <field name="has_flag" string="Alerta" widget="boolean_toggle" readonly="1"/>
+        <field name="partner_id"/>
+        <field name="online_balance" sum="Total"/>
+        <field name="posted_count" optional="show"/>
+        <field name="posted_amount" sum="Total" optional="show"/>
+        <field name="lab_balance" sum="Total"/>
+        <field name="pending_count"/>
+        <field name="pending_amount" sum="Total"/>
+        <field name="final_balance" sum="Total"/>
+        <field name="flag_count"/>
+        <field name="vsr_amount" sum="Total" optional="hide"/>
+        <field name="summary" optional="hide"/>
+        <field name="state" widget="badge" decoration-warning="state == 'pending'"
+               decoration-success="state == 'reviewed'"/>
+        <field name="currency_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_balance_review_search" model="ir.ui.view">
+    <field name="name">distri.balance.review.search</field>
+    <field name="model">distri.balance.review</field>
+    <field name="arch" type="xml">
+      <search string="Revisión por cliente">
+        <field name="partner_id"/>
+        <filter name="flagged" string="Posible venta sin registrar" domain="[('has_flag', '=', True)]"/>
+        <filter name="with_pending" string="Con tarjetas pendientes"
+                domain="[('pending_count', '>', 0)]"/>
+        <separator/>
+        <filter name="to_review" string="Con pagos para revisar" domain="[('state', '=', 'pending')]"/>
+        <filter name="reviewed" string="Revisados" domain="[('state', '=', 'reviewed')]"/>
+        <group>
+          <filter name="by_state" string="Estado" context="{'group_by': 'state'}"/>
+          <filter name="by_flag" string="Alerta" context="{'group_by': 'has_flag'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="view_unrecorded_sale_wizard" model="ir.ui.view">
+    <field name="name">distri.unrecorded.sale.wizard.form</field>
+    <field name="model">distri.unrecorded.sale.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Venta sin registrar">
+        <p>Se crea una factura en el diario <b>Ventas sin registrar</b> (serie VSR, aparte de la
+           0001 de «Ventas Preimpreso») con el producto «Venta sin detalle», sin impuestos, y se
+           concilia con el pago por el importe de la venta.</p>
+        <div class="alert alert-info" role="status" invisible="not card_pending">
+          La tarjeta está pendiente: primero se confirma, igual que en el tablero, y el pago va a
+          esta venta (no a facturas anteriores).
+        </div>
+        <group>
+          <group>
+            <field name="partner_id" options="{'no_create': True}"
+                   readonly="source == 'review' or (payment_id and not card_pending)"/>
+            <field name="payment_amount"/>
+            <field name="amount"/>
+          </group>
+          <group>
+            <field name="invoice_date"/>
+            <field name="note" placeholder="Por qué: qué se vendió, quién avisó…"/>
+            <field name="collection_id" invisible="not collection_id"/>
+            <field name="payment_id" invisible="not payment_id"/>
+          </group>
+        </group>
+        <field name="source" invisible="1"/>
+        <field name="card_pending" invisible="1"/>
+        <field name="review_line_id" invisible="1"/>
+        <field name="currency_id" invisible="1"/>
+        <footer>
+          <button name="action_apply" type="object" string="Facturar y conciliar"
+                  class="btn-primary"/>
+          <button special="cancel" string="Cancelar" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- the board card: form header and kanban card -->
+  <record id="view_mp_collection_form_vsr" model="ir.ui.view">
+    <field name="name">distri.mp.collection.form.vsr</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="inherit_id" ref="distri_pedido.view_mp_collection_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header/field[@name='state']" position="before">
+        <button name="action_unrecorded_sale" type="object" string="Venta sin registrar"
+                invisible="kind != 'income' or state not in ('draft', 'confirmed')"
+                groups="distri_pedido.grupo_administracion"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_mp_collection_kanban_vsr" model="ir.ui.view">
+    <field name="name">distri.mp.collection.kanban.vsr</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="inherit_id" ref="distri_pedido.view_mp_collection_kanban"/>
+    <field name="arch" type="xml">
+      <xpath expr="//div[hasclass('o_distri_secondary')]" position="inside">
+        <button t-if="kind == 'income' and (draft or record.state.raw_value == 'confirmed')"
+                name="action_unrecorded_sale" type="object"
+                class="btn btn-sm btn-link text-danger"
+                groups="distri_pedido.grupo_administracion">
+          Venta sin registrar
+        </button>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="action_balance_review" model="ir.actions.act_window">
+    <field name="name">Revisión por cliente</field>
+    <field name="res_model">distri.balance.review</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_balance_review_search"/>
+    <field name="context">{'search_default_to_review': 1}</field>
+    <field name="help" type="html">
+      <p>Por cliente: el saldo de Odoo Online y, en orden, los pagos nuevos del lab y las
+         tarjetas pendientes del tablero, con el saldo corrido. Primero los que tienen alerta
+         de posible venta sin registrar. Mayoristas y revendedores no entran.</p>
+    </field>
+  </record>
+
+  <record id="action_balance_review_open" model="ir.actions.server">
+    <field name="name">Revisión por cliente</field>
+    <field name="model_id" ref="model_distri_balance_review"/>
+    <field name="state">code</field>
+    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion')), (4, ref('base.group_system'))]"/>
+    <field name="code">action = model.action_open_reviews()</field>
+  </record>
+
+  <menuitem id="menu_cobros_balance_review" name="Revisión por cliente" parent="menu_cobros_root"
+            action="action_balance_review_open" sequence="16"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+
+</odoo>

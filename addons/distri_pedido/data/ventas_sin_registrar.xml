@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Venta sin registrar» (19.0.1.39.0, models/revision_cliente.py) -->
+<odoo>
+
+  <!-- noupdate: a later edit in Odoo (name, account) survives upgrades.
+       No taxes: the company is Monotributo, no VAT on its invoices. -->
+  <data noupdate="1">
+    <record id="product_venta_sin_detalle" model="product.product">
+      <field name="name">Venta sin detalle</field>
+      <field name="default_code">VSR</field>
+      <field name="type">service</field>
+      <field name="list_price">0</field>
+      <field name="sale_ok" eval="False"/>
+      <field name="purchase_ok" eval="False"/>
+      <field name="is_published" eval="False"/>
+      <field name="taxes_id" eval="[(5, 0, 0)]"/>
+      <field name="supplier_taxes_id" eval="[(5, 0, 0)]"/>
+      <field name="description_sale">Venta hecha fuera del sistema, facturada por el excedente de un cobro.</field>
+    </record>
+  </data>
+
+  <!-- «Ventas sin registrar» sales journal (code VSR, its own series
+       VSR/AAAA/NNNNN): created once per company with accounting. Outside
+       noupdate on purpose: a <function> under noupdate only runs on install,
+       and the live lab gets this version by upgrade. Idempotent. -->
+  <function model="account.journal" name="_distri_ensure_vsr_journal"/>
+
+</odoo>

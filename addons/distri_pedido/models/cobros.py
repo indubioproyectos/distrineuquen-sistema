@@ -1879,7 +1879,10 @@ class DistriMpCollection(models.Model):
             "company_id": record.company_id.id,
         })
         payment.action_post()
-        self.env["distri.route"].sudo()._apply_oldest_first(payment, partner)
+        # «Venta sin registrar» (revision_cliente.py) confirms with this flag:
+        # the payment goes to that sale, older invoices keep their debt
+        if not self.env.context.get("distri_skip_auto_apply"):
+            self.env["distri.route"].sudo()._apply_oldest_first(payment, partner)
         # Identities are learned only from a sure link: a CUIT read from a
         # photo (OCR) never, only Mercado Pago's; nothing when the customer
         # came from a photo or a promise tied by amount and time only, unless
