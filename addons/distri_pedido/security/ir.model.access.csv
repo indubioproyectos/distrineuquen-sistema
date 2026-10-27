@@ -120,3 +120,9 @@ acceso_unrecorded_sale_wizard_admin,distri.unrecorded.sale.wizard administracion
 acceso_unrecorded_sale_wizard_sistema,distri.unrecorded.sale.wizard sistema,model_distri_unrecorded_sale_wizard,base.group_system,1,1,1,1
 acceso_arca_name_admin,distri.arca.name administracion,model_distri_arca_name,distri_pedido.grupo_administracion,1,0,0,0
 acceso_arca_name_sistema,distri.arca.name sistema,model_distri_arca_name,base.group_system,1,0,0,0
+acceso_migration_summary_admin,distri.migration.summary administracion,model_distri_migration_summary,distri_pedido.grupo_administracion,1,1,1,1
+acceso_migration_summary_sistema,distri.migration.summary sistema,model_distri_migration_summary,base.group_system,1,1,1,1
+acceso_migration_approve_admin,distri.migration.approve administracion,model_distri_migration_approve,distri_pedido.grupo_administracion,1,1,1,1
+acceso_migration_approve_sistema,distri.migration.approve sistema,model_distri_migration_approve,base.group_system,1,1,1,1
+acceso_migration_approve_line_admin,distri.migration.approve.line administracion,model_distri_migration_approve_line,distri_pedido.grupo_administracion,1,1,1,1
+acceso_migration_approve_line_sistema,distri.migration.approve.line sistema,model_distri_migration_approve_line,base.group_system,1,1,1,1

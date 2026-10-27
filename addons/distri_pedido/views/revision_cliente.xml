@@ -8,10 +8,16 @@
     <field name="model">distri.balance.review.line</field>
     <field name="arch" type="xml">
       <list string="Pagos nuevos" create="0" edit="0" delete="0"
-            decoration-danger="red_flag" decoration-muted="review_state != 'pending'">
+            decoration-danger="red_flag or migration_duplicate"
+            decoration-muted="review_state != 'pending' or not applied">
         <field name="date"/>
         <field name="origin"/>
         <field name="amount" sum="Total"/>
+        <field name="has_receipt" widget="boolean" optional="show"/>
+        <field name="applied" widget="boolean" optional="show"/>
+        <field name="money_grade" optional="show"/>
+        <field name="customer_sources" optional="hide"/>
+        <field name="migration_duplicate" optional="show"/>
         <field name="operation"/>
         <field name="note"/>
         <field name="balance_after"/>
@@ -24,9 +30,12 @@
         <field name="card_state" optional="hide"/>
         <field name="payment_id" optional="hide"/>
         <field name="collection_id" column_invisible="1"/>
+        <field name="receipt_id" column_invisible="1"/>
+        <field name="invoice_id" column_invisible="1"/>
         <field name="currency_id" column_invisible="1"/>
         <button name="action_confirm_card" type="object" string="Confirmar" icon="fa-check"
-                class="btn-link" invisible="origin != 'card' or card_state != 'draft'"
+                class="btn-link"
+                invisible="origin != 'card' or card_state != 'draft' or not has_receipt or migration_duplicate"
                 groups="distri_pedido.grupo_administracion"
                 confirm="Se registra el pago con la confirmación del tablero. ¿Seguir?"/>
         <button name="action_mark_reviewed" type="object" string="Marcar revisado"
@@ -37,10 +46,17 @@
                 invisible="not red_flag or vsr_invoice_id"
                 groups="distri_pedido.grupo_administracion"
                 />
-        <button name="action_view_payment" type="object" string="Pago" icon="fa-money"
-                class="btn-link" invisible="not payment_id"/>
-        <button name="action_view_card" type="object" string="Tarjeta" icon="fa-id-card-o"
-                class="btn-link" invisible="not collection_id"/>
+        <button name="action_receipt_viewer" type="object" string="Comprobante"
+                icon="fa-picture-o" class="btn-link" invisible="not receipt_id"
+                title="Foto grande y mensaje de WhatsApp"/>
+        <button name="action_view_receipt" type="object" string="Foto" icon="fa-external-link"
+                class="btn-link" invisible="not receipt_id" title="Foto en una pestaña nueva"/>
+        <button name="action_view_payment" type="object" string="Pago" icon="fa-external-link"
+                class="btn-link" invisible="not payment_id" title="Pago en una pestaña nueva"/>
+        <button name="action_view_invoice" type="object" string="Factura" icon="fa-external-link"
+                class="btn-link" invisible="not invoice_id" title="Factura en una pestaña nueva"/>
+        <button name="action_view_card" type="object" string="Tarjeta" icon="fa-external-link"
+                class="btn-link" invisible="not collection_id" title="Tarjeta en una pestaña nueva"/>
       </list>
     </field>
   </record>
@@ -53,10 +69,21 @@
         <header>
           <button name="action_refresh" type="object" string="Actualizar"
                   class="btn-secondary"/>
+          <button name="action_mark_customer_reviewed" type="object" string="Marcar cliente revisado"
+                  class="btn-secondary" invisible="state == 'reviewed'"
+                  groups="distri_pedido.grupo_administracion"/>
           <button name="action_view_account" type="object" string="Cuenta corriente"
-                  class="btn-secondary"/>
+                  icon="fa-external-link" class="btn-secondary"
+                  title="Cuenta corriente en una pestaña nueva"/>
           <field name="state" widget="statusbar"/>
         </header>
+        <div class="alert alert-danger mb-0" role="alert" invisible="not online_sync_stale">
+          <field name="online_sync_label" readonly="1" class="oe_inline"/>
+        </div>
+        <div class="alert alert-success mb-0" role="status" invisible="online_sync_stale">
+          <field name="online_sync_label" readonly="1" class="oe_inline"/>
+        </div>
+        <field name="online_sync_stale" invisible="1"/>
         <div class="alert alert-danger mb-0" role="alert" invisible="not has_flag">
           <b>Posible venta sin registrar:</b> <field name="flag_count" class="oe_inline"/>
           pago(s) dejan al cliente con saldo a favor. Si fue una venta hecha fuera del sistema,
@@ -79,6 +106,12 @@
               <field name="currency_id" invisible="1"/>
             </group>
           </group>
+          <div class="alert alert-secondary" role="status" invisible="not no_receipt_count">
+            <b>Sin comprobante, no aplicado:</b> <field name="no_receipt_count" class="oe_inline"/>
+            movimiento(s) de Mercado Pago por <field name="no_receipt_amount" class="oe_inline"/>
+            no tienen comprobante de WhatsApp y no bajan la deuda. Solo como escenario: el saldo
+            quedaría en <field name="whatif_balance" class="oe_inline"/>.
+          </div>
           <p class="text-muted">Primero los pagos ya registrados en el lab (Mercado Pago y
              efectivo que Online no tiene), después las tarjetas pendientes del tablero
              propuestas para este cliente. «Saldo después» es el saldo corrido desde Online;
@@ -107,6 +140,8 @@
         <field name="pending_count"/>
         <field name="pending_amount" sum="Total"/>
         <field name="final_balance" sum="Total"/>
+        <field name="no_receipt_amount" sum="Total" optional="show"/>
+        <field name="whatif_balance" sum="Total" optional="hide"/>
         <field name="flag_count"/>
         <field name="vsr_amount" sum="Total" optional="hide"/>
         <field name="summary" optional="hide"/>
@@ -202,6 +237,20 @@
                 groups="distri_pedido.grupo_administracion">
           Venta sin registrar
         </button>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- «Es mayorista» (19.0.1.41.0): out of the review and of the migration board -->
+  <record id="view_partner_form_es_mayorista" model="ir.ui.view">
+    <field name="name">res.partner.form.es.mayorista</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="distri_pedido.view_partner_form_cobros"/>
+    <field name="arch" type="xml">
+      <xpath expr="//page[@name='distri_cobros']/field[@name='distri_payer_ids']" position="before">
+        <group>
+          <field name="distri_es_mayorista"/>
+        </group>
       </xpath>
     </field>
   </record>

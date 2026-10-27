@@ -58,4 +58,11 @@
     <field name="value">0</field>
   </record>
 
+  <!-- Tablero de migración (models/migracion.py): primer día del período que se
+       pone al día. Lo anterior se cura a mano; «Aprobar lote» no lo toma. -->
+  <record id="param_migracion_desde" model="ir.config_parameter">
+    <field name="key">distri_pedido.migracion_desde</field>
+    <field name="value">2026-09-15</field>
+  </record>
+
 </odoo>

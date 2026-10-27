@@ -66,6 +66,8 @@ EXPORT_HEADERS = ["id", "partner_id/.id", "date", "amount", "journal_id/.id", "p
                   "partner_type", "memo", "Control: cliente", "Control: diario",
                   "Control: operación MP"]
 XMLID_PREFIX = "distri_cobro_mp_"
+# when the Online mirror was last applied (19.0.1.41.0, models/migracion.py)
+PARAM_ONLINE_SYNC = "distri_pedido.online_sync_at"
 
 ONLINE_STATUS = [
     ("none", "Solo en el lab"),
@@ -118,6 +120,7 @@ class DistriOnlinePayment(models.Model):
     link_kind = fields.Selection([("memo", "Por el memo (exportado del lab)"),
                                   ("amount", "Por importe y fecha")],
                                  string="Cómo se vinculó", readonly=True)
+    linked_at = fields.Datetime(string="Vinculado el", readonly=True, index=True)
 
     _online_unique = models.Constraint("unique(online_id)", "Ese pago de Online ya está.")
 
@@ -165,11 +168,18 @@ class DistriOnlinePayment(models.Model):
         if new_vals:
             self.sudo().create(new_vals)
             created = len(new_vals)
-        links = self.sudo()._distri_link_all()
+        links = self.sudo().with_context(distri_link_now=now)._distri_link_all()
+        # «Última sincronización con Online» (models/migracion.py); rolled
+        # back with everything else when the sync does not commit
+        self.env["ir.config_parameter"].sudo().set_param(
+            PARAM_ONLINE_SYNC, fields.Datetime.to_string(now))
         return dict(links, created=created, updated=updated)
 
     def _distri_link_all(self):
-        """Ties the Online payments to the Mercado Pago incomes of the lab."""
+        """Ties the Online payments to the Mercado Pago incomes of the lab.
+        `linked_at`: the moment of the sync (context distri_link_now), so the
+        migration board lists the links of the last sync."""
+        now = self.env.context.get("distri_link_now") or fields.Datetime.now()
         Collection = self.env["distri.mp.collection"].sudo()
         stats = {"by_memo": 0, "by_amount": 0, "conflicts": 0, "archived_rows": 0}
         # 1. by memo: the ones exported from the lab come back
@@ -180,7 +190,7 @@ class DistriOnlinePayment(models.Model):
             card = Collection.search([("kind", "=", "income"),
                                       ("source_id", "=", found.group(1))], limit=1)
             if card and not card.online_payment_id:
-                pay.write({"collection_id": card.id, "link_kind": "memo"})
+                pay.write({"collection_id": card.id, "link_kind": "memo", "linked_at": now})
                 card.write({"online_payment_id": pay.id})
                 stats["by_memo"] += 1
         # 2. by amount and date: the cruce rule
@@ -189,7 +199,7 @@ class DistriOnlinePayment(models.Model):
             ("online_unlinked", "=", False), ("export_batch_id", "=", False),
             ("state", "in", ("draft", "confirmed"))])
         if incomes:
-            stats.update(self._distri_link_by_amount(incomes))
+            stats.update(self._distri_link_by_amount(incomes, now))
         # 3. a lab payment already posted in Online: its history row is
         #    archived, the lab payment counts once
         stats["archived_rows"] = Collection.search([
@@ -197,7 +207,7 @@ class DistriOnlinePayment(models.Model):
         ])._distri_archive_history()
         return stats
 
-    def _distri_link_by_amount(self, incomes):
+    def _distri_link_by_amount(self, incomes, now=None):
         bank = online_bank_journal(self.env)
         start = min(incomes.mapped("date")) - ONLINE_AFTER
         end = max(incomes.mapped("date")) + ONLINE_BEFORE
@@ -239,7 +249,8 @@ class DistriOnlinePayment(models.Model):
                 continue
             cards.add(card_id)
             pays.add(pay_id)
-            pay.write({"collection_id": card.id, "link_kind": "amount"})
+            pay.write({"collection_id": card.id, "link_kind": "amount",
+                       "linked_at": now or fields.Datetime.now()})
             card._distri_mark_online(pay)
             stats["conflicts" if card.state == "confirmed" else "by_amount"] += 1
         return stats
@@ -320,7 +331,7 @@ class DistriMpCollectionOnline(models.Model):
             vals = {"online_payment_id": False, "online_unlinked": True, "online_conflict": False}
             if card.state == "ignored" and card.ignore_reason == "online":
                 vals.update(state="draft", ignore_reason=False, ignore_note=False)
-            pay.write({"collection_id": False, "link_kind": False})
+            pay.write({"collection_id": False, "link_kind": False, "linked_at": False})
             card.write(vals)
             card.message_post(body="%s: no está en Online (era %s)." % (
                 self.env.user.name, pay.name or pay.move_name))

@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Tablero de migración» (19.0.1.41.0, models/migracion.py). Propuesta:
+     documentacion/modulos/distri_pedido/cobros/propuesta-tablero-migracion-2026-10-27.md -->
+<odoo>
+
+  <!-- the photo large, with the WhatsApp message under it (dialog) -->
+  <record id="view_mp_collection_receipt_viewer" model="ir.ui.view">
+    <field name="name">distri.mp.collection.receipt.viewer</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="priority">90</field>
+    <field name="arch" type="xml">
+      <form string="Comprobante" create="0" edit="0" delete="0">
+        <div class="d-flex flex-wrap gap-3 align-items-baseline mb-2">
+          <h3 class="mb-0"><field name="amount" widget="monetary" readonly="1"/></h3>
+          <span><field name="partner_id" readonly="1" options="{'no_open': True}"/></span>
+          <span class="text-muted"><field name="detail" readonly="1"/></span>
+        </div>
+        <div class="text-muted mb-2" invisible="not evidence_note">
+          <field name="evidence_note" readonly="1"/>
+        </div>
+        <div class="alert alert-danger" role="alert" invisible="not migration_duplicate">
+          <b>Posible duplicado:</b> <field name="migration_duplicate" readonly="1" class="oe_inline"/>
+        </div>
+        <field name="receipt_is_image" invisible="1"/>
+        <field name="receipt_id" invisible="1"/>
+        <field name="currency_id" invisible="1"/>
+        <field name="payment_id" invisible="1"/>
+        <field name="receipt_image" widget="image" readonly="1"
+               options="{'size': [0, 900], 'zoom': true}" invisible="not receipt_is_image"/>
+        <field name="receipt_context_html" widget="html" readonly="1" nolabel="1"/>
+        <group>
+          <group>
+            <field name="receipt_amount"/>
+            <field name="receipt_amount_confidence"/>
+            <field name="receipt_operation"/>
+            <field name="receipt_date_label"/>
+            <field name="source_id" string="Operación de Mercado Pago"/>
+          </group>
+          <group>
+            <field name="receipt_payer_name"/>
+            <field name="receipt_payer_cuit"/>
+            <field name="receipt_bank"/>
+            <field name="receipt_destination"/>
+            <field name="receipt_partner_source"/>
+          </group>
+        </group>
+        <footer>
+          <button name="action_tab_receipt" type="object" string="Foto en pestaña nueva"
+                  icon="fa-external-link" class="btn-secondary"/>
+          <button name="action_tab_card" type="object" string="Tarjeta en pestaña nueva"
+                  icon="fa-external-link" class="btn-secondary"/>
+          <button name="action_tab_payment" type="object" string="Pago en pestaña nueva"
+                  icon="fa-external-link" class="btn-secondary" invisible="not payment_id"/>
+          <button special="cancel" string="Cerrar" class="btn-primary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- «Pedir comprobante»: a text to copy, nothing is sent -->
+  <record id="view_mp_collection_receipt_request" model="ir.ui.view">
+    <field name="name">distri.mp.collection.receipt.request</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="priority">91</field>
+    <field name="arch" type="xml">
+      <form string="Pedir comprobante" create="0" edit="0" delete="0">
+        <p>Copiá este texto en el grupo de WhatsApp. No se envía nada desde acá. Mientras no
+           llegue el comprobante, el movimiento no baja la deuda de ningún cliente.</p>
+        <field name="receipt_request_text" widget="CopyClipboardText" readonly="1" nolabel="1"/>
+        <footer>
+          <button special="cancel" string="Cerrar" class="btn-primary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_migration_kanban" model="ir.ui.view">
+    <field name="name">distri.mp.collection.migration.kanban</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="priority">90</field>
+    <field name="arch" type="xml">
+      <kanban default_group_by="migration_box" create="0" group_create="0" group_delete="0"
+              group_edit="0" records_draggable="0" quick_create="0" sample="0"
+              default_order="date desc, id desc">
+        <field name="id"/>
+        <field name="kind"/>
+        <field name="state"/>
+        <field name="migration_box"/>
+        <field name="partner_id"/>
+        <field name="receipt_id"/>
+        <field name="receipt_is_image"/>
+        <field name="payment_id"/>
+        <field name="migration_duplicate"/>
+        <field name="online_conflict"/>
+        <field name="currency_id"/>
+        <templates>
+          <t t-name="card">
+            <t t-set="box" t-value="record.migration_box.raw_value"/>
+            <div class="d-flex justify-content-between gap-2">
+              <div>
+                <field name="amount" widget="monetary" class="fw-bold fs-5"/>
+                <div t-if="record.partner_id.raw_value"><field name="partner_id"/></div>
+                <div t-else="" class="text-danger">Sin cliente</div>
+                <div class="text-muted small">
+                  <i class="fa fa-clock-o" title="Fecha y hora"/> <field name="date_day"/>
+                  <field name="hour"/> · <field name="name"/>
+                </div>
+              </div>
+              <img t-if="record.receipt_is_image.raw_value" loading="lazy" alt="Foto del comprobante"
+                   style="max-width: 72px; max-height: 96px;"
+                   t-att-src="'/web/image/distri.mp.collection/' + record.id.raw_value + '/receipt_image/96x96'"/>
+            </div>
+            <div class="small mt-1">
+              <span class="badge text-bg-light me-1" title="Fuerza del vínculo entre la foto y la plata">
+                <field name="money_grade"/>
+              </span>
+              <span class="badge text-bg-light me-1" title="Acuerdo de las fuentes del cliente">
+                <field name="customer_agreement"/>
+              </span>
+              <span t-if="record.online_grade.raw_value != 'none'" class="badge text-bg-warning me-1">
+                <field name="online_grade"/>
+              </span>
+            </div>
+            <div class="small text-muted mt-1"><field name="customer_sources"/></div>
+            <div t-if="record.migration_duplicate.raw_value" class="small text-danger mt-1">
+              <i class="fa fa-clone" title="Posible duplicado"/> <field name="migration_duplicate"/>
+            </div>
+            <div t-if="record.online_conflict.raw_value" class="small text-danger mt-1">
+              <i class="fa fa-exclamation-triangle" title="Posible doble carga"/> <field name="online_conflict"/>
+            </div>
+            <div class="d-flex flex-wrap gap-1 mt-2">
+              <button name="action_tab_card" type="object" class="btn btn-sm btn-secondary"
+                      title="Abrir la tarjeta en una pestaña nueva">
+                <i class="fa fa-external-link"/> Tarjeta
+              </button>
+              <button t-if="record.receipt_id.raw_value" name="action_receipt_viewer" type="object"
+                      class="btn btn-sm btn-secondary" title="Foto grande y mensaje de WhatsApp">
+                <i class="fa fa-picture-o"/> Comprobante
+              </button>
+              <button t-if="record.payment_id.raw_value" name="action_tab_payment" type="object"
+                      class="btn btn-sm btn-secondary" title="Abrir el pago en una pestaña nueva">
+                <i class="fa fa-external-link"/> Pago
+              </button>
+              <button t-if="record.partner_id.raw_value" name="action_tab_account" type="object"
+                      class="btn btn-sm btn-secondary"
+                      title="Cuenta corriente del cliente en una pestaña nueva">
+                <i class="fa fa-external-link"/> Cuenta
+              </button>
+              <button t-if="box in ['to_approve', 'review'] and record.state.raw_value == 'draft'"
+                      name="action_migration_approve" type="object" class="btn btn-sm btn-primary"
+                      groups="distri_pedido.grupo_administracion">
+                Confirmar
+              </button>
+            </div>
+          </t>
+        </templates>
+      </kanban>
+    </field>
+  </record>
+
+  <record id="view_migration_list" model="ir.ui.view">
+    <field name="name">distri.mp.collection.migration.list</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="priority">90</field>
+    <field name="arch" type="xml">
+      <list string="Tablero de migración" create="0" edit="0" delete="0" default_order="date desc, id desc"
+            decoration-danger="migration_duplicate or online_conflict">
+        <field name="date"/>
+        <field name="name"/>
+        <field name="amount" sum="Total"/>
+        <field name="partner_id"/>
+        <field name="migration_box"/>
+        <field name="money_grade"/>
+        <field name="receipt_minutes" optional="hide"/>
+        <field name="customer_sources"/>
+        <field name="customer_agreement"/>
+        <field name="online_grade" optional="show"/>
+        <field name="online_label" optional="hide"/>
+        <field name="online_conflict" optional="show"/>
+        <field name="migration_duplicate" optional="show"/>
+        <field name="state" optional="show"/>
+        <field name="receipt_id" column_invisible="1"/>
+        <field name="payment_id" column_invisible="1"/>
+        <field name="currency_id" column_invisible="1"/>
+        <button name="action_tab_card" type="object" string="Tarjeta" icon="fa-external-link"
+                class="btn-link"/>
+        <button name="action_receipt_viewer" type="object" string="Comprobante" icon="fa-picture-o"
+                class="btn-link" invisible="not receipt_id"/>
+        <button name="action_tab_payment" type="object" string="Pago" icon="fa-external-link"
+                class="btn-link" invisible="not payment_id"/>
+        <button name="action_tab_account" type="object" string="Cuenta" icon="fa-external-link"
+                class="btn-link" invisible="not partner_id"/>
+        <button name="action_migration_approve" type="object" string="Confirmar" icon="fa-check"
+                class="btn-link" groups="distri_pedido.grupo_administracion"
+                invisible="state != 'draft' or migration_box not in ('to_approve', 'review')"/>
+        <button name="action_online_unlink" type="object" string="No está en Online"
+                icon="fa-chain-broken" class="btn-link" groups="distri_pedido.grupo_administracion"
+                invisible="not online_payment_id or export_batch_id"
+                confirm="El cobro vuelve al tablero y no se vuelve a vincular por importe y fecha. ¿Seguir?"/>
+        <field name="online_payment_id" column_invisible="1"/>
+        <field name="export_batch_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_migration_search" model="ir.ui.view">
+    <field name="name">distri.mp.collection.migration.search</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="priority">90</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="partner_id"/>
+        <field name="payer_name"/>
+        <field name="payer_cuit"/>
+        <field name="source_id"/>
+        <field name="amount"/>
+        <filter name="in_period" string="Desde la fecha de corte"
+                domain="[('migration_in_period', '=', True)]"/>
+        <separator/>
+        <filter name="pending" string="Pendientes" domain="[('state', '=', 'draft')]"/>
+        <filter name="with_customer" string="Con cliente" domain="[('partner_id', '!=', False)]"/>
+        <filter name="with_receipt" string="Con comprobante" domain="[('receipt_id', '!=', False)]"/>
+        <separator/>
+        <filter name="duplicates" string="Posibles duplicados"
+                domain="[('migration_duplicate', '!=', False)]"/>
+        <filter name="disagree" string="Fuentes en desacuerdo"
+                domain="[('customer_agreement', '=', 'disagree')]"/>
+        <filter name="single" string="Una sola fuente del cliente"
+                domain="[('customer_agreement', '=', 'single')]"/>
+        <filter name="weak_online" string="Ya en Online para volver a mirar"
+                domain="[('online_grade', 'in', ('far', 'other_customer', 'conflict'))]"/>
+        <separator/>
+        <filter name="date_day" string="Día" date="date_day"/>
+        <group>
+          <filter name="by_box" string="Caja" context="{'group_by': 'migration_box'}"/>
+          <filter name="by_grade" string="Fuerza del vínculo" context="{'group_by': 'money_grade'}"/>
+          <filter name="by_agreement" string="Acuerdo de las fuentes"
+                  context="{'group_by': 'customer_agreement'}"/>
+          <filter name="by_online" string="Vínculo con Online" context="{'group_by': 'online_grade'}"/>
+          <filter name="by_day" string="Día" context="{'group_by': 'date_day:day'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_migration_board" model="ir.actions.act_window">
+    <field name="name">Tablero de migración</field>
+    <field name="res_model">distri.mp.collection</field>
+    <field name="view_mode">kanban,list,form</field>
+    <field name="search_view_id" ref="view_migration_search"/>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_migration_kanban')}),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_migration_list')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('view_mp_collection_form')})]"/>
+    <field name="domain">[('receipt_id', '!=', False)]</field>
+    <field name="context">{'search_default_in_period': 1}</field>
+  </record>
+
+  <record id="view_migration_summary_form" model="ir.ui.view">
+    <field name="name">distri.migration.summary.form</field>
+    <field name="model">distri.migration.summary</field>
+    <field name="arch" type="xml">
+      <form string="Tablero de migración" create="0" delete="0">
+        <header>
+          <button name="action_open_board" type="object" string="Abrir el tablero"
+                  class="btn-primary"/>
+          <button name="action_batch_approve" type="object" string="Confirmar lote"
+                  groups="distri_pedido.grupo_administracion" invisible="sync_stale"/>
+          <button name="action_refresh_all" type="object" string="Recalcular todo"
+                  groups="distri_pedido.grupo_administracion"/>
+        </header>
+        <sheet>
+          <div class="alert alert-danger" role="alert" invisible="not sync_stale">
+            <b><field name="sync_label" readonly="1" class="oe_inline"/></b>
+          </div>
+          <div class="alert alert-success" role="status" invisible="sync_stale">
+            <field name="sync_label" readonly="1" class="oe_inline"/>
+          </div>
+          <field name="sync_stale" invisible="1"/>
+          <field name="currency_id" invisible="1"/>
+          <h2>Cajas desde el <field name="cutoff" readonly="1" class="oe_inline"/></h2>
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button name="action_open_box" type="object" context="{'box': 'to_approve'}"
+                    class="btn btn-outline-success">
+              Listo para confirmar: <field name="count_to_approve" class="oe_inline"/> ·
+              <field name="amount_to_approve" class="oe_inline"/>
+            </button>
+            <button name="action_open_box" type="object" context="{'box': 'review'}"
+                    class="btn btn-outline-warning">
+              En revisión: <field name="count_review" class="oe_inline"/> ·
+              <field name="amount_review" class="oe_inline"/>
+            </button>
+            <button name="action_open_box" type="object" context="{'box': 'no_customer'}"
+                    class="btn btn-outline-warning">
+              Sin cliente: <field name="count_no_customer" class="oe_inline"/> ·
+              <field name="amount_no_customer" class="oe_inline"/>
+            </button>
+            <button name="action_open_box" type="object" context="{'box': 'duplicate'}"
+                    class="btn btn-outline-danger">
+              Duplicado: <field name="count_duplicate" class="oe_inline"/> ·
+              <field name="amount_duplicate" class="oe_inline"/>
+            </button>
+            <button name="action_open_box" type="object" context="{'box': 'waiting_money'}"
+                    class="btn btn-outline-secondary">
+              Sin movimiento en MP (esperando): <field name="count_waiting_money" class="oe_inline"/> ·
+              <field name="amount_waiting_money" class="oe_inline"/>
+            </button>
+            <button name="action_open_box" type="object" context="{'box': 'online'}"
+                    class="btn btn-outline-secondary">
+              Ya en Online: <field name="count_online" class="oe_inline"/> ·
+              <field name="amount_online" class="oe_inline"/>
+            </button>
+            <button name="action_open_box" type="object" context="{'box': 'confirmed'}"
+                    class="btn btn-outline-secondary">
+              Confirmado en el lab: <field name="count_confirmed" class="oe_inline"/> ·
+              <field name="amount_confirmed" class="oe_inline"/>
+            </button>
+            <button name="action_open_box" type="object" context="{'box': 'closed'}"
+                    class="btn btn-outline-secondary">
+              Cerrados: <field name="count_closed" class="oe_inline"/> ·
+              <field name="amount_closed" class="oe_inline"/>
+            </button>
+          </div>
+          <h3>Para revisar primero</h3>
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button name="action_open_links" type="object" class="btn btn-outline-danger">
+              Vínculos nuevos con Online (última sincronización):
+              <field name="links_count" class="oe_inline"/> · <field name="links_amount" class="oe_inline"/>
+            </button>
+            <button name="action_open_conflicts" type="object" class="btn btn-outline-danger">
+              Posibles dobles cargas en Online: <field name="conflict_count" class="oe_inline"/> ·
+              <field name="conflict_amount" class="oe_inline"/>
+            </button>
+            <button name="action_open_weak_online" type="object" class="btn btn-outline-warning">
+              Ya en Online por importe, para volver a mirar:
+              <field name="weak_online_count" class="oe_inline"/>
+            </button>
+          </div>
+          <p class="text-muted">El tablero muestra solo las tarjetas que vienen de un comprobante
+             de WhatsApp; el reporte de Mercado Pago solo lo verifica. Un movimiento de Mercado
+             Pago sin comprobante no está acá y nunca baja la deuda de un cliente.</p>
+          <field name="box_html" widget="html" readonly="1" nolabel="1"/>
+          <p class="text-muted small">«Confirmar lote» toma hasta 50 tarjetas de «Listo para confirmar», de
+             la más nueva a la más vieja, y muestra la vista previa con todas las guardas antes de
+             registrar nada. Se bloquea si la sincronización con Online tiene más de 24 h.</p>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_migration_approve_form" model="ir.ui.view">
+    <field name="name">distri.migration.approve.form</field>
+    <field name="model">distri.migration.approve</field>
+    <field name="arch" type="xml">
+      <form string="Confirmar">
+        <div class="alert alert-danger" role="alert" invisible="not sync_stale">
+          <field name="sync_label" readonly="1" class="oe_inline"/>
+        </div>
+        <div class="alert alert-info" role="status" invisible="sync_stale">
+          <field name="sync_label" readonly="1" class="oe_inline"/>
+        </div>
+        <p>Se registra el pago de cada tarjeta sin problemas con la confirmación del tablero de
+           cobros, a su cliente. Las que tienen un motivo en rojo no se tocan. Las guardas se
+           vuelven a revisar al confirmar.</p>
+        <group>
+          <group>
+            <field name="ok_count"/>
+            <field name="ok_amount"/>
+          </group>
+          <group>
+            <field name="blocked_count"/>
+            <field name="mode"/>
+          </group>
+        </group>
+        <field name="line_ids" readonly="1">
+          <list decoration-danger="problem" decoration-warning="warning and not problem">
+            <field name="date"/>
+            <field name="collection_id"/>
+            <field name="partner_id"/>
+            <field name="amount" sum="Total"/>
+            <field name="money_grade"/>
+            <field name="customer_sources"/>
+            <field name="balance_after"/>
+            <field name="problem"/>
+            <field name="warning"/>
+            <field name="currency_id" column_invisible="1"/>
+          </list>
+        </field>
+        <field name="sync_stale" invisible="1"/>
+        <field name="currency_id" invisible="1"/>
+        <footer>
+          <button name="action_approve" type="object" string="Confirmar" class="btn-primary"
+                  invisible="not ok_count"
+                  confirm="Se registran los pagos de las tarjetas sin problemas. ¿Seguir?"/>
+          <button special="cancel" string="Cancelar" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_migration_summary_open" model="ir.actions.server">
+    <field name="name">Tablero de migración</field>
+    <field name="model_id" ref="model_distri_migration_summary"/>
+    <field name="state">code</field>
+    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion')), (4, ref('base.group_system'))]"/>
+    <field name="code">action = model.action_open()</field>
+  </record>
+
+  <!-- «Cuenta corriente» in a new tab: /odoo/<partner id>/action-distri_pedido.action_partner_account_tab -->
+  <record id="action_partner_account_tab" model="ir.actions.server">
+    <field name="name">Cuenta corriente</field>
+    <field name="model_id" ref="base.model_res_partner"/>
+    <field name="state">code</field>
+    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion')), (4, ref('base.group_system'))]"/>
+    <field name="code">action = record.action_ver_cuenta() if record else False</field>
+  </record>
+
+  <menuitem id="menu_cobros_migration" name="Tablero de migración" parent="menu_cobros_root"
+            action="action_migration_summary_open" sequence="14"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+
+</odoo>

@@ -91,6 +91,10 @@ class DistriMpWholesaleRule(models.Model):
         Partner = self.env["res.partner"].sudo()
         for rule in self:
             partners = Partner._distri_partners_by_cuit(rule.cuit) if rule.cuit else Partner
+            # a customer marked «Es mayorista» (19.0.1.41.0) is no conflict:
+            # its payments are the wholesaler's
+            partners = partners.filtered(
+                lambda p: not p.commercial_partner_id.distri_es_mayorista)
             rule.conflict = bool(partners)
             rule.conflict_note = ", ".join(partners.mapped("display_name"))[:250] or False
 
@@ -161,8 +165,11 @@ class DistriMpCollectionWholesale(models.Model):
         customer and without a receipt (a receipt or a customer is retail)."""
         todo = self.sudo().filtered(lambda c: c.kind == "income" and c.state == "draft")
         if auto:
-            todo = todo.filtered(lambda c: not c.partner_id and not c.receipt_id
-                                 and not c.promise_id)
+            # a customer proposed only because it is a wholesaler («Es
+            # mayorista») does not keep the payment on the board
+            todo = todo.filtered(lambda c: (not c.partner_id
+                                            or c.partner_id.commercial_partner_id.distri_es_mayorista)
+                                 and not c.receipt_id and not c.promise_id)
         if not todo:
             return todo
         todo.write({

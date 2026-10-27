@@ -1,9 +1,9 @@
 """19.0.1.39.0: «Revisión por cliente» and «Venta sin registrar»
 (models/revision_cliente.py). Every customer, amount and operation here is
 fictitious."""
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from odoo import Command
+from odoo import Command, fields
 from odoo.exceptions import AccessError, UserError
 from odoo.tests import new_test_user, tagged
 
@@ -28,6 +28,9 @@ class TestRevisionCliente(AccountTestInvoicingCommon):
         cls.cash = cls.company_data["default_journal_cash"]
         cls.seller = new_test_user(cls.env, login="vendedor_revision",
                                    groups="base.group_user,distri_pedido.grupo_vendedor")
+        # «Confirmar» needs the Online mirror synced in the last 24 h (19.0.1.41.0)
+        cls.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.online_sync_at", fields.Datetime.to_string(fields.Datetime.now()))
 
     # ------------------------------------------------------------ helpers
 
@@ -44,11 +47,24 @@ class TestRevisionCliente(AccountTestInvoicingCommon):
         pay.action_post()
         return pay
 
-    def _card(self, partner, amount, when, source):
-        return self.Collection.create({
+    def _card(self, partner, amount, when, source, receipt=True):
+        """A pending card; with its WhatsApp receipt by default (19.0.1.41.0:
+        without one, a movement never reduces the debt)."""
+        card = self.Collection.create({
             "source_id": source, "date": when, "amount": amount, "method_type": "bank_transfer",
             "partner_id": partner.id, "proposal": "manual",
             "proposal_note": "Comprobante de prueba %s" % source})
+        if receipt:
+            msg = self.env["distri.whatsapp.message"].sudo().create({
+                "wa_message_id": "wamid.revision.%s" % source, "direction": "in",
+                "wa_id": "5492990000777", "message_type": "image",
+                "timestamp": when + timedelta(minutes=1), "media_mime_type": "image/jpeg",
+                "media_id": "1", "media_state": "pending"})
+            msg.with_context(distri_receipt_matching=True).write({
+                "distri_is_receipt": True, "distri_operation": source, "distri_amount": amount,
+                "distri_receipt_state": "matched", "distri_collection_id": card.id})
+            card.sudo().receipt_id = msg
+        return card
 
     def _review(self, partner):
         self.Review._distri_refresh(partner)

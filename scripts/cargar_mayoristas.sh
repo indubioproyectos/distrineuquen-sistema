@@ -7,20 +7,22 @@
 #   JSON default /srv/docs/distrineuquen-modulo/insumos/cruce/cuit_distribuidoras.json
 #        ({"CUIT": "name", ...})
 # Prints only counts. Idempotent: an existing rule is kept (and reactivated).
+# NOTE (env) replaces the note written on new rules.
 set -euo pipefail
 DB=${1:-distri_lab}
 JSON=${2:-/srv/docs/distrineuquen-modulo/insumos/cruce/cuit_distribuidoras.json}
+NOTE=${NOTE:-Lista de distribuidoras del cruce histórico (cuit_distribuidoras.json, 29/09/2026)}
 cd /srv/odoo-lab
-python3 - "$JSON" <<'PY' | docker compose exec -T odoo odoo shell -c /etc/odoo/odoo.conf -d "$DB" --no-http 2>/dev/null | tail -1
+python3 - "$JSON" "$NOTE" <<'PY' | docker compose exec -T odoo odoo shell -c /etc/odoo/odoo.conf -d "$DB" --no-http 2>/dev/null | tail -1
 import json, sys
 data = json.load(open(sys.argv[1]))
+note = sys.argv[2]
 print("R = env['distri.mp.wholesale.rule'].sudo().with_context(active_test=False)")
 print("rules = R.browse()")
 for cuit, name in sorted(data.items()):
     print("r = R.search([('cuit', '=', %r)], limit=1)" % cuit)
     print("r = r.write({'active': True}) and r if r else R.create({'cuit': %r, 'label': %r, "
-          "'note': 'Lista de distribuidoras del cruce histórico (cuit_distribuidoras.json, 29/09/2026)'})"
-          % (cuit, "Distribuidora · %s" % name))
+          "'note': %r})" % (cuit, "Distribuidora · %s" % name, note))
     print("rules |= r")
 print("rules._compute_conflict()")
 print("moved = rules._distri_apply()")

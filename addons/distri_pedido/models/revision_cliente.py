@@ -18,7 +18,13 @@ leaves a credit balance that does not exist.
   hidden list (Distribuidora / revendedor) and the ones whose own price list
   is a distribuidoras list. The wholesale payers set aside on the board have
   no customer, so they never reach this screen.
-- «Confirmar» runs the board's own confirmation (action_confirm).
+- «Confirmar» runs the board's own confirmation (action_confirm), only for a
+  card with its WhatsApp receipt, not duplicated, not in Online and with the
+  Online mirror synced less than 24 h ago (19.0.1.41.0, models/migracion.py).
+- A pending Mercado Pago movement without a WhatsApp receipt never reduces
+  the debt (19.0.1.41.0): its line keeps the running balance and its amount
+  only shows in «Si se aplicaran los movimientos sin comprobante», a what-if
+  figure that is not applied.
 - «Venta sin registrar» (a wizard shared by this screen and the board card)
   invoices an amount in the journal «Ventas sin registrar» (VSR), with the
   product «Venta sin detalle», posts it and reconciles exactly that amount
@@ -61,11 +67,23 @@ LINE_STATES = [
 
 def is_reseller(partner):
     """Customers out of the review: the generic contacts, the ones with the
-    hidden list and the ones whose own price list is a distribuidoras list
-    (read on the commercial partner, in the current company)."""
+    hidden list, the ones whose own price list is a distribuidoras list (read
+    on the commercial partner, in the current company) and the ones marked
+    «Es mayorista» by administración (19.0.1.41.0)."""
     partner = partner.commercial_partner_id.sudo()
     return bool(partner.distri_generic_partner or partner.distri_lista_oculta
+                or partner.distri_es_mayorista
                 or partner.specific_property_product_pricelist.distri_mayorista)
+
+
+class ResPartnerMayorista(models.Model):
+    _inherit = "res.partner"
+
+    distri_es_mayorista = fields.Boolean(
+        string="Es mayorista", tracking=True, copy=False,
+        help="Mayorista o revendedor fuera del alcance de la puesta al día: no entra en "
+             "«Revisión por cliente» ni se aprueba desde el tablero de migración. Lo marca "
+             "administración.")
 
 
 class AccountJournalVsr(models.Model):
@@ -141,13 +159,21 @@ class DistriBalanceReview(models.Model):
     posted_count = fields.Integer(string="Pagos del lab", readonly=True)
     posted_amount = fields.Monetary(string="Importe pagos del lab", readonly=True)
     pending_count = fields.Integer(string="Tarjetas pendientes", readonly=True)
-    pending_amount = fields.Monetary(string="Importe pendiente", readonly=True)
+    pending_amount = fields.Monetary(string="Importe pendiente con comprobante", readonly=True)
+    no_receipt_count = fields.Integer(string="Pendientes sin comprobante", readonly=True)
+    no_receipt_amount = fields.Monetary(
+        string="Importe sin comprobante (no aplicado)", readonly=True,
+        help="Movimientos de Mercado Pago sin comprobante de WhatsApp: nunca bajan la deuda.")
+    whatif_balance = fields.Monetary(
+        string="Si se aplicaran los sin comprobante (no aplicado)", readonly=True,
+        help="Solo como referencia: el saldo si los movimientos sin comprobante fueran de este "
+             "cliente. No se aplica.")
     vsr_amount = fields.Monetary(string="Ventas sin registrar", readonly=True)
     lab_balance = fields.Monetary(string="Saldo en el lab", readonly=True,
                                   help="Saldo en Online − pagos del lab + ventas sin registrar.")
     final_balance = fields.Monetary(string="Saldo con las pendientes", readonly=True,
                                     help="Lo que quedaría si se confirman las tarjetas "
-                                         "pendientes.")
+                                         "pendientes con comprobante de WhatsApp.")
     flag_count = fields.Integer(string="Alertas", readonly=True)
     has_flag = fields.Boolean(string="Posible venta sin registrar", readonly=True, index=True)
     summary = fields.Char(string="Ya conciliado", readonly=True)
@@ -155,6 +181,15 @@ class DistriBalanceReview(models.Model):
                              string="Estado", default="pending", readonly=True, index=True)
     line_ids = fields.One2many("distri.balance.review.line", "review_id", string="Pagos nuevos",
                                readonly=True)
+    online_sync_label = fields.Char(string="Online", compute="_compute_online_sync")
+    online_sync_stale = fields.Boolean(compute="_compute_online_sync")
+
+    def _compute_online_sync(self):
+        from .migracion import online_sync_state
+        sync = online_sync_state(self.env)
+        for review in self:
+            review.online_sync_label = sync["label"]
+            review.online_sync_stale = sync["stale"]
 
     _partner_unique = models.Constraint("unique(partner_id)",
                                         "Ese cliente ya tiene su revisión.")
@@ -169,6 +204,8 @@ class DistriBalanceReview(models.Model):
         Partner = self.env["res.partner"].sudo()
         cr = self.env.cr
         only = set(partners.mapped("commercial_partner_id").ids) if partners is not None else None
+        self.env["distri.cuenta.movimiento"].flush_model()
+        Partner.flush_model(["commercial_partner_id"])
 
         cr.execute("""
             SELECT p.commercial_partner_id,
@@ -203,7 +240,13 @@ class DistriBalanceReview(models.Model):
         for card in cards:
             by_partner.setdefault(card.partner_id.commercial_partner_id.id, [[], []])[1].append(card)
 
-        wanted = {p.id for p in Partner.browse(list(by_partner)) if not is_reseller(p)}
+        # every retail customer with debt (or credit) in the Online history,
+        # also without new payments (19.0.1.41.0): the review covers all of it
+        owing = [pid for pid, row in history.items()
+                 if abs(float(row[0] or 0.0)) > AMOUNT_TOLERANCE
+                 and (only is None or pid in only)]
+        candidates = Partner.browse(list(set(by_partner) | set(owing))).exists()
+        wanted = {p.id for p in candidates if not is_reseller(p)}
         scope = [("partner_id", "in", list(only))] if only is not None else []
         existing = {r.partner_id.id: r for r in Review.search(scope)}
         # customers with nothing new left (or now resellers) leave the review
@@ -212,7 +255,7 @@ class DistriBalanceReview(models.Model):
         for pid in wanted:
             review = existing.get(pid) or Review.create({"partner_id": pid})
             hist = history.get(pid, (0.0, 0, 0.0, 0))
-            posted, pending = by_partner[pid]
+            posted, pending = by_partner.get(pid, ([], []))
             review._distri_rebuild(hist, posted, pending, paid_cards, invoices)
         return True
 
@@ -246,6 +289,8 @@ class DistriBalanceReview(models.Model):
                 "note": (card.proposal_note if card else "") or pay.memo or "",
                 "vsr_invoice_id": invoice.id if invoice else False,
                 "invoiced": invoice.amount_total if invoice else 0.0,
+                "has_receipt": bool(card and card.receipt_id),
+                "applied": True,
             })
         for card in sorted(pending, key=lambda c: (c.date_day or fields.Date.today(), c.id)):
             rows.append({
@@ -258,16 +303,36 @@ class DistriBalanceReview(models.Model):
                 "note": card.proposal_note or "",
                 "vsr_invoice_id": False,
                 "invoiced": 0.0,
+                "has_receipt": bool(card.receipt_id),
+                # a movement without its WhatsApp receipt never reduces the debt
+                "applied": bool(card.receipt_id),
             })
         keep = Line.browse()
         totals = {"posted_count": 0, "posted_amount": 0.0, "pending_count": 0,
-                  "pending_amount": 0.0, "vsr_amount": 0.0}
+                  "pending_amount": 0.0, "vsr_amount": 0.0, "no_receipt_count": 0,
+                  "no_receipt_amount": 0.0}
         lab = online
         flags = 0
         for row in rows:
             seq += 10
             invoiced = row.pop("invoiced")
             before = running
+            if not row["applied"]:
+                # shown, never applied: the balance stays
+                totals["pending_count"] += 1
+                totals["no_receipt_count"] += 1
+                totals["no_receipt_amount"] += row["amount"]
+                vals = dict(row, sequence=seq, balance_before=before, balance_after=running,
+                            red_flag=False, excess=0.0)
+                line = old.pop(("card", row["collection_id"]), None)
+                if line:
+                    changed = {k: v for k, v in vals.items() if line._distri_differs(k, v)}
+                    if changed:
+                        line.write(changed)
+                else:
+                    line = Line.create(dict(vals, review_id=self.id))
+                keep |= line
+                continue
             running = round(running - row["amount"] + invoiced, 2)
             net = row["amount"] - invoiced
             red = running < -AMOUNT_TOLERANCE and net > AMOUNT_TOLERANCE
@@ -307,10 +372,13 @@ class DistriBalanceReview(models.Model):
             matched_count=matched,
             lab_balance=lab,
             final_balance=running,
+            whatif_balance=round(running - totals["no_receipt_amount"], 2),
             flag_count=flags,
             has_flag=bool(flags),
             summary=summary,
-            state="pending" if "pending" in states else "reviewed",
+            # a customer with Online debt and nothing new keeps its own state
+            # (pending until «Marcar cliente revisado»)
+            state=("pending" if "pending" in states else "reviewed") if states else self.state,
         ))
 
     def _distri_refresh_self(self):
@@ -334,9 +402,21 @@ class DistriBalanceReview(models.Model):
             self._distri_refresh()
         return True
 
+    def action_mark_customer_reviewed(self):
+        """«Marcar cliente revisado»: the customer's balance was checked
+        (also when it has no new payment)."""
+        _check_admin_or_raise(self.env)
+        pending = self.sudo().line_ids.filtered(lambda l: l.review_state == "pending")
+        if pending:
+            raise UserError("Quedan %s pagos pendientes de revisar en este cliente." % len(pending))
+        self.sudo().write({"state": "reviewed"})
+        return True
+
     def action_view_account(self):
+        """«Cuenta corriente», in a new browser tab."""
+        from .migracion import account_url, tab_action
         self.ensure_one()
-        return self.partner_id.action_ver_cuenta()
+        return tab_action(account_url(self.partner_id))
 
 
 class DistriBalanceReviewLine(models.Model):
@@ -365,12 +445,29 @@ class DistriBalanceReviewLine(models.Model):
     collection_id = fields.Many2one("distri.mp.collection", string="Tarjeta del tablero",
                                     readonly=True, index="btree_not_null", ondelete="cascade")
     card_state = fields.Selection(related="collection_id.state", string="Estado de la tarjeta")
+    has_receipt = fields.Boolean(string="Comprobante", readonly=True,
+                                 help="La tarjeta tiene su comprobante de WhatsApp.")
+    applied = fields.Boolean(string="Aplicado al saldo", readonly=True, default=True,
+                             help="Sin comprobante de WhatsApp, un movimiento de Mercado Pago no "
+                                  "baja la deuda: se muestra y no se aplica.")
+    receipt_id = fields.Many2one(related="collection_id.receipt_id", string="Foto")
+    money_grade = fields.Selection(related="collection_id.money_grade")
+    customer_sources = fields.Char(related="collection_id.customer_sources")
+    migration_duplicate = fields.Char(related="collection_id.migration_duplicate")
+    invoice_id = fields.Many2one("account.move", string="Factura", compute="_compute_invoice_id")
     vsr_invoice_id = fields.Many2one("account.move", string="Factura de venta sin registrar",
                                      readonly=True)
     review_state = fields.Selection(LINE_STATES, string="Revisión", default="pending",
                                     readonly=True, index=True)
     reviewed_by_id = fields.Many2one("res.users", string="Revisó", readonly=True)
     reviewed_at = fields.Datetime(string="Revisado el", readonly=True)
+
+    @api.depends("vsr_invoice_id", "payment_id")
+    def _compute_invoice_id(self):
+        for line in self:
+            invoices = line.vsr_invoice_id or line.sudo().payment_id.reconciled_invoice_ids
+            line.invoice_id = invoices.sorted(lambda m: (m.invoice_date or m.date, m.id))[-1:] \
+                if invoices else False
 
     def _distri_key(self):
         self.ensure_one()
@@ -389,11 +486,20 @@ class DistriBalanceReviewLine(models.Model):
     # ------------------------------------------------------------ actions
 
     def action_confirm_card(self):
-        """«Confirmar»: the board's own confirmation, nothing else."""
+        """«Confirmar»: the board's own confirmation, only for a card that
+        passes the guards of the migration board (receipt, customer, not
+        duplicated, not in Online, Online synced in the last 24 h)."""
+        from .migracion import cutoff_moment, online_sync_state
         _check_admin_or_raise(self.env)
         cards = self.mapped("collection_id").filtered(lambda c: c.state == "draft")
         if not cards:
             raise UserError("No hay tarjetas pendientes para confirmar.")
+        sync = online_sync_state(self.env)
+        cutoff = cutoff_moment(self.env)
+        problems = ["%s: %s" % (card.name, problem) for card, problem in (
+            (card, card._migration_problem("single", sync, cutoff)) for card in cards) if problem]
+        if problems:
+            raise UserError("No se confirma: %s." % "; ".join(problems))
         reviews = self.mapped("review_id")
         cards.action_confirm()
         reviews.sudo()._distri_refresh_self()
@@ -439,16 +545,41 @@ class DistriBalanceReviewLine(models.Model):
         _vsr_check_free(self.env, line.payment_id)
         return _vsr_wizard_action(self.env, line._distri_vsr_defaults())
 
+    # each one opens in a new browser tab (19.0.1.41.0): the review stays
     def action_view_payment(self):
+        from .migracion import record_url, tab_action
         self.ensure_one()
-        return {"type": "ir.actions.act_window", "res_model": "account.payment",
-                "res_id": self.payment_id.id, "view_mode": "form", "views": [(False, "form")]}
+        if not self.payment_id:
+            raise UserError("Esta línea no tiene pago registrado.")
+        return tab_action(record_url(self.payment_id))
 
     def action_view_card(self):
+        from .migracion import record_url, tab_action
         self.ensure_one()
-        return {"type": "ir.actions.act_window", "res_model": "distri.mp.collection",
-                "res_id": self.collection_id.id, "view_mode": "form",
-                "views": [(False, "form")]}
+        if not self.collection_id:
+            raise UserError("Esta línea no tiene tarjeta del tablero.")
+        return tab_action(record_url(self.collection_id))
+
+    def action_view_invoice(self):
+        from .migracion import record_url, tab_action
+        self.ensure_one()
+        if not self.invoice_id:
+            raise UserError("Esta línea no tiene factura.")
+        return tab_action(record_url(self.invoice_id))
+
+    def action_view_receipt(self):
+        """The photo itself, full size, in a new tab."""
+        self.ensure_one()
+        if not self.collection_id.receipt_id:
+            raise UserError("Esta línea no tiene foto.")
+        return self.collection_id.action_tab_receipt()
+
+    def action_receipt_viewer(self):
+        """The photo large with the WhatsApp message under it (dialog)."""
+        self.ensure_one()
+        if not self.collection_id.receipt_id:
+            raise UserError("Esta línea no tiene foto.")
+        return self.collection_id.action_receipt_viewer()
 
 
 # ====================================================================== «Venta sin registrar»
