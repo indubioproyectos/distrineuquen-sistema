@@ -127,3 +127,7 @@ acceso_migration_approve_admin,distri.migration.approve administracion,model_dis
 acceso_migration_approve_sistema,distri.migration.approve sistema,model_distri_migration_approve,base.group_system,1,1,1,1
 acceso_migration_approve_line_admin,distri.migration.approve.line administracion,model_distri_migration_approve_line,distri_pedido.grupo_administracion,1,1,1,1
 acceso_migration_approve_line_sistema,distri.migration.approve.line sistema,model_distri_migration_approve_line,base.group_system,1,1,1,1
+acceso_balance_adjustment_admin,distri.balance.adjustment administracion,model_distri_balance_adjustment,distri_pedido.grupo_administracion,1,0,0,0
+acceso_balance_adjustment_sistema,distri.balance.adjustment sistema,model_distri_balance_adjustment,base.group_system,1,1,1,1
+acceso_balance_adjustment_wizard_admin,distri.balance.adjustment.wizard administracion,model_distri_balance_adjustment_wizard,distri_pedido.grupo_administracion,1,1,1,1
+acceso_balance_adjustment_wizard_sistema,distri.balance.adjustment.wizard sistema,model_distri_balance_adjustment_wizard,base.group_system,1,1,1,1

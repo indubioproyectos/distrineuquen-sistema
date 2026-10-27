@@ -545,9 +545,17 @@ class DistriMpCollectionMigration(models.Model):
                 "%d/%m/%Y %H:%M") if msg.timestamp else "—"
             html = Markup("<div class='o_distri_wa_message'>")
             html += Markup("<p class='mb-1'><b>Enviado por</b> %s · <b>%s</b></p>") % (sender, when)
-            caption = (msg.body or "").strip()
-            html += Markup("<p class='mb-2'><b>Texto junto a la foto:</b> %s</p>") % (
-                caption or Markup("<i>sin texto</i>"))
+            # without a caption, the text the sender wrote right after the photo
+            # (models/sugerencia_cliente.py)
+            text, following = msg._distri_receipt_text()
+            label = "Texto del comprobante (mensaje siguiente):" if following \
+                else "Texto junto a la foto:"
+            html += Markup("<p class='mb-2'><b>%s</b> %s</p>") % (
+                label, Markup("<br/>").join(text.splitlines()) if text
+                else Markup("<i>sin texto</i>"))
+            if msg.distri_suggested_partner_id and not rec.partner_id:
+                html += Markup("<p class='mb-2'><b>Cliente sugerido:</b> %s · %s</p>") % (
+                    msg.distri_suggested_partner_id.name, msg.distri_suggestion_note or "")
             nearby = Message.browse()
             if msg.timestamp:
                 domain = [("id", "!=", msg.id), ("direction", "=", "in"),

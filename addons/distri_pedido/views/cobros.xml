@@ -42,6 +42,8 @@
         <field name="proposal"/>
         <field name="proposal_note"/>
         <field name="proposal_badge"/>
+        <field name="suggested_partner_id"/>
+        <field name="suggestion_note"/>
         <field name="amount_mismatch"/>
         <field name="date_mismatch"/>
         <field name="conflict_note"/>
@@ -153,6 +155,18 @@
             </div>
             <div t-if="record.proposal_note.raw_value" class="o_distri_note">
               <field name="proposal_note"/>
+            </div>
+            <!-- 19.0.1.43.0: the customer named by the text after the photo, never
+                 assigned alone (models/sugerencia_cliente.py) -->
+            <div t-if="record.suggested_partner_id.raw_value and !record.partner_id.raw_value"
+                 class="o_distri_note">
+              <i class="fa fa-lightbulb-o" title="Cliente sugerido"/>
+              <b>Cliente sugerido:</b> <field name="suggested_partner_id"/> ·
+              <field name="suggestion_note"/>
+              <button t-if="draft" name="action_use_suggestion" type="object"
+                      class="btn btn-sm btn-primary ms-1" groups="distri_pedido.grupo_administracion">
+                Usar este cliente
+              </button>
             </div>
             <div t-if="record.reversal.raw_value" class="o_distri_note o_distri_note_danger">
               <i class="fa fa-exclamation-triangle" title="Aviso"/> <field name="reversal"/>
@@ -334,6 +348,10 @@
           <button name="action_clear_review" type="object" string="Revisado"
                   invisible="not report_review or state == 'authorized'"
                   groups="distri_pedido.grupo_administracion"/>
+          <button name="action_use_suggestion" type="object" string="Usar este cliente"
+                  class="btn-primary"
+                  invisible="state != 'draft' or partner_id or not suggested_partner_id"
+                  groups="distri_pedido.grupo_administracion"/>
           <button name="action_assign" type="object" string="Elegir cliente"
                   invisible="state != 'draft'"/>
           <button name="action_view_receipt" type="object" string="Ver foto"
@@ -388,6 +406,11 @@
               <field name="partner_id" readonly="1"/>
               <field name="proposal"/>
               <field name="proposal_note"/>
+              <label for="suggested_partner_id" invisible="partner_id or not suggested_partner_id"/>
+              <div invisible="partner_id or not suggested_partner_id" class="d-flex gap-2 align-items-baseline">
+                <field name="suggested_partner_id" class="oe_inline" options="{'no_open': True}"/>
+                <field name="suggestion_note" class="oe_inline text-muted"/>
+              </div>
               <field name="column"/>
               <field name="reversal" invisible="not reversal"/>
               <field name="authorized_conflict" invisible="not authorized_conflict"/>
@@ -395,6 +418,7 @@
             </group>
             <group string="Comprobante" invisible="kind != 'verify'">
               <field name="operation"/>
+              <field name="amount" string="Importe del comprobante" widget="monetary"/>
               <field name="date"/>
               <field name="payer_name"/>
               <field name="payer_cuit"/>
@@ -404,6 +428,7 @@
             </group>
             <group string="Mercado Pago" invisible="kind != 'income'">
               <field name="source_id"/>
+              <field name="amount" string="Importe en el reporte" widget="monetary"/>
               <field name="date"/>
               <field name="origin_label"/>
               <field name="method_type"/>
@@ -860,6 +885,8 @@
               <field name="body" readonly="1"/>
               <field name="distri_partner_id" options="{'no_create': True}"/>
               <field name="distri_partner_source" invisible="not distri_partner_id"/>
+              <field name="distri_suggested_partner_id" invisible="distri_partner_id or not distri_suggested_partner_id"/>
+              <field name="distri_suggestion_note" invisible="distri_partner_id or not distri_suggested_partner_id"/>
               <field name="distri_amount"/>
               <field name="distri_amount_confidence" widget="badge"
                      decoration-success="distri_amount_confidence == 'high'"

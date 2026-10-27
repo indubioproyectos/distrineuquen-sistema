@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Ajuste de cuentas» (19.0.1.44.0, models/ajuste_cuenta.py) -->
+<odoo>
+
+  <!-- «Ajuste de cuentas» sales journal (code AJC, its own series
+       AJC/AAAA/NNNNN), like «Ventas sin registrar»: created once per company
+       with accounting, also on demand by the first adjustment. Outside
+       noupdate on purpose: the live lab gets this version by upgrade.
+       Idempotent. -->
+  <function model="account.journal" name="_distri_ensure_ajc_journal"/>
+
+</odoo>

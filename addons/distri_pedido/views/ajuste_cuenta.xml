@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Ajuste de cuentas» (19.0.1.44.0, models/ajuste_cuenta.py) -->
+<odoo>
+
+  <record id="view_balance_adjustment_wizard" model="ir.ui.view">
+    <field name="name">distri.balance.adjustment.wizard.form</field>
+    <field name="model">distri.balance.adjustment.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Ajustar saldo">
+        <p>Deja el saldo del lab del cliente en el saldo real confirmado por la gerencia, sin
+           registrar un cobro: una nota de crédito interna (o un débito, si el saldo real es
+           mayor) en el diario <b>Ajuste de cuentas</b> (serie AJC, sin documentos de AFIP).
+           No toca caja, Mercado Pago ni banco.</p>
+        <group>
+          <group>
+            <field name="partner_id"/>
+            <field name="current_balance"/>
+            <field name="target_balance"/>
+            <field name="difference"/>
+          </group>
+          <group>
+            <field name="date" required="1"/>
+            <field name="authorized_by" required="1" placeholder="Quién confirmó el saldo"/>
+            <field name="motive" required="1"
+                   placeholder="Por qué: qué se confirmó, con quién, qué falta registrar…"/>
+          </group>
+        </group>
+        <div class="alert alert-warning" role="alert" invisible="not is_debit">
+          El saldo real es <b>mayor</b> que el del lab: se registra un débito interno y el cliente
+          pasa a deber más.
+          <field name="confirm_debit" class="oe_inline"/>
+          <label for="confirm_debit" class="oe_inline"/>
+        </div>
+        <field name="is_debit" invisible="1"/>
+        <field name="currency_id" invisible="1"/>
+        <footer>
+          <button name="action_apply" type="object" string="Ajustar saldo" class="btn-primary"
+                  confirm="Se publica el ajuste en el diario «Ajuste de cuentas». ¿Seguir?"/>
+          <button special="cancel" string="Cancelar" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_balance_adjustment_list" model="ir.ui.view">
+    <field name="name">distri.balance.adjustment.list</field>
+    <field name="model">distri.balance.adjustment</field>
+    <field name="arch" type="xml">
+      <list string="Ajustes de cuenta" create="0" edit="0" delete="0"
+            decoration-muted="online_done or move_state != 'posted'">
+        <field name="date"/>
+        <field name="partner_id"/>
+        <field name="online_ref"/>
+        <field name="balance_before" sum="Total"/>
+        <field name="target_balance" sum="Total"/>
+        <field name="difference" sum="Total"/>
+        <field name="kind" optional="hide"/>
+        <field name="motive"/>
+        <field name="authorized_by"/>
+        <field name="create_uid" string="Creado por"/>
+        <field name="name" optional="show"/>
+        <field name="move_state" optional="hide"/>
+        <field name="online_done" widget="boolean"/>
+        <field name="online_done_by_id" optional="hide"/>
+        <field name="online_done_at" optional="hide"/>
+        <field name="currency_id" column_invisible="1"/>
+        <button name="action_mark_online" type="object" string="Pasado a Online"
+                icon="fa-check" class="btn-link" invisible="online_done"
+                groups="distri_pedido.grupo_administracion"/>
+        <button name="action_unmark_online" type="object" string="Desmarcar"
+                icon="fa-undo" class="btn-link" invisible="not online_done"
+                groups="distri_pedido.grupo_administracion"/>
+        <button name="action_view_move" type="object" string="Asiento" icon="fa-external-link"
+                class="btn-link" invisible="not move_id" title="Asiento en una pestaña nueva"/>
+        <field name="move_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_balance_adjustment_form" model="ir.ui.view">
+    <field name="name">distri.balance.adjustment.form</field>
+    <field name="model">distri.balance.adjustment</field>
+    <field name="arch" type="xml">
+      <form string="Ajuste de cuenta" create="0" edit="0" delete="0">
+        <header>
+          <button name="action_mark_online" type="object" string="Pasado a Online"
+                  class="btn-primary" invisible="online_done"
+                  groups="distri_pedido.grupo_administracion"/>
+          <button name="action_unmark_online" type="object" string="Desmarcar"
+                  class="btn-secondary" invisible="not online_done"
+                  groups="distri_pedido.grupo_administracion"/>
+          <button name="action_view_move" type="object" string="Asiento" icon="fa-external-link"
+                  class="btn-secondary" invisible="not move_id"/>
+        </header>
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="partner_id"/></h1>
+          </div>
+          <group>
+            <group>
+              <field name="online_ref"/>
+              <field name="date"/>
+              <field name="balance_before"/>
+              <field name="target_balance"/>
+              <field name="difference"/>
+              <field name="kind"/>
+            </group>
+            <group>
+              <field name="authorized_by"/>
+              <field name="create_uid" string="Creado por"/>
+              <field name="move_id"/>
+              <field name="move_state"/>
+              <field name="online_done"/>
+              <field name="online_done_by_id" invisible="not online_done"/>
+              <field name="online_done_at" invisible="not online_done"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+          <group string="Motivo">
+            <field name="motive" nolabel="1" colspan="2"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_balance_adjustment_search" model="ir.ui.view">
+    <field name="name">distri.balance.adjustment.search</field>
+    <field name="model">distri.balance.adjustment</field>
+    <field name="arch" type="xml">
+      <search string="Ajustes de cuenta">
+        <field name="partner_id"/>
+        <field name="authorized_by"/>
+        <field name="motive"/>
+        <filter name="to_online" string="Por pasar a Online"
+                domain="[('online_done', '=', False), ('move_state', '=', 'posted')]"/>
+        <filter name="in_online" string="Pasados a Online" domain="[('online_done', '=', True)]"/>
+        <group>
+          <filter name="by_partner" string="Cliente" context="{'group_by': 'partner_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_balance_adjustment" model="ir.actions.act_window">
+    <field name="name">Ajustes de cuenta</field>
+    <field name="res_model">distri.balance.adjustment</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_balance_adjustment_search"/>
+    <field name="context">{'search_default_to_online': 1}</field>
+    <field name="help" type="html">
+      <p>Cada saldo ajustado con «Ajustar saldo» (ficha del cliente o «Revisión por cliente»),
+         para replicarlo en Odoo Online. Marcá «Pasado a Online» cuando esté hecho.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_cobros_balance_adjustment" name="Ajustes de cuenta"
+            parent="menu_cobros_root" action="action_balance_adjustment" sequence="17"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+
+  <!-- the customer form: «Ajustar saldo» next to «Estado de cuenta» -->
+  <record id="view_partner_form_ajuste_cuenta" model="ir.ui.view">
+    <field name="name">res.partner.form.ajuste.cuenta</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="distri_pedido.view_partner_form_estado_cuenta"/>
+    <field name="arch" type="xml">
+      <button name="action_distri_estado_cuenta" position="after">
+        <button class="oe_stat_button" type="object" name="action_distri_balance_adjustment"
+                icon="fa-balance-scale" string="Ajustar saldo"
+                invisible="not id or distri_generic_partner"
+                groups="distri_pedido.grupo_administracion"/>
+      </button>
+    </field>
+  </record>
+
+</odoo>

@@ -77,6 +77,10 @@
           <button name="action_view_account" type="object" string="Cuenta corriente"
                   icon="fa-external-link" class="btn-secondary"
                   title="Cuenta corriente en una pestaña nueva"/>
+          <button name="action_balance_adjustment" type="object" string="Ajustar saldo"
+                  icon="fa-balance-scale" class="btn-secondary"
+                  groups="distri_pedido.grupo_administracion"
+                  title="Dejar el saldo del lab en el saldo real confirmado por la gerencia"/>
           <field name="state" widget="statusbar"/>
         </header>
         <div class="alert alert-danger mb-0" role="alert" invisible="not online_sync_stale">
@@ -108,6 +112,7 @@
             <group string="Después de los pagos nuevos">
               <field name="lab_balance"/>
               <field name="vsr_amount" invisible="not vsr_amount"/>
+              <field name="adjustment_amount" invisible="not adjustment_amount"/>
               <field name="pending_amount"/>
               <field name="final_balance"/>
               <field name="currency_id" invisible="1"/>
@@ -152,10 +157,14 @@
         <field name="flag_count"/>
         <field name="without_receipt_count" string="Sin comprobante" sum="Total" optional="show"/>
         <field name="vsr_amount" sum="Total" optional="hide"/>
+        <field name="adjustment_amount" sum="Total" optional="show"/>
         <field name="summary" optional="hide"/>
         <field name="state" widget="badge" decoration-warning="state == 'pending'"
                decoration-success="state == 'reviewed'"/>
         <field name="currency_id" column_invisible="1"/>
+        <button name="action_balance_adjustment" type="object" string="Ajustar saldo"
+                icon="fa-balance-scale" class="btn-link"
+                groups="distri_pedido.grupo_administracion"/>
       </list>
     </field>
   </record>

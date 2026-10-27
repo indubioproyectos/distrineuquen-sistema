@@ -37,6 +37,9 @@ leaves a credit balance that does not exist.
 - «Confirmado sin comprobante» (19.0.1.42.0, models/cobros.py): a line of
   a card confirmed on the board without its WhatsApp receipt shows the flag,
   and each customer counts them (filter «Confirmado sin comprobante»).
+- «Ajuste de cuentas» (19.0.1.44.0, models/ajuste_cuenta.py): the posted
+  adjustments enter `lab_balance` and `final_balance` (`adjustment_amount`),
+  on their date in the running balance.
 - The review rows are rebuilt from the accounting on every «Actualizar» and
   after every action; the review state of each line survives (it is keyed
   by its card, or by its payment when there is no card).
@@ -96,15 +99,20 @@ class AccountJournalVsr(models.Model):
         """«Ventas sin registrar» sales journal of the company, created the
         first time. Its own code, so its own series (VSR/2026/00001): the
         «Ventas Preimpreso» 0001 series that follows Online is never used."""
+        return self._distri_internal_sale_journal(VSR_JOURNAL_CODE, VSR_JOURNAL_NAME, company)
+
+    def _distri_internal_sale_journal(self, code, name, company=None):
+        """Internal sales journal of the company with its own code and series,
+        created the first time (VSR, and AJC in models/ajuste_cuenta.py)."""
         company = company or self.env.company
         Journal = self.sudo().with_context(active_test=False)
-        journal = Journal.search([("code", "=", VSR_JOURNAL_CODE),
+        journal = Journal.search([("code", "=", code),
                                   ("company_id", "=", company.id)], limit=1)
         if journal:
             return journal
         vals = {
-            "name": VSR_JOURNAL_NAME,
-            "code": VSR_JOURNAL_CODE,
+            "name": name,
+            "code": code,
             "type": "sale",
             "company_id": company.id,
             # after «Ventas Preimpreso»: never the default sales journal
@@ -172,8 +180,13 @@ class DistriBalanceReview(models.Model):
         help="Solo como referencia: el saldo si los movimientos sin comprobante fueran de este "
              "cliente. No se aplica.")
     vsr_amount = fields.Monetary(string="Ventas sin registrar", readonly=True)
+    adjustment_amount = fields.Monetary(
+        string="Ajustes de cuenta", readonly=True,
+        help="Suma de los ajustes de cuenta publicados: negativo baja la deuda, positivo la "
+             "sube.")
     lab_balance = fields.Monetary(string="Saldo en el lab", readonly=True,
-                                  help="Saldo en Online − pagos del lab + ventas sin registrar.")
+                                  help="Saldo en Online − pagos del lab + ventas sin registrar "
+                                       "+ ajustes de cuenta.")
     final_balance = fields.Monetary(string="Saldo con las pendientes", readonly=True,
                                     help="Lo que quedaría si se confirman las tarjetas "
                                          "pendientes con comprobante de WhatsApp.")
@@ -204,13 +217,12 @@ class DistriBalanceReview(models.Model):
     # ------------------------------------------------------------ build
 
     @api.model
-    def _distri_refresh(self, partners=None):
-        """Rebuilds the review of the given commercial partners (all when
-        None) from the history, the payments and the board."""
-        Review = self.sudo()
+    def _distri_collect(self, only=None):
+        """What the review is built from, for the given commercial partner
+        ids (all when None): the history per customer, the new payments and
+        pending cards, the VSR invoices and the adjustments."""
         Partner = self.env["res.partner"].sudo()
         cr = self.env.cr
-        only = set(partners.mapped("commercial_partner_id").ids) if partners is not None else None
         self.env["distri.cuenta.movimiento"].flush_model()
         Partner.flush_model(["commercial_partner_id"])
 
@@ -230,9 +242,12 @@ class DistriBalanceReview(models.Model):
         pay_domain = [("payment_type", "=", "inbound"), ("state", "in", POSTED_PAYMENT_STATES)]
         card_domain = [("kind", "=", "income"), ("state", "=", "draft"),
                        ("partner_id", "!=", False)]
+        # «Ajuste de cuentas» (19.0.1.44.0, models/ajuste_cuenta.py): posted only
+        adj_domain = [("move_state", "=", "posted")]
         if only is not None:
             pay_domain.append(("partner_id.commercial_partner_id", "in", list(only)))
             card_domain.append(("partner_id.commercial_partner_id", "in", list(only)))
+            adj_domain.append(("partner_id", "in", list(only)))
         payments = self.env["account.payment"].sudo().search(pay_domain).filtered(
             lambda p: p.id not in in_online)
         cards = self.env["distri.mp.collection"].sudo().search(card_domain)
@@ -240,19 +255,48 @@ class DistriBalanceReview(models.Model):
             [("payment_id", "in", payments.ids)])}
         invoices = {m.distri_vsr_payment_id.id: m for m in self.env["account.move"].sudo().search(
             [("distri_vsr_payment_id", "in", payments.ids), ("state", "=", "posted")])}
+        adjustments = {}
+        for adj in self.env["distri.balance.adjustment"].sudo().search(adj_domain):
+            adjustments.setdefault(adj.partner_id.id, []).append(adj)
 
         by_partner = {}
         for pay in payments:
             by_partner.setdefault(pay.partner_id.commercial_partner_id.id, [[], []])[0].append(pay)
         for card in cards:
             by_partner.setdefault(card.partner_id.commercial_partner_id.id, [[], []])[1].append(card)
+        return {"history": history, "by_partner": by_partner, "paid_cards": paid_cards,
+                "invoices": invoices, "adjustments": adjustments}
+
+    @api.model
+    def _distri_lab_balance(self, partner):
+        """«Saldo en el lab» of one customer from the same data as its review
+        row, also for a reseller (no row): Online − lab payments + unrecorded
+        sales + adjustments."""
+        pid = partner.commercial_partner_id.id
+        data = self._distri_collect({pid})
+        online = float(data["history"].get(pid, (0.0,))[0] or 0.0)
+        posted = data["by_partner"].get(pid, ([], []))[0]
+        invoiced = sum(data["invoices"][p.id].amount_total for p in posted
+                       if p.id in data["invoices"])
+        adjusted = sum(a.difference for a in data["adjustments"].get(pid, []))
+        return round(online - sum(p.amount for p in posted) + invoiced + adjusted, 2)
+
+    @api.model
+    def _distri_refresh(self, partners=None):
+        """Rebuilds the review of the given commercial partners (all when
+        None) from the history, the payments and the board."""
+        Review = self.sudo()
+        Partner = self.env["res.partner"].sudo()
+        only = set(partners.mapped("commercial_partner_id").ids) if partners is not None else None
+        data = self._distri_collect(only)
+        history, by_partner, adjustments = data["history"], data["by_partner"], data["adjustments"]
 
         # every retail customer with debt (or credit) in the Online history,
         # also without new payments (19.0.1.41.0): the review covers all of it
         owing = [pid for pid, row in history.items()
                  if abs(float(row[0] or 0.0)) > AMOUNT_TOLERANCE
                  and (only is None or pid in only)]
-        candidates = Partner.browse(list(set(by_partner) | set(owing))).exists()
+        candidates = Partner.browse(list(set(by_partner) | set(owing) | set(adjustments))).exists()
         wanted = {p.id for p in candidates if not is_reseller(p)}
         scope = [("partner_id", "in", list(only))] if only is not None else []
         existing = {r.partner_id.id: r for r in Review.search(scope)}
@@ -263,11 +307,16 @@ class DistriBalanceReview(models.Model):
             review = existing.get(pid) or Review.create({"partner_id": pid})
             hist = history.get(pid, (0.0, 0, 0.0, 0))
             posted, pending = by_partner.get(pid, ([], []))
-            review._distri_rebuild(hist, posted, pending, paid_cards, invoices)
+            review._distri_rebuild(hist, posted, pending, data["paid_cards"], data["invoices"],
+                                   adjustments.get(pid, []))
         return True
 
-    def _distri_rebuild(self, hist, posted, pending, paid_cards, invoices):
-        """Writes the lines of one customer: running balance from Online."""
+    def _distri_rebuild(self, hist, posted, pending, paid_cards, invoices, adjustments=()):
+        """Writes the lines of one customer: running balance from Online.
+
+        An «Ajuste de cuentas» is not a line: it moves the running balance on
+        its date, after the payments of that same day and before the pending
+        cards."""
         self.ensure_one()
         Line = self.env["distri.balance.review.line"].sudo()
         online, receipts, receipts_amount, matched = hist
@@ -315,9 +364,10 @@ class DistriBalanceReview(models.Model):
                 "applied": bool(card.receipt_id),
             })
         keep = Line.browse()
+        adjustments = sorted(adjustments, key=lambda a: (a.date, a.id))
         totals = {"posted_count": 0, "posted_amount": 0.0, "pending_count": 0,
-                  "pending_amount": 0.0, "vsr_amount": 0.0, "no_receipt_count": 0,
-                  "no_receipt_amount": 0.0,
+                  "pending_amount": 0.0, "vsr_amount": 0.0, "adjustment_amount": 0.0,
+                  "no_receipt_count": 0, "no_receipt_amount": 0.0,
                   "without_receipt_count": sum(1 for pay in posted if paid_cards.get(pay.id)
                                                and paid_cards[pay.id].confirmed_without_receipt)}
         lab = online
@@ -325,6 +375,9 @@ class DistriBalanceReview(models.Model):
         for row in rows:
             seq += 10
             invoiced = row.pop("invoiced")
+            # the adjustments dated before this payment (all of them before a card)
+            while adjustments and (row["origin"] == "card" or adjustments[0].date < row["date"]):
+                running, lab = self._distri_apply_adjustment(running, adjustments.pop(0), totals)
             before = running
             if not row["applied"]:
                 # shown, never applied: the balance stays
@@ -367,6 +420,8 @@ class DistriBalanceReview(models.Model):
             else:
                 line = Line.create(dict(vals, review_id=self.id))
             keep |= line
+        while adjustments:
+            running, lab = self._distri_apply_adjustment(running, adjustments.pop(0), totals)
         # lines whose card left the board (ignored, set aside, other customer)
         Line.browse([line.id for line in old.values()]).unlink()
         states = keep.mapped("review_state")
@@ -389,6 +444,13 @@ class DistriBalanceReview(models.Model):
             # (pending until «Marcar cliente revisado»)
             state=("pending" if "pending" in states else "reviewed") if states else self.state,
         ))
+
+    @staticmethod
+    def _distri_apply_adjustment(running, adjustment, totals):
+        """Running balance and lab balance after one adjustment."""
+        totals["adjustment_amount"] = round(totals["adjustment_amount"] + adjustment.difference, 2)
+        running = round(running + adjustment.difference, 2)
+        return running, running
 
     def _distri_refresh_self(self):
         self._distri_refresh(self.mapped("partner_id"))
@@ -420,6 +482,11 @@ class DistriBalanceReview(models.Model):
             raise UserError("Quedan %s pagos pendientes de revisar en este cliente." % len(pending))
         self.sudo().write({"state": "reviewed"})
         return True
+
+    def action_balance_adjustment(self):
+        """«Ajustar saldo» (models/ajuste_cuenta.py)."""
+        self.ensure_one()
+        return self.partner_id.action_distri_balance_adjustment()
 
     def action_view_account(self):
         """«Cuenta corriente», in a new browser tab."""

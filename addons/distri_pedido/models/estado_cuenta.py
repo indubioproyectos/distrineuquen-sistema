@@ -26,6 +26,7 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import html_escape
 
+from .ajuste_cuenta import AJC_JOURNAL_CODE
 from .cuenta import clave_documento
 from .remito import es_numero_de_factura
 from .reparto_cliente import AR_TZ, today_ar
@@ -133,7 +134,11 @@ class ResPartnerEstadoCuenta(models.Model):
         for line in lines:
             move = line.move_id
             seen.add(clave_documento(move.name, line.debit, line.credit))
-            if move.move_type == "out_invoice":
+            if move.journal_id.code == AJC_JOURNAL_CODE:
+                # «Ajuste de cuentas» (19.0.1.44.0): neither a sale nor a return
+                doc_type = customer_type = "Ajuste de cuenta"
+                remito = customer_ref = ""
+            elif move.move_type == "out_invoice":
                 doc_type, customer_type = "Factura", "Remito"
                 remito = customer_ref = move._distri_remito_texto()
             elif move.move_type == "out_refund":

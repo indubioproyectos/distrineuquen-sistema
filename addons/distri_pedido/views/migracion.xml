@@ -92,6 +92,8 @@
         <field name="payment_id"/>
         <field name="migration_duplicate"/>
         <field name="online_conflict"/>
+        <field name="suggested_partner_id"/>
+        <field name="suggestion_note"/>
         <field name="currency_id"/>
         <templates>
           <t t-name="card">
@@ -122,6 +124,16 @@
               </span>
             </div>
             <div class="small text-muted mt-1"><field name="customer_sources"/></div>
+            <div t-if="record.suggested_partner_id.raw_value and !record.partner_id.raw_value"
+                 class="small mt-1">
+              <i class="fa fa-lightbulb-o" title="Cliente sugerido"/> <b>Sugerido:</b>
+              <field name="suggested_partner_id"/> · <field name="suggestion_note"/>
+              <button t-if="record.state.raw_value == 'draft'" name="action_use_suggestion"
+                      type="object" class="btn btn-sm btn-primary ms-1"
+                      groups="distri_pedido.grupo_administracion">
+                Usar este cliente
+              </button>
+            </div>
             <div t-if="record.migration_duplicate.raw_value" class="small text-danger mt-1">
               <i class="fa fa-clone" title="Posible duplicado"/> <field name="migration_duplicate"/>
             </div>

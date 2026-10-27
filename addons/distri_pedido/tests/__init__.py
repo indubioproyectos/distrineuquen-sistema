@@ -29,3 +29,5 @@ from . import test_puesta_al_dia
 from . import test_revision_cliente
 from . import test_arca
 from . import test_migracion
+from . import test_sugerencia_cliente
+from . import test_ajuste_cuenta
