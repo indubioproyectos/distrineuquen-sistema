@@ -308,3 +308,19 @@ class TestRevisionCliente(AccountTestInvoicingCommon):
             self.env["distri.unrecorded.sale.wizard"].with_user(self.seller).create(
                 card._distri_vsr_defaults())
         self.assertEqual(card.state, "draft")
+
+    def test_confirmed_without_receipt_is_visible_per_customer(self):
+        """19.0.1.42.0: a payment confirmed on the board without its WhatsApp
+        receipt shows the flag on its line and in the customer's count."""
+        self._history(self.gamma, debe=10000)
+        without = self._card(self.gamma, 2000, datetime(2026, 9, 5, 15, 0), "960000000001",
+                             receipt=False)
+        with_receipt = self._card(self.gamma, 3000, datetime(2026, 9, 6, 15, 0), "960000000002")
+        (without | with_receipt).action_confirm()
+        review = self._review(self.gamma)
+        self.assertEqual(review.without_receipt_count, 1)
+        self.assertTrue(self._line(review, without.payment_id).confirmed_without_receipt)
+        self.assertFalse(self._line(review, with_receipt.payment_id).confirmed_without_receipt)
+        self.assertEqual(self.Review.search([("without_receipt_count", ">", 0)]), review)
+        arch = self.env.ref("distri_pedido.view_balance_review_search").arch_db
+        self.assertIn('name="confirmed_without_receipt"', arch)

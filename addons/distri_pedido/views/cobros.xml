@@ -15,10 +15,11 @@
               group_edit="0" records_draggable="0" quick_create="0" sample="0"
               js_class="distri_cobros_kanban" class="o_distri_cobros">
         <header>
-          <button name="action_confirm_ready" type="object" display="always"
-                  string="Confirmar todos" class="btn-primary"
-                  confirm="Se registran como pagos todos los cobros de «Confirmado contra reporte MP», cada uno a su cliente. ¿Seguir?"/>
-          <button name="action_confirm" type="object" string="Confirmar los elegidos"
+          <!-- 19.0.1.42.0: a preview first, with how many have no WhatsApp
+               receipt (models/cobros.py, distri.mp.confirm.notice) -->
+          <button name="action_confirm_ready_notice" type="object" display="always"
+                  string="Confirmar todos" class="btn-primary"/>
+          <button name="action_confirm_board" type="object" string="Confirmar los elegidos"
                   class="btn-primary"/>
           <button name="action_mark_wholesale" type="object" string="Es de mayorista"
                   groups="distri_pedido.grupo_administracion"/>
@@ -47,6 +48,7 @@
         <field name="receipt_destination"/>
         <field name="receipt_other_account"/>
         <field name="hand_verified"/>
+        <field name="confirmed_without_receipt"/>
         <field name="reversal"/>
         <field name="currency_id"/>
         <field name="payer_name"/>
@@ -127,6 +129,11 @@
               </span>
               <span t-if="record.receipt_amount_review.raw_value" class="o_distri_badge o_distri_badge_warn">
                 <i class="fa fa-eye" aria-hidden="true"/> Revisar importe de la foto
+              </span>
+              <span t-if="record.confirmed_without_receipt.raw_value"
+                    class="o_distri_badge o_distri_badge_danger"
+                    title="Se confirmó sin el comprobante en el grupo de WhatsApp: hay que reclamarlo. La marca se quita sola cuando llega.">
+                <i class="fa fa-exclamation-circle" aria-hidden="true"/> Confirmado sin comprobante
               </span>
               <span t-if="record.hand_verified.raw_value" class="o_distri_badge o_distri_badge_info">
                 <i class="fa fa-hand-paper-o" aria-hidden="true"/> Verificado a mano
@@ -214,8 +221,8 @@
                       confirm="¿Viste esta transferencia en la app de Mercado Pago, con el mismo importe y número de operación? Se autoriza entregar la mercadería. No se registra ningún pago: se registra cuando el reporte traiga la transferencia.">
                 <i class="fa fa-truck" aria-hidden="true"/> Visto en MP: autorizar entrega
               </button>
-              <button t-elif="col == 'confirm' and kind == 'income' and record.partner_id.raw_value"
-                      name="action_confirm" type="object" class="btn btn-primary">
+              <button t-elif="col == 'confirm' and kind == 'income' and record.partner_id.raw_value and draft"
+                      name="action_confirm_board" type="object" class="btn btn-primary">
                 <i class="fa fa-check" aria-hidden="true"/> Confirmar
               </button>
               <a t-elif="col == 'review'" type="open" role="button" class="btn btn-primary">
@@ -232,8 +239,8 @@
             </div>
             <!-- the other actions, compact -->
             <div class="o_distri_secondary">
-              <button t-if="col != 'confirm' and kind == 'income' and record.partner_id.raw_value"
-                      name="action_confirm" type="object" class="btn btn-sm btn-light">
+              <button t-if="col != 'confirm' and kind == 'income' and record.partner_id.raw_value and draft"
+                      name="action_confirm_board" type="object" class="btn btn-sm btn-light">
                 Confirmar
               </button>
               <button t-if="record.report_review.raw_value and !authorized" name="action_clear_review"
@@ -282,7 +289,7 @@
             decoration-muted="state == 'ignored'" decoration-success="state == 'confirmed'"
             decoration-info="state == 'authorized'">
         <header>
-          <button name="action_confirm" type="object" string="Confirmar" class="btn-primary"/>
+          <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"/>
           <button name="action_mark_wholesale" type="object" string="Es de mayorista"
                   groups="distri_pedido.grupo_administracion"/>
           <button name="action_unmark_wholesale" type="object" string="Volver al tablero"
@@ -306,6 +313,7 @@
         <field name="payment_id" optional="hide"/>
         <field name="confirmed_by_id" optional="hide"/>
         <field name="confirmed_at" optional="hide"/>
+        <field name="confirmed_without_receipt" widget="boolean" optional="show"/>
         <field name="currency_id" column_invisible="1"/>
       </list>
     </field>
@@ -317,7 +325,7 @@
     <field name="arch" type="xml">
       <form string="Cobro de Mercado Pago" create="0" edit="0" delete="0">
         <header>
-          <button name="action_confirm" type="object" string="Confirmar" class="btn-primary"
+          <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"
                   invisible="state != 'draft' or kind != 'income' or not partner_id"/>
           <button name="action_verify" type="object" string="Visto en MP: autorizar entrega"
                   class="btn-primary" invisible="state != 'draft' or kind != 'verify'"
@@ -346,6 +354,15 @@
           <field name="state" widget="statusbar"/>
         </header>
         <sheet>
+          <widget name="web_ribbon" title="Sin comprobante" bg_color="text-bg-danger"
+                  invisible="not confirmed_without_receipt"/>
+          <div class="alert alert-danger" role="alert" invisible="not confirmed_without_receipt">
+            <b>Confirmado sin comprobante.</b> Se confirmó sin el comprobante en el grupo de
+            WhatsApp, por <field name="confirmed_by_id" readonly="1" class="oe_inline"/> el
+            <field name="confirmed_at" readonly="1" class="oe_inline"/>: hay que reclamarlo.
+            La marca se quita sola cuando llega el comprobante.
+            <field name="confirmed_without_receipt" invisible="1"/>
+          </div>
           <div class="alert alert-secondary" role="status" invisible="state != 'apartado'">
             <b>Mayorista / fuera del sistema.</b>
             <field name="wholesale_label" readonly="1" class="oe_inline"/>
@@ -484,6 +501,8 @@
                 domain="[('kind', '=', 'verify'), ('state', '=', 'authorized')]"/>
         <filter name="hand_verified" string="Pagos registrados a mano (sistema anterior)"
                 domain="[('kind', '=', 'verify'), ('state', '=', 'confirmed')]"/>
+        <filter name="confirmed_without_receipt" string="Confirmado sin comprobante"
+                domain="[('confirmed_without_receipt', '=', True)]"/>
         <separator/>
         <filter name="date_day" string="Día" date="date_day"/>
         <group>
@@ -543,6 +562,35 @@
           <button name="action_assign_confirm" type="object" string="Asignar y confirmar"
                   class="btn-primary"/>
           <button name="action_assign" type="object" string="Solo asignar"/>
+          <button special="cancel" string="Cancelar" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- 19.0.1.42.0: notice before confirming (models/cobros.py) -->
+  <record id="view_mp_confirm_notice_form" model="ir.ui.view">
+    <field name="name">distri.mp.confirm.notice.form</field>
+    <field name="model">distri.mp.confirm.notice</field>
+    <field name="arch" type="xml">
+      <form string="Confirmar">
+        <p><field name="summary" readonly="1" nolabel="1"/></p>
+        <div class="alert alert-warning" role="alert" invisible="not missing_count">
+          <i class="fa fa-exclamation-circle" aria-hidden="true"/>
+          <field name="notice" readonly="1" class="oe_inline"/>
+          <div invisible="count == 1" class="mt-2">
+            <small><field name="missing_names" readonly="1" class="oe_inline"/></small>
+          </div>
+        </div>
+        <field name="mode" invisible="1"/>
+        <field name="count" invisible="1"/>
+        <field name="missing_count" invisible="1"/>
+        <field name="currency_id" invisible="1"/>
+        <footer>
+          <button name="action_apply" type="object" string="Confirmar" class="btn-primary"
+                  invisible="missing_count"/>
+          <button name="action_apply" type="object" string="Confirmar igual" class="btn-primary"
+                  invisible="not missing_count"/>
           <button special="cancel" string="Cancelar" class="btn-secondary"/>
         </footer>
       </form>

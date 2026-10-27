@@ -65,6 +65,13 @@
                 Para exportar a Online: <t t-esc="state.data.export.count"/> ·
                 <t t-esc="money(state.data.export.total)"/>
             </button>
+            <button t-if="state.data.without_receipt and state.data.without_receipt.count" type="button"
+                    class="btn btn-link o_distri_counter o_distri_counter_without_receipt"
+                    t-on-click="() => this.open('action_open_without_receipt')">
+                <i class="fa fa-exclamation-circle" aria-hidden="true"/>
+                Confirmados sin comprobante (<t t-esc="state.data.without_receipt.count"/> ·
+                <t t-esc="money(state.data.without_receipt.total)"/>)
+            </button>
             <span class="o_distri_counter o_distri_counter_act">
                 <b>Para actuar</b>
                 <t t-esc="state.data.act.count"/> · <t t-esc="money(state.data.act.total)"/>

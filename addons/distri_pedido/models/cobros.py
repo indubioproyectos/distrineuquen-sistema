@@ -31,6 +31,11 @@ Mercado Pago» and «Comprobantes pendientes» (comprobante_pendiente.py).
 - «Cierre diario»: per day, the incoming transfers of the report against
   what was confirmed in the journal (plus what was set aside). A difference
   raises an alert.
+- «Confirmado sin comprobante» (19.0.1.42.0): an income confirmed without
+  its WhatsApp receipt is allowed, after a notice (`distri.mp.confirm.notice`),
+  and stays flagged so the receipt is claimed. The flag clears by itself when
+  a receipt joins the card (`write`), also a receipt that arrives after the
+  confirmation (`_distri_already`), and when the confirmation is undone.
 
 The server keeps no Mercado Pago key (decision 13): the report arrives by
 SFTP. Creating the SFTP user that can only drop files is a server task
@@ -60,6 +65,10 @@ from .reparto_cliente import AR_TZ, friendly_case, today_ar
 _logger = logging.getLogger(__name__)
 
 ADMIN_GROUP = "distri_pedido.grupo_administracion"
+WITHOUT_RECEIPT_LABEL = "Confirmado sin comprobante"
+WITHOUT_RECEIPT_NOTICE = (
+    "Este pago no tiene comprobante en el grupo de WhatsApp. Se confirma y queda marcado "
+    "«%s» para reclamarlo." % WITHOUT_RECEIPT_LABEL)
 
 MP_JOURNAL_CODE = "MP"
 MP_JOURNAL_NAME = "Mercado Pago"
@@ -1091,6 +1100,11 @@ class DistriMpCollection(models.Model):
     payment_id = fields.Many2one("account.payment", string="Pago registrado", readonly=True)
     confirmed_by_id = fields.Many2one("res.users", string="Confirmó", readonly=True)
     confirmed_at = fields.Datetime(string="Confirmado el", readonly=True)
+    # 19.0.1.42.0: who and when are confirmed_by_id / confirmed_at
+    confirmed_without_receipt = fields.Boolean(
+        string=WITHOUT_RECEIPT_LABEL, readonly=True, index=True, copy=False,
+        help="Se confirmó sin el comprobante en el grupo de WhatsApp: hay que reclamarlo. La "
+             "marca se quita sola cuando llega el comprobante.")
     ignore_reason = fields.Selection(IGNORE_REASONS, string="Motivo del descarte", readonly=True)
     ignore_note = fields.Char(string="Aclaración", readonly=True)
     reversal = fields.Char(string="Aviso de Mercado Pago", readonly=True,
@@ -1145,6 +1159,39 @@ class DistriMpCollection(models.Model):
 
     _source_unique = models.Constraint("unique(source_id)",
                                        "Esa operación de Mercado Pago ya está cargada.")
+
+    def write(self, vals):
+        """«Confirmado sin comprobante» clears itself when a receipt joins the
+        card, whatever the path (matching, migration board, by hand), and
+        when the confirmation is undone (back to draft)."""
+        joined = bool(vals.get("receipt_id"))
+        flagged = self.filtered("confirmed_without_receipt") \
+            if joined or vals.get("state") == "draft" else self.browse()
+        result = super().write(vals)
+        if flagged:
+            flagged.write({"confirmed_without_receipt": False})
+            if joined:
+                for rec in flagged:
+                    rec.message_post(body=(
+                        "Llegó el comprobante de WhatsApp (recibido el %s): se quita la marca "
+                        "«%s»." % (local_when(rec.receipt_id.timestamp), WITHOUT_RECEIPT_LABEL)))
+        return result
+
+    @api.model
+    def _flag_confirmed_without_receipt(self):
+        """Migration 19.0.1.42.0: the incomes already confirmed without a
+        WhatsApp receipt get the flag, so the past is visible too. Returns
+        (count, amount) of the cards flagged now."""
+        self.flush_model(["kind", "state", "receipt_id", "confirmed_without_receipt", "amount"])
+        self.env.cr.execute("""
+            UPDATE distri_mp_collection
+               SET confirmed_without_receipt = TRUE
+             WHERE kind = 'income' AND state = 'confirmed' AND receipt_id IS NULL
+               AND confirmed_without_receipt IS NOT TRUE
+         RETURNING amount""")
+        rows = self.env.cr.fetchall()
+        self.invalidate_model(["confirmed_without_receipt"])
+        return len(rows), sum(row[0] or 0.0 for row in rows)
 
     # ------------------------------------------------------------ computes
 
@@ -1824,6 +1871,13 @@ class DistriMpCollection(models.Model):
 
     def action_confirm(self):
         """Registers the payment in «Mercado Pago», oldest invoice first."""
+        for rec in self._confirm_todo():
+            rec._confirm_one()
+        return True
+
+    def _confirm_todo(self):
+        """The pending incomes of `self` that can be confirmed; raises when
+        one cannot."""
         _check_admin(self.env)
         todo = self.filtered(lambda c: c.state == "draft" and c.kind == "income")
         if not todo:
@@ -1839,8 +1893,16 @@ class DistriMpCollection(models.Model):
                     "%s ya tiene un pago: el comprobante %s se verificó a mano (pago %s). Si el "
                     "importe verificado estaba mal, deshacé primero esa verificación." % (
                         rec.name, card.name, card.payment_id.name or ""))
-        for rec in todo:
-            rec._confirm_one()
+        return todo
+
+    def action_confirm_board(self):
+        """«Confirmar» on the board (card, form, list, chosen ones): an income
+        without its WhatsApp receipt is confirmed too, after a notice that it
+        stays flagged «Confirmado sin comprobante» (one more click)."""
+        todo = self._confirm_todo()
+        if todo.filtered(lambda c: not c.receipt_id):
+            return self.env["distri.mp.confirm.notice"]._open("selected", todo)
+        todo.action_confirm()
         return True
 
     def _payment_memo(self):
@@ -1901,6 +1963,7 @@ class DistriMpCollection(models.Model):
                 record.receipt_id.distri_partner_id = partner
         promises = self.env["distri.promised.transfer"].sudo()._distri_fulfil_for(
             partner, record.date, record.amount, record)
+        without_receipt = not record.receipt_id
         record.write({
             "state": "confirmed",
             "partner_id": partner.id,
@@ -1908,9 +1971,12 @@ class DistriMpCollection(models.Model):
             "confirmed_by_id": self.env.user.id,
             "confirmed_at": fields.Datetime.now(),
             "fulfilled_promise_ids": [(6, 0, promises.ids)],
+            "confirmed_without_receipt": without_receipt,
         })
-        record.message_post(body="Confirmado por %s: pago %s de %s a %s." % (
-            self.env.user.name, payment.name, _money(record.amount), partner.name))
+        record.message_post(body="Confirmado por %s: pago %s de %s a %s.%s" % (
+            self.env.user.name, payment.name, _money(record.amount), partner.name,
+            " Sin comprobante en el grupo de WhatsApp: queda marcado «%s» para reclamarlo." % (
+                WITHOUT_RECEIPT_LABEL) if without_receipt else ""))
         for card in record._authorized_card():
             card.message_post(body="El pago se registró al confirmar %s: pago %s." % (
                 record.name, payment.name))
@@ -2003,10 +2069,10 @@ class DistriMpCollection(models.Model):
             return "ya tiene un pago verificado a mano"
         return ""
 
-    def action_confirm_ready(self):
-        """«Confirmar todos»: every draft card of «Confirmado contra reporte MP».
-        A card with a problem (a refund reported, a payment verified by hand)
-        is left for a person, never stops the others."""
+    @api.model
+    def _ready_to_confirm(self):
+        """(ready, skipped) of «Confirmar todos»: the draft cards of
+        «Confirmado contra reporte MP», the ones with a problem apart."""
         _check_admin(self.env)
         ready = self.search([("state", "=", "draft"), ("column", "=", "confirm"),
                              ("kind", "=", "income"), ("partner_id", "!=", False)])
@@ -2017,9 +2083,39 @@ class DistriMpCollection(models.Model):
                 " que se puedan confirmar juntos (%s)" % ", ".join(
                     "%s: %s" % (c.name, c._bulk_problem()) for c in skipped[:3])
                 if skipped else ""))
+        return ready, skipped
+
+    @api.model
+    def action_confirm_ready_notice(self):
+        """«Confirmar todos» on the board: first the preview, with how many of
+        the batch have no WhatsApp receipt (they stay flagged)."""
+        ready, _skipped = self._ready_to_confirm()
+        return self.env["distri.mp.confirm.notice"]._open("ready", ready)
+
+    def action_confirm_ready(self):
+        """«Confirmar todos»: every draft card of «Confirmado contra reporte MP».
+        A card with a problem (a refund reported, a payment verified by hand)
+        is left for a person, never stops the others."""
+        return self._confirm_ready()
+
+    @api.model
+    def _confirm_ready(self, only=None):
+        """`only`: the cards the preview showed (a card that arrived after it
+        waits for the next «Confirmar todos»)."""
+        ready, skipped = self._ready_to_confirm()
+        if only is not None:
+            ready &= only
+            skipped &= only
+            if not ready:
+                raise UserError("Los cobros de la vista previa ya no están para confirmar.")
         ready.action_confirm()
         message = "Se confirmaron %s cobros por %s." % (
             len(ready), _money(sum(ready.mapped("amount"))))
+        flagged = ready.filtered("confirmed_without_receipt")
+        if flagged:
+            message += " %s «%s»." % (
+                "1 quedó marcado" if len(flagged) == 1 else "%s quedaron marcados" % len(flagged),
+                WITHOUT_RECEIPT_LABEL)
         if skipped:
             message += " Quedaron %s para revisar uno por uno: %s." % (
                 len(skipped), ", ".join(skipped[:5].mapped("name")))
@@ -2174,6 +2270,22 @@ class DistriMpCollection(models.Model):
     def action_open_days(self):
         return self.env["ir.actions.act_window"]._for_xml_id("distri_pedido.action_mp_day")
 
+    @api.model
+    def action_open_without_receipt(self):
+        """«Confirmados sin comprobante» of the bar on top of the board: the
+        list of the receipts to claim."""
+        _check_admin(self.env)
+        action = self.env["ir.actions.act_window"]._for_xml_id("distri_pedido.action_mp_board")
+        action.update({
+            "name": WITHOUT_RECEIPT_LABEL,
+            "view_mode": "list,kanban,form",
+            "views": [(self.env.ref("distri_pedido.view_mp_collection_list").id, "list"),
+                      (self.env.ref("distri_pedido.view_mp_collection_kanban").id, "kanban"),
+                      (self.env.ref("distri_pedido.view_mp_collection_form").id, "form")],
+            "context": {"search_default_confirmed_without_receipt": 1},
+        })
+        return action
+
 
 class DistriMpAssign(models.TransientModel):
     _name = "distri.mp.assign"
@@ -2238,8 +2350,97 @@ class DistriMpAssign(models.TransientModel):
                             "entrega» después de verlo en la app de Mercado Pago.")
         if rec.kind != "income":
             raise UserError("Una foto sin transferencia no se confirma: no hay ingreso de Mercado Pago.")
-        rec.sudo(False).action_confirm()
-        return {"type": "ir.actions.act_window_close"}
+        result = rec.sudo(False).action_confirm_board()
+        return result if isinstance(result, dict) else {"type": "ir.actions.act_window_close"}
+
+
+class DistriMpConfirmNotice(models.TransientModel):
+    """Notice before confirming from the board (19.0.1.42.0): «Confirmar
+    todos» always (it replaces the browser question), «Confirmar» only when
+    a card has no WhatsApp receipt. Confirming stays allowed: one more
+    click, never a block."""
+    _name = "distri.mp.confirm.notice"
+    _description = "Aviso antes de confirmar cobros"
+
+    mode = fields.Selection([("ready", "Confirmar todos"), ("selected", "Confirmar")],
+                            required=True, default="selected", readonly=True)
+    collection_ids = fields.Many2many("distri.mp.collection", string="Cobros", readonly=True)
+    currency_id = fields.Many2one("res.currency", default=lambda s: s.env.company.currency_id)
+    count = fields.Integer(string="Cobros", compute="_compute_notice")
+    amount = fields.Monetary(string="Importe", compute="_compute_notice")
+    missing_count = fields.Integer(string="Sin comprobante", compute="_compute_notice")
+    missing_amount = fields.Monetary(string="Importe sin comprobante", compute="_compute_notice")
+    missing_names = fields.Char(string="Cobros sin comprobante", compute="_compute_notice")
+    summary = fields.Char(string="Qué se hace", compute="_compute_notice")
+    notice = fields.Char(string="Aviso", compute="_compute_notice")
+
+    @api.model
+    def _open(self, mode, cards):
+        wizard = self.create({"mode": mode, "collection_ids": [(6, 0, cards.ids)]})
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Confirmar todos" if mode == "ready" else "Confirmar",
+            "res_model": self._name,
+            "res_id": wizard.id,
+            "view_mode": "form",
+            "views": [(False, "form")],
+            "target": "new",
+        }
+
+    @api.depends("mode", "collection_ids")
+    def _compute_notice(self):
+        for wiz in self:
+            cards = wiz.collection_ids
+            missing = cards.filtered(lambda c: not c.receipt_id)
+            wiz.count = len(cards)
+            wiz.amount = sum(cards.mapped("amount"))
+            wiz.missing_count = len(missing)
+            wiz.missing_amount = sum(missing.mapped("amount"))
+            wiz.missing_names = ", ".join(
+                "%s (%s, %s)" % (c.name, c.partner_id.name or "sin cliente", _money(c.amount))
+                for c in missing[:10]) + (" y %s más" % (len(missing) - 10)
+                                          if len(missing) > 10 else "")
+            where = " de «Confirmado contra reporte MP»" if wiz.mode == "ready" else ""
+            wiz.summary = ("Se registra como pago %s%s, a %s." % (
+                _money(wiz.amount), where, cards.partner_id.name or "su cliente")
+                if len(cards) == 1 else
+                "Se registran como pagos %s cobros%s por %s, cada uno a su cliente." % (
+                    len(cards), where, _money(wiz.amount)))
+            if not missing:
+                wiz.notice = False
+            elif len(cards) == 1:
+                wiz.notice = WITHOUT_RECEIPT_NOTICE
+            else:
+                wiz.notice = (
+                    "%s de estos %s pagos %s comprobante en el grupo de WhatsApp (%s). Se "
+                    "confirman igual y %s marcados «%s» para reclamarlos." % (
+                        len(missing), len(cards),
+                        "no tiene" if len(missing) == 1 else "no tienen",
+                        _money(wiz.missing_amount),
+                        "queda" if len(missing) == 1 else "quedan", WITHOUT_RECEIPT_LABEL))
+
+    def action_apply(self):
+        self.ensure_one()
+        Collection = self.env["distri.mp.collection"]
+        if self.mode == "ready":
+            result = Collection._confirm_ready(only=self.collection_ids)
+            params = dict(result["params"])
+        else:
+            cards = self.collection_ids._confirm_todo()
+            cards.action_confirm()
+            flagged = cards.filtered("confirmed_without_receipt")
+            message = "Se confirmaron %s cobros por %s." % (
+                len(cards), _money(sum(cards.mapped("amount")))) if len(cards) > 1 else \
+                "Se confirmó %s por %s." % (cards.name, _money(cards.amount))
+            if flagged:
+                message += " %s «%s»." % (
+                    "Quedó marcado" if len(cards) == 1 else
+                    "1 quedó marcado" if len(flagged) == 1 else
+                    "%s quedaron marcados" % len(flagged), WITHOUT_RECEIPT_LABEL)
+            params = {"type": "warning" if flagged else "success", "message": message}
+        # the dialog closes and the board under it reloads
+        params["next"] = {"type": "ir.actions.act_window_close"}
+        return {"type": "ir.actions.client", "tag": "display_notification", "params": params}
 
 
 class DistriMpIgnore(models.TransientModel):
@@ -2954,6 +3155,15 @@ class WhatsappMessageComprobante(models.Model):
         (the payment exists: «Ya registrado») or with another receipt."""
         self.ensure_one()
         confirmed = owner.filtered(lambda c: c.state == "confirmed")[:1]
+        if confirmed and confirmed.kind == "income" and not confirmed.receipt_id:
+            # the receipt of a transfer confirmed without it: it joins the
+            # card («Confirmado sin comprobante» clears), unless the photo is
+            # already another customer's
+            photo = self.distri_partner_id.commercial_partner_id
+            if not photo or photo == confirmed.partner_id.commercial_partner_id:
+                confirmed.write({"receipt_id": self.id})
+                self.with_context(distri_receipt_matching=True).write(
+                    {"distri_collection_id": confirmed.id})
         if confirmed:
             self._distri_close("registered", "Ya registrado: %s confirmado el %s (pago %s)." % (
                 confirmed.name, local_when(confirmed.confirmed_at),

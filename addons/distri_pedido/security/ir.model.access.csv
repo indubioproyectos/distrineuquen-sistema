@@ -45,6 +45,7 @@ access_payer_identity_admin,distri.payer.identity admin,model_distri_payer_ident
 access_payer_identity_vendedor,distri.payer.identity vendedor,model_distri_payer_identity,distri_pedido.grupo_vendedor,1,0,0,0
 access_mp_assign_admin,distri.mp.assign admin,model_distri_mp_assign,distri_pedido.grupo_administracion,1,1,1,1
 access_mp_ignore_admin,distri.mp.ignore admin,model_distri_mp_ignore,distri_pedido.grupo_administracion,1,1,1,1
+access_mp_confirm_notice_admin,distri.mp.confirm.notice admin,model_distri_mp_confirm_notice,distri_pedido.grupo_administracion,1,1,1,1
 access_mp_import_admin,distri.mp.import admin,model_distri_mp_import,distri_pedido.grupo_administracion,1,1,1,1
 acceso_wa_mensaje_admin,distri.whatsapp.message administracion,model_distri_whatsapp_message,distri_pedido.grupo_administracion,1,1,0,0
 acceso_mp_pago_admin,distri.mp.payment administracion,model_distri_mp_payment,distri_pedido.grupo_administracion,1,0,0,0

@@ -142,3 +142,4 @@
 .o_distri_counter_act{background:rgba(0,160,157,.10)}
 .o_distri_counter_older{background:rgba(220,140,0,.12)}
 .o_distri_counter_unknown,.o_distri_counter_apart{text-decoration:none}
+.o_distri_counter_without_receipt{text-decoration:none;color:#b42318;background:rgba(220,40,40,.08)}

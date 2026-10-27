@@ -34,6 +34,9 @@ leaves a credit balance that does not exist.
   was that sale). A pending card is confirmed first with the board's own
   confirmation, without applying the payment to older invoices
   (context distri_skip_auto_apply): older invoices keep their debt.
+- «Confirmado sin comprobante» (19.0.1.42.0, models/cobros.py): a line of
+  a card confirmed on the board without its WhatsApp receipt shows the flag,
+  and each customer counts them (filter «Confirmado sin comprobante»).
 - The review rows are rebuilt from the accounting on every «Actualizar» and
   after every action; the review state of each line survives (it is keyed
   by its card, or by its payment when there is no card).
@@ -175,6 +178,10 @@ class DistriBalanceReview(models.Model):
                                     help="Lo que quedaría si se confirman las tarjetas "
                                          "pendientes con comprobante de WhatsApp.")
     flag_count = fields.Integer(string="Alertas", readonly=True)
+    without_receipt_count = fields.Integer(
+        string="Confirmados sin comprobante", readonly=True,
+        help="Pagos confirmados en el tablero sin el comprobante en el grupo de WhatsApp: hay "
+             "que reclamarlo.")
     has_flag = fields.Boolean(string="Posible venta sin registrar", readonly=True, index=True)
     summary = fields.Char(string="Ya conciliado", readonly=True)
     state = fields.Selection([("pending", "Pendiente"), ("reviewed", "Revisado")],
@@ -310,7 +317,9 @@ class DistriBalanceReview(models.Model):
         keep = Line.browse()
         totals = {"posted_count": 0, "posted_amount": 0.0, "pending_count": 0,
                   "pending_amount": 0.0, "vsr_amount": 0.0, "no_receipt_count": 0,
-                  "no_receipt_amount": 0.0}
+                  "no_receipt_amount": 0.0,
+                  "without_receipt_count": sum(1 for pay in posted if paid_cards.get(pay.id)
+                                               and paid_cards[pay.id].confirmed_without_receipt)}
         lab = online
         flags = 0
         for row in rows:
@@ -451,6 +460,7 @@ class DistriBalanceReviewLine(models.Model):
                              help="Sin comprobante de WhatsApp, un movimiento de Mercado Pago no "
                                   "baja la deuda: se muestra y no se aplica.")
     receipt_id = fields.Many2one(related="collection_id.receipt_id", string="Foto")
+    confirmed_without_receipt = fields.Boolean(related="collection_id.confirmed_without_receipt")
     money_grade = fields.Selection(related="collection_id.money_grade")
     customer_sources = fields.Char(related="collection_id.customer_sources")
     migration_duplicate = fields.Char(related="collection_id.migration_duplicate")
@@ -662,11 +672,14 @@ class DistriUnrecordedSaleWizard(models.TransientModel):
     invoice_date = fields.Date(string="Fecha de la factura", required=True)
     note = fields.Char(string="Nota")
     card_pending = fields.Boolean(compute="_compute_card_pending")
+    card_without_receipt = fields.Boolean(compute="_compute_card_pending")
 
-    @api.depends("collection_id.state")
+    @api.depends("collection_id.state", "collection_id.receipt_id")
     def _compute_card_pending(self):
         for wiz in self:
             wiz.card_pending = wiz.collection_id.state == "draft"
+            # confirmed here like on the board: it stays «Confirmado sin comprobante»
+            wiz.card_without_receipt = wiz.card_pending and not wiz.collection_id.receipt_id
 
     def action_apply(self):
         _check_admin_or_raise(self.env)

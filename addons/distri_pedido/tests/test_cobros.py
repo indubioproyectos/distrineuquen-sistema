@@ -19,7 +19,7 @@ from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.models.cobros import (
-    ALERT_SUMMARY, AUTHORIZED_LABEL, AUTHORIZED_MISSING, AUTHORIZED_WAITING, COLUMN_HELP,
+    ALERT_SUMMARY, AUTHORIZED_LABEL, WITHOUT_RECEIPT_NOTICE, AUTHORIZED_MISSING, AUTHORIZED_WAITING, COLUMN_HELP,
     COLUMNS, HAND_VERIFIED_MISSING, PARAM_ALERT_HOURS, MP_JOURNAL_CODE, REVERSAL_SUMMARY,
     TWO_CUSTOMERS, local_when, operation_close, own_account, parse_amount_ar,
     parse_mp_datetime, parse_operation, read_report,
@@ -89,6 +89,12 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
             "media_id": "123",
             "media_state": "pending",
         })
+
+    def _apply_notice(self, result):
+        """«Confirmar igual» on the notice the board shows before confirming
+        a payment without its WhatsApp receipt (19.0.1.42.0)."""
+        self.assertEqual(result.get("res_model"), "distri.mp.confirm.notice", result)
+        return self.env["distri.mp.confirm.notice"].browse(result["res_id"]).action_apply()
 
     def _promise(self, partner, amount, captured):
         order = self._order(partner, self.product_a, qty=1, price=amount)
@@ -286,8 +292,10 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self.assertFalse(card.partner_id)
         wizard = self.env["distri.mp.assign"].create({
             "collection_id": card.id, "partner_id": self.other.id})
-        wizard.action_assign_confirm()
+        # no WhatsApp receipt: the notice first, then it is confirmed and flagged
+        self._apply_notice(wizard.action_assign_confirm())
         self.assertEqual(card.state, "confirmed")
+        self.assertTrue(card.confirmed_without_receipt)
         identity = self.env["distri.payer.identity"].search([("value", "=", "20999000029")])
         self.assertEqual(identity.partner_id, self.other)
         self.assertEqual(identity.kind, "cuit")
@@ -485,12 +493,12 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         with self.assertRaises(UserError):
             day.action_close()
 
-        self.env["distri.mp.assign"].create({
+        self._apply_notice(self.env["distri.mp.assign"].create({
             "collection_id": self._card("900000000002").id,
-            "partner_id": self.photo.id}).action_assign_confirm()
-        self.env["distri.mp.assign"].create({
+            "partner_id": self.photo.id}).action_assign_confirm())
+        self._apply_notice(self.env["distri.mp.assign"].create({
             "collection_id": self._card("900000000003").id,
-            "partner_id": self.other.id}).action_assign_confirm()
+            "partner_id": self.other.id}).action_assign_confirm())
         self.env["distri.mp.ignore"].create({
             "collection_id": self._card("900000000004").id,
             "reason": "not_customer"}).action_ignore()
@@ -1486,3 +1494,118 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self.assertFalse(receipt.distri_other_account)
         self.assertFalse(card.receipt_other_account)
         self.assertIn("CVU/CBU 0000003100090000000018", card.receipt_destination)
+
+    # ------------------------------------------------------------ «Confirmado sin comprobante»
+
+    def test_confirm_without_receipt_is_allowed_after_a_notice_and_flagged(self):
+        self._import("mp_report_25col.csv")
+        card = self._card("900000000001")
+        self.assertFalse(card.receipt_id)
+        result = card.action_confirm_board()
+        self.assertEqual(card.state, "draft", "nothing registered before the notice")
+        notice = self.env["distri.mp.confirm.notice"].browse(result["res_id"])
+        self.assertEqual(notice.notice, WITHOUT_RECEIPT_NOTICE)
+        self.assertEqual(notice.missing_count, 1)
+        done = notice.action_apply()
+        self.assertEqual(done["params"]["next"], {"type": "ir.actions.act_window_close"})
+        self.assertIn("Quedó marcado «Confirmado sin comprobante»", done["params"]["message"])
+        self.assertEqual(card.state, "confirmed")
+        self.assertTrue(card.payment_id)
+        self.assertTrue(card.confirmed_without_receipt)
+        self.assertEqual(card.confirmed_by_id, self.env.user)
+        self.assertIn("Confirmado sin comprobante", card.message_ids[:1].body)
+        # the board filter and the bar on top of the board find it
+        self.assertEqual(self.Collection.search([("confirmed_without_receipt", "=", True)]), card)
+        self.assertEqual(self.Collection.distri_board_counters()["without_receipt"]["count"], 1)
+        arch = self.env.ref("distri_pedido.view_mp_collection_search").arch_db
+        self.assertIn('name="confirmed_without_receipt"', arch)
+        # undone: the flag goes with the confirmation
+        card.action_undo()
+        self.assertEqual(card.state, "draft")
+        self.assertFalse(card.confirmed_without_receipt)
+
+    def test_confirm_with_receipt_is_not_flagged(self):
+        self._receipt("5491100000000", datetime(2026, 9, 24, 20, 0),
+                      caption="Comprobante del pedido. Operación 900000000004"
+                      ).distri_partner_id = self.other
+        self._import("mp_report_25col.csv")
+        card = self._card("900000000004")
+        self.assertTrue(card.receipt_id)
+        self.assertIs(card.action_confirm_board(), True, "no notice: straight confirmed")
+        self.assertEqual(card.state, "confirmed")
+        self.assertFalse(card.confirmed_without_receipt)
+
+    def test_receipt_joining_later_clears_the_flag(self):
+        self._import("mp_report_25col.csv")
+        card = self._card("900000000001")
+        card.action_confirm()
+        self.assertTrue(card.confirmed_without_receipt)
+        # days later the customer sends the receipt of that transfer to the group
+        receipt = self._receipt("5491100000000", datetime(2026, 9, 26, 12, 0),
+                                caption="Comprobante $ 45.321 operación 900000000001")
+        self.assertEqual(receipt.distri_receipt_state, "registered", "never a second payment")
+        self.assertEqual(card.receipt_id, receipt)
+        self.assertFalse(card.confirmed_without_receipt)
+        self.assertIn("se quita la marca «Confirmado sin comprobante»", card.message_ids[:1].body)
+        self.assertEqual(len(self._mp_payments("900000000001")), 1)
+        # any other path that joins a receipt clears it too
+        other = self._card("900000000006")
+        other.action_confirm()
+        self.assertTrue(other.confirmed_without_receipt)
+        other.sudo().receipt_id = self._receipt("5491100000001", datetime(2026, 9, 26, 13, 0))
+        self.assertFalse(other.confirmed_without_receipt)
+
+    def test_late_receipt_of_another_customer_does_not_join(self):
+        self._import("mp_report_25col.csv")
+        card = self._card("900000000001")
+        card.action_confirm()
+        # the photo comes from the phone of another customer
+        receipt = self._receipt("5492995000111", datetime(2026, 9, 26, 12, 0),
+                                caption="Comprobante $ 45.321 operación 900000000001")
+        self.assertEqual(receipt.distri_partner_id, self.photo)
+        self.assertEqual(receipt.distri_receipt_state, "registered")
+        self.assertFalse(card.receipt_id)
+        self.assertTrue(card.confirmed_without_receipt)
+
+    def test_migration_flags_the_past_confirmed_without_receipt(self):
+        self._receipt("5491100000000", datetime(2026, 9, 24, 20, 0),
+                      caption="Comprobante del pedido. Operación 900000000004"
+                      ).distri_partner_id = self.other
+        self._import("mp_report_25col.csv")
+        without, with_receipt = self._card("900000000001"), self._card("900000000004")
+        (without | with_receipt).action_confirm()
+        # as before 19.0.1.42.0: no flag on any card
+        self.env.flush_all()
+        self.env.cr.execute("UPDATE distri_mp_collection SET confirmed_without_receipt = FALSE")
+        self.Collection.invalidate_model(["confirmed_without_receipt"])
+        count, amount = self.Collection._flag_confirmed_without_receipt()
+        self.assertEqual((count, amount), (1, 45321))
+        self.assertTrue(without.confirmed_without_receipt)
+        self.assertFalse(with_receipt.confirmed_without_receipt)
+        self.assertEqual(self.Collection._flag_confirmed_without_receipt(), (0, 0), "only once")
+
+    def test_confirm_all_notice_counts_the_ones_without_receipt(self):
+        self._receipt("5491100000000", datetime(2026, 9, 24, 13, 0),
+                      caption="Comprobante operación 900000000006")
+        self._import("mp_report_25col.csv")
+        with_receipt = self._card("900000000006")
+        self.assertTrue(with_receipt.receipt_id)
+        self.assertEqual(with_receipt.column, "confirm")
+        result = self.Collection.action_confirm_ready_notice()
+        notice = self.env["distri.mp.confirm.notice"].browse(result["res_id"])
+        self.assertEqual(notice.mode, "ready")
+        self.assertEqual((notice.count, notice.missing_count), (2, 1))
+        self.assertIn("1 de estos 2 pagos no tiene comprobante en el grupo de WhatsApp",
+                      notice.notice)
+        self.assertIn("MP 900000000001", notice.missing_names)
+        self.assertFalse(self.Collection.search([("state", "=", "confirmed")]),
+                         "the preview registers nothing")
+        done = notice.action_apply()
+        self.assertIn("1 quedó marcado «Confirmado sin comprobante»", done["params"]["message"])
+        self.assertTrue(self._card("900000000001").confirmed_without_receipt)
+        self.assertEqual(with_receipt.state, "confirmed")
+        self.assertFalse(with_receipt.confirmed_without_receipt)
+        # the kanban button goes through the preview, never the browser question
+        arch = self.env.ref("distri_pedido.view_mp_collection_kanban").arch_db
+        self.assertIn('name="action_confirm_ready_notice"', arch)
+        self.assertNotIn('name="action_confirm_ready"', arch)

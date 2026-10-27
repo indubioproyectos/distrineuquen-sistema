@@ -14,6 +14,8 @@
         <field name="origin"/>
         <field name="amount" sum="Total"/>
         <field name="has_receipt" widget="boolean" optional="show"/>
+        <field name="confirmed_without_receipt" string="Confirmado sin comprobante"
+               widget="boolean" optional="show"/>
         <field name="applied" widget="boolean" optional="show"/>
         <field name="money_grade" optional="show"/>
         <field name="customer_sources" optional="hide"/>
@@ -89,6 +91,11 @@
           pago(s) dejan al cliente con saldo a favor. Si fue una venta hecha fuera del sistema,
           «Venta sin registrar» factura solo el excedente.
         </div>
+        <div class="alert alert-warning mb-0" role="alert" invisible="not without_receipt_count">
+          <b>Confirmado sin comprobante:</b> <field name="without_receipt_count" class="oe_inline"/>
+          pago(s) se confirmaron en el tablero sin el comprobante en el grupo de WhatsApp. Hay que
+          reclamarlos; la marca se quita sola cuando llega el comprobante.
+        </div>
         <sheet>
           <div class="oe_title">
             <h1><field name="partner_id" readonly="1"/></h1>
@@ -143,6 +150,7 @@
         <field name="no_receipt_amount" sum="Total" optional="show"/>
         <field name="whatif_balance" sum="Total" optional="hide"/>
         <field name="flag_count"/>
+        <field name="without_receipt_count" string="Sin comprobante" sum="Total" optional="show"/>
         <field name="vsr_amount" sum="Total" optional="hide"/>
         <field name="summary" optional="hide"/>
         <field name="state" widget="badge" decoration-warning="state == 'pending'"
@@ -161,6 +169,8 @@
         <filter name="flagged" string="Posible venta sin registrar" domain="[('has_flag', '=', True)]"/>
         <filter name="with_pending" string="Con tarjetas pendientes"
                 domain="[('pending_count', '>', 0)]"/>
+        <filter name="confirmed_without_receipt" string="Confirmado sin comprobante"
+                domain="[('without_receipt_count', '>', 0)]"/>
         <separator/>
         <filter name="to_review" string="Con pagos para revisar" domain="[('state', '=', 'pending')]"/>
         <filter name="reviewed" string="Revisados" domain="[('state', '=', 'reviewed')]"/>
@@ -184,6 +194,10 @@
           La tarjeta está pendiente: primero se confirma, igual que en el tablero, y el pago va a
           esta venta (no a facturas anteriores).
         </div>
+        <div class="alert alert-warning" role="alert" invisible="not card_without_receipt">
+          Este pago no tiene comprobante en el grupo de WhatsApp. Se confirma y queda marcado
+          «Confirmado sin comprobante» para reclamarlo.
+        </div>
         <group>
           <group>
             <field name="partner_id" options="{'no_create': True}"
@@ -200,6 +214,7 @@
         </group>
         <field name="source" invisible="1"/>
         <field name="card_pending" invisible="1"/>
+        <field name="card_without_receipt" invisible="1"/>
         <field name="review_line_id" invisible="1"/>
         <field name="currency_id" invisible="1"/>
         <footer>

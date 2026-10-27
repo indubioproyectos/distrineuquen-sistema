@@ -386,6 +386,7 @@ class DistriMpCollectionOnline(models.Model):
         data["review"] = count([("state", "=", "draft"), ("kind", "in", ("income", "receipt"))])
         data["online"] = count([("online_status", "=", "already")])
         data["export"] = count(self._distri_exportable_domain())
+        data["without_receipt"] = count([("confirmed_without_receipt", "=", True)])
         return data
 
     @api.model
