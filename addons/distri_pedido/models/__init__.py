@@ -35,6 +35,7 @@ from . import comprobante_pendiente
 from . import limites
 from . import deudas_empleados
 from . import retiro_deposito
+from . import arca
 from . import mayoristas
 from . import etiquetas
 from . import reparto_gps

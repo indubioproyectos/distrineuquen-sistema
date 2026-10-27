@@ -277,12 +277,16 @@ class DistriMpPayerBucket(models.Model):
     _order = "total desc"
     _rec_name = "payer"
     _depends = {"distri.mp.collection": ["state", "column", "kind", "payer_cuit", "payer_name",
-                                         "amount", "date", "company_id"]}
+                                         "amount", "date", "company_id"],
+                "distri.arca.name": ["cuit", "name"]}
 
     payer_key = fields.Char(string="Clave", readonly=True)
     payer = fields.Char(string="Pagador", readonly=True)
     payer_cuit = fields.Char(string="CUIT", readonly=True)
     payer_name = fields.Char(string="Titular", readonly=True)
+    arca_name = fields.Char(string="Nombre en ARCA", readonly=True,
+                            help="Nombre legal del padrón público de ARCA para ese CUIT "
+                                 "(models/arca.py). Vacío si no figura.")
     payment_count = fields.Integer(string="Pagos", readonly=True)
     total = fields.Monetary(string="Total", readonly=True)
     first_date = fields.Datetime(string="Primer pago", readonly=True)
@@ -299,6 +303,7 @@ class DistriMpPayerBucket(models.Model):
                        k.payer_key AS payer_key,
                        COALESCE(MAX(c.payer_cuit), '') AS payer_cuit,
                        MAX(c.payer_name) AS payer_name,
+                       MAX(a.name) AS arca_name,
                        COALESCE(MAX(NULLIF(c.payer_name, '')), MAX(c.payer_cuit),
                                 'Sin datos del pagador') AS payer,
                        COUNT(*) AS payment_count,
@@ -306,7 +311,8 @@ class DistriMpPayerBucket(models.Model):
                        MIN(c.date) AS first_date,
                        MAX(c.date) AS last_date,
                        MAX(c.company_id) AS company_id
-                  FROM distri_mp_collection c,
+                  FROM distri_mp_collection c
+             LEFT JOIN distri_arca_name a ON a.cuit = c.payer_cuit,
                        LATERAL (SELECT CASE
                            WHEN COALESCE(c.payer_cuit, '') <> '' THEN 'cuit:' || c.payer_cuit
                            WHEN COALESCE(c.payer_name, '') <> '' THEN 'name:' || lower(c.payer_name)

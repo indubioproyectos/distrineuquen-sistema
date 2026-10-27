@@ -118,3 +118,5 @@ acceso_balance_review_line_admin,distri.balance.review.line administracion,model
 acceso_balance_review_line_sistema,distri.balance.review.line sistema,model_distri_balance_review_line,base.group_system,1,1,1,1
 acceso_unrecorded_sale_wizard_admin,distri.unrecorded.sale.wizard administracion,model_distri_unrecorded_sale_wizard,distri_pedido.grupo_administracion,1,1,1,1
 acceso_unrecorded_sale_wizard_sistema,distri.unrecorded.sale.wizard sistema,model_distri_unrecorded_sale_wizard,base.group_system,1,1,1,1
+acceso_arca_name_admin,distri.arca.name administracion,model_distri_arca_name,distri_pedido.grupo_administracion,1,0,0,0
+acceso_arca_name_sistema,distri.arca.name sistema,model_distri_arca_name,base.group_system,1,0,0,0
