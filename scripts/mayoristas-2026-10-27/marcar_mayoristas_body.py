@@ -43,16 +43,20 @@ CUITS_FROM_CONFIRMED_CARDS = ['ODOO-677', 'ODOO-656', 'ODOO-578', 'ODOO-300', 'O
 WHOLESALE_CUITS = {
     # CUIT: (account label, note)
     '20368165884': ('Federico San Martín (FEDE SPEED)',
-                    'Mayorista según la gerencia, 27/10/2026. Alias de Mercado Pago «Dulzuras de oro».'),
+                    'Mayorista según ale, 27/10/2026. Alias de Mercado Pago «Dulzuras de oro».'),
     '20340880871': ('COBOS MAYORISTA',
-                    'Revendedor según la gerencia, 27/10/2026. Alias de Mercado Pago «Desp benjamin».'),
+                    'Revendedor según ale, 27/10/2026. Alias de Mercado Pago «Desp benjamin».'),
     '20314567901': ('MORA CHAVARRIA EDINSON EDUARDO',
-                    'Mayorista según la gerencia, 27/10/2026. Alias de Mercado Pago «Kiosco fullopen 24 RaC».'),
+                    'Mayorista según ale, 27/10/2026. Alias de Mercado Pago «Kiosco fullopen 24 RaC».'),
     '20272792047': ('OLMEDO NORBERTO',
-                    'Mayorista según la gerencia, 27/10/2026. Alias de Mercado Pago «La suerte». '
+                    'Mayorista según ale, 27/10/2026. Alias de Mercado Pago «La suerte». '
                     'No se marcó ODOO-582: no está confirmado que sea el mismo.'),
     '27273685796': ('OLEA CRISTINA DEL CARMEN',
-                    'Mayorista según la gerencia, 27/10/2026. Alias de Mercado Pago «Kiosco Gaby».'),
+                    'Mayorista según ale, 27/10/2026. Alias de Mercado Pago «Kiosco Gaby».'),
+}
+# payer CUITs never turned into rules here, even if found on confirmed cards
+EXCLUDED_CUITS = {
+    '27481454935': 'Alma Julieta Leiva: 61 payments, only 2 on LEIVA ARIEL; left out by ale, 27/10/2026',
 }
 # legal names of payers that the ARCA padrón file does not bring
 ARCA_NAMES = {
@@ -92,8 +96,10 @@ for ref in CUITS_FROM_CONFIRMED_CARDS:
     found = sorted(set(cards.mapped('payer_cuit')))
     result['cuits_found'][ref] = {c: len(cards.filtered(lambda k: k.payer_cuit == c)) for c in found}
     for cuit in found:
+        if cuit in EXCLUDED_CUITS:
+            continue
         cuits.setdefault(cuit, (partner.name[:60], 'CUIT de pagos confirmados para %s (%s), '
-                                'mayorista según la gerencia, 27/10/2026.' % (partner.name, ref)))
+                                'mayorista según ale, 27/10/2026.' % (partner.name, ref)))
 result['rules'] = {}
 for cuit, (label, note) in cuits.items():
     rule = Rule.search([('cuit', '=', cuit)], limit=1)
