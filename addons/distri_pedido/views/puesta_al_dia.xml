@@ -284,6 +284,7 @@
           <group>
             <field name="file" filename="filename"/>
             <field name="filename" invisible="1"/>
+            <field name="owner"/>
             <field name="date_from"/>
             <field name="date_to"/>
           </group>
@@ -315,6 +316,7 @@
       <list string="Chats importados" create="0" edit="0" delete="0">
         <field name="imported_at"/>
         <field name="name"/>
+        <field name="distri_export_owner"/>
         <field name="date_from"/>
         <field name="date_to"/>
         <field name="message_count"/>

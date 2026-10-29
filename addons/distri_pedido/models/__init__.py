@@ -44,3 +44,5 @@ from . import revision_cliente
 from . import ajuste_cuenta
 from . import migracion
 from . import sugerencia_cliente
+from . import visor_chat
+from . import deudores

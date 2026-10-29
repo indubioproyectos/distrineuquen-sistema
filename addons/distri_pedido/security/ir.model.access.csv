@@ -46,6 +46,7 @@ access_payer_identity_vendedor,distri.payer.identity vendedor,model_distri_payer
 access_mp_assign_admin,distri.mp.assign admin,model_distri_mp_assign,distri_pedido.grupo_administracion,1,1,1,1
 access_mp_ignore_admin,distri.mp.ignore admin,model_distri_mp_ignore,distri_pedido.grupo_administracion,1,1,1,1
 access_mp_confirm_notice_admin,distri.mp.confirm.notice admin,model_distri_mp_confirm_notice,distri_pedido.grupo_administracion,1,1,1,1
+access_mp_vouch_admin,distri.mp.vouch admin,model_distri_mp_vouch,distri_pedido.grupo_administracion,1,1,1,1
 access_mp_import_admin,distri.mp.import admin,model_distri_mp_import,distri_pedido.grupo_administracion,1,1,1,1
 acceso_wa_mensaje_admin,distri.whatsapp.message administracion,model_distri_whatsapp_message,distri_pedido.grupo_administracion,1,1,0,0
 acceso_mp_pago_admin,distri.mp.payment administracion,model_distri_mp_payment,distri_pedido.grupo_administracion,1,0,0,0
@@ -131,3 +132,7 @@ acceso_balance_adjustment_admin,distri.balance.adjustment administracion,model_d
 acceso_balance_adjustment_sistema,distri.balance.adjustment sistema,model_distri_balance_adjustment,base.group_system,1,1,1,1
 acceso_balance_adjustment_wizard_admin,distri.balance.adjustment.wizard administracion,model_distri_balance_adjustment_wizard,distri_pedido.grupo_administracion,1,1,1,1
 acceso_balance_adjustment_wizard_sistema,distri.balance.adjustment.wizard sistema,model_distri_balance_adjustment_wizard,base.group_system,1,1,1,1
+acceso_debtor_report_admin,distri.debtor.report administracion,model_distri_debtor_report,distri_pedido.grupo_administracion,1,1,1,1
+acceso_debtor_report_sistema,distri.debtor.report sistema,model_distri_debtor_report,base.group_system,1,1,1,1
+acceso_debtor_line_admin,distri.debtor.line administracion,model_distri_debtor_line,distri_pedido.grupo_administracion,1,1,1,1
+acceso_debtor_line_sistema,distri.debtor.line sistema,model_distri_debtor_line,base.group_system,1,1,1,1

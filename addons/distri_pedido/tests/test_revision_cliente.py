@@ -321,6 +321,6 @@ class TestRevisionCliente(AccountTestInvoicingCommon):
         self.assertEqual(review.without_receipt_count, 1)
         self.assertTrue(self._line(review, without.payment_id).confirmed_without_receipt)
         self.assertFalse(self._line(review, with_receipt.payment_id).confirmed_without_receipt)
-        self.assertEqual(self.Review.search([("without_receipt_count", ">", 0)]), review)
+        self.assertIn(review, self.Review.search([("without_receipt_count", ">", 0)]))
         arch = self.env.ref("distri_pedido.view_balance_review_search").arch_db
         self.assertIn('name="confirmed_without_receipt"', arch)

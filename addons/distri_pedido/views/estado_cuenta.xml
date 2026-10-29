@@ -48,8 +48,36 @@
             <field name="opening" invisible="not date_from"/>
             <field name="closing"/>
             <field name="balance"/>
+            <field name="candidate_amount" invisible="not candidate_amount"/>
+            <field name="whatif_balance" invisible="not candidate_amount"/>
           </group>
         </group>
+        <!-- «Candidato · falta el comprobante»: never subtracted; «Aprobar»
+             only once the WhatsApp receipt arrived (models/estado_cuenta.py) -->
+        <div invisible="not candidate_ids" groups="distri_pedido.grupo_administracion">
+          <h5>Pagos a confirmar · falta el comprobante</h5>
+          <p class="text-muted">
+            No restan del saldo. Se aprueban cuando el cliente manda el comprobante al grupo de
+            WhatsApp y coincide con el reporte de Mercado Pago. La nota queda en la tarjeta.
+          </p>
+          <field name="candidate_ids" nolabel="1" context="{'active_test': False}">
+            <list editable="bottom" create="0" delete="0" decoration-muted="not receipt_id">
+              <field name="date_day" string="Fecha" readonly="1"/>
+              <field name="name" readonly="1"/>
+              <field name="amount" readonly="1" sum="Total"/>
+              <field name="currency_id" column_invisible="1"/>
+              <field name="receipt_id" string="Comprobante" readonly="1"/>
+              <field name="state" readonly="1"/>
+              <field name="candidate_note" string="Nota"/>
+              <button name="action_approve_candidate" type="object" string="Aprobar"
+                      class="btn-primary" icon="fa-check"
+                      invisible="not receipt_id or state != 'draft'"/>
+              <button name="action_open_vouch" type="object" string="Aprobar sin comprobante"
+                      class="btn-secondary" icon="fa-handshake-o"
+                      invisible="receipt_id or state != 'draft'"/>
+            </list>
+          </field>
+        </div>
         <field name="statement_html" nolabel="1" readonly="1"/>
         <footer>
           <button name="action_print" type="object" string="Imprimir / PDF" class="btn-primary"/>
@@ -73,60 +101,88 @@
       <t t-foreach="docs" t-as="o">
         <t t-set="v" t-value="values[o.id]"/>
         <t t-call="web.basic_layout">
-          <div class="page" style="font-size:10px">
-            <h3 style="margin-bottom:2px">Estado de cuenta</h3>
-            <div><b t-esc="v['partner'].name"/>
-              <t t-if="v['partner'].vat"> · CUIT <t t-esc="v['partner'].vat"/></t></div>
-            <div>
-              <t t-if="v['date_from'] or v['date_to']">
-                Del <t t-esc="v['date_from'].strftime('%d/%m/%Y') if v['date_from'] else 'primer movimiento'"/>
-                al <t t-esc="v['date_to'].strftime('%d/%m/%Y') if v['date_to'] else 'día de hoy'"/>
-              </t>
-              <t t-else="">Historia completa, desde el primer movimiento</t>
-              · Impreso el <t t-esc="v['printed']"/>
-            </div>
-            <table class="table table-sm" style="margin-top:8px">
-              <thead>
-                <tr>
-                  <th>Fecha</th><th>Tipo</th><th>Comprobante</th><th>Remito</th><th>Concepto</th>
-                  <th>Origen</th><th class="text-end">Debe</th><th class="text-end">Haber</th>
-                  <th class="text-end">Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr t-if="v['date_from']">
-                  <td colspan="8"><i>Saldo anterior</i></td>
-                  <td class="text-end" t-esc="v['money'](v['data']['opening'])"/>
-                </tr>
-                <tr t-foreach="v['data']['rows']" t-as="r">
-                  <td t-esc="r['date'].strftime('%d/%m/%Y') if r['date'] else ''"/>
-                  <td><t t-esc="r['doc_type']"/><t t-if="r['provisional']"> (a controlar)</t></td>
-                  <td t-esc="r['number']"/>
-                  <td t-esc="r['remito']"/>
-                  <td t-esc="r['concept']"/>
-                  <td t-esc="v['sources'][r['source']]"/>
-                  <td class="text-end"><t t-if="r['debit']" t-esc="v['money'](r['debit'])"/></td>
-                  <td class="text-end"><t t-if="r['credit']" t-esc="v['money'](r['credit'])"/></td>
-                  <td class="text-end" t-esc="v['money'](r['balance'])"/>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th colspan="6">Totales del período</th>
-                  <th class="text-end" t-esc="v['money'](v['data']['debit'])"/>
-                  <th class="text-end" t-esc="v['money'](v['data']['credit'])"/>
-                  <th class="text-end" t-esc="v['money'](v['data']['closing'])"/>
-                </tr>
-              </tfoot>
-            </table>
-            <p t-if="v['data']['provisional']">
-              El saldo incluye devoluciones informadas por el repartidor, a controlar en la
-              rendición, por <t t-esc="v['money'](v['data']['provisional'])"/>.
-            </p>
-          </div>
+          <t t-call="distri_pedido.estado_cuenta_cuerpo"/>
         </t>
       </t>
     </t>
+  </template>
+
+  <!-- the statement of one customer (`v`: estado.cuenta _report_values), also
+       printed after the cover of «Deudores» (models/deudores.py) -->
+  <template id="estado_cuenta_cuerpo">
+    <div class="page" style="font-size:10px">
+      <h3 style="margin-bottom:2px">Estado de cuenta</h3>
+      <div><b t-esc="v['partner'].name"/>
+        <t t-if="v['partner'].vat"> · CUIT <t t-esc="v['partner'].vat"/></t></div>
+      <div>
+        <t t-if="v['date_from'] or v['date_to']">
+          Del <t t-esc="v['date_from'].strftime('%d/%m/%Y') if v['date_from'] else 'primer movimiento'"/>
+          al <t t-esc="v['date_to'].strftime('%d/%m/%Y') if v['date_to'] else 'día de hoy'"/>
+        </t>
+        <t t-else="">Historia completa, desde el primer movimiento</t>
+        · Impreso el <t t-esc="v['printed']"/>
+      </div>
+      <div t-if="v.get('uncollectible')"><b>Deuda marcada como incobrable.</b></div>
+      <table class="table table-sm" style="margin-top:8px">
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Tipo</th><th>Comprobante</th><th>Remito</th><th>Concepto</th>
+            <th>Origen</th><th class="text-end">Debe</th><th class="text-end">Haber</th>
+            <th class="text-end">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr t-if="v['date_from']">
+            <td colspan="8"><i>Saldo anterior</i></td>
+            <td class="text-end" t-esc="v['money'](v['data']['opening'])"/>
+          </tr>
+          <!-- «Deudores»: the candidates as in the staff statement, never subtracted -->
+          <t t-if="v.get('candidate_rows')">
+            <tr t-foreach="v['data']['candidates']" t-as="c" style="color:#6c757d">
+              <td t-esc="c['date'].strftime('%d/%m/%Y') if c['date'] else ''"/>
+              <td>Pago a confirmar · falta el comprobante</td>
+              <td t-esc="c['name']"/>
+              <td/>
+              <td t-esc="c['note']"/>
+              <td>Mercado Pago</td>
+              <td/>
+              <td class="text-end">(<t t-esc="v['money'](c['amount'])"/>)</td>
+              <td class="text-end">no resta</td>
+            </tr>
+          </t>
+          <tr t-foreach="v['data']['rows']" t-as="r">
+            <td t-esc="r['date'].strftime('%d/%m/%Y') if r['date'] else ''"/>
+            <td><t t-esc="r['doc_type']"/><t t-if="r['provisional']"> (a controlar)</t></td>
+            <td t-esc="r['number']"/>
+            <td t-esc="r['remito']"/>
+            <td t-esc="r['concept']"/>
+            <td t-esc="v['sources'][r['source']]"/>
+            <td class="text-end"><t t-if="r['debit']" t-esc="v['money'](r['debit'])"/></td>
+            <td class="text-end"><t t-if="r['credit']" t-esc="v['money'](r['credit'])"/></td>
+            <td class="text-end" t-esc="v['money'](r['balance'])"/>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="6">Totales del período</th>
+            <th class="text-end" t-esc="v['money'](v['data']['debit'])"/>
+            <th class="text-end" t-esc="v['money'](v['data']['credit'])"/>
+            <th class="text-end" t-esc="v['money'](v['data']['closing'])"/>
+          </tr>
+        </tfoot>
+      </table>
+      <p t-if="v['data']['candidates']">
+        Pagos a confirmar (falta el comprobante), no restados del saldo:
+        <t t-esc="len(v['data']['candidates'])"/> por
+        <t t-esc="v['money'](v['data']['candidate_amount'])"/>.
+        <t t-esc="v.get('balance_label') or 'Saldo actual'"/> <t t-esc="v['money'](v['data']['balance'])"/> · Saldo si se aprueban
+        los candidatos <t t-esc="v['money'](v['data']['whatif_balance'])"/>.
+      </p>
+      <p t-if="v['data']['provisional']">
+        El saldo incluye devoluciones informadas por el repartidor, a controlar en la
+        rendición, por <t t-esc="v['money'](v['data']['provisional'])"/>.
+      </p>
+    </div>
   </template>
 
 </odoo>

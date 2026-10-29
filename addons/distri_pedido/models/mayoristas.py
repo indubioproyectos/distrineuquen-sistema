@@ -259,8 +259,13 @@ class DistriMpCollectionWholesale(models.Model):
         unknown = count([("state", "=", "draft"), ("column", "=", "unidentified")])
         unknown["payers"] = self.env["distri.mp.payer.bucket"].search_count([])
         apart = count([("state", "=", APARTADO)])
-        return {"window_days": BOARD_WINDOW_DAYS, "act": act, "older": older,
-                "unknown": unknown, "apartados": apart}
+        # the other part of the bar (models/puesta_al_dia.py) may sit above
+        # or below this one in the class order: both merge, neither replaces
+        parent = getattr(super(), "distri_board_counters", None)
+        data = parent() if parent else {}
+        data.update({"window_days": BOARD_WINDOW_DAYS, "act": act, "older": older,
+                     "unknown": unknown, "apartados": apart})
+        return data
 
     @api.model
     def action_open_unknown_payers(self):

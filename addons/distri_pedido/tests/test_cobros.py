@@ -19,7 +19,7 @@ from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.models.cobros import (
-    ALERT_SUMMARY, AUTHORIZED_LABEL, WITHOUT_RECEIPT_NOTICE, AUTHORIZED_MISSING, AUTHORIZED_WAITING, COLUMN_HELP,
+    ALERT_SUMMARY, AUTHORIZED_LABEL, CANDIDATE_LABEL, WITHOUT_RECEIPT_NOTICE, AUTHORIZED_MISSING, AUTHORIZED_WAITING, COLUMN_HELP,
     COLUMNS, HAND_VERIFIED_MISSING, PARAM_ALERT_HOURS, MP_JOURNAL_CODE, REVERSAL_SUMMARY,
     TWO_CUSTOMERS, local_when, operation_close, own_account, parse_amount_ar,
     parse_mp_datetime, parse_operation, read_report,
@@ -1498,6 +1498,7 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
     # ------------------------------------------------------------ «Confirmado sin comprobante»
 
     def test_confirm_without_receipt_is_allowed_after_a_notice_and_flagged(self):
+        flagged_before = self.Collection.distri_board_counters()["without_receipt"]["count"]
         self._import("mp_report_25col.csv")
         card = self._card("900000000001")
         self.assertFalse(card.receipt_id)
@@ -1515,8 +1516,10 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(card.confirmed_by_id, self.env.user)
         self.assertIn("Confirmado sin comprobante", card.message_ids[:1].body)
         # the board filter and the bar on top of the board find it
-        self.assertEqual(self.Collection.search([("confirmed_without_receipt", "=", True)]), card)
-        self.assertEqual(self.Collection.distri_board_counters()["without_receipt"]["count"], 1)
+        # (the suite also runs on a copy of the lab: count only what the test made)
+        self.assertIn(card, self.Collection.search([("confirmed_without_receipt", "=", True)]))
+        self.assertEqual(self.Collection.distri_board_counters()["without_receipt"]["count"],
+                         flagged_before + 1)
         arch = self.env.ref("distri_pedido.view_mp_collection_search").arch_db
         self.assertIn('name="confirmed_without_receipt"', arch)
         # undone: the flag goes with the confirmation
@@ -1576,7 +1579,8 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         (without | with_receipt).action_confirm()
         # as before 19.0.1.42.0: no flag on any card
         self.env.flush_all()
-        self.env.cr.execute("UPDATE distri_mp_collection SET confirmed_without_receipt = FALSE")
+        self.env.cr.execute("UPDATE distri_mp_collection SET confirmed_without_receipt = FALSE "
+                            "WHERE id IN %s", [tuple((without | with_receipt).ids)])
         self.Collection.invalidate_model(["confirmed_without_receipt"])
         count, amount = self.Collection._flag_confirmed_without_receipt()
         self.assertEqual((count, amount), (1, 45321))
@@ -1585,6 +1589,10 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(self.Collection._flag_confirmed_without_receipt(), (0, 0), "only once")
 
     def test_confirm_all_notice_counts_the_ones_without_receipt(self):
+        # on a copy of the lab, its own pending cards would join «Confirmar todos»
+        self.env.flush_all()
+        self.env.cr.execute("UPDATE distri_mp_collection SET state = 'ignored' WHERE state = 'draft'")
+        self.env.invalidate_all()
         self._receipt("5491100000000", datetime(2026, 9, 24, 13, 0),
                       caption="Comprobante operación 900000000006")
         self._import("mp_report_25col.csv")
@@ -1598,7 +1606,8 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self.assertIn("1 de estos 2 pagos no tiene comprobante en el grupo de WhatsApp",
                       notice.notice)
         self.assertIn("MP 900000000001", notice.missing_names)
-        self.assertFalse(self.Collection.search([("state", "=", "confirmed")]),
+        self.assertFalse(self.Collection.search([("state", "=", "confirmed"),
+                                                 ("source_id", "like", "9000000000")]),
                          "the preview registers nothing")
         done = notice.action_apply()
         self.assertIn("1 quedó marcado «Confirmado sin comprobante»", done["params"]["message"])
@@ -1609,3 +1618,91 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         arch = self.env.ref("distri_pedido.view_mp_collection_kanban").arch_db
         self.assertIn('name="action_confirm_ready_notice"', arch)
         self.assertNotIn('name="action_confirm_ready"', arch)
+
+    def test_receipt_candidate_waits_for_its_receipt(self):
+        """19.0.1.45.0: a card attached to a customer without its WhatsApp
+        receipt is never confirmed (never lowers the balance) until the
+        receipt joins it; then the flag clears by itself."""
+        self._import("mp_report_25col.csv")
+        card = self._card("900000000001")
+        self.assertEqual(card.column, "confirm")
+        card.sudo().write({"receipt_candidate": True})
+        self.assertEqual(card.column, "review")
+        self.assertIn(CANDIDATE_LABEL, card.review_reason)
+        # out of «Confirmar todos», the others go on
+        ready, _skipped = self.Collection._ready_to_confirm()
+        self.assertNotIn(card, ready)
+        self.assertIn(self._card("900000000006"), ready)
+        # every confirmation path goes through `_confirm_todo`
+        for confirm in (card.action_confirm, card.action_confirm_board,
+                        (card | self._card("900000000006")).action_confirm_board):
+            with self.assertRaises(UserError):
+                confirm()
+        self.assertEqual(card.state, "draft")
+        self.assertFalse(card.payment_id)
+        self.assertEqual(self._card("900000000006").state, "draft", "all or nothing")
+        # the receipt arrives: every guard lets it go, the mark stays until
+        # it is confirmed (the statement still lists it)
+        receipt = self._receipt("5491100000000", datetime(2026, 9, 24, 13, 0),
+                                caption="Comprobante operación 900000000001")
+        card.sudo().write({"receipt_id": receipt.id})
+        self.assertTrue(card.receipt_candidate)
+        self.assertEqual(card.column, "confirm")
+        self.assertFalse(card.review_reason)
+        self.assertIn(card, self.Collection._ready_to_confirm()[0])
+        self.assertNotIn(card, self.Collection.search(
+            safe_eval(self._filter_domain("receipt_candidate"))))
+        self.assertIn("ya se puede aprobar", card.message_ids[:1].body)
+        card.action_confirm_board()
+        self.assertEqual(card.state, "confirmed")
+        self.assertFalse(card.receipt_candidate, "cleared when confirmed")
+        self.assertFalse(card.confirmed_without_receipt)
+
+    def _filter_domain(self, name):
+        arch = etree.fromstring(self.env.ref("distri_pedido.view_mp_collection_search").arch_db)
+        return arch.xpath("//filter[@name='%s']" % name)[0].get("domain")
+
+    def test_candidate_in_the_account_statement(self):
+        """«Pago a confirmar · falta el comprobante» in the statement: never
+        subtracted, the balance if approved, a note, «Aprobar» only with the
+        receipt."""
+        self._import("mp_report_25col.csv")
+        card = self._card("900000000001")
+        card.sudo().write({"receipt_candidate": True})
+        balance = self.known._distri_account_balance()
+        data = self.known._distri_statement()
+        self.assertEqual([c["res_id"] for c in data["candidates"]], card.ids)
+        self.assertEqual(data["balance"], balance, "not in the balance")
+        self.assertFalse([r for r in data["rows"] if r.get("res_model") == card._name])
+        self.assertAlmostEqual(data["whatif_balance"], balance - 45321)
+        html = str(self.known.distri_statement_html)
+        self.assertIn("Pago a confirmar · falta el comprobante", html)
+        self.assertIn("Saldo si se aprueban los candidatos", html)
+        # the wizard: the totals, the note written from the statement
+        action = self.known.action_distri_estado_cuenta()
+        wizard = self.env["distri.estado.cuenta"].browse(action["res_id"])
+        self.assertEqual(wizard.candidate_ids, card)
+        self.assertAlmostEqual(wizard.balance, balance)
+        self.assertAlmostEqual(wizard.whatif_balance, balance - 45321)
+        wizard.write({"candidate_ids": [Command.update(card.id, {
+            "candidate_note": "se le pidió el comprobante el 30/10"})]})
+        self.assertEqual(card.candidate_note, "se le pidió el comprobante el 30/10")
+        self.assertIn("se le pidió el comprobante el 30/10",
+                      str(self.known._distri_statement_table(self.known._distri_statement())))
+        arch = self.env.ref("distri_pedido.view_estado_cuenta_form").arch_db
+        self.assertIn('invisible="not receipt_id or state != \'draft\'"', arch)
+        # «Aprobar» without the receipt: refused, nothing registered
+        with self.assertRaises(UserError):
+            card.action_approve_candidate()
+        self.assertEqual(card.state, "draft")
+        self.assertAlmostEqual(self.known._distri_account_balance(), balance)
+        # with the receipt: confirmed the board's way, the balance goes down
+        receipt = self._receipt("5491100000000", datetime(2026, 9, 24, 13, 0),
+                                caption="Comprobante operación 900000000001")
+        card.sudo().write({"receipt_id": receipt.id})
+        card.action_approve_candidate()
+        self.assertEqual(card.state, "confirmed")
+        self.assertTrue(card.payment_id)
+        self.assertFalse(card.receipt_candidate)
+        self.assertAlmostEqual(self.known._distri_account_balance(), balance - 45321)
+        self.assertFalse(self.known._distri_statement()["candidates"])

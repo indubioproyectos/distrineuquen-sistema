@@ -16,6 +16,10 @@ live one from Odoo wins (models/cuenta.py, clave_documento: number plus
 amount). res.partner._distri_account_balance applies the same rule and
 always equals the closing balance of the full statement.
 
+The cards «Candidato · falta el comprobante» of the customer (19.0.1.45.0)
+show apart for staff only, as «Pago a confirmar · falta el comprobante»:
+never subtracted from the balance, with the balance if they were approved.
+
 Staff see the invoice number and the remito. The customer sees only the
 remito (models/remito.py): `customer_type` and `customer_ref` never carry
 an invoice number.
@@ -51,6 +55,8 @@ SOURCE_LABELS = {
 
 PROVISIONAL_LABEL = "Devolución informada"
 PROVISIONAL_NOTE = "a controlar"
+CANDIDATE_ROW_LABEL = "Pago a confirmar · falta el comprobante"
+WHATIF_LABEL = "Saldo si se aprueban los candidatos"
 
 
 def local_date(moment):
@@ -113,6 +119,15 @@ class ResPartnerEstadoCuenta(models.Model):
              "devoluciones informadas. Positivo: debe. Negativo: saldo a favor.")
 
     # ------------------------------------------------------------ rows
+
+    def _distri_candidate_cards(self):
+        """The pending Mercado Pago cards of the customer marked «Candidato ·
+        falta el comprobante» (with or without the receipt arrived yet)."""
+        self.ensure_one()
+        return self.env["distri.mp.collection"].sudo().search([
+            ("partner_id", "child_of", self.commercial_partner_id.id),
+            ("kind", "=", "income"), ("state", "=", "draft"),
+            ("receipt_candidate", "=", True)], order="date, id")
 
     def _distri_statement_rows(self):
         """Every movement of the customer, oldest first, with running balance.
@@ -235,11 +250,25 @@ class ResPartnerEstadoCuenta(models.Model):
                 continue
             selected.append(row)
         closing = selected[-1]["balance"] if selected else opening
+        balance = rows[-1]["balance"] if rows else 0.0
+        # staff only (the customer page never reads them): shown, never applied
+        candidates = [{
+            "date": card.date_day,
+            "name": card.name,
+            "amount": card.amount,
+            "note": card.candidate_note or "",
+            "has_receipt": bool(card.receipt_id),
+            "res_id": card.id,
+        } for card in self._distri_candidate_cards()]
+        candidate_amount = sum(c["amount"] for c in candidates)
         return {
+            "candidates": candidates,
+            "candidate_amount": candidate_amount,
+            "whatif_balance": balance - candidate_amount,
             "rows": selected,
             "opening": opening,
             "closing": closing,
-            "balance": rows[-1]["balance"] if rows else 0.0,
+            "balance": balance,
             "provisional": sum(r["credit"] for r in rows if r["provisional"]),
             "debit": sum(r["debit"] for r in selected),
             "credit": sum(r["credit"] for r in selected),
@@ -262,19 +291,40 @@ class ResPartnerEstadoCuenta(models.Model):
     def _distri_statement_table(self, data, newest_first=False):
         """Staff table: invoice number and remito, running balance."""
         rows = list(reversed(data["rows"])) if newest_first else data["rows"]
-        if not rows:
+        candidates = data.get("candidates") or []
+        if not rows and not candidates:
             return "<p class='text-muted'>Sin movimientos.</p>"
         out = [
             "<div class='o_distri_estado'>",
-            "<p><b>Saldo: %s</b>%s</p>" % (
+            "<p><b>Saldo%s: %s</b>%s</p>" % (
+                " actual" if candidates else "",
                 html_escape(_money(data["balance"])),
                 (" · incluye devoluciones informadas a controlar por %s"
                  % html_escape(_money(data["provisional"]))) if data["provisional"] else ""),
+        ]
+        if candidates:
+            out.append("<p><b>%s: %s</b> · %d %s por %s, no restados del saldo</p>" % (
+                WHATIF_LABEL, html_escape(_money(data["whatif_balance"])), len(candidates),
+                "pago a confirmar" if len(candidates) == 1 else "pagos a confirmar",
+                html_escape(_money(data["candidate_amount"]))))
+        out += [
             "<table class='table table-sm table-striped o_distri_estado_tabla'>",
             "<thead><tr><th>Fecha</th><th>Tipo</th><th>Comprobante</th><th>Remito</th>"
             "<th>Concepto</th><th>Origen</th><th class='text-end'>Debe</th>"
             "<th class='text-end'>Haber</th><th class='text-end'>Saldo</th></tr></thead><tbody>",
         ]
+        # the candidates first, muted: the «Haber» in parentheses is not applied
+        for cand in candidates:
+            out.append(
+                "<tr class='table-secondary text-muted o_distri_estado_candidato'><td>%s</td>"
+                "<td>%s <span class='badge text-bg-secondary'>%s</span></td><td>%s</td><td></td>"
+                "<td>%s</td><td>Mercado Pago</td><td></td><td class='text-end'>(%s)</td>"
+                "<td class='text-end'>no resta</td></tr>" % (
+                    cand["date"].strftime("%d/%m/%Y") if cand["date"] else "",
+                    html_escape(CANDIDATE_ROW_LABEL),
+                    "llegó el comprobante" if cand["has_receipt"] else "sin comprobante",
+                    html_escape(cand["name"]), html_escape(cand["note"]),
+                    html_escape(_money(cand["amount"]))))
         for row in rows:
             out.append(
                 "<tr%s><td>%s</td><td>%s%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>"
@@ -320,7 +370,16 @@ class DistriEstadoCuenta(models.TransientModel):
                                   default=lambda self: self.env.company.currency_id)
     opening = fields.Monetary(string="Saldo anterior", compute="_compute_statement")
     closing = fields.Monetary(string="Saldo al cierre", compute="_compute_statement")
-    balance = fields.Monetary(string="Saldo de hoy", compute="_compute_statement")
+    balance = fields.Monetary(string="Saldo actual", compute="_compute_statement")
+    candidate_amount = fields.Monetary(string="Pagos a confirmar", compute="_compute_statement",
+                                       help="Candidatos sin comprobante: no restan del saldo.")
+    whatif_balance = fields.Monetary(string=WHATIF_LABEL, compute="_compute_statement")
+    # «Candidato · falta el comprobante» (19.0.1.45.0): notes and «Aprobar»
+    # from the statement, administration only (the board's access)
+    candidate_ids = fields.Many2many(
+        "distri.mp.collection", "distri_estado_cuenta_candidate_rel", "wizard_id",
+        "collection_id", string=CANDIDATE_ROW_LABEL, compute="_compute_candidate_ids",
+        store=True, readonly=False)
     statement_html = fields.Html(string="Movimientos", compute="_compute_statement",
                                  sanitize=False)
 
@@ -339,14 +398,24 @@ class DistriEstadoCuenta(models.TransientModel):
         for wizard in self:
             if not wizard.partner_id:
                 wizard.update({"opening": 0.0, "closing": 0.0, "balance": 0.0,
+                               "candidate_amount": 0.0, "whatif_balance": 0.0,
                                "statement_html": False})
                 continue
             data = wizard._statement()
             wizard.opening = data["opening"]
             wizard.closing = data["closing"]
             wizard.balance = data["balance"]
+            wizard.candidate_amount = data["candidate_amount"]
+            wizard.whatif_balance = data["whatif_balance"]
             wizard.statement_html = wizard.partner_id.sudo()._distri_statement_table(
                 data, newest_first=False)
+
+    @api.depends("partner_id")
+    def _compute_candidate_ids(self):
+        admin = self.env.su or self.env.user.has_group("distri_pedido.grupo_administracion")
+        for wizard in self:
+            wizard.candidate_ids = wizard.partner_id._distri_candidate_cards().with_env(
+                self.env) if admin and wizard.partner_id else False
 
     def _statement(self):
         self.ensure_one()

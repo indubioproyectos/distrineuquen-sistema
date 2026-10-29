@@ -270,7 +270,12 @@ class DistriMpCollectionMigration(models.Model):
     receipt_file_url = fields.Char(compute="_compute_receipt_context")
     receipt_request_text = fields.Text(string="Pedido del comprobante",
                                        compute="_compute_receipt_request")
-    receipt_amount = fields.Float(related="receipt_id.distri_amount", string="Importe leído")
+    # 19.0.1.56.0: typed on the card when the photo was not read; it is the
+    # receipt's own amount (manual), and the receipt looks for its transfer
+    receipt_amount = fields.Float(related="receipt_id.distri_amount", readonly=False,
+                                  string="Importe del comprobante")
+    receipt_read_amount = fields.Float(related="receipt_id.distri_read_amount",
+                                       string="Importe leído en la foto")
     receipt_amount_confidence = fields.Selection(related="receipt_id.distri_amount_confidence",
                                                  string="Confianza del importe")
     receipt_payer_name = fields.Char(related="receipt_id.distri_payer_name",
@@ -280,6 +285,12 @@ class DistriMpCollectionMigration(models.Model):
     receipt_bank = fields.Char(related="receipt_id.distri_bank", string="Banco o billetera")
     receipt_partner_source = fields.Char(related="receipt_id.distri_partner_source",
                                          string="Cliente de la foto propuesto por")
+
+    def action_receipt_use_read_amount(self):
+        """«Usar importe leído» on the card: the administrator checked the photo."""
+        self.ensure_one()
+        self.receipt_id.action_distri_use_read_amount()
+        return True
 
     def _migration_expand_boxes(self, values, domain):
         """The kanban shows the boards' boxes (an MP movement without receipt
@@ -825,7 +836,9 @@ class DistriMigrationSummary(models.TransientModel):
         return action
 
     def action_open_board(self):
-        return self._board("Tablero de migración", self._period_domain())
+        # every card with its WhatsApp receipt (19.0.1.47.0): «Desde la fecha
+        # de corte» stays as a filter of the board; the boxes keep the period
+        return self._board("Tablero de migración", [("receipt_id", "!=", False)])
 
     def action_open_box(self):
         box = self.env.context.get("box")

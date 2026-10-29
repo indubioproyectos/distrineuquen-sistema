@@ -265,7 +265,8 @@
         (0, 0, {'view_mode': 'list', 'view_id': ref('view_migration_list')}),
         (0, 0, {'view_mode': 'form', 'view_id': ref('view_mp_collection_form')})]"/>
     <field name="domain">[('receipt_id', '!=', False)]</field>
-    <field name="context">{'search_default_in_period': 1}</field>
+    <!-- opens showing everything; «Desde la fecha de corte» stays as a filter -->
+    <field name="context">{}</field>
   </record>
 
   <record id="view_migration_summary_form" model="ir.ui.view">

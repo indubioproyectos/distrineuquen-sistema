@@ -52,6 +52,9 @@ from .reparto_cliente import AR_TZ
 _logger = logging.getLogger(__name__)
 
 ADMIN_GROUP = "distri_pedido.grupo_administracion"
+# whose phone a WhatsApp export of the group came from (19.0.1.46.0)
+EXPORT_OWNERS = [("manager", "Gerente"), ("admin", "Denis (administrador)"),
+                 ("own", "Propio (ale)")]
 # Online ids, read on 22/10/2026 (insumos/cruce/importar-online/): the
 # Mercado Pago collections go to «Banco»; there is no MP journal in Online.
 PARAM_ONLINE_BANK = "distri_pedido.online_diario_banco"
@@ -377,7 +380,9 @@ class DistriMpCollectionOnline(models.Model):
 
     @api.model
     def distri_board_counters(self):
-        data = super().distri_board_counters()
+        # see models/mayoristas.py: the two halves of the bar merge in any order
+        parent = getattr(super(), "distri_board_counters", None)
+        data = parent() if parent else {}
 
         def count(domain):
             [(n, total)] = self._read_group(domain, [], ["__count", "amount:sum"])
@@ -431,6 +436,10 @@ class WhatsappMessageOnline(models.Model):
                                             string="Importado del chat", readonly=True,
                                             index=True, ondelete="set null")
     distri_chat_sender = fields.Char(string="Quién lo mandó al grupo", readonly=True)
+    # 19.0.1.46.0: order inside the minute for the chat viewer (minute_positions)
+    distri_chat_minute_pos = fields.Integer(
+        string="Orden dentro del minuto", readonly=True,
+        help="Lugar del mensaje entre los del mismo minuto en el export (1, 2, ...). 0: no se sabe.")
 
     @api.depends("distri_chat_import_id", "media_filename", "distri_chat_sender", "timestamp")
     def _compute_display_name(self):
@@ -753,6 +762,36 @@ def parse_chat(text):
     return out
 
 
+def chat_text_key(when, sender, body):
+    """The «wa_message_id» of a text line of an export: same minute, sender
+    and text are the same message (re-importing never duplicates it)."""
+    return "chat:t:" + hashlib.sha256(
+        ("%s|%s|%s" % (when.isoformat(), sender, body)).encode()).hexdigest()[:40]
+
+
+def chat_file_key(raw):
+    """The «wa_message_id» of a photo or PDF: its content, whatever export or
+    file name it came with."""
+    return "chat:" + hashlib.sha256(raw).hexdigest()[:48]
+
+
+def minute_positions(rows):
+    """Position of each parsed line among the lines of its same minute (1, 2,
+    ...; 0 is «unknown» on the message), parallel to `rows`. The export lists the lines in WhatsApp's own
+    order while it prints only the minute, so this is the best order signal
+    inside a minute. Every line counts, also «<Multimedia omitido>» and the
+    files of other kinds: two exports of the same group give the same
+    position to the same message (19.0.1.46.0, models/visor_chat.py)."""
+    out = []
+    last, pos = None, 0
+    for when, _sender, _body, _att in rows:
+        minute = when.replace(second=0, microsecond=0)
+        pos = pos + 1 if minute == last else 1
+        last = minute
+        out.append(pos)
+    return out
+
+
 def _sender_key(sender):
     """The «wa_id» of a sender of the group: their number when the export
     shows one, else letters only (never mistaken for a phone)."""
@@ -827,6 +866,10 @@ class DistriWhatsappChatImport(models.Model):
     message_ids = fields.One2many("distri.whatsapp.message", "distri_chat_import_id",
                                   string="Mensajes")
     summary = fields.Text(string="Resumen", readonly=True)
+    # 19.0.1.46.0: whose phone exported the chat; the chat viewer picks the
+    # source of each period with it (models/visor_chat.py)
+    distri_export_owner = fields.Selection(EXPORT_OWNERS, string="Exportado por",
+                                           readonly=True, index=True)
 
     def _compute_results(self):
         for rec in self:
@@ -837,18 +880,25 @@ class DistriWhatsappChatImport(models.Model):
                 or m.distri_receipt_state == "registered"))
 
     @api.model
-    def _distri_import(self, name, date_from, date_to, path=None, data=None, commit_every=0):
+    def _distri_import(self, name, date_from, date_to, path=None, data=None, commit_every=0,
+                       owner=None):
         """Imports the messages of [date_from, date_to] (Argentine days).
         `commit_every`: the server script commits every N files, so a long
-        import keeps its progress (it is idempotent)."""
+        import keeps its progress (it is idempotent). `owner`: whose export
+        it is (EXPORT_OWNERS)."""
         _check_admin_or_raise(self.env)
         if not date_from or not date_to or date_to < date_from:
             raise UserError("Elegí el período: desde y hasta.")
+        if owner and owner not in dict(EXPORT_OWNERS):
+            raise UserError("Exportado por: valor desconocido.")
         source = _Source(path=path, data=data)
-        messages = [m for m in parse_chat(source.chat_text())
+        rows = parse_chat(source.chat_text())
+        positions = minute_positions(rows)
+        messages = [m + (pos,) for m, pos in zip(rows, positions)
                     if date_from <= m[0].date() <= date_to]
         record = self.sudo().create({"name": name, "date_from": date_from, "date_to": date_to,
-                                     "message_count": len(messages)})
+                                     "message_count": len(messages),
+                                     "distri_export_owner": owner or False})
         Message = self.env["distri.whatsapp.message"].sudo()
         seen = set(Message.search([("wa_message_id", "=like", "chat:%")]).mapped(
             "wa_message_id"))
@@ -858,22 +908,22 @@ class DistriWhatsappChatImport(models.Model):
 
         # texts first: the notes next to each photo name the customer
         texts = []
-        for when, sender, body, att in messages:
+        for when, sender, body, att, pos in messages:
             if att or not body or body.startswith("<") and body.endswith(">"):
                 continue
-            key = "chat:t:" + hashlib.sha256(
-                ("%s|%s|%s" % (when.isoformat(), sender, body)).encode()).hexdigest()[:40]
+            key = chat_text_key(when, sender, body)
             if key in seen:
                 continue
             seen.add(key)
             texts.append({"wa_message_id": key, "direction": "in", "message_type": "text",
                           "wa_id": _sender_key(sender), "profile_name": sender[:64],
                           "body": body[:4000], "timestamp": utc(when),
-                          "distri_chat_import_id": record.id, "distri_chat_sender": sender[:64]})
+                          "distri_chat_import_id": record.id, "distri_chat_sender": sender[:64],
+                          "distri_chat_minute_pos": pos})
         if texts:
             Message.create(texts)
         new = dup = skipped = missing = 0
-        for when, sender, body, att in messages:
+        for when, sender, body, att, pos in messages:
             if not att:
                 continue
             ext = os.path.splitext(att)[1].lower()
@@ -885,7 +935,7 @@ class DistriWhatsappChatImport(models.Model):
             if raw is None:
                 missing += 1
                 continue
-            key = "chat:" + hashlib.sha256(raw).hexdigest()[:48]
+            key = chat_file_key(raw)
             if key in seen:
                 dup += 1
                 continue
@@ -896,7 +946,7 @@ class DistriWhatsappChatImport(models.Model):
                 "wa_id": _sender_key(sender), "profile_name": sender[:64], "body": body[:4000],
                 "timestamp": utc(when), "media_mime_type": mime, "media_filename": att[:128],
                 "media_state": "pending", "distri_chat_import_id": record.id,
-                "distri_chat_sender": sender[:64]})
+                "distri_chat_sender": sender[:64], "distri_chat_minute_pos": pos})
             attachment = self.env["ir.attachment"].sudo().create({
                 "name": att, "raw": raw, "mimetype": mime,
                 "res_model": msg._name, "res_id": msg.id})
@@ -948,6 +998,11 @@ class DistriWhatsappChatImportWizard(models.TransientModel):
     date_from = fields.Date(string="Desde", required=True)
     date_to = fields.Date(string="Hasta", required=True,
                           default=lambda s: fields.Date.context_today(s))
+    owner = fields.Selection(EXPORT_OWNERS, string="Exportado por", required=True,
+                             default="own",
+                             help="De qué teléfono salió el export. El visor del chat muestra "
+                                  "el del gerente hasta el 23/10/2026 y el propio desde el "
+                                  "24/10/2026.")
     import_id = fields.Many2one("distri.whatsapp.chat.import", readonly=True)
     summary = fields.Text(related="import_id.summary")
 
@@ -963,6 +1018,7 @@ class DistriWhatsappChatImportWizard(models.TransientModel):
             raise UserError("El archivo pasa los 100 MB: importalo en el servidor con "
                             "scripts/importar-chat-whatsapp.sh (ver la guía).")
         self.import_id = self.env["distri.whatsapp.chat.import"]._distri_import(
-            self.filename or "chat.zip", self.date_from, self.date_to, data=data)
+            self.filename or "chat.zip", self.date_from, self.date_to, data=data,
+            owner=self.owner)
         return {"type": "ir.actions.act_window", "res_model": self._name, "res_id": self.id,
                 "view_mode": "form", "target": "new", "name": "Chat importado"}

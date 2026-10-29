@@ -66,6 +66,9 @@ _logger = logging.getLogger(__name__)
 
 ADMIN_GROUP = "distri_pedido.grupo_administracion"
 WITHOUT_RECEIPT_LABEL = "Confirmado sin comprobante"
+# 19.0.1.45.0: a card attached to a customer that waits for its WhatsApp
+# receipt; it is never confirmed (never lowers the balance) until it arrives
+CANDIDATE_LABEL = "Candidato · falta el comprobante"
 WITHOUT_RECEIPT_NOTICE = (
     "Este pago no tiene comprobante en el grupo de WhatsApp. Se confirma y queda marcado "
     "«%s» para reclamarlo." % WITHOUT_RECEIPT_LABEL)
@@ -1105,6 +1108,15 @@ class DistriMpCollection(models.Model):
         string=WITHOUT_RECEIPT_LABEL, readonly=True, index=True, copy=False,
         help="Se confirmó sin el comprobante en el grupo de WhatsApp: hay que reclamarlo. La "
              "marca se quita sola cuando llega el comprobante.")
+    receipt_candidate = fields.Boolean(
+        string=CANDIDATE_LABEL, readonly=True, index=True, copy=False,
+        help="Asignado al cliente sin el comprobante en el grupo de WhatsApp: no se confirma (no "
+             "baja la deuda) hasta que llegue el comprobante. Con el comprobante se aprueba "
+             "desde el estado de cuenta; la marca se quita al confirmar.")
+    candidate_note = fields.Char(
+        string="Nota del candidato", tracking=True,
+        help="Seguimiento del comprobante que falta, por ejemplo «se le pidió el comprobante el "
+             "30/10». Se escribe desde el estado de cuenta del cliente.")
     ignore_reason = fields.Selection(IGNORE_REASONS, string="Motivo del descarte", readonly=True)
     ignore_note = fields.Char(string="Aclaración", readonly=True)
     reversal = fields.Char(string="Aviso de Mercado Pago", readonly=True,
@@ -1163,11 +1175,21 @@ class DistriMpCollection(models.Model):
     def write(self, vals):
         """«Confirmado sin comprobante» clears itself when a receipt joins the
         card, whatever the path (matching, migration board, by hand), and
-        when the confirmation is undone (back to draft)."""
+        when the confirmation is undone (back to draft). «Candidato · falta el
+        comprobante» keeps its mark until it is confirmed: with the receipt
+        joined every guard lets it go («Aprobar» in the statement, the board),
+        and the statement still lists it with its note."""
         joined = bool(vals.get("receipt_id"))
         flagged = self.filtered("confirmed_without_receipt") \
             if joined or vals.get("state") == "draft" else self.browse()
+        candidates = self.filtered(lambda c: c.receipt_candidate and not c.receipt_id) \
+            if joined else self.browse()
         result = super().write(vals)
+        for rec in candidates:
+            rec.message_post(body=(
+                "Llegó el comprobante de WhatsApp (recibido el %s): el %s ya se puede aprobar "
+                "desde el estado de cuenta del cliente." % (
+                    local_when(rec.receipt_id.timestamp), CANDIDATE_LABEL.lower())))
         if flagged:
             flagged.write({"confirmed_without_receipt": False})
             if joined:
@@ -1241,10 +1263,14 @@ class DistriMpCollection(models.Model):
 
     @api.depends("kind", "state", "proposal", "partner_id", "receipt_id.distri_forwarded_by_id",
                  "report_review", "amount", "receipt_id.distri_amount", "authorized_conflict",
-                 "reversal", "conflict_note")
+                 "reversal", "conflict_note", "receipt_candidate")
     def _compute_column(self):
         for rec in self:
-            if rec.kind == "income" and rec.reversal:
+            if rec.receipt_candidate and not rec.receipt_id and rec.state == "draft":
+                # a candidate waits for its WhatsApp receipt: never confirmed
+                # on sight, nor by «Confirmar todos»
+                rec.column = "review"
+            elif rec.kind == "income" and rec.reversal:
                 # Mercado Pago reported a refund or a chargeback: never
                 # confirmed on sight, nor by «Confirmar todos»
                 rec.column = "review"
@@ -1286,7 +1312,7 @@ class DistriMpCollection(models.Model):
     @api.depends("kind", "state", "proposal", "partner_id", "amount", "receipt_id", "column",
                  "payer_cuit", "receipt_id.distri_amount", "receipt_id.distri_partner_source",
                  "receipt_id.distri_forwarded_by_id", "reversal", "conflict_note", "date",
-                 "receipt_id.distri_receipt_date")
+                 "receipt_id.distri_receipt_date", "receipt_candidate")
     def _compute_card_flags(self):
         for rec in self:
             receipt = rec.receipt_id
@@ -1313,6 +1339,8 @@ class DistriMpCollection(models.Model):
         """Why the card is in «Revisar», in a few words (follows
         `_compute_column`)."""
         self.ensure_one()
+        if self.receipt_candidate and not self.receipt_id:
+            return "%s: se confirma cuando llegue al grupo de WhatsApp" % CANDIDATE_LABEL
         if self.kind == "income" and self.reversal:
             return "%s: revisá antes de confirmar" % self.reversal
         if self.conflict_note:
@@ -1886,6 +1914,15 @@ class DistriMpCollection(models.Model):
         if missing:
             raise UserError("Elegí el cliente antes de confirmar: %s." % ", ".join(
                 missing.mapped("name")))
+        # «Aprobar sin comprobante» (19.0.1.54.0) passes the cards someone vouched for
+        vouched = self.env.context.get("distri_vouched_ids") or []
+        candidates = todo.filtered(lambda c: c.receipt_candidate and not c.receipt_id
+                                   and c.id not in vouched)
+        if candidates:
+            raise UserError(
+                "%s: %s. No se confirma hasta que el cliente mande el comprobante al grupo de "
+                "WhatsApp y coincida con el reporte de Mercado Pago." % (
+                    CANDIDATE_LABEL, ", ".join(candidates.mapped("name"))))
         for rec in todo:
             card = rec._hand_verified_card()
             if card:
@@ -1894,6 +1931,25 @@ class DistriMpCollection(models.Model):
                     "importe verificado estaba mal, deshacé primero esa verificación." % (
                         rec.name, card.name, card.payment_id.name or ""))
         return todo
+
+    def action_approve_candidate(self):
+        """«Aprobar» in the customer's statement: a candidate whose WhatsApp
+        receipt arrived, confirmed the board's own way. Never without the
+        receipt: there is no other way to approve it."""
+        waiting = self.filtered(lambda c: not c.receipt_id)
+        if waiting:
+            raise UserError("%s sin comprobante: %s. Se aprueba cuando llegue al grupo de "
+                            "WhatsApp." % (CANDIDATE_LABEL, ", ".join(waiting.mapped("name"))))
+        self.action_confirm()
+        return True
+
+    def action_open_vouch(self):
+        """«Aprobar sin comprobante» in the customer's statement: the money is
+        in the Mercado Pago report and someone (the manager) vouches that it is
+        this customer's. Asks who, then confirms."""
+        self.ensure_one()
+        _check_admin(self.env)
+        return self.env["distri.mp.vouch"]._open(self)
 
     def action_confirm_board(self):
         """«Confirmar» on the board (card, form, list, chosen ones): an income
@@ -1972,6 +2028,7 @@ class DistriMpCollection(models.Model):
             "confirmed_at": fields.Datetime.now(),
             "fulfilled_promise_ids": [(6, 0, promises.ids)],
             "confirmed_without_receipt": without_receipt,
+            "receipt_candidate": False,
         })
         record.message_post(body="Confirmado por %s: pago %s de %s a %s.%s" % (
             self.env.user.name, payment.name, _money(record.amount), partner.name,
@@ -2063,6 +2120,8 @@ class DistriMpCollection(models.Model):
     def _bulk_problem(self):
         """Why «Confirmar todos» leaves this card for a person, or ""."""
         self.ensure_one()
+        if self.receipt_candidate and not self.receipt_id:
+            return CANDIDATE_LABEL.lower()
         if self.reversal:
             return self.reversal
         if self._hand_verified_card():
@@ -2075,7 +2134,8 @@ class DistriMpCollection(models.Model):
         «Confirmado contra reporte MP», the ones with a problem apart."""
         _check_admin(self.env)
         ready = self.search([("state", "=", "draft"), ("column", "=", "confirm"),
-                             ("kind", "=", "income"), ("partner_id", "!=", False)])
+                             ("kind", "=", "income"), ("partner_id", "!=", False),
+                             "|", ("receipt_candidate", "=", False), ("receipt_id", "!=", False)])
         skipped = ready.filtered(lambda c: c._bulk_problem())
         ready -= skipped
         if not ready:
@@ -2441,6 +2501,53 @@ class DistriMpConfirmNotice(models.TransientModel):
         # the dialog closes and the board under it reloads
         params["next"] = {"type": "ir.actions.act_window_close"}
         return {"type": "ir.actions.client", "tag": "display_notification", "params": params}
+
+
+class DistriMpVouch(models.TransientModel):
+    """«Aprobar sin comprobante» (19.0.1.54.0): a candidate confirmed on
+    someone's word, case by case. The note says who vouched; the card stays
+    «Confirmado sin comprobante» until the receipt arrives."""
+
+    _name = "distri.mp.vouch"
+    _description = "Aprobar un pago a confirmar sin comprobante"
+
+    collection_id = fields.Many2one("distri.mp.collection", required=True, readonly=True,
+                                    ondelete="cascade")
+    partner_id = fields.Many2one(related="collection_id.partner_id")
+    amount = fields.Monetary(related="collection_id.amount")
+    currency_id = fields.Many2one(related="collection_id.currency_id")
+    note = fields.Char(string="Quién lo autoriza", required=True,
+                       help="Por ejemplo: «Lo confirmó el gerente el 28/10». Queda en la tarjeta.")
+
+    @api.model
+    def _open(self, card):
+        wizard = self.create({
+            "collection_id": card.id,
+            "note": "Lo confirmó el gerente el %s" % fields.Date.context_today(self).strftime(
+                "%d/%m/%Y")})
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Aprobar sin comprobante",
+            "res_model": self._name,
+            "res_id": wizard.id,
+            "view_mode": "form",
+            "views": [(False, "form")],
+            "target": "new",
+        }
+
+    def action_apply(self):
+        self.ensure_one()
+        _check_admin(self.env)
+        card = self.collection_id
+        if not (card.receipt_candidate and not card.receipt_id and card.state == "draft"):
+            raise UserError("%s ya no es un pago a confirmar sin comprobante." % card.name)
+        note = self.note.strip()
+        card.candidate_note = note
+        card.with_context(distri_vouched_ids=card.ids).action_confirm()
+        card.message_post(body="Aprobado sin comprobante por %s: %s." % (
+            self.env.user.name, note.rstrip(".")))
+        # back to the statement, with the new balance
+        return card.partner_id.commercial_partner_id.action_distri_estado_cuenta()
 
 
 class DistriMpIgnore(models.TransientModel):
@@ -3263,6 +3370,11 @@ class WhatsappMessageComprobante(models.Model):
                 verify.filtered(lambda c: c.state == "draft").write({
                     "state": "ignored", "ignore_reason": reason, "ignore_note": note or False})
                 continue
+            # «Foto sin transferencia» shows the receipt's amount, also once it
+            # is typed or read again (19.0.1.56.0)
+            cards.filtered(lambda c: c.kind == "receipt" and c.state == "draft"
+                           and c.amount != msg.distri_amount).write(
+                {"amount": msg.distri_amount})
             if msg.distri_receipt_state != "pending":
                 continue
             if cards.filtered(lambda c: c.kind == "receipt" and c.state == "draft") or \

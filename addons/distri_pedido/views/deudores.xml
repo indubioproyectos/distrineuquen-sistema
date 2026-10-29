@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- «Deudores», «Incobrable» and the seller tags (19.0.1.48.0, models/deudores.py) -->
+<odoo>
+
+  <!-- seller tag of the direct customers that are not Italo's -->
+  <record id="categoria_vendedor_distrineuquen" model="res.partner.category">
+    <field name="name">Distrineuquén</field>
+  </record>
+
+  <!-- «Incobrable»: on the «Cobros» page of the customer (administración only) -->
+  <record id="view_partner_form_incobrable" model="ir.ui.view">
+    <field name="name">res.partner.form.incobrable</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="distri_pedido.view_partner_form_cobros"/>
+    <field name="arch" type="xml">
+      <xpath expr="//page[@name='distri_cobros']/field[@name='distri_payer_ids']" position="before">
+        <group string="Deuda incobrable" name="distri_incobrable">
+          <field name="distri_uncollectible"/>
+          <field name="distri_uncollectible_date" invisible="not distri_uncollectible"/>
+          <field name="distri_uncollectible_note" invisible="not distri_uncollectible"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_debtor_line_list" model="ir.ui.view">
+    <field name="name">distri.debtor.line.list</field>
+    <field name="model">distri.debtor.line</field>
+    <field name="arch" type="xml">
+      <!-- limit: the whole list on one page (about 300 debtors today, room for 1000) -->
+      <list string="Deudores" create="0" edit="0" delete="0" limit="1000">
+        <field name="rank"/>
+        <field name="partner_id"/>
+        <field name="partner_ref" optional="hide"/>
+        <field name="seller" widget="badge"/>
+        <field name="balance" sum="Total"/>
+        <field name="last_payment_date"/>
+        <field name="last_payment_amount"/>
+        <field name="last_invoice_date"/>
+        <field name="last_invoice_amount"/>
+        <field name="candidate_amount" sum="Total"/>
+        <field name="phone" optional="show"/>
+        <field name="zone" optional="show"/>
+        <field name="uncollectible_date" optional="hide"/>
+        <field name="uncollectible_note" optional="hide"/>
+        <field name="currency_id" column_invisible="1"/>
+        <button name="action_statement" type="object" string="Estado de cuenta"
+                icon="fa-file-text-o" class="btn-link"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_debtor_report_form" model="ir.ui.view">
+    <field name="name">distri.debtor.report.form</field>
+    <field name="model">distri.debtor.report</field>
+    <field name="arch" type="xml">
+      <!-- js_class: every filter change saves at once (static/src/js/deudores_form.js) -->
+      <form string="Deudores" create="0" delete="0" js_class="distri_debtor_form">
+        <header>
+          <button name="action_refresh" type="object" string="Actualizar" class="btn-secondary"/>
+          <button name="action_print_pdf" type="object" string="Exportar PDF" icon="fa-file-pdf-o"
+                  class="btn-primary"/>
+          <button name="action_export_xlsx" type="object" string="Exportar Excel"
+                  icon="fa-file-excel-o" class="btn-secondary"/>
+          <button name="action_preset_italo" type="object" string="PDF Clientes de Italo"
+                  class="btn-secondary"/>
+          <button name="action_preset_distri" type="object" string="PDF Clientes de Distrineuquén"
+                  class="btn-secondary"/>
+        </header>
+        <sheet>
+          <div class="oe_title"><h1>Deudores</h1></div>
+          <p class="text-muted">
+            Clientes directos con deuda, de mayor a menor. Mayoristas y revendedores no entran;
+            los incobrables van aparte y no suman al total. Los pagos a confirmar (falta el
+            comprobante) se muestran y no restan. El PDF lleva el resumen y, después, el estado
+            de cuenta completo de cada deudor.
+          </p>
+          <group>
+            <group string="Filtros">
+              <field name="seller"/>
+              <field name="date_to" placeholder="Hoy"/>
+              <field name="min_amount"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+            <group string="Totales">
+              <field name="debtor_count"/>
+              <field name="total_debt"/>
+              <field name="total_italo" invisible="seller != 'all'"/>
+              <field name="total_distri" invisible="seller != 'all'"/>
+              <field name="total_none" invisible="seller != 'all' or not total_none"/>
+              <field name="total_candidates"/>
+              <field name="uncollectible_total"/>
+              <field name="built_at"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="Deudores" name="deudores">
+              <field name="line_ids" nolabel="1"
+                     context="{'list_view_ref': 'distri_pedido.view_debtor_line_list'}"/>
+            </page>
+            <page string="Deudas incobrables" name="incobrables">
+              <p class="text-muted">
+                Marcados como incobrables por administración o gerencia: no suman a la deuda
+                total. La contabilidad no se toca.
+              </p>
+              <field name="uncollectible_line_ids" nolabel="1"
+                     context="{'list_view_ref': 'distri_pedido.view_debtor_line_list'}"/>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_debtor_report_open" model="ir.actions.server">
+    <field name="name">Deudores</field>
+    <field name="model_id" ref="model_distri_debtor_report"/>
+    <field name="state">code</field>
+    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion')), (4, ref('base.group_system'))]"/>
+    <field name="code">action = model.action_open()</field>
+  </record>
+
+  <menuitem id="menu_cobros_debtors" name="Deudores" parent="menu_cobros_root"
+            action="action_debtor_report_open" sequence="15"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+
+  <!-- «Revisión por cliente»: per seller -->
+  <record id="view_balance_review_list_seller" model="ir.ui.view">
+    <field name="name">distri.balance.review.list.seller</field>
+    <field name="model">distri.balance.review</field>
+    <field name="inherit_id" ref="distri_pedido.view_balance_review_list"/>
+    <field name="arch" type="xml">
+      <field name="partner_id" position="after">
+        <field name="seller" optional="show"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_balance_review_search_seller" model="ir.ui.view">
+    <field name="name">distri.balance.review.search.seller</field>
+    <field name="model">distri.balance.review</field>
+    <field name="inherit_id" ref="distri_pedido.view_balance_review_search"/>
+    <field name="arch" type="xml">
+      <filter name="reviewed" position="after">
+        <separator/>
+        <filter name="seller_italo" string="Clientes de Italo" domain="[('seller', '=', 'italo')]"/>
+        <filter name="seller_distri" string="Clientes de Distrineuquén"
+                domain="[('seller', '=', 'distrineuquen')]"/>
+        <filter name="seller_none" string="Sin vendedor" domain="[('seller', '=', 'none')]"/>
+      </filter>
+      <filter name="by_flag" position="after">
+        <filter name="by_seller" string="Vendedor" context="{'group_by': 'seller'}"/>
+      </filter>
+    </field>
+  </record>
+
+  <!-- ================================================= PDF -->
+
+  <record id="report_deudores" model="ir.actions.report">
+    <field name="name">Deudores</field>
+    <field name="model">distri.debtor.report</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.deudores_documento</field>
+    <field name="report_file">distri_pedido.deudores_documento</field>
+    <field name="print_report_name">'Deudores - %s' % {'italo': 'Clientes de Italo', 'distrineuquen': 'Clientes de Distrineuquén'}.get(object.seller, 'Todos')</field>
+  </record>
+
+  <template id="deudores_documento">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="o">
+        <t t-set="d" t-value="values[o.id]"/>
+        <t t-call="web.basic_layout">
+          <!-- 19.0.1.53.0: a part with statements only skips the summary -->
+          <div t-if="not d['only_statements']" class="page" style="font-size:10px">
+            <h3 style="margin-bottom:2px">Deudores · <t t-esc="d['selection']"/></h3>
+            <div>Saldos al <t t-esc="d['cut']"/> · Emitido el <t t-esc="d['issued']"/></div>
+            <div t-if="d['report'].min_amount">Deuda mínima
+              <t t-esc="d['money'](d['report'].min_amount)"/></div>
+            <p style="margin-top:6px">
+              Clientes directos con saldo deudor, de mayor a menor. No incluye mayoristas ni
+              revendedores. Los pagos a confirmar (falta el comprobante) se informan y no restan
+              de la deuda. Las deudas incobrables van aparte y no suman al total.
+            </p>
+            <table class="table table-sm" style="margin-top:4px; width:60%">
+              <tr><td>Clientes que deben</td><td class="text-end" t-esc="d['report'].debtor_count"/></tr>
+              <tr><td><b>Deuda total</b></td>
+                <td class="text-end"><b t-esc="d['money'](d['report'].total_debt)"/></td></tr>
+              <t t-if="d['report'].seller == 'all'">
+                <tr><td>Clientes de Italo</td>
+                  <td class="text-end" t-esc="d['money'](d['report'].total_italo)"/></tr>
+                <tr><td>Clientes de Distrineuquén</td>
+                  <td class="text-end" t-esc="d['money'](d['report'].total_distri)"/></tr>
+                <tr t-if="d['report'].total_none"><td>Sin vendedor</td>
+                  <td class="text-end" t-esc="d['money'](d['report'].total_none)"/></tr>
+              </t>
+              <tr><td>Pagos a confirmar (no restados)</td>
+                <td class="text-end" t-esc="d['money'](d['report'].total_candidates)"/></tr>
+              <tr><td>Deudas incobrables (aparte)</td>
+                <td class="text-end" t-esc="d['money'](d['report'].uncollectible_total)"/></tr>
+            </table>
+            <table class="table table-sm" style="margin-top:8px">
+              <thead>
+                <tr>
+                  <th>#</th><th>Cliente</th><th>Vendedor</th><th class="text-end">Deuda</th>
+                  <th>Último pago</th><th class="text-end">Importe</th>
+                  <th>Última factura</th><th class="text-end">Importe</th>
+                  <th class="text-end">A confirmar</th><th>Zona</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr t-foreach="d['lines']" t-as="l">
+                  <td t-esc="l.rank"/>
+                  <td t-esc="l.partner_id.name"/>
+                  <td t-esc="d['sellers'].get(l.seller, '')"/>
+                  <td class="text-end" t-esc="d['money'](l.balance)"/>
+                  <td t-esc="l.last_payment_date.strftime('%d/%m/%Y') if l.last_payment_date else '—'"/>
+                  <td class="text-end"><t t-if="l.last_payment_date" t-esc="d['money'](l.last_payment_amount)"/></td>
+                  <td t-esc="l.last_invoice_date.strftime('%d/%m/%Y') if l.last_invoice_date else '—'"/>
+                  <td class="text-end"><t t-if="l.last_invoice_date" t-esc="d['money'](l.last_invoice_amount)"/></td>
+                  <td class="text-end"><t t-if="l.candidate_amount" t-esc="d['money'](l.candidate_amount)"/></td>
+                  <td t-esc="l.zone"/>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th colspan="3">Total</th>
+                  <th class="text-end" t-esc="d['money'](d['report'].total_debt)"/>
+                  <th colspan="4"/>
+                  <th class="text-end" t-esc="d['money'](d['report'].total_candidates)"/>
+                  <th/>
+                </tr>
+              </tfoot>
+            </table>
+            <t t-if="d['uncollectible']">
+              <h5 style="margin-top:10px">Deudas incobrables (no suman al total)</h5>
+              <table class="table table-sm">
+                <thead>
+                  <tr><th>Cliente</th><th>Vendedor</th><th class="text-end">Saldo</th>
+                    <th>Incobrable desde</th><th>Motivo</th><th>Último pago</th>
+                    <th>Última factura</th></tr>
+                </thead>
+                <tbody>
+                  <tr t-foreach="d['uncollectible']" t-as="l">
+                    <td t-esc="l.partner_id.name"/>
+                    <td t-esc="d['sellers'].get(l.seller, '')"/>
+                    <td class="text-end" t-esc="d['money'](l.balance)"/>
+                    <td t-esc="l.uncollectible_date.strftime('%d/%m/%Y') if l.uncollectible_date else ''"/>
+                    <td t-esc="l.uncollectible_note or ''"/>
+                    <td t-esc="l.last_payment_date.strftime('%d/%m/%Y') if l.last_payment_date else '—'"/>
+                    <td t-esc="l.last_invoice_date.strftime('%d/%m/%Y') if l.last_invoice_date else '—'"/>
+                  </tr>
+                </tbody>
+              </table>
+            </t>
+          </div>
+          <!-- then the complete statement of each debtor, in ranking order -->
+          <t t-foreach="d['statements']" t-as="v">
+            <p t-if="not (d['only_statements'] and v_first)" style="page-break-before:always;"/>
+            <t t-call="distri_pedido.estado_cuenta_cuerpo"/>
+          </t>
+        </t>
+      </t>
+    </t>
+  </template>
+
+</odoo>

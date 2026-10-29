@@ -31,3 +31,5 @@ from . import test_arca
 from . import test_migracion
 from . import test_sugerencia_cliente
 from . import test_ajuste_cuenta
+from . import test_visor_chat
+from . import test_deudores

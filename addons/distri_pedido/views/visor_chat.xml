@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chat de comprobantes (19.0.1.46.0): the transfers group as a chat, to see
+     each receipt next to the messages around it (models/visor_chat.py,
+     static/src/js/chat_viewer.js). Same people as the collections board. -->
+<odoo>
+
+  <record id="action_chat_viewer" model="ir.actions.client">
+    <field name="name">Chat de comprobantes</field>
+    <field name="tag">distri_chat_viewer</field>
+  </record>
+
+  <menuitem id="menu_cobros_chat" name="Chat de comprobantes" parent="menu_cobros_root"
+            action="action_chat_viewer" sequence="22"
+            groups="distri_pedido.grupo_administracion,base.group_system"/>
+
+  <record id="view_mp_collection_form_chat" model="ir.ui.view">
+    <field name="name">distri.mp.collection.form.chat</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="inherit_id" ref="distri_pedido.view_mp_collection_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header/button[@name='action_view_receipt']" position="after">
+        <button name="action_tab_chat" type="object" string="Ver en el chat"
+                groups="distri_pedido.grupo_administracion,base.group_system"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_mp_collection_kanban_chat" model="ir.ui.view">
+    <field name="name">distri.mp.collection.kanban.chat</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="inherit_id" ref="distri_pedido.view_mp_collection_kanban"/>
+    <field name="arch" type="xml">
+      <xpath expr="//div[hasclass('o_distri_secondary')]" position="inside">
+        <button name="action_tab_chat" type="object" class="btn btn-sm btn-light"
+                groups="distri_pedido.grupo_administracion,base.group_system"
+                title="El comprobante en el chat, con los mensajes de antes y después">
+          <i class="fa fa-comments-o" aria-hidden="true"/> Ver en el chat
+        </button>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- 19.0.1.50.0: from the migration board, the chat in a new tab (on the
+       card and in the large photo dialog) -->
+  <record id="view_migration_kanban_chat" model="ir.ui.view">
+    <field name="name">distri.mp.collection.migration.kanban.chat</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="inherit_id" ref="distri_pedido.view_migration_kanban"/>
+    <field name="arch" type="xml">
+      <xpath expr="//button[@name='action_receipt_viewer']" position="after">
+        <button t-if="record.receipt_id.raw_value" name="action_tab_chat" type="object"
+                class="btn btn-sm btn-secondary"
+                groups="distri_pedido.grupo_administracion,base.group_system"
+                title="El comprobante en el chat, en una pestaña nueva">
+          <i class="fa fa-comments-o"/> Chat
+        </button>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_mp_collection_receipt_viewer_chat" model="ir.ui.view">
+    <field name="name">distri.mp.collection.receipt.viewer.chat</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="inherit_id" ref="distri_pedido.view_mp_collection_receipt_viewer"/>
+    <field name="arch" type="xml">
+      <xpath expr="//footer/button[@name='action_tab_receipt']" position="before">
+        <button name="action_tab_chat" type="object" string="Chat en pestaña nueva"
+                icon="fa-comments-o" class="btn-secondary" invisible="not receipt_id"
+                groups="distri_pedido.grupo_administracion,base.group_system"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_receipt_form_chat" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.receipt.form.chat</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="inherit_id" ref="distri_pedido.view_receipt_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//form/sheet" position="before">
+        <header>
+          <field name="distri_chat_import_id" invisible="1"/>
+          <button name="action_tab_chat" type="object" string="Ver en el chat"
+                  invisible="not distri_chat_import_id"
+                  groups="distri_pedido.grupo_administracion,base.group_system"/>
+        </header>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

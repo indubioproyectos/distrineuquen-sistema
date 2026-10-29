@@ -544,12 +544,12 @@ class TestParseReceiptRules(TransactionCase):
                     "eng": ("Monto\n$ 138.500\nNumero de operacion 123456789012", 88.0)}
         calls = []
 
-        def fake(data, lang="spa"):
+        def fake(data, lang="spa", change=None, psm=3):
             calls.append(lang)
             return readings[lang]
 
         with patch.object(ocr_comprobante, "ocr_image", fake):
-            text, confidence, reading = read_image(b"photo")
+            text, confidence, reading = read_image(b"photo", double_check=False)
         self.assertEqual(calls, ["spa", "eng"])
         self.assertEqual(reading["amount"], 138500)
         self.assertTrue(reading["amount_arbitrated"])
@@ -559,12 +559,39 @@ class TestParseReceiptRules(TransactionCase):
         readings["spa"] = ("Monto\n$ 145.000", 90.0)
         calls.clear()
         with patch.object(ocr_comprobante, "ocr_image", fake):
-            self.assertEqual(read_image(b"photo")[2]["amount"], 145000)
+            self.assertEqual(read_image(b"photo", double_check=False)[2]["amount"], 145000)
         self.assertEqual(calls, ["spa"])
         readings["spa"] = ("Monto\n$ 133.500", 90.0)
         readings["eng"] = ("Monto\n$ 135.500", 90.0)
         with patch.object(ocr_comprobante, "ocr_image", fake):
-            self.assertEqual(read_image(b"photo")[2]["amount"], 133500)
+            self.assertEqual(read_image(b"photo", double_check=False)[2]["amount"], 133500)
+
+    def test_double_reading_confirms_or_doubts_every_amount(self):
+        """19.0.1.55.0: an amount stands only when a second reading agrees;
+        a first reading without amount gets only a suggestion («low»)."""
+        def run(first, seconds):
+            texts = iter([first] + seconds)
+
+            def fake(data, lang="spa", change=None, psm=3):
+                return next(texts, ""), 90.0
+
+            with patch.object(ocr_comprobante, "ocr_image", fake):
+                return read_image(b"photo")[2]
+
+        one = "Monto\n$ 45.000\nNúmero de operación 123456789012"
+        other = "Monto\n$ 54.000\nNúmero de operación 123456789012"
+        nothing = "Comprobante de transferencia"
+        agreed = run(one, [one])
+        self.assertEqual((agreed["amount"], agreed["amount_confidence"]), (45000, CONFIDENCE_HIGH))
+        doubted = run(one, [other, nothing, nothing, nothing])
+        self.assertEqual(doubted["amount_confidence"], CONFIDENCE_LOW)
+        self.assertTrue(doubted["amount_unconfirmed"])
+        suggested = run(nothing, [one, one])
+        self.assertEqual((suggested["amount"], suggested["amount_confidence"]),
+                         (45000, CONFIDENCE_LOW))
+        self.assertEqual(suggested["operation"], "123456789012", "two readings agree")
+        noise = run(nothing, ["Monto\n$ 400", nothing, nothing, nothing])
+        self.assertFalse(noise.get("amount"), "below $1.000 is noise")
 
     def test_pdf_with_the_receipt_in_the_alpha_channel(self):
         png, expected = receipt_images.render("Ualá", receipt_images.random_data(random.Random(5)))

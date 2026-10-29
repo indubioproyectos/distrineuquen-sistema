@@ -330,11 +330,51 @@ def _prepare(data):
     return ImageOps.autocontrast(image)
 
 
-def _tsv_words(image, lang=OCR_LANG):
+def _adaptive_bw(image, radius, offset):
+    """Black and white by local contrast, for a phone screen photographed with
+    another phone: glare and shadows make any single threshold lose the text.
+    A pixel darker than its neighbourhood by more than `offset` is text."""
+    from PIL import ImageChops, ImageFilter
+
+    big = image.resize((image.width * 2, image.height * 2), _lanczos())
+    blur = big.filter(ImageFilter.GaussianBlur(radius))
+    return ImageChops.subtract(blur, big).point(lambda p: 0 if p > offset else 255)
+
+
+def _fixed_bw(image, threshold):
+    from PIL import ImageFilter
+
+    big = image.resize((image.width * 2, image.height * 2), _lanczos())
+    big = big.filter(ImageFilter.UnsharpMask(2, 150, 3))
+    return big.point(lambda p: 255 if p > threshold else 0)
+
+
+def _lanczos():
+    from PIL import Image
+
+    return Image.LANCZOS
+
+
+# Second readings of a photo (19.0.1.55.0): (how the prepared image is
+# changed, Tesseract page mode). Every amount needs two readings that agree;
+# these are tried in order until one does. Measured on the photos of the
+# WhatsApp group (scripts/ocr-doble-lectura/).
+OCR_SECOND_READINGS = (
+    (None, 6),
+    (lambda image: _adaptive_bw(image, 30, 10), 11),
+    (lambda image: _fixed_bw(image, 150), 6),
+    (lambda image: _adaptive_bw(image, 15, 15), 11),
+)
+
+
+SECOND_READING_MIN_AMOUNT = 1000
+
+
+def _tsv_words(image, lang=OCR_LANG, psm=3):
     """Words of the image: (left, top, width, height, conf, text)."""
     if pytesseract is not None:
         data = pytesseract.image_to_data(
-            image, lang=lang, config="--psm 3", timeout=OCR_TIMEOUT,
+            image, lang=lang, config="--psm %d" % psm, timeout=OCR_TIMEOUT,
             output_type=pytesseract.Output.DICT)
         rows = zip(data["left"], data["top"], data["width"], data["height"],
                    data["conf"], data["text"])
@@ -342,7 +382,7 @@ def _tsv_words(image, lang=OCR_LANG):
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         result = subprocess.run(
-            ["tesseract", "stdin", "stdout", "-l", lang, "--psm", "3", "tsv"],
+            ["tesseract", "stdin", "stdout", "-l", lang, "--psm", str(psm), "tsv"],
             input=buffer.getvalue(), capture_output=True, timeout=OCR_TIMEOUT, check=True)
         lines = result.stdout.decode("utf-8", "replace").splitlines()
         rows = []
@@ -379,16 +419,20 @@ def _lines_from_words(words):
                      for l in lines)
 
 
-def ocr_image(data, lang=OCR_LANG):
+def ocr_image(data, lang=OCR_LANG, change=None, psm=3):
     """(text, mean word confidence 0-100) of a photo. ("", 0.0) if it cannot
-    be read or Tesseract is missing."""
+    be read or Tesseract is missing. `change` and `psm`: a second reading
+    (OCR_SECOND_READINGS)."""
     if not data:
         return "", 0.0
     if pytesseract is None and not ocr_available():
         _logger.warning("Receipt OCR: tesseract is not installed")
         return "", 0.0
     try:
-        words = _tsv_words(_prepare(data), lang)
+        image = _prepare(data)
+        if change:
+            image = change(image)
+        words = _tsv_words(image, lang, psm)
     except Exception as exc:  # a broken photo is still a receipt to look at
         _logger.info("Receipt OCR failed (%s: %s)", type(exc).__name__, exc)
         return "", 0.0
@@ -407,23 +451,83 @@ def differs_only_by_3_and_8(first, second):
     return all(x == y or {x, y} == {"3", "8"} for x, y in zip(a, b))
 
 
-def read_image(data, **parse_kwargs):
+def _same_amount(first, second):
+    return bool(first and second) and (abs(first - second) < 0.5
+                                       or differs_only_by_3_and_8(first, second))
+
+
+# Fields a second reading may fill when the first one missed them, only when
+# two second readings say the same
+_SECOND_READING_FIELDS = ("operation", "date", "payer_cuit", "payer_name", "dest_name",
+                          "dest_cuit", "destination", "bank")
+
+
+def _agreed(values):
+    """The value at least two readings gave, or None."""
+    for index, value in enumerate(values):
+        if value and value in values[index + 1:]:
+            return value
+    return None
+
+
+def read_image(data, double_check=True, **parse_kwargs):
     """(text, confidence, fields) of a photo: the Spanish OCR and its parse,
     with the amount arbitrated by the English model when the Spanish one may
     have read an «8» as a «3» (the amount contains a «3»). Measured on real
     Mercado Pago screenshots: 40 of 40 wrong amounts fixed, no right one
-    broken. The extra pass only runs when there is a «3» to doubt."""
+    broken. The extra pass only runs when there is a «3» to doubt.
+
+    Double check (19.0.1.55.0): every amount needs a second reading
+    (OCR_SECOND_READINGS) that agrees. The first one that agrees ends it;
+    with none, the amount stays only as «low» (the administrator decides).
+    When the first reading found no amount, the second readings only suggest
+    one («low»). A field the first reading missed is taken when two second
+    readings agree."""
     text, confidence = ocr_image(data)
-    if not text:
-        return text, confidence, {}
-    reading = parse_receipt(text, confidence, **parse_kwargs)
+    reading = parse_receipt(text, confidence, **parse_kwargs) if text else {}
     amount = reading.get("amount") or 0.0
     if amount and "3" in "%.2f" % amount:
         other_text, other_confidence = ocr_image(data, OCR_ARBITER_LANG)
         other = parse_receipt(other_text, other_confidence, **parse_kwargs) if other_text else {}
         if other.get("amount") and differs_only_by_3_and_8(amount, other["amount"]):
-            reading["amount"] = other["amount"]
+            amount = reading["amount"] = other["amount"]
             reading["amount_arbitrated"] = True
+    if not double_check:
+        return text, confidence, reading
+    seconds = []
+    for change, psm in OCR_SECOND_READINGS:
+        other_text, other_confidence = ocr_image(data, change=change, psm=psm)
+        other = parse_receipt(other_text, other_confidence, **parse_kwargs) \
+            if other_text else {}
+        seconds.append((other_text, other))
+        found = [s.get("amount") or 0.0 for _t, s in seconds]
+        if amount and _same_amount(amount, found[-1]):
+            break
+        if not amount and _agreed(found):
+            break
+    found = [s.get("amount") or 0.0 for _t, s in seconds]
+    if amount:
+        if not any(_same_amount(amount, other) for other in found):
+            reading["amount_confidence"] = CONFIDENCE_LOW
+            reading["amount_unconfirmed"] = True
+    else:
+        # only a suggestion for the administrator («Usar importe leído»):
+        # measured, two second readings can agree on an amount missing its
+        # first digit (194.000 read as 94.000); below $1.000 it is noise
+        found = [value for value in found if value >= SECOND_READING_MIN_AMOUNT]
+        agreed = _agreed(found)
+        single = next(iter(found), 0.0)
+        if agreed or single:
+            reading["amount"] = agreed or single
+            reading["amount_confidence"] = CONFIDENCE_LOW
+            reading["amount_second_reading"] = True
+    for key in _SECOND_READING_FIELDS:
+        if not reading.get(key):
+            value = _agreed([s.get(key) for _t, s in seconds])
+            if value:
+                reading[key] = value
+    if not text:
+        text = max((t for t, _s in seconds), key=len, default="")
     return text, confidence, reading
 
 

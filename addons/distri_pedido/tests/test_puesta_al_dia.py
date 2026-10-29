@@ -146,7 +146,11 @@ class TestPuestaAlDia(RepartoMixin, AccountTestInvoicingCommon):
         self.assertIn("doble carga", wizard.check_text)
 
     def test_export_and_close_the_loop(self):
-        invoice = self.env["account.move"].create({
+        # on a copy of the lab, its own pending cards of the period would count
+        self.env.flush_all()
+        self.env.cr.execute("UPDATE distri_mp_collection SET state = 'ignored' WHERE state = 'draft'")
+        self.env.invalidate_all()
+        invoice =self.env["account.move"].create({
             "move_type": "out_invoice", "partner_id": self.alpha.id, "invoice_date": "2026-09-30",
             "invoice_line_ids": [Command.create({"name": "mercadería", "quantity": 1,
                                                  "price_unit": 8000,
@@ -282,7 +286,8 @@ class TestPuestaAlDia(RepartoMixin, AccountTestInvoicingCommon):
         # the September copy is the same file: one message per file hash
         self.assertEqual((again.file_count, again.duplicate_count), (0, 2))
         self.assertEqual(self.env["distri.whatsapp.message"].search_count(
-            [("message_type", "=", "image"), ("distri_chat_import_id", "!=", False)]), 1)
+            [("message_type", "=", "image"),
+             ("distri_chat_import_id", "in", (first | again).ids)]), 1)
         with self.assertRaises(UserError):
             Import._distri_import("chat.zip", date(2026, 10, 2), date(2026, 10, 1), data=data)
 

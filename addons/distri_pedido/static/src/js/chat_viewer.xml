@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Chat de comprobantes (static/src/js/chat_viewer.js). -->
+<templates xml:space="preserve">
+
+    <t t-name="distri_pedido.ChatViewer">
+        <div class="o_action o_distri_chat">
+            <div class="o_distri_chat_bar">
+                <div class="o_distri_chat_title">
+                    <i class="fa fa-comments-o" aria-hidden="true"/> Chat de comprobantes
+                </div>
+                <form class="o_distri_chat_search" role="search" t-on-submit="onSearch">
+                    <input type="search" class="form-control" t-model="state.query"
+                           placeholder="Nombre, importe o fecha (27/10/2025 08:12)"
+                           aria-label="Buscar en el chat"/>
+                    <button type="submit" class="btn btn-primary" t-att-disabled="state.searching">
+                        <i class="fa fa-search" aria-hidden="true"/> Buscar
+                    </button>
+                </form>
+                <div class="o_distri_chat_legend" t-if="state.ownSince">
+                    Antes del <t t-esc="state.ownSince"/>: export del gerente (lo que le falta,
+                    del de Denis). Desde el <t t-esc="state.ownSince"/>: export propio (ale).
+                </div>
+            </div>
+
+            <div t-if="state.note" class="o_distri_chat_note" role="status">
+                <i class="fa fa-info-circle" aria-hidden="true"/> <t t-esc="state.note"/>
+            </div>
+
+            <div class="o_distri_chat_cols">
+                <section class="o_distri_chat_main" aria-label="Chat">
+                    <div t-if="state.currentDay" class="o_distri_chat_today" aria-hidden="true">
+                        <span t-esc="state.currentDay"/>
+                    </div>
+                    <div class="o_distri_chat_scroll" t-ref="scroll" t-on-scroll="onScroll">
+                        <div class="o_distri_chat_more">
+                            <button t-if="state.moreBefore" type="button" class="btn btn-light btn-sm"
+                                    t-att-disabled="state.loading" t-on-click="() => this.loadMore('before')">
+                                Cargar mensajes anteriores
+                            </button>
+                            <span t-else="" class="text-muted">Principio del chat</span>
+                        </div>
+                        <p t-if="!state.entries.length and !state.loading" class="o_distri_chat_empty">
+                            No hay mensajes importados para mostrar.
+                        </p>
+                        <t t-foreach="rows" t-as="row" t-key="row.key">
+                            <div t-if="row.type === 'day'" class="o_distri_chat_day" t-att-data-label="row.label">
+                                <span t-esc="row.label"/>
+                            </div>
+                            <div t-else="" t-att-class="'o_distri_chat_minute' + (row.multi ? ' o_distri_chat_minute_multi' : '')">
+                                <div t-if="row.multi" class="o_distri_chat_minute_head">
+                                    <i class="fa fa-clock-o" aria-hidden="true"/>
+                                    <t t-esc="row.time"/> · mismo minuto · el orden puede variar
+                                    <t t-if="row.unknownPos"> (sin posición en el export: al final)</t>
+                                </div>
+                                <t t-foreach="row.entries" t-as="entry" t-key="entry.key">
+                                    <div t-att-class="'o_distri_chat_msg' + (entry.key === state.anchor ? ' o_distri_chat_anchor' : '') + (entry.card_state === 'confirmed' ? ' o_distri_chat_done' : '') + (entry.card_state === 'ignored' ? ' o_distri_chat_dropped' : '')"
+                                         t-att-data-key="entry.key" t-att-style="bubbleStyle(entry)">
+                                        <div t-if="entry.card_state === 'confirmed'" class="o_distri_chat_status o_distri_chat_status_ok">
+                                            <i class="fa fa-check-circle" aria-hidden="true"/> Aprobada
+                                        </div>
+                                        <div t-elif="entry.card_state === 'authorized'" class="o_distri_chat_status o_distri_chat_status_auth">
+                                            <i class="fa fa-check" aria-hidden="true"/> Autorizada para entregar
+                                        </div>
+                                        <div t-elif="entry.card_state === 'ignored'" class="o_distri_chat_status o_distri_chat_status_drop">
+                                            <i class="fa fa-ban" aria-hidden="true"/> Descartada
+                                        </div>
+                                        <div class="o_distri_chat_msg_head">
+                                            <span class="o_distri_chat_sender" t-att-style="senderStyle(entry)" t-esc="entry.sender or 'Sin nombre'"/>
+                                            <span class="o_distri_chat_when">
+                                                <span t-if="entry.receipt_date_label"
+                                                      t-att-class="'o_distri_chat_rdate' + (entry.receipt_far ? ' o_distri_chat_rdate_far' : '')"
+                                                      t-att-title="entry.receipt_date_help + (entry.receipt_far ? '. Más de un día de diferencia con el mensaje.' : '')">
+                                                    Comprobante: <t t-esc="entry.receipt_date_label"/>
+                                                </span>
+                                                <span class="o_distri_chat_time" t-esc="entry.time"/>
+                                            </span>
+                                        </div>
+                                        <t t-if="entry.kind === 'image' and entry.attachment_id">
+                                            <button type="button" class="o_distri_chat_thumb" t-on-click="() => this.openPreview(entry)"
+                                                    t-att-aria-label="'Ver foto ' + entry.file_name">
+                                                <img t-att-src="thumbUrl(entry)" t-att-alt="entry.file_name" loading="lazy"/>
+                                            </button>
+                                        </t>
+                                        <t t-elif="entry.kind === 'pdf' and entry.attachment_id">
+                                            <a class="o_distri_chat_pdf" t-att-href="fileUrl(entry)" target="_blank" rel="noopener">
+                                                <i class="fa fa-file-pdf-o" aria-hidden="true"/>
+                                                <span t-esc="entry.file_name or 'PDF'"/>
+                                            </a>
+                                        </t>
+                                        <div t-if="entry.body" class="o_distri_chat_body" t-esc="entry.body"/>
+                                        <div class="o_distri_chat_msg_foot">
+                                            <button t-if="entry.collection_id" type="button" class="btn btn-link p-0 o_distri_chat_card"
+                                                    t-on-click="() => this.openCard(entry)">
+                                                <i class="fa fa-credit-card" aria-hidden="true"/> Tarjeta<t t-if="entry.card_partner"> · <t t-esc="entry.card_partner"/></t><t t-if="entry.amount"> · <t t-esc="money(entry.amount)"/></t>
+                                            </button>
+                                            <span t-elif="entry.amount" class="o_distri_chat_amount" t-esc="money(entry.amount)"/>
+                                            <button t-if="!entry.collection_id and entry.message_id and entry.kind !== 'text' and !entry.repeated"
+                                                    type="button" class="btn btn-link p-0 o_distri_chat_card"
+                                                    t-on-click="() => this.createCard(entry)">
+                                                <i class="fa fa-plus-circle" aria-hidden="true"/> Crear tarjeta
+                                            </button>
+                                            <span t-if="entry.repeated" class="o_distri_chat_repeated"
+                                                  title="La misma foto ya llegó antes: usa la tarjeta de esa copia">repetida</span>
+                                            <span t-attf-class="o_distri_chat_source o_distri_chat_source_{{ entry.source or 'none' }}"
+                                                  t-att-title="entry.source_help" t-esc="entry.source_tag"/>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+                        </t>
+                        <div class="o_distri_chat_more">
+                            <button t-if="state.moreAfter" type="button" class="btn btn-light btn-sm"
+                                    t-att-disabled="state.loading" t-on-click="() => this.loadMore('after')">
+                                Cargar mensajes siguientes
+                            </button>
+                            <span t-else="" class="text-muted">Último mensaje importado</span>
+                        </div>
+                    </div>
+                </section>
+
+                <aside t-att-class="'o_distri_chat_results' + (state.resultsOpen ? '' : ' o_distri_chat_results_closed')"
+                       aria-label="Resultados de la búsqueda">
+                    <div class="o_distri_chat_results_head">
+                        <button type="button" class="o_distri_chat_results_toggle" t-on-click="toggleResults"
+                                t-att-aria-expanded="state.resultsOpen ? 'true' : 'false'">
+                            <i t-attf-class="fa {{ state.resultsOpen ? 'fa-chevron-up' : 'fa-chevron-down' }}" aria-hidden="true"/>
+                        </button>
+                        <span class="o_distri_chat_results_count" role="status">
+                            <t t-if="state.hits">
+                                <strong t-esc="state.total"/>
+                                <t t-esc="state.total === 1 ? ' resultado' : ' resultados'"/> para «<t t-esc="state.searched"/>»
+                                <span class="text-muted">(los más nuevos primero)</span>
+                            </t>
+                            <t t-else="">Resultados</t>
+                        </span>
+                        <button t-if="state.hits" type="button" class="btn btn-link btn-sm p-0" t-on-click="closeHits">Limpiar</button>
+                    </div>
+                    <div class="o_distri_chat_results_list" t-ref="results" t-on-scroll="onResultsScroll"
+                         t-on-keydown="onResultsKey">
+                        <p t-if="!state.hits" class="o_distri_chat_results_hint">
+                            Buscá un nombre, un importe o una fecha: los mensajes que coinciden
+                            aparecen acá. Tocá uno para verlo en el chat; con las flechas ↑ ↓ pasás al
+                            anterior o al siguiente.
+                        </p>
+                        <p t-elif="!state.hits.length" class="o_distri_chat_results_hint">No hay mensajes con eso.</p>
+                        <button t-foreach="state.hits or []" t-as="hit" t-key="hit.key" type="button"
+                                t-att-class="'o_distri_chat_hit' + (hit.key === state.selected ? ' o_distri_chat_hit_selected' : '')"
+                                t-att-data-hit="hit.key" t-att-aria-current="hit.key === state.selected ? 'true' : 'false'"
+                                t-on-click="() => this.goTo(hit)">
+                            <span class="o_distri_chat_hit_media" aria-hidden="true">
+                                <img t-if="hit.kind === 'image' and hit.attachment_id" t-att-src="hitThumbUrl(hit)" alt="" loading="lazy"/>
+                                <i t-elif="hit.kind === 'pdf'" class="fa fa-file-pdf-o"/>
+                                <i t-else="" class="fa fa-comment-o"/>
+                            </span>
+                            <span class="o_distri_chat_hit_main">
+                                <span class="o_distri_chat_hit_top">
+                                    <span class="o_distri_chat_hit_when"><t t-esc="hit.day_label"/> · <t t-esc="hit.time"/></span>
+                                    <span t-attf-class="o_distri_chat_source o_distri_chat_source_{{ hit.source or 'none' }}"
+                                          t-att-title="hit.source_help" t-esc="hit.source_tag"/>
+                                </span>
+                                <span class="o_distri_chat_hit_who" t-att-style="senderStyle(hit)">
+                                    <t t-foreach="parts(hit.sender or 'Sin nombre')" t-as="part" t-key="part_index">
+                                        <mark t-if="part.match" t-esc="part.text"/><t t-else="" t-esc="part.text"/>
+                                    </t>
+                                </span>
+                                <span class="o_distri_chat_hit_text">
+                                    <t t-foreach="parts(hit.snippet)" t-as="part" t-key="part_index">
+                                        <mark t-if="part.match" t-esc="part.text"/><t t-else="" t-esc="part.text"/>
+                                    </t>
+                                </span>
+                                <span t-if="hit.kind !== 'text'" class="o_distri_chat_hit_receipt">
+                                    <span t-if="hit.amount" class="o_distri_chat_hit_amount" t-esc="money(hit.amount)"/>
+                                    <span t-if="hit.receipt_date_label"
+                                          t-att-class="'o_distri_chat_rdate' + (hit.receipt_far ? ' o_distri_chat_rdate_far' : '')"
+                                          t-att-title="hit.receipt_date_help">
+                                        Comprobante: <t t-esc="hit.receipt_date_label"/>
+                                    </span>
+                                    <span t-if="hit.payer and hit.payer !== hit.card_partner">
+                                        Pagó: <t t-foreach="parts(hit.payer)" t-as="part" t-key="part_index"><mark t-if="part.match" t-esc="part.text"/><t t-else="" t-esc="part.text"/></t>
+                                    </span>
+                                </span>
+                                <span t-if="hit.collection_id" class="o_distri_chat_hit_card">
+                                    <i class="fa fa-credit-card" aria-hidden="true"/>
+                                    Tarjeta:
+                                    <t t-if="hit.card_partner">
+                                        <t t-foreach="parts(hit.card_partner)" t-as="part" t-key="part_index"><mark t-if="part.match" t-esc="part.text"/><t t-else="" t-esc="part.text"/></t>
+                                    </t>
+                                    <t t-else="">sin cliente</t>
+                                    <t t-if="hit.card_amount"> · <t t-esc="money(hit.card_amount)"/></t>
+                                </span>
+                                <span t-elif="hit.partner" class="o_distri_chat_hit_card">
+                                    Cliente propuesto:
+                                    <t t-foreach="parts(hit.partner)" t-as="part" t-key="part_index"><mark t-if="part.match" t-esc="part.text"/><t t-else="" t-esc="part.text"/></t>
+                                </span>
+                            </span>
+                        </button>
+                        <div t-if="state.hits and state.hits.length" class="o_distri_chat_results_more">
+                            <span class="text-muted">
+                                <t t-esc="state.hits.length"/> de <t t-esc="state.total"/>
+                            </span>
+                            <button t-if="state.moreHits" type="button" class="btn btn-light btn-sm"
+                                    t-att-disabled="state.searching" t-on-click="loadMoreHits">
+                                Ver más resultados
+                            </button>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+
+            <div t-if="state.preview" class="o_distri_chat_preview" role="dialog" aria-modal="true"
+                 tabindex="-1" t-on-click="closePreview" t-on-keydown="onPreviewKey">
+                <img t-att-src="'/web/image/' + state.preview.attachment_id" t-att-alt="state.preview.file_name"/>
+                <div class="o_distri_chat_preview_bar">
+                    <span t-esc="state.preview.sender"/> · <span t-esc="state.preview.day_label"/>
+                    <span t-esc="state.preview.time"/> ·
+                    <t t-if="state.preview.receipt_date_label">Comprobante: <t t-esc="state.preview.receipt_date_label"/> ·</t>
+                    <a t-att-href="fileUrl(state.preview)" target="_blank" rel="noopener"
+                       t-on-click="onPreviewLink">Abrir el archivo</a> · Tocá para cerrar
+                </div>
+            </div>
+        </div>
+    </t>
+
+</templates>
