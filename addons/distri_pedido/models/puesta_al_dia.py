@@ -762,11 +762,15 @@ def parse_chat(text):
     return out
 
 
-def chat_text_key(when, sender, body):
+def chat_text_key(when, sender, body, nth=1):
     """The «wa_message_id» of a text line of an export: same minute, sender
-    and text are the same message (re-importing never duplicates it)."""
-    return "chat:t:" + hashlib.sha256(
+    and text are the same message (re-importing never duplicates it). `nth`
+    counts the identical lines of that minute in one export (a seller writing
+    the same customer under two photos, 19.0.1.60.0): the second one is a
+    message of its own, and the first keeps the key it always had."""
+    key = "chat:t:" + hashlib.sha256(
         ("%s|%s|%s" % (when.isoformat(), sender, body)).encode()).hexdigest()[:40]
+    return key if nth == 1 else "%s:%d" % (key, nth)
 
 
 def chat_file_key(raw):
@@ -908,10 +912,12 @@ class DistriWhatsappChatImport(models.Model):
 
         # texts first: the notes next to each photo name the customer
         texts = []
+        repeats = {}
         for when, sender, body, att, pos in messages:
             if att or not body or body.startswith("<") and body.endswith(">"):
                 continue
-            key = chat_text_key(when, sender, body)
+            repeats[(when, sender, body)] = nth = repeats.get((when, sender, body), 0) + 1
+            key = chat_text_key(when, sender, body, nth)
             if key in seen:
                 continue
             seen.add(key)

@@ -291,6 +291,26 @@ class TestPuestaAlDia(RepartoMixin, AccountTestInvoicingCommon):
         with self.assertRaises(UserError):
             Import._distri_import("chat.zip", date(2026, 10, 2), date(2026, 10, 1), data=data)
 
+    def test_chat_import_keeps_repeated_captions(self):
+        """A seller writing the same customer under two photos of the same
+        minute sends two messages: both are kept, and a re-import adds none."""
+        chat = (
+            "14/8/2026, 10:29 - Vendedor Prueba: KIOSCO PRUEBA\n"
+            "14/8/2026, 10:29 - Vendedor Prueba: OTRO TEXTO\n"
+            "14/8/2026, 10:29 - Vendedor Prueba: KIOSCO PRUEBA\n")
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as zf:
+            zf.writestr("Chat de WhatsApp con Grupo Prueba.txt", chat)
+        Import = self.env["distri.whatsapp.chat.import"]
+        first = Import._distri_import("chat.zip", date(2026, 8, 14), date(2026, 8, 14),
+                                      data=out.getvalue())
+        texts = first.message_ids.filtered(lambda m: m.body == "KIOSCO PRUEBA")
+        self.assertEqual(len(texts), 2)
+        self.assertEqual(sorted(texts.mapped("distri_chat_minute_pos")), [1, 3])
+        again = Import._distri_import("chat.zip", date(2026, 8, 14), date(2026, 8, 14),
+                                      data=out.getvalue())
+        self.assertFalse(again.message_ids)
+
     def test_board_kanban_expressions_are_javascript(self):
         """The card template of the board is compiled by Owl in the browser:
         «not» is not an operator there (it broke the whole board)."""

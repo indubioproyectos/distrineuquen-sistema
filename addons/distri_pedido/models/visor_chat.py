@@ -595,12 +595,14 @@ class WhatsappChatImportOrder(models.Model):
         source = _Source(path=path)
         rows = parse_chat(source.chat_text())
         positions = {}
+        repeats = {}
         for (when, sender, body, att), pos in zip(rows, minute_positions(rows)):
             if att:
                 raw = source.read(att)
                 key = chat_file_key(raw) if raw is not None else None
             elif body and not (body.startswith("<") and body.endswith(">")):
-                key = chat_text_key(when, sender, body)
+                repeats[(when, sender, body)] = nth = repeats.get((when, sender, body), 0) + 1
+                key = chat_text_key(when, sender, body, nth)
             else:
                 key = None
             if key:
