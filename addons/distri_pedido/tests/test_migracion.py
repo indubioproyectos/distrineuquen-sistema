@@ -3,6 +3,8 @@
 fictitious."""
 from datetime import date, datetime, timedelta
 
+from lxml import etree
+
 from odoo import Command, fields
 from odoo.exceptions import UserError
 from odoo.tests import tagged
@@ -319,6 +321,16 @@ class TestMigracion(AccountTestInvoicingCommon):
                          self.env.ref("distri_pedido.view_mp_collection_receipt_viewer").id)
         line = self._review_line(card)
         self.assertEqual(line.action_receipt_viewer()["res_id"], card.id)
+
+    def test_receipt_viewer_lets_type_only_the_amount(self):
+        view = self.env.ref("distri_pedido.view_mp_collection_receipt_viewer")
+        arch = etree.fromstring(self.env["distri.mp.collection"].get_view(view.id, "form")["arch"])
+        self.assertNotEqual(arch.get("edit"), "0")
+        editable = [node.get("name") for node in arch.iter("field")
+                    if node.get("readonly") != "1" and node.get("invisible") != "1"]
+        self.assertEqual(editable, ["receipt_amount"])
+        self.assertEqual(arch.xpath("//field[@name='receipt_amount']")[0].get("readonly"),
+                         "state != 'draft' or not receipt_id")
 
     def test_buttons_open_a_new_tab(self):
         card = self._card("970000000701", partner=self.alpha)
