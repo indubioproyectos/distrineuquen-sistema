@@ -435,6 +435,44 @@ class TestParseReceiptRules(TransactionCase):
         self.assertEqual(result["operation"], "A1B2C3D4E5F6G7H8I9J0K1")
         self.assertEqual(result["bank"], "Ualá")
 
+    # Ualá's PDF of 2026 (fictitious data): «Emisor» is the payer, the
+    # destination's «Cuenta destino Mercado Pago» names the company's wallet
+    UALA_2026 = ("“YN ualá\nComprobante de transferencia\n$76.100\n30/10/2026 - 19:59 hs\n"
+                 "Destinatario Marcos Daniel Ejemplar\nCuenta destino Mercado Pago\n"
+                 "CVU destino 0000003100090000000018\nCUIT/CUIL destino 23-99999999-9\n"
+                 "Emisor NORMA/JULIA PRUEBA\nCBU emisor 3840200500000000000001\n"
+                 "CUIT/CUIL emisor 27-22222222-8\nMotivo Varios\n"
+                 "Id. Op. 86f905f4-aa8c-c8be-4a64-a45abc783473")
+
+    def test_uala_2026_emisor_and_destination(self):
+        own = own_account_values(TEST_OWN_ACCOUNT)
+        for kwargs in ({}, {"own": own}):
+            result = parse_receipt(self.UALA_2026, **kwargs)
+            self.assertEqual(result["amount"], 76100)
+            self.assertEqual(result["date"], datetime(2026, 10, 30, 19, 59))
+            self.assertEqual(result["payer_name"], "NORMA/JULIA PRUEBA")
+            self.assertEqual(result["payer_cuit"], "27222222228")
+            self.assertEqual(result["dest_name"], "Marcos Daniel Ejemplar")
+            self.assertEqual(result["dest_cuit"], "23999999999")
+            self.assertEqual(result["destination"], "0000003100090000000018")
+            # the wallet of origin, not the destination's Mercado Pago
+            self.assertEqual(result["bank"], "Ualá")
+            # Ualá's own id is no Mercado Pago operation number
+            self.assertEqual(result["operation"], "")
+            self.assertFalse(result["payer_own"])
+        # read by the OCR from a photo, «Id Op» loses its dot: still no operation
+        photo = self.UALA_2026.replace("Id. Op.", "Id Op")
+        self.assertEqual(parse_receipt(photo)["operation"], "")
+
+    def test_destination_bank_only_when_nothing_else(self):
+        # «Mercado Pago» on the destination side is not the payer's bank...
+        text = ("Brubank\nTransferencia\n$ 5.000\nDestino\nJuan Pérez\nMercado Pago\n"
+                "CVU 0000003100090000000018")
+        self.assertEqual(parse_receipt(text)["bank"], "Brubank")
+        # ...but still the only bank named on the receipt
+        text = "Transferencia\n$ 5.000\nPara\nJuan Pérez\nMercado Pago"
+        self.assertEqual(parse_receipt(text)["bank"], "Mercado Pago")
+
     def test_year_and_day_come_from_the_message(self):
         arrived = datetime(2026, 8, 5, 14, 30)
         # «12026» is not a year: the year of the message

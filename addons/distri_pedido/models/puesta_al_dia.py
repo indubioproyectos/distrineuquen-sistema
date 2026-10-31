@@ -932,6 +932,12 @@ class DistriWhatsappChatImport(models.Model):
         if texts:
             Message.create(texts)
         new = dup = skipped = missing = 0
+        # files saved by an import cut before reading them (see below)
+        unread = {m.wa_message_id: m for m in Message.search([
+            ("wa_message_id", "=like", "chat:%"), ("media_state", "=", "pending"),
+            ("attachment_id", "!=", False)])}
+        to_read = Message.browse()
+        Deferred = Message.with_context(distri_defer_receipt_read=True)
         for when, sender, body, att, pos in messages:
             if not att:
                 continue
@@ -946,11 +952,13 @@ class DistriWhatsappChatImport(models.Model):
                 continue
             key = chat_file_key(raw)
             if key in seen:
+                if key in unread:
+                    to_read |= unread.pop(key)
                 dup += 1
                 continue
             seen.add(key)
             message_type, mime = kind
-            msg = Message.create({
+            msg = Deferred.create({
                 "wa_message_id": key, "direction": "in", "message_type": message_type,
                 "wa_id": _sender_key(sender), "profile_name": sender[:64], "body": body[:4000],
                 "timestamp": utc(when), "media_mime_type": mime, "media_filename": att[:128],
@@ -959,13 +967,20 @@ class DistriWhatsappChatImport(models.Model):
             attachment = self.env["ir.attachment"].sudo().create({
                 "name": att, "raw": raw, "mimetype": mime,
                 "res_model": msg._name, "res_id": msg.id})
-            # «done» runs the reading of the file (OCR) and the matching
-            msg.write({"attachment_id": attachment.id, "media_state": "done"})
+            msg.write({"attachment_id": attachment.id})
+            to_read |= msg
             new += 1
-            if commit_every and new % commit_every == 0:
-                record.write({"file_count": new, "duplicate_count": dup})
+        # every file of the export exists before any is read: the notes of a
+        # sender who sent several photos in a row pair with them by their order
+        # (cobros.py, _distri_chat_paired_notes). «done» runs the reading of
+        # the file (OCR) and the matching.
+        record.write({"file_count": new, "duplicate_count": dup})
+        for count, msg in enumerate(to_read, 1):
+            msg.write({"media_state": "done"})
+            if commit_every and count % commit_every == 0:
                 self.env.cr.commit()
-                _logger.info("chat import %s: %s files", record.id, new)
+                _logger.info("chat import %s: %s of %s files read", record.id, count,
+                             len(to_read))
         record.write({"file_count": new, "duplicate_count": dup, "skipped_count": skipped,
                       "missing_count": missing})
         # receipts of a period a loaded report already covers and that found

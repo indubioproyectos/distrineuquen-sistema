@@ -134,6 +134,9 @@ _OPERATION_LABEL = re.compile(
     r"|transacci[oó]n|referencia|coelsa\s*id|id\s*op\b\.?)",
     re.IGNORECASE)
 _TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{4,40}[A-Za-z0-9]")
+# Ualá's «Id. Op.» of 2026 is a UUID of its own: never a Mercado Pago operation
+# number (the transfer to the company's Mercado Pago account has another one)
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE)
 # A Mercado Pago operation number without its label (cropped screenshot):
 # 11-13 digits starting with 1. Phones with the country code start with 5,
 # local ones have 10 digits; CUITs are found before and removed.
@@ -155,7 +158,7 @@ _ALIAS = re.compile(r"\balias\s*(?:cbu|cvu)?\s*[:.]?\s*([a-z0-9][a-z0-9-]*(?:\s?
                     re.IGNORECASE)
 
 _ORIGIN = re.compile(
-    r"\b(origen|desde|ordenante|remitente|pagador|enviado\s+por|debitad[oa]\s+de|"
+    r"\b(origen|desde|ordenante|remitente|pagador|emisor|enviado\s+por|debitad[oa]\s+de|"
     r"cuenta\s+de\s+origen|qui[eé]n\s+env[ií]a|desde\s+tu\s+cuenta|de\s*:|^de$)", re.IGNORECASE)
 _DESTINATION = re.compile(
     r"(?i:\b(?:destino|destinatari[oa]|beneficiari[oa]|acreditad[oa]\s+en|enviaste\s+a|"
@@ -164,7 +167,7 @@ _DESTINATION = re.compile(
     # «a Carla Sosa» (Naranja X): lowercase «a» and a capitalized name
     r"|^a\s+(?=[A-ZÁÉÍÓÚÑ][a-záéíóúñ])")
 _NAME_PREFIX = re.compile(
-    r"^\s*(?:de|para|a|titular|nombre|ordenante|beneficiari[oa]|destinatari[oa]|"
+    r"^\s*(?:de|para|a|titular|nombre|ordenante|emisor|beneficiari[oa]|destinatari[oa]|"
     r"remitente|pagador|desde\s+tu\s+cuenta|enviaste\s+a|transferiste\s+a|le\s+pagaste\s+a)"
     r"\b\s*:?\s*", re.IGNORECASE)
 _NOT_A_NAME = re.compile(
@@ -223,7 +226,9 @@ def _looks_like_name(line):
     words = line.split()
     if not 2 <= len(words) <= 6:
         return ""
-    if not all(re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'.]{2,}", w) for w in words):
+    # «NELDA/JESICA MUNOZ»: Ualá joins the holder's given names with a slash
+    if not all(re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'.]{2,}(?:/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'.]{2,})*", w)
+               for w in words):
         return ""
     return " ".join(words)
 
@@ -738,6 +743,8 @@ def _operation(lines, bank=""):
                     continue
                 if len(digits_only) == 22:  # a CVU/CBU, not the operation
                     continue
+                if _UUID.fullmatch(token):
+                    continue
                 return token.replace("-", "") if token.replace("-", "").isdigit() else token
     if bank == "Mercado Pago":
         return _bare_mp_id(lines)
@@ -853,6 +860,24 @@ def _company_sends(items, own):
                for k, v in both[first_own + 1:])
 
 
+def _sections(lines):
+    """The side each line belongs to, parallel to `lines`: "origin" after
+    «Origen», «Emisor», «De:»...; "destination" after «Destino», «Para:»...;
+    "both" after a line that announces both; None before any marker."""
+    out = []
+    section = None
+    for line in lines:
+        origin, destination = _ORIGIN.search(line), _DESTINATION.search(line)
+        if origin and destination:
+            section = "both"
+        elif origin:
+            section = "origin"
+        elif destination:
+            section = "destination"
+        out.append(section)
+    return out
+
+
 def _parties(lines, own=None):
     """Payer and destination: name, CUIT and account (alias, CVU or CBU).
 
@@ -864,16 +889,8 @@ def _parties(lines, own=None):
     destination does not turn the company into the payer, and one whose
     payer really is the company is flagged (`payer_own`: a refund).
     """
-    section = None
     items = []  # (section, kind, value)
-    for line in lines:
-        origin, destination = _ORIGIN.search(line), _DESTINATION.search(line)
-        if origin and destination:
-            section = "both"
-        elif origin:
-            section = "origin"
-        elif destination:
-            section = "destination"
+    for line, section in zip(lines, _sections(lines)):
         for match in _CUIT.finditer(line):
             cuit = "".join(match.groups())
             if cuit_is_valid(cuit):
@@ -928,11 +945,17 @@ def _parties(lines, own=None):
 
 
 def _bank(lines):
-    for scope in (lines[:6], lines):
-        text = "\n".join(scope)
-        for pattern, name in BANKS:
-            if re.search(pattern, text, re.IGNORECASE):
-                return name
+    """The payer's bank or wallet: named in the first lines (the header),
+    else anywhere. The destination's lines are left out first: Ualá's
+    «Cuenta destino Mercado Pago» is the company's wallet, not the payer's."""
+    payer_side = [line for line, section in zip(lines, _sections(lines))
+                  if section != "destination"]
+    for candidates in (payer_side, lines):
+        for scope in (candidates[:6], candidates):
+            text = "\n".join(scope)
+            for pattern, name in BANKS:
+                if re.search(pattern, text, re.IGNORECASE):
+                    return name
     return ""
 
 

@@ -117,6 +117,8 @@ VERIFY_CARD_FIELDS = {"distri_partner_id", "distri_amount", "distri_operation",
 # Receipt states that never wait for the report nor register anything.
 RECEIPT_CLOSED_STATES = ("dismissed", "duplicate", "registered", "outgoing")
 TWO_CUSTOMERS = "Mismo comprobante enviado para dos clientes: %s y %s"
+# the note next to the photo names a customer and the CUIT read on it, another
+NOTE_VS_PAYER = "La nota junto a la foto es de %s, pero el CUIT %s de quien pagó es de %s"
 _CUIT_RE = re.compile(r"\b(\d{2})[-. ]?(\d{8})[-. ]?(\d)\b")
 
 # Columns of the board, named by what the administrator has to do, from the
@@ -2899,7 +2901,9 @@ class WhatsappMessageComprobante(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
-        records.filtered(lambda m: m.direction == "in")._distri_read_receipt()
+        # a chat import reads its files once all of them exist (puesta_al_dia.py)
+        if not self.env.context.get("distri_defer_receipt_read"):
+            records.filtered(lambda m: m.direction == "in")._distri_read_receipt()
         records.filtered(lambda m: m.direction == "in"
                          and m.message_type == "text")._distri_apply_late_note()
         return records
@@ -2932,6 +2936,9 @@ class WhatsappMessageComprobante(models.Model):
         # text written right next to the photo belongs to it
         window = SELLER_TEXT_WINDOW if (self.distri_forwarded_by_id
                                         or self.distri_chat_import_id) else RECEIPT_TEXT_WINDOW
+        paired = self._distri_chat_paired_notes()
+        if paired is not None:
+            return "\n".join(t for t in texts + paired if t)
         if self.timestamp and self.wa_id:
             texts += self.sudo().search([
                 ("wa_id", "=", self.wa_id), ("direction", "=", "in"), ("id", "!=", self.id),
@@ -2940,6 +2947,78 @@ class WhatsappMessageComprobante(models.Model):
                 ("timestamp", "<=", self.timestamp + window),
             ]).mapped("body")
         return "\n".join(t for t in texts if t)
+
+    def _distri_chat_paired_notes(self):
+        """The notes of a chat export that belong to this photo when its
+        sender sent several photos close together, or None when the sender
+        sent only this one (every nearby text is its note, as always).
+
+        The export keeps only the minute; `distri_chat_minute_pos` keeps the
+        order inside it. A run is the sender's lines one right after the
+        other, with nobody else's line (nor a line not imported) in between.
+        In a run with one photo, every note of the run is its note; with N
+        photos and N notes they pair in order («Jesica», «Dalma», photo,
+        photo; or photo, «Jesica», photo, «Dalma»); with other counts nobody
+        knows which note is whose: no note ([]). A photo with a caption has
+        its note and takes none of the run. Lines without their place in the
+        minute (0) keep the nearby texts, as before 19.0.1.64.0."""
+        self.ensure_one()
+        if not (self.distri_chat_import_id and self.timestamp and self.wa_id
+                and self.message_type in ("image", "document")):
+            return None
+        near = self.sudo().search([
+            ("distri_chat_import_id", "!=", False), ("direction", "=", "in"),
+            ("timestamp", ">=", self.timestamp - SELLER_TEXT_WINDOW),
+            ("timestamp", "<=", self.timestamp + SELLER_TEXT_WINDOW)])
+        mine = near.filtered(lambda m: m.wa_id == self.wa_id)
+        if len(mine.filtered(lambda m: m.message_type in ("image", "document")) | self) <= 1:
+            return None
+        if not self.distri_chat_minute_pos or \
+                mine.filtered(lambda m: not m.distri_chat_minute_pos):
+            # imported before 19.0.1.46.0 and not reordered: the order is unknown
+            return None
+        if (self.body or "").strip():
+            return []
+        slots = {}
+        for msg in near.filtered("distri_chat_minute_pos"):
+            slot = (msg.timestamp.replace(second=0, microsecond=0), msg.distri_chat_minute_pos)
+            slots.setdefault(slot, self.browse())
+            slots[slot] |= msg
+        order = sorted(slots)
+        here = order.index((self.timestamp.replace(second=0, microsecond=0),
+                            self.distri_chat_minute_pos))
+
+        def joined(before, after):
+            # the next line of the export: the following place of the same
+            # minute, or the first place of a later one
+            if after[0] == before[0]:
+                return after[1] == before[1] + 1
+            return after[1] == 1
+
+        def is_mine(slot):
+            # the same line imported from two exports may carry two names
+            return any(m.wa_id == self.wa_id for m in slots[slot])
+
+        start = end = here
+        while start > 0 and is_mine(order[start - 1]) and \
+                joined(order[start - 1], order[start]):
+            start -= 1
+        while end + 1 < len(order) and is_mine(order[end + 1]) and \
+                joined(order[end], order[end + 1]):
+            end += 1
+        run = self.browse()
+        for slot in order[start:end + 1]:
+            run |= slots[slot].filtered(lambda m: m.wa_id == self.wa_id)
+        run = run.sorted(lambda m: (m.timestamp, m.distri_chat_minute_pos, m.id))
+        run_photos = run.filtered(lambda m: m.message_type in ("image", "document")
+                                  and not (m.body or "").strip())
+        notes = [(m.body or "").strip() for m in run
+                 if m.message_type == "text" and (m.body or "").strip()]
+        if len(run_photos) == 1:
+            return notes
+        if len(run_photos) == len(notes):
+            return [notes[list(run_photos).index(self)]]
+        return []
 
     def _distri_apply_late_note(self):
         """A seller's note written after the photo was already read: it names
@@ -3018,13 +3097,16 @@ class WhatsappMessageComprobante(models.Model):
         confidence rules of models/ocr_comprobante.py."""
         self.ensure_one()
         vals = {}
+        # read again on purpose (`_distri_reread_chat_receipts`): what the
+        # file says now replaces what an older parser read
+        refresh = self.env.context.get("distri_reread")
         for field, key in (("distri_payer_name", "payer_name"),
                            ("distri_payer_cuit", "payer_cuit"),
                            ("distri_dest_name", "dest_name"),
                            ("distri_dest_cuit", "dest_cuit"),
                            ("distri_destination", "destination"),
                            ("distri_bank", "bank")):
-            if reading.get(key) and not self[field]:
+            if reading.get(key) and (refresh or not self[field]):
                 vals[field] = reading[key]
         if reading.get("operation") and not self.distri_operation:
             vals["distri_operation"] = reading["operation"]
@@ -3070,6 +3152,7 @@ class WhatsappMessageComprobante(models.Model):
             order_ref = _ORDER_RE.search(text or "")
             if order_ref and not msg.distri_order_ref:
                 vals["distri_order_ref"] = order_ref.group(0)
+            note_partner = Partner.browse()
             if not msg.distri_partner_id:
                 partner = Partner.browse()
                 source = ""
@@ -3088,6 +3171,7 @@ class WhatsappMessageComprobante(models.Model):
                     partner = partners if len(partners) == 1 else Partner.browse()
                     source = "Nota de %s junto a la foto" % (
                         msg.distri_forwarded_by_id.name or msg.distri_chat_sender or "")
+                    note_partner = partner
                 elif not partner:
                     partners = Partner._distri_partners_by_phone(msg.wa_id)
                     partner = partners if len(partners) == 1 else Partner.browse()
@@ -3097,9 +3181,20 @@ class WhatsappMessageComprobante(models.Model):
                     partner = partners if len(partners) == 1 else Partner.browse()
                     source = "CUIT de quien pagó (%s), leído de la foto" % format_cuit(
                         reading["payer_cuit"])
-                if partner:
+                conflict = msg._distri_note_vs_payer(note_partner, reading)
+                if conflict:
+                    # who paid is another customer: a person decides
+                    vals["distri_conflict"] = conflict
+                elif partner:
                     vals["distri_partner_id"] = partner.id
                     vals["distri_partner_source"] = source
+            elif read_file and (msg.distri_partner_source or "").startswith("Nota de "):
+                # the note named the customer before the file was read
+                note_partner = msg.distri_partner_id.commercial_partner_id
+                conflict = msg._distri_note_vs_payer(note_partner, reading)
+                if conflict:
+                    vals.update(distri_conflict=conflict, distri_partner_id=False,
+                                distri_partner_source=False)
             caption_amount = parse_amount_ar(msg._distri_nearby_text())
             if read_file:
                 vals.update(msg._distri_file_values(reading, caption_amount))
@@ -3127,7 +3222,71 @@ class WhatsappMessageComprobante(models.Model):
             if msg.distri_receipt_state in ("pending", "no_money"):
                 msg._distri_classify()
                 msg._distri_match_income()
+            elif vals.get("distri_conflict"):
+                income = msg.distri_collection_id
+                if income.kind == "income" and income.state == "draft":
+                    income._propose()
             msg._distri_sync_verify_card()
+
+    @api.model
+    def _distri_reread_chat_receipts(self, ids=None):
+        """Reads again the open receipts of the chat exports (19.0.1.64.0):
+        the note of each photo by its order in the export
+        (`_distri_chat_paired_notes`) and the file with the current parser
+        (Ualá's «Emisor»). The customer a note set, the conflict of a note
+        against the payer's CUIT and the payer's and destination's fields
+        read from the file are worked out again; a customer chosen by hand,
+        a typed amount and a confirmed card stay as they are. Without `ids`:
+        the open receipts of a sender who sent several photos close
+        together. A field the file does not bring now keeps its value (a
+        file missing on disk changes nothing). From odoo shell:
+            env["distri.whatsapp.message"]._distri_reread_chat_receipts([14927]); env.cr.commit()
+        Returns {"receipts", "changed"}."""
+        _check_admin(self.env)
+        domain = [("distri_is_receipt", "=", True), ("distri_chat_import_id", "!=", False),
+                  ("attachment_id", "!=", False)]
+        if ids:
+            domain.append(("id", "in", list(ids)))
+        receipts = self.sudo().search(domain, order="timestamp, id").filtered(
+            lambda m: m._distri_is_open())
+        if not ids:
+            receipts = receipts.filtered(lambda m: m._distri_chat_paired_notes() is not None)
+        note_conflict = NOTE_VS_PAYER.split("%s")[0]
+        changed = 0
+        for msg in receipts:
+            before = (msg.distri_partner_id, msg.distri_payer_cuit, msg.distri_payer_name,
+                      msg.distri_bank, msg.distri_conflict)
+            vals = {}
+            if (msg.distri_partner_source or "").startswith("Nota de "):
+                vals.update(distri_partner_id=False, distri_partner_source=False)
+            if (msg.distri_conflict or "").startswith(note_conflict):
+                vals["distri_conflict"] = False
+            if vals:
+                msg.with_context(distri_receipt_matching=True).write(vals)
+            msg.with_context(distri_reread=True)._distri_read_receipt(read_file=True)
+            income = msg.distri_collection_id
+            if income.kind == "income" and income.state == "draft":
+                income._propose()
+            if before != (msg.distri_partner_id, msg.distri_payer_cuit, msg.distri_payer_name,
+                          msg.distri_bank, msg.distri_conflict):
+                changed += 1
+                _logger.info("Comprobante %s leído de nuevo: cliente %s -> %s", msg.id,
+                             before[0].display_name or "-",
+                             msg.distri_partner_id.display_name or "-")
+        return {"receipts": len(receipts), "changed": changed}
+
+    def _distri_note_vs_payer(self, note_partner, reading):
+        """The conflict note when the customer named by the note is not the
+        one whose CUIT paid, as read on the receipt; else ""."""
+        self.ensure_one()
+        cuit = reading.get("payer_cuit")
+        if not (note_partner and cuit) or reading.get("payer_own"):
+            return ""
+        payers = self.env["res.partner"].sudo()._distri_partners_by_cuit(cuit)
+        if len(payers) != 1 or payers == note_partner.commercial_partner_id:
+            return ""
+        return NOTE_VS_PAYER % (note_partner.commercial_partner_id.name, format_cuit(cuit),
+                                payers.name)
 
     def action_distri_use_read_amount(self):
         """«Usar importe leído»: the administrator checked the photo."""

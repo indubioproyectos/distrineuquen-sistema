@@ -167,12 +167,16 @@ class WhatsappMessageSugerencia(models.Model):
     def _distri_following_text(self):
         """The text messages the same sender wrote right after this photo or
         document, before the sender's next one, within the seller window
-        (`_distri_nearby_text`). A chat export keeps only the minute: the
-        texts of a minute shared with another photo of the sender belong to
-        neither."""
+        (`_distri_nearby_text`). A chat export keeps only the minute: when
+        the sender sent several photos close together, the notes pair with
+        them by their order in the export (`_distri_chat_paired_notes`,
+        models/cobros.py), and nobody's when that order says nothing."""
         self.ensure_one()
         if not (self.timestamp and self.wa_id):
             return ""
+        paired = self._distri_chat_paired_notes()
+        if paired is not None:
+            return "\n".join(paired)
         window = SELLER_TEXT_WINDOW if (self.distri_forwarded_by_id
                                         or self.distri_chat_import_id) else RECEIPT_TEXT_WINDOW
         domain = [("wa_id", "=", self.wa_id), ("direction", "=", "in"), ("id", "!=", self.id),
@@ -208,8 +212,10 @@ class WhatsappMessageSugerencia(models.Model):
         suggested = self.browse()
         for msg in self.sudo():
             partner_id, line = False, ""
-            if msg.distri_is_receipt and not msg.distri_partner_id and (
-                    msg.distri_forwarded_by_id or msg.distri_chat_import_id):
+            # a receipt in conflict (two customers, or the note against the
+            # payer's CUIT) waits for a person: no suggestion either
+            if msg.distri_is_receipt and not msg.distri_partner_id and not msg.distri_conflict \
+                    and (msg.distri_forwarded_by_id or msg.distri_chat_import_id):
                 partner_id, line = index.suggest(msg._distri_receipt_text()[0])
             vals = {"distri_suggested_partner_id": partner_id,
                     "distri_suggestion_note": "Por el texto «%s»" % line if partner_id else False}

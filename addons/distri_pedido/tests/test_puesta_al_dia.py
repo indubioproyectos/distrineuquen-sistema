@@ -311,6 +311,32 @@ class TestPuestaAlDia(RepartoMixin, AccountTestInvoicingCommon):
                                       data=out.getvalue())
         self.assertFalse(again.message_ids)
 
+    def test_chat_import_pairs_two_notes_with_two_photos(self):
+        """Two customers written and then their two receipts, in one minute:
+        the files are read once both exist, and each one takes its note by
+        the order of the export."""
+        rng = random.Random(11)
+        pngs = [receipt_images.render("Mercado Pago", receipt_images.random_data(rng))[0]
+                for _i in range(2)]
+        chat = (
+            "2/10/2026, 11:40 - Vendedor Prueba: Almacén Prueba Alfa\n"
+            "2/10/2026, 11:40 - Vendedor Prueba: Kiosco Prueba Beta\n"
+            "2/10/2026, 11:40 - Vendedor Prueba: ‎IMG-20261002-WA0001.jpg (archivo adjunto)\n"
+            "2/10/2026, 11:40 - Vendedor Prueba: ‎IMG-20261002-WA0002.jpg (archivo adjunto)\n")
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as zf:
+            zf.writestr("Chat de WhatsApp con Grupo Prueba.txt", chat)
+            zf.writestr("IMG-20261002-WA0001.jpg", pngs[0])
+            zf.writestr("IMG-20261002-WA0002.jpg", pngs[1])
+        record = self.env["distri.whatsapp.chat.import"]._distri_import(
+            "chat.zip", date(2026, 10, 2), date(2026, 10, 2), data=out.getvalue())
+        photos = record.message_ids.filtered(lambda m: m.message_type == "image").sorted(
+            "distri_chat_minute_pos")
+        self.assertEqual(photos.mapped("media_state"), ["done", "done"])
+        self.assertEqual(photos.mapped("distri_partner_id"), self.alpha | self.beta)
+        self.assertEqual(photos[0].distri_partner_id, self.alpha)
+        self.assertEqual(photos[1].distri_partner_id, self.beta)
+
     def test_board_kanban_expressions_are_javascript(self):
         """The card template of the board is compiled by Owl in the browser:
         «not» is not an operator there (it broke the whole board)."""
