@@ -1,0 +1,78 @@
+/* Confirmation card of the migration board (19.0.1.63.0,
+   views/tarjeta_confirmacion.xml). The sheet takes the whole width; the
+   summary is one line; the three columns share the height of the window and
+   each one scrolls on its own, so the page does not scroll to see them. The
+   chatter follows below. Project palette (static/src/css/distri_ui.css):
+   navy #10243f, teal #0a6b5c. Colour is never the only signal: every mark
+   is written («✓ coincide», «≠ distinto», «paga esta»). */
+.o_distri_card_form .o_form_renderer,
+.o_form_renderer.o_distri_card_form,
+.o_distri_card_form .o_form_sheet_bg{max-width:none}
+.o_distri_card_form .o_form_sheet{
+  --formView-sheet-padding-y:8px; --formView-sheet-padding-x:12px;
+  --formView-sheet-padding-y-md:8px; --formView-sheet-padding-y-lg:8px;
+  --formView-sheet-padding-x-lg:12px; --formView-sheet-padding-y-xxl:8px;
+  --formView-sheet-padding-x-xxl:12px;
+  max-width:none}
+.o_distri_card_form .o_distri_card_alert{margin-bottom:6px;padding:4px 10px;font-size:.85rem}
+
+.o_distri_card_top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px;margin-bottom:8px;
+  padding:4px 2px 8px;border-bottom:1px solid #d6dde3;font-size:.9rem;color:#22303d}
+.o_distri_card_amount{font-size:1.35rem;font-weight:700;color:#10243f}
+.o_distri_card_item{display:inline-flex;align-items:baseline;gap:6px;min-width:0}
+.o_distri_card_item .o_field_widget{width:auto}
+.o_distri_card_k{font-size:.72rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  color:#55636f}
+.o_distri_card_reason{flex:1 1 320px}
+
+.o_distri_card_cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(0,1fr);
+  gap:10px;height:calc(100vh - var(--distri-card-offset,232px));min-height:380px}
+.o_distri_card_col{display:flex;flex-direction:column;min-height:0;min-width:0;border:1px solid #d6dde3;
+  border-radius:8px;background:#fff;overflow:hidden}
+.o_distri_card_col_head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;
+  gap:4px 8px;padding:6px 10px;border-bottom:1px solid #d6dde3;background:#f4f6f8}
+.o_distri_card_col_title{font-weight:700;color:#10243f}
+.o_distri_card_col_actions{display:flex;flex-wrap:wrap;gap:6px}
+.o_distri_card_col_body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:8px 10px}
+.o_distri_card_col_body > .o_field_widget{display:block;width:100%}
+.o_distri_card_col_flush{padding:0;overflow:hidden;display:flex;flex-direction:column}
+.o_distri_card_col_flush > .o_widget,
+.o_distri_card_chat_widget{flex:1 1 auto;min-height:0;height:100%;display:flex;flex-direction:column}
+.o_distri_chat_embedded{flex:1 1 auto;min-height:0}
+.o_distri_chat_embedded .o_distri_chat_minute,
+.o_distri_chat_embedded .o_distri_chat_msg{max-width:none}
+.o_distri_chat_embedded .o_distri_chat_scroll{padding:6px 10px 16px}
+
+.o_distri_card_empty{margin:4px 0 8px;color:#55636f;font-style:italic}
+.o_distri_card_hint{margin:0 0 6px}
+.o_distri_card_small{font-size:.8rem;color:#55636f}
+.o_distri_card_kpis{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 6px}
+.o_distri_card_kpis dt{font-size:.72rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  color:#55636f}
+.o_distri_card_kpis dd{margin:0;font-size:1.1rem;font-weight:700;color:#10243f}
+.o_distri_card_kpis dd.o_distri_card_small{font-size:.8rem;font-weight:400;color:#55636f}
+.o_distri_card_kpi_after dd:first-of-type{color:#0a6b5c}
+.o_distri_card_kpi_credit dd:first-of-type{color:#8f2d1c}
+.o_distri_card_pays{margin:0 0 8px;padding:4px 8px;border-radius:6px;background:#e6effb;color:#1d4f8f}
+
+.o_distri_card_table{font-size:.8rem;margin-bottom:6px}
+.o_distri_card_table thead th{position:sticky;top:-8px;z-index:1;background:#fff;color:#55636f;font-weight:600}
+.o_distri_card_table td,.o_distri_card_table th{padding:2px 4px;vertical-align:top}
+.o_distri_card_table td.text-end,.o_distri_card_table td:first-child{white-space:nowrap}
+.o_distri_card_doc{color:#55636f}
+.o_distri_card_row_chosen td{background:#fff4d1}
+.o_distri_card_compare tbody th{width:28%;color:#55636f;font-weight:600}
+.o_distri_card_compare td{overflow-wrap:anywhere}
+.o_distri_card_ok{white-space:nowrap;color:#1f6b45;font-weight:600}
+.o_distri_card_diff{white-space:nowrap;padding:0 4px;border-radius:4px;background:#fdf0d5;color:#7a4b00;
+  font-weight:600}
+.o_distri_card_extra{margin:8px 0 0;font-size:.8rem}
+.o_distri_card_extra div{display:flex;gap:8px;padding:2px 0;border-top:1px solid #eef1f3}
+.o_distri_card_extra dt{flex:0 0 40%;color:#55636f;font-weight:600}
+.o_distri_card_extra dd{margin:0;overflow-wrap:anywhere}
+
+@media (max-width:991.98px){
+  /* tablet and phone: one column under the other, each with its own scroll */
+  .o_distri_card_cols{grid-template-columns:minmax(0,1fr);height:auto}
+  .o_distri_card_col{height:70vh}
+}

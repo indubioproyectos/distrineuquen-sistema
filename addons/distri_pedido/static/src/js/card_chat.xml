@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The receipts chat inside the confirmation card (static/src/js/card_chat.js):
+     the viewer's template without the search bar and the results column. -->
+<templates xml:space="preserve">
+
+    <t t-name="distri_pedido.CardChat" t-inherit="distri_pedido.ChatViewer" t-inherit-mode="primary">
+        <xpath expr="//div[hasclass('o_distri_chat')]" position="attributes">
+            <attribute name="class">o_distri_chat o_distri_chat_embedded</attribute>
+        </xpath>
+        <xpath expr="//div[hasclass('o_distri_chat_bar')]" position="replace">
+            <div t-if="state.denied" class="o_distri_chat_note" role="status">
+                <i class="fa fa-lock" aria-hidden="true"/> <t t-esc="state.denied"/>
+            </div>
+        </xpath>
+        <xpath expr="//aside" position="replace"/>
+    </t>
+
+</templates>

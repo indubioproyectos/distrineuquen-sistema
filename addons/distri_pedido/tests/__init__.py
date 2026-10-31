@@ -33,3 +33,4 @@ from . import test_sugerencia_cliente
 from . import test_ajuste_cuenta
 from . import test_visor_chat
 from . import test_deudores
+from . import test_tarjeta_confirmacion

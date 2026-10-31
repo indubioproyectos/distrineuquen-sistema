@@ -2000,6 +2000,9 @@ class DistriMpCollection(models.Model):
         # «Venta sin registrar» (revision_cliente.py) confirms with this flag:
         # the payment goes to that sale, older invoices keep their debt
         if not self.env.context.get("distri_skip_auto_apply"):
+            # 19.0.1.63.0: the lab invoice chosen on the card first
+            # (models/tarjeta_confirmacion.py); «a cuenta», the oldest first
+            record._reconcile_chosen_invoice(payment)
             self.env["distri.route"].sudo()._apply_oldest_first(payment, partner)
         # Identities are learned only from a sure link: a CUIT read from a
         # photo (OCR) never, only Mercado Pago's; nothing when the customer

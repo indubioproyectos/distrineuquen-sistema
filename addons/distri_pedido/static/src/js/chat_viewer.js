@@ -125,11 +125,7 @@ export class ChatViewer extends Component {
         });
         this.pendingScroll = null;
         this.pendingFocus = null;
-        const params = this.props.action?.params || {};
-        onWillStart(() => this.open({
-            message_id: params.message_id || null,
-            collection_id: params.collection_id || null,
-        }));
+        onWillStart(() => this.open(this.initialAnchor()));
         // 19.0.1.52.0: the photos above the anchor load after the first
         // scroll and push it down; while the person has not moved the chat
         // (a few seconds at most), every photo that loads centers it again
@@ -156,6 +152,16 @@ export class ChatViewer extends Component {
             // Esc closes the enlarged photo
             this.scrollRef.el?.parentElement.querySelector(".o_distri_chat_preview")?.focus();
         });
+    }
+
+    // what the chat opens on: the action's message or card (19.0.1.63.0: the
+    // card's own chat, static/src/js/card_chat.js, opens on its record)
+    initialAnchor() {
+        const params = this.props.action?.params || {};
+        return {
+            message_id: params.message_id || null,
+            collection_id: params.collection_id || null,
+        };
     }
 
     get rows() {

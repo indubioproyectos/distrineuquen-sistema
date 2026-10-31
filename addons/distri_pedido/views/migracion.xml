@@ -269,7 +269,7 @@
     <field name="view_ids" eval="[(5, 0, 0),
         (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_migration_kanban')}),
         (0, 0, {'view_mode': 'list', 'view_id': ref('view_migration_list')}),
-        (0, 0, {'view_mode': 'form', 'view_id': ref('view_mp_collection_form')})]"/>
+        (0, 0, {'view_mode': 'form', 'view_id': ref('view_mp_collection_form_migration')})]"/>
     <field name="domain">[('receipt_id', '!=', False)]</field>
     <!-- opens showing everything; «Desde la fecha de corte» stays as a filter -->
     <field name="context">{}</field>

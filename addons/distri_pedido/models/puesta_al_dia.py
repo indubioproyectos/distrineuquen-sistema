@@ -528,6 +528,9 @@ class DistriOnlineExport(models.Model):
             if receipt and receipt.timestamp:
                 memo += " · comprobante WhatsApp %s" % local_day(
                     receipt.distri_receipt_date or receipt.timestamp).isoformat()
+            invoice = card._chosen_invoice_data()[0]  # 19.0.1.63.0
+            if invoice:
+                memo += " · %s" % invoice
             rows.append([XMLID_PREFIX + digits(card.source_id), online_ref(card.partner_id),
                          card.payment_id.date or local_day(card.date), round(card.amount, 2),
                          online_bank_journal(self.env), "Recibir", "Cliente", memo,

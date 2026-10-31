@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Confirmation card of the migration board (19.0.1.63.0,
+     models/tarjeta_confirmacion.py). Everything at once: one compact line on
+     top, then three columns that scroll on their own (the customer's balance,
+     the receipts chat at the photo, the Mercado Pago report next to the
+     photo's reading) and the chatter at the bottom. The header buttons are the
+     collections form's (and its extensions'). -->
+<odoo>
+
+  <record id="view_mp_collection_form_migration" model="ir.ui.view">
+    <field name="name">distri.mp.collection.form.migration</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="inherit_id" ref="distri_pedido.view_mp_collection_form"/>
+    <field name="mode">primary</field>
+    <field name="priority">95</field>
+    <field name="arch" type="xml">
+      <xpath expr="//form" position="attributes">
+        <attribute name="class">o_distri_card_form</attribute>
+      </xpath>
+      <xpath expr="//chatter" position="replace"/>
+      <xpath expr="//sheet" position="replace">
+        <sheet>
+          <widget name="web_ribbon" title="Sin comprobante" bg_color="text-bg-danger"
+                  invisible="not confirmed_without_receipt"/>
+          <div class="alert alert-danger o_distri_card_alert" role="alert"
+               invisible="not confirmed_without_receipt">
+            <b>Confirmado sin comprobante</b> por
+            <field name="confirmed_by_id" readonly="1" class="oe_inline"/> el
+            <field name="confirmed_at" readonly="1" class="oe_inline"/>: hay que reclamarlo.
+          </div>
+          <div class="alert alert-warning o_distri_card_alert" role="alert"
+               invisible="not receipt_candidate or receipt_id">
+            <b>Candidato · falta el comprobante:</b> no se confirma hasta que llegue al grupo de
+            WhatsApp y coincida con el reporte de Mercado Pago.
+          </div>
+          <div class="alert alert-danger o_distri_card_alert" role="alert"
+               invisible="not migration_duplicate">
+            <b>Posible duplicado:</b> <field name="migration_duplicate" readonly="1" class="oe_inline"/>
+          </div>
+          <div class="alert alert-warning o_distri_card_alert" role="alert" invisible="not reversal">
+            <b>Aviso de Mercado Pago:</b> <field name="reversal" readonly="1" class="oe_inline"/>
+          </div>
+          <div class="alert alert-secondary o_distri_card_alert" role="status"
+               invisible="state != 'apartado'">
+            <b>Mayorista / fuera del sistema.</b>
+            <field name="wholesale_label" readonly="1" class="oe_inline"/>
+          </div>
+
+          <!-- the summary in one line -->
+          <div class="o_distri_card_top">
+            <span class="o_distri_card_amount"><field name="amount" widget="monetary" readonly="1"/></span>
+            <span class="o_distri_card_item">
+              <span class="o_distri_card_k">Cliente</span>
+              <field name="partner_id" readonly="1" invisible="not partner_id" class="oe_inline"/>
+              <span invisible="partner_id or suggested_partner_id" class="text-muted">sin cliente</span>
+              <span invisible="partner_id or not suggested_partner_id" class="text-muted">
+                sugerido: <field name="suggested_partner_id" readonly="1" class="oe_inline"
+                                 options="{'no_open': True}"/>
+              </span>
+            </span>
+            <span class="o_distri_card_item">
+              <span class="o_distri_card_k">Propuesto por</span>
+              <field name="proposal" readonly="1" class="oe_inline"/>
+            </span>
+            <span class="o_distri_card_item o_distri_card_reason" invisible="not proposal_note">
+              <span class="o_distri_card_k">Motivo</span>
+              <field name="proposal_note" readonly="1" class="oe_inline"/>
+            </span>
+            <span class="o_distri_card_item">
+              <span class="o_distri_card_k">Columna</span>
+              <field name="column" readonly="1" class="oe_inline"/>
+            </span>
+            <span class="o_distri_card_item" invisible="not payment_id">
+              <span class="o_distri_card_k">Pago</span>
+              <field name="payment_id" readonly="1" class="oe_inline"/>
+            </span>
+          </div>
+
+          <div class="o_distri_card_cols">
+            <section class="o_distri_card_col" aria-label="Saldo del cliente">
+              <div class="o_distri_card_col_head">
+                <span class="o_distri_card_col_title">Saldo del cliente</span>
+                <span class="o_distri_card_col_actions">
+                  <button name="action_choose_invoice" type="object" string="Elegir factura"
+                          class="btn btn-sm btn-primary"
+                          invisible="not partner_id or kind == 'receipt' or state not in ('draft', 'authorized')"
+                          groups="distri_pedido.grupo_administracion"/>
+                  <button name="action_card_statement" type="object" string="Estado de cuenta"
+                          class="btn btn-sm btn-secondary"
+                          invisible="not partner_id and not suggested_partner_id"/>
+                </span>
+              </div>
+              <div class="o_distri_card_col_body">
+                <field name="card_balance_html" widget="html" readonly="1" nolabel="1"/>
+              </div>
+            </section>
+            <section class="o_distri_card_col o_distri_card_col_chat" aria-label="Chat de comprobantes">
+              <div class="o_distri_card_col_head">
+                <span class="o_distri_card_col_title">Chat de comprobantes</span>
+                <span class="o_distri_card_col_actions">
+                  <button name="action_tab_chat" type="object" string="Pestaña nueva"
+                          icon="fa-external-link" class="btn btn-sm btn-secondary"
+                          groups="distri_pedido.grupo_administracion,base.group_system"/>
+                </span>
+              </div>
+              <div class="o_distri_card_col_body o_distri_card_col_flush">
+                <widget name="distri_card_chat"
+                        groups="distri_pedido.grupo_administracion,base.group_system"/>
+              </div>
+            </section>
+            <section class="o_distri_card_col" aria-label="Reporte de Mercado Pago">
+              <div class="o_distri_card_col_head">
+                <span class="o_distri_card_col_title">Reporte de Mercado Pago</span>
+                <span class="o_distri_card_col_actions">
+                  <button name="action_view_receipt" type="object" string="Ver foto"
+                          class="btn btn-sm btn-secondary" invisible="not receipt_id"/>
+                </span>
+              </div>
+              <div class="o_distri_card_col_body">
+                <field name="card_mp_html" widget="html" readonly="1" nolabel="1"/>
+              </div>
+            </section>
+          </div>
+
+          <!-- used by the header buttons and the alerts -->
+          <field name="kind" invisible="1"/>
+          <field name="currency_id" invisible="1"/>
+          <field name="receipt_id" invisible="1"/>
+          <field name="receipt_candidate" invisible="1"/>
+          <field name="report_review" invisible="1"/>
+          <field name="confirmed_without_receipt" invisible="1"/>
+          <field name="receipt_is_image" invisible="1"/>
+          <field name="income_id" invisible="1"/>
+          <field name="pay_invoice_id" invisible="1"/>
+          <field name="pay_move_id" invisible="1"/>
+          <chatter/>
+        </sheet>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- «Elegir factura»: which invoice this payment pays, or «A cuenta» -->
+  <record id="view_mp_collection_pay_invoice" model="ir.ui.view">
+    <field name="name">distri.mp.collection.pay.invoice</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="priority">96</field>
+    <field name="arch" type="xml">
+      <form string="Factura que paga" create="0" delete="0">
+        <div class="d-flex flex-wrap gap-3 align-items-baseline mb-2">
+          <h3 class="mb-0"><field name="amount" widget="monetary" readonly="1"/></h3>
+          <span><field name="partner_id" readonly="1" options="{'no_open': True}"/></span>
+        </div>
+        <p class="text-muted">
+          Por defecto el pago va <b>a cuenta</b> (se aplica a las facturas más viejas del lab).
+          Si el cliente dice qué factura paga, elegila: el pago la cita en el memo
+          (por ejemplo «· 0001/2026/07369») y, si es una factura de este Odoo, se concilia
+          primero con ella.
+        </p>
+        <group>
+          <field name="pay_invoice_id" string="Factura de la historia (Online)"
+                 options="{'no_create': True, 'no_open': True}"
+                 context="{'distri_invoice_label': True}"
+                 domain="[('partner_id', 'child_of', pay_partner_id), ('debe', '>', 0), ('comprobante', '=like', '____/____/%')]"/>
+          <field name="pay_move_id" string="Factura abierta del lab"
+                 invisible="not pay_has_lab_invoices"
+                 options="{'no_create': True, 'no_open': True}"
+                 domain="[('move_type', '=', 'out_invoice'), ('state', '=', 'posted'), ('payment_state', 'in', ('not_paid', 'partial')), ('partner_id', 'child_of', pay_partner_id)]"/>
+        </group>
+        <field name="pay_partner_id" invisible="1"/>
+        <field name="pay_has_lab_invoices" invisible="1"/>
+        <field name="currency_id" invisible="1"/>
+        <footer>
+          <button special="save" string="Guardar" class="btn-primary"/>
+          <button name="action_pay_on_account" type="object" string="A cuenta"
+                  class="btn-secondary"/>
+          <button special="cancel" string="Cancelar" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+</odoo>
