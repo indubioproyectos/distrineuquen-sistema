@@ -301,7 +301,7 @@ class DistriMpCollectionMigration(models.Model):
 
     @api.depends("kind", "state", "amount", "date", "source_id", "bank_transfer_id",
                  "payer_cuit", "partner_id", "proposal", "receipt_id", "reversal",
-                 "conflict_note", "ignore_reason", "online_conflict", "online_status",
+                 "conflict_note", "ignore_reason", "online_conflict", "online_status", "income_id",
                  "online_payment_id.partner_id", "online_payment_id.link_kind",
                  "online_payment_id.date", "receipt_id.distri_operation",
                  "receipt_id.distri_amount", "receipt_id.distri_receipt_date",
@@ -442,6 +442,10 @@ class DistriMpCollectionMigration(models.Model):
             return "closed"
         if self.state == "confirmed":
             return "confirmed"
+        if self.kind == "verify" and self.income_id:
+            # a delivery authorized by hand that the report already brought:
+            # its income card is the one on the board (19.0.1.62.0)
+            return "closed"
         if self.kind != "income":
             # a receipt without movement: never a payment
             return "waiting_money"

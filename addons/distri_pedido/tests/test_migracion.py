@@ -150,6 +150,15 @@ class TestMigracion(AccountTestInvoicingCommon):
         waiting = self.Collection.create({"kind": "receipt", "date": WHEN, "amount": 900})
         self.assertEqual(waiting.migration_box, "waiting_money")
 
+        # a delivery authorized by hand that the report brought: its income
+        # card is the one on the board, the authorization is closed
+        income = self._card("970000000090", amount=900, partner=self.alpha)
+        authorized = self.Collection.create({"kind": "verify", "date": WHEN, "amount": 900,
+                                             "partner_id": self.alpha.id, "state": "authorized"})
+        self.assertEqual(authorized.migration_box, "waiting_money")
+        authorized.income_id = income
+        self.assertEqual(authorized.migration_box, "closed")
+
         old = self._card("970000000008", partner=self.alpha, when=datetime(2026, 9, 1, 12, 0))
         self._receipt(old, partner=self.alpha)
         self.assertFalse(old.migration_in_period)
