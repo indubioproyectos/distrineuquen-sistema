@@ -126,6 +126,20 @@ class TestRevisionCliente(AccountTestInvoicingCommon):
         self.assertEqual(self._line(review, pending).note, "Comprobante de prueba 910000000002")
         self.assertFalse(review.has_flag)
 
+    def test_payment_archived_as_repeated_is_out_of_the_balance(self):
+        self._history(self.alpha, debe=15000)
+        self._history(self.alpha, haber=10000, tipo="pago", comprobante="REC-1")
+        # the same transfer loaded twice in Online, archived by hand in the lab
+        self._history(self.alpha, haber=10000, tipo="pago", comprobante="REC-2", active=False,
+                      concepto="repetido de REC-1; archivado en el lab el 31/10/2026")
+
+        review = self._review(self.alpha)
+        self.assertEqual(review.online_balance, 5000)
+        self.assertEqual(review.lab_balance, 5000)
+        self.assertAlmostEqual(review.lab_balance, self.alpha._distri_account_balance())
+        self.assertEqual(review.history_receipt_count, 1)
+        self.assertEqual(review.matched_count, 0)
+
     def test_red_flag_and_unrecorded_sale_for_the_excess_only(self):
         self._history(self.beta, debe=1000)
         pay = self._cash(self.beta, 1500, date(2026, 9, 1))

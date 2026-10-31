@@ -9,8 +9,8 @@ leaves a credit balance that does not exist.
 
 - `distri.balance.review` (one per commercial partner, «Revisión por
   cliente»): the starting point is the Online balance, every history row
-  (archived ones too: they are Online's), the same rule as «Saldos lab vs
-  Online». Then the new payments, oldest first, with the running balance:
+  (archived ones too when they are the Online copy of a lab payment; a row
+  archived by hand as a repeated Online payment is out, 19.0.1.65.0). Then the new payments, oldest first, with the running balance:
   the payments posted in the lab not already in Online (no archived history
   row points to them), then the pending board cards. A line that leaves the
   customer in credit is flagged «Posible venta sin registrar».
@@ -226,12 +226,18 @@ class DistriBalanceReview(models.Model):
         self.env["distri.cuenta.movimiento"].flush_model()
         Partner.flush_model(["commercial_partner_id"])
 
+        # an archived row counts only when it is the Online copy of a lab
+        # payment (lab_payment_id); one archived by hand as a duplicate of
+        # Online (repeated payment, 31/10/2026) is out of the balance (19.0.1.65.0)
         cr.execute("""
             SELECT p.commercial_partner_id,
-                   round(sum(m.debe - m.haber), 2),
-                   count(*) FILTER (WHERE m.tipo = 'pago'),
-                   coalesce(sum(m.haber - m.debe) FILTER (WHERE m.tipo = 'pago'), 0),
-                   count(*) FILTER (WHERE NOT m.active)
+                   round(coalesce(sum(m.debe - m.haber)
+                                  FILTER (WHERE m.active OR m.lab_payment_id IS NOT NULL), 0), 2),
+                   count(*) FILTER (WHERE m.tipo = 'pago'
+                                    AND (m.active OR m.lab_payment_id IS NOT NULL)),
+                   coalesce(sum(m.haber - m.debe) FILTER (WHERE m.tipo = 'pago'
+                                    AND (m.active OR m.lab_payment_id IS NOT NULL)), 0),
+                   count(*) FILTER (WHERE NOT m.active AND m.lab_payment_id IS NOT NULL)
               FROM distri_cuenta_movimiento m JOIN res_partner p ON p.id = m.partner_id
              GROUP BY p.commercial_partner_id""")
         history = {row[0]: row[1:] for row in cr.fetchall()}
