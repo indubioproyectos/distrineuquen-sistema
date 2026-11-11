@@ -97,6 +97,23 @@ def _imported_staff_type(mov):
     return "Ajuste" if mov.tipo != "otro" else "Movimiento"
 
 
+def statement_line_key(kind, record_id, nth=1):
+    """Stable identity of a statement row, kept by the comments of the phone
+    app (distri.account.comment.line_key). The sort key (`key`) is not
+    enough: it carries the date and, for this Odoo, the receivable line id,
+    which a reset to draft can recreate. Instead:
+
+    - this Odoo: «account.move:<move id>» (a move keeps its id; a second
+      receivable line of the same move adds «:2», «:3»…);
+    - Odoo Online history: «online:<origen_id>», the id in Odoo Online, so a
+      new import of the history keeps it; «distri.cuenta.movimiento:<id>»
+      for a row without it;
+    - provisional returns: «distri.route.return:<id>».
+    """
+    key = "%s:%d" % (kind, record_id)
+    return key if nth <= 1 else "%s:%d" % (key, nth)
+
+
 def _statement_number(row):
     """The row's number; a payment from a Mercado Pago card links to the card."""
     number = html_escape(row["number"])
@@ -143,7 +160,8 @@ class ResPartnerEstadoCuenta(models.Model):
 
         Each row: date, source, doc_type (staff), number (staff: invoice or
         payment number), remito, concept, customer_type, customer_ref,
-        debit, credit, balance, provisional, key (stable sort key).
+        debit, credit, balance, provisional, key (sort key), line_key
+        (stable identity of the row, see statement_line_key).
         """
         self.ensure_one()
         partner = self.commercial_partner_id.sudo()
@@ -155,8 +173,10 @@ class ResPartnerEstadoCuenta(models.Model):
             ("account_id.account_type", "=", "asset_receivable"),
         ], order="date, id")
         seen = set()
+        per_move = {}
         for line in lines:
             move = line.move_id
+            per_move[move.id] = per_move.get(move.id, 0) + 1
             seen.add(clave_documento(move.name, line.debit, line.credit))
             if move.journal_id.code == AJC_JOURNAL_CODE:
                 # «Ajuste de cuentas» (19.0.1.44.0): neither a sale nor a return
@@ -191,6 +211,7 @@ class ResPartnerEstadoCuenta(models.Model):
                 "res_model": "account.move",
                 "res_id": move.id,
                 "key": (line.date, _SOURCE_ORDER[SOURCE_ODOO], line.id),
+                "line_key": statement_line_key("account.move", move.id, per_move[move.id]),
             })
         seen.discard(None)
 
@@ -218,6 +239,8 @@ class ResPartnerEstadoCuenta(models.Model):
                 "res_model": "distri.cuenta.movimiento",
                 "res_id": mov.id,
                 "key": (mov.fecha, _SOURCE_ORDER[SOURCE_ONLINE], mov.id),
+                "line_key": (statement_line_key("online", mov.origen_id) if mov.origen_id
+                             else statement_line_key("distri.cuenta.movimiento", mov.id)),
             })
 
         for ret in self.env["distri.route.return"]._distri_provisional_for(partner):
@@ -242,6 +265,7 @@ class ResPartnerEstadoCuenta(models.Model):
                 "res_model": "distri.route.return",
                 "res_id": ret.id,
                 "key": (when, _SOURCE_ORDER[SOURCE_RETURN], ret.id),
+                "line_key": statement_line_key("distri.route.return", ret.id),
             })
 
         # a payment registered from a Mercado Pago card links back to it

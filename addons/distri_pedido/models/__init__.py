@@ -48,3 +48,4 @@ from . import visor_chat
 from . import deudores
 from . import tarjeta_confirmacion
 from . import permisos_cobros
+from . import cuentas_app

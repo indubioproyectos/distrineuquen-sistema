@@ -180,5 +180,21 @@
       <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', ('order_id', 'any', ['|', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')]), ('partner_id.commercial_partner_id.distri_lista_oculta', '=', True)])]</field>
     </record>
 
+    <!-- «Cuentas (celular)» comments (19.0.1.74.0): the seller sees and writes
+         the ones of his portfolio, same as the customers he reads;
+         administración, gerencia and Settings all of them -->
+    <record id="regla_account_comment_vendedor" model="ir.rule">
+      <field name="name">Vendedor: comentarios de las cuentas de su cartera</field>
+      <field name="model_id" ref="model_distri_account_comment"/>
+      <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
+      <field name="domain_force">[('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+    </record>
+    <record id="regla_account_comment_todos" model="ir.rule">
+      <field name="name">Administración y gerencia: comentarios de todas las cuentas</field>
+      <field name="model_id" ref="model_distri_account_comment"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion')), (4, ref('base.group_system'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
   </data>
 </odoo>

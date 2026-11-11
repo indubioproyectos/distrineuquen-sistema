@@ -35,3 +35,4 @@ from . import test_visor_chat
 from . import test_deudores
 from . import test_tarjeta_confirmacion
 from . import test_permisos_cobros
+from . import test_cuentas_app

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- «Cuentas (celular)»: the phone app to review customer accounts
+       (controllers/cuentas.py, models/cuentas_app.py). Read-only; online
+       only. Same look as the depot screens. -->
+  <template id="cuentas_app" name="Cuentas: estado de cuenta en el celular">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#10243f"/>
+  <title>Cuentas · <t t-esc="empresa"/></title>
+  <link rel="manifest" href="/cuentas/manifest.webmanifest"/>
+  <link rel="icon" t-att-href="icons + 'icon-192.png'"/>
+  <link rel="apple-touch-icon" t-att-href="icons + 'icon-192.png'"/>
+  <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
+  <link rel="stylesheet" t-att-href="static + 'cuentas.css?v=' + version"/>
+</head>
+<body>
+  <div id="app"><div class="cargando">Cargando…</div></div>
+  <div id="sheet-root"></div>
+  <div id="toast" hidden="hidden"></div>
+  <script t-att-src="static + 'cuentas.js?v=' + version" defer="defer"></script>
+</body>
+</html>
+  </template>
+
+  <record id="action_cuentas_pantalla" model="ir.actions.act_url">
+    <field name="name">Cuentas (celular)</field>
+    <field name="url">/cuentas</field>
+    <field name="target">self</field>
+  </record>
+
+  <menuitem id="menu_cobros_cuentas_celular" name="Cuentas (celular)" parent="menu_cobros_root"
+            action="action_cuentas_pantalla" sequence="12"
+            groups="distri_pedido.grupo_vendedor,base.group_system"/>
+
+  <!-- comments of an account (distri.account.comment) -->
+  <record id="view_account_comment_list" model="ir.ui.view">
+    <field name="name">distri.account.comment.list</field>
+    <field name="model">distri.account.comment</field>
+    <field name="arch" type="xml">
+      <list string="Comentarios de la cuenta" decoration-muted="resolved">
+        <field name="create_date" string="Fecha"/>
+        <field name="partner_id"/>
+        <field name="line_label" optional="show"/>
+        <field name="body"/>
+        <field name="author_id"/>
+        <field name="resolved" widget="boolean_toggle"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_account_comment_form" model="ir.ui.view">
+    <field name="name">distri.account.comment.form</field>
+    <field name="model">distri.account.comment</field>
+    <field name="arch" type="xml">
+      <form string="Comentario de la cuenta">
+        <sheet>
+          <group>
+            <field name="partner_id" readonly="id"/>
+            <field name="line_label" readonly="id"/>
+            <field name="line_key" readonly="id" groups="base.group_no_one"/>
+            <field name="body" readonly="id"/>
+            <field name="author_id" readonly="1" invisible="not id"/>
+            <field name="create_date" string="Fecha" readonly="1" invisible="not id"/>
+            <field name="resolved"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_account_comment_search" model="ir.ui.view">
+    <field name="name">distri.account.comment.search</field>
+    <field name="model">distri.account.comment</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="partner_id"/>
+        <field name="body"/>
+        <field name="author_id"/>
+        <filter name="pending" string="Sin resolver" domain="[('resolved', '=', False)]"/>
+        <filter name="account_level" string="Sobre la cuenta" domain="[('line_key', '=', False)]"/>
+        <filter name="line_level" string="Sobre un movimiento" domain="[('line_key', '!=', False)]"/>
+      </search>
+    </field>
+  </record>
+
+  <!-- Contact: «Comentarios» button (same groups as the app) -->
+  <record id="view_partner_form_account_comments" model="ir.ui.view">
+    <field name="name">res.partner.form.account.comments</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+      <div name="button_box" position="inside">
+        <button class="oe_stat_button" type="object" name="action_distri_account_comments"
+                icon="fa-comments-o" invisible="not id or parent_id"
+                groups="distri_pedido.grupo_vendedor,base.group_system">
+          <div class="o_stat_info">
+            <span class="o_stat_value"><field name="distri_comment_count"/></span>
+            <span class="o_stat_text">Comentarios</span>
+          </div>
+        </button>
+      </div>
+    </field>
+  </record>
+
+</odoo>

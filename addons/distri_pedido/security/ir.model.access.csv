@@ -153,3 +153,5 @@ access_mp_assign_sistema,distri.mp.assign sistema,model_distri_mp_assign,base.gr
 access_mp_ignore_sistema,distri.mp.ignore sistema,model_distri_mp_ignore,base.group_system,1,1,1,1
 access_mp_confirm_notice_sistema,distri.mp.confirm.notice sistema,model_distri_mp_confirm_notice,base.group_system,1,1,1,1
 access_mp_vouch_sistema,distri.mp.vouch sistema,model_distri_mp_vouch,base.group_system,1,1,1,1
+access_account_comment_vendedor,distri.account.comment vendedor,model_distri_account_comment,distri_pedido.grupo_vendedor,1,1,1,1
+access_account_comment_sistema,distri.account.comment sistema,model_distri_account_comment,base.group_system,1,1,1,1

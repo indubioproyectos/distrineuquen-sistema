@@ -208,6 +208,46 @@ def debtor_balances(env, partners, date_to=False):
     return result
 
 
+def debtor_entries(env, customers, date_to=False, include_settled=False):
+    """The debtor list of «Deudores» and of the phone app (/cuentas): one
+    entry per debtor (balance above one cent) and per uncollectible
+    customer of `customers`, highest debt first (then by name). With
+    `include_settled`, the customers at zero or in credit come too, as kind
+    «settled». Each entry: kind, partner, seller, balance (rounded),
+    last_payment and last_invoice ((date, amount) or None), candidate_count,
+    candidate_amount, phone, zone."""
+    tags = seller_tags(env)
+    zones = {normalizar_ciudad(z.name): z.name for z in env["distri.zona"].sudo().search([])}
+    balances = debtor_balances(env, customers, date_to)
+    entries = []
+    for partner in customers:
+        data = balances[partner.id]
+        if partner.distri_uncollectible:
+            kind = "uncollectible"
+        elif data["balance"] > DEBT_EPSILON:
+            kind = "debtor"
+        elif include_settled:
+            kind = "settled"
+        else:
+            continue
+        town = partner.city or town_from_name(partner.name) or ""
+        entries.append({
+            "kind": kind,
+            "partner": partner,
+            "name": partner.name or "",
+            "seller": seller_of(partner, tags),
+            "balance": round(data["balance"], 2),
+            "last_payment": data["last_payment"],
+            "last_invoice": data["last_invoice"],
+            "candidate_count": data["candidate_count"],
+            "candidate_amount": data["candidate_amount"],
+            "phone": partner.distri_whatsapp or partner.phone or "",
+            "zone": zones.get(normalizar_ciudad(town), town),
+        })
+    entries.sort(key=lambda e: (-e["balance"], e["name"]))
+    return entries
+
+
 class ResPartnerDeudores(models.Model):
     _inherit = "res.partner"
 
@@ -366,45 +406,29 @@ class DistriDebtorReport(models.TransientModel):
         self._distri_check_access()
         Line = self.env["distri.debtor.line"].sudo()
         customers = direct_customers(self.env)
-        tags = seller_tags(self.env)
-        sellers = {partner.id: seller_of(partner, tags) for partner in customers}
-        zones = {normalizar_ciudad(z.name): z.name
-                 for z in self.env["distri.zona"].sudo().search([])}
         for report in self:
-            cut = report.date_to or False
-            balances = debtor_balances(self.env, customers, cut)
+            entries = debtor_entries(self.env, customers, report.date_to or False)
             report.sudo().snapshot_line_ids.unlink()
             vals_list = []
-            for partner in customers:
-                data = balances[partner.id]
-                if partner.distri_uncollectible:
-                    kind = "uncollectible"
-                elif data["balance"] > DEBT_EPSILON:
-                    kind = "debtor"
-                else:
-                    continue
-                town = partner.city or town_from_name(partner.name) or ""
+            for entry in entries:
                 vals_list.append({
-                    "_name": partner.name or "",
                     "report_id": report.id,
-                    "kind": kind,
-                    "partner_id": partner.id,
-                    "seller": sellers[partner.id],
-                    "balance": round(data["balance"], 2),
-                    "last_payment_date": data["last_payment"] and data["last_payment"][0],
-                    "last_payment_amount": data["last_payment"] and data["last_payment"][1],
-                    "last_invoice_date": data["last_invoice"] and data["last_invoice"][0],
-                    "last_invoice_amount": data["last_invoice"] and data["last_invoice"][1],
-                    "candidate_count": data["candidate_count"],
-                    "candidate_amount": data["candidate_amount"],
-                    "phone": partner.distri_whatsapp or partner.phone or "",
-                    "zone": zones.get(normalizar_ciudad(town), town),
+                    "kind": entry["kind"],
+                    "partner_id": entry["partner"].id,
+                    "seller": entry["seller"],
+                    "balance": entry["balance"],
+                    "last_payment_date": entry["last_payment"] and entry["last_payment"][0],
+                    "last_payment_amount": entry["last_payment"] and entry["last_payment"][1],
+                    "last_invoice_date": entry["last_invoice"] and entry["last_invoice"][0],
+                    "last_invoice_amount": entry["last_invoice"] and entry["last_invoice"][1],
+                    "candidate_count": entry["candidate_count"],
+                    "candidate_amount": entry["candidate_amount"],
+                    "phone": entry["phone"],
+                    "zone": entry["zone"],
                 })
-            vals_list.sort(key=lambda v: (-v["balance"], v["_name"]))
             rank_all = defaultdict(int)
             rank_seller = defaultdict(int)
             for vals in vals_list:
-                del vals["_name"]
                 rank_all[vals["kind"]] += 1
                 rank_seller[vals["kind"], vals["seller"]] += 1
                 vals["rank_all"] = rank_all[vals["kind"]]
