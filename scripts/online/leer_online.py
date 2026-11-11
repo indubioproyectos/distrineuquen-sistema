@@ -13,7 +13,8 @@ Writes, in the private folder insumos/online/<today>/ (700, files 600):
   pagos.json           customer payments (inbound), every state, with memo and journal
   ultima_factura.json  the last invoice number of the «0001» series
   payload.json         what scripts/online/aplicar_online_body.py applies to the lab:
-                       new/changed/deleted history rows, new customers, expected
+                       new/changed/deleted history rows (rows corrected by hand in the lab,
+                       marked by MANUAL_FIX, are left alone), new customers, expected
                        balance per customer and the payments mirror
 
 The lab side (origen_id of each history row, customers by ref ODOO-<id>) is
@@ -23,6 +24,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -30,6 +32,11 @@ RO_DIR = "/srv/docs/distrineuquen-modulo/insumos/cruce/scripts"
 OUT_ROOT = "/srv/docs/distrineuquen-modulo/insumos/online"
 LAB_DB = os.environ.get("LAB_DB", "distri_lab")
 BATCH = 2000
+# A history row corrected by hand in the lab carries this mark in its concepto
+# («… fecha corregida en el lab el 31/10/2026 …», «… pasado de ODOO-231 a
+# ODOO-134 en el lab el 30/10/2026», «… archivado en el lab el …»): the sync
+# never overwrites it and counts it for its lab customer in the balance check.
+MANUAL_FIX = re.compile(r"en el lab el \d\d/\d\d/\d{4}")
 
 LINE_FIELDS = ["id", "date", "move_id", "move_name", "move_type", "name", "ref", "journal_id",
                "partner_id", "debit", "credit", "amount_residual", "payment_id", "reconciled",
@@ -107,26 +114,39 @@ def main():
 
     # ---- the lab, read only
     lab_rows = {int(r[0]): r for r in lab_sql(
-        "select origen_id, coalesce(to_char(fecha, 'YYYY-MM-DD'), ''), coalesce(comprobante, ''),"
-        " coalesce(concepto, ''), round(coalesce(debe, 0), 2), round(coalesce(haber, 0), 2)"
-        " from distri_cuenta_movimiento where origen_id is not null and origen_id > 0")}
+        "select m.origen_id, coalesce(to_char(m.fecha, 'YYYY-MM-DD'), ''), coalesce(m.comprobante, ''),"
+        " coalesce(m.concepto, ''), round(coalesce(m.debe, 0), 2), round(coalesce(m.haber, 0), 2),"
+        " coalesce(p.ref, '') from distri_cuenta_movimiento m left join res_partner p on p.id = m.partner_id"
+        " where m.origen_id is not null and m.origen_id > 0")}
     lab_refs = {int(r[0][5:]) for r in lab_sql(
         "select ref from res_partner where ref like 'ODOO-%'") if r[0][5:].isdigit()}
 
-    new, upd = [], []
+    new, upd, protected = [], [], []
     online_ids = set()
     exp = {}
     for line in lines:
         row = history_row(line)
         online_ids.add(row["o"])
+        lab = lab_rows.get(row["o"])
+        if lab and MANUAL_FIX.search(lab[3]):
+            # corrected by hand in the lab: the lab row stands (and counts for
+            # its lab customer) until Online is fixed or the line disappears
+            lab_pid = int(lab[6][5:]) if lab[6].startswith("ODOO-") and lab[6][5:].isdigit() else row["p"]
+            if lab_pid:
+                exp[lab_pid] = round(exp.get(lab_pid, 0.0) + float(lab[4]) - float(lab[5]), 2)
+            if (lab[1], lab[2], float(lab[4]), float(lab[5]), lab_pid) != (
+                    row["f"], row["c"], row["d"], row["h"], row["p"]):
+                protected.append({"o": row["o"], "c": row["c"], "online": [row["f"], row["d"], row["h"], row["p"]],
+                                  "lab": [lab[1], float(lab[4]), float(lab[5]), lab_pid]})
+            continue
         if row["p"]:
             exp[row["p"]] = round(exp.get(row["p"], 0.0) + row["d"] - row["h"], 2)
-        lab = lab_rows.get(row["o"])
         if not lab:
             new.append(row)
         elif (lab[1], lab[2], lab[3], float(lab[4]), float(lab[5])) != (
                 row["f"], row["c"], row["k"], row["d"], row["h"]):
             upd.append(row)
+    fixed_pay = {r["c"]: r["lab"] for r in protected if r["c"]}
     deleted = sorted(set(lab_rows) - online_ids)
     by_id = {p["id"]: p for p in partners}
     newp = []
@@ -145,10 +165,15 @@ def main():
                "partner_id": m2o(p["partner_id"]),
                "move_name": (p["move_id"] or [None, ""])[1] if p["move_id"] else ""}
               for p in payments]
+    for m in mirror:
+        # the mirror of a payment corrected by hand keeps the lab's date, amount, customer
+        fix = fixed_pay.get(m["move_name"]) or fixed_pay.get(m["name"])
+        if fix:
+            m.update(date=fix[0], amount=fix[1] or fix[2], partner_id=fix[3])
     payload = {"read_at": dt.datetime.now().isoformat(timespec="seconds"),
                "newp": newp, "updp": [], "new": new, "upd": upd, "del": deleted,
                "last_inv": last_inv, "exp": {str(k): v for k, v in exp.items()},
-               "payments": mirror}
+               "payments": mirror, "protected": protected}
 
     def dump(name, data):
         path = os.path.join(out, name)
@@ -165,7 +190,8 @@ def main():
     print(json.dumps({"carpeta": out, "lineas": len(lines), "pagos": len(payments),
                       "clientes": len(partners), "filas_nuevas": len(new),
                       "filas_cambiadas": len(upd), "filas_borradas": len(deleted),
-                      "clientes_nuevos": len(newp), "ultima_factura": bool(last_inv)}))
+                      "clientes_nuevos": len(newp), "ultima_factura": bool(last_inv),
+                      "correcciones_del_lab_respetadas": len(protected)}))
 
 
 if __name__ == "__main__":

@@ -16,7 +16,8 @@
 # Guards (ABORT, nothing written): a customer not found or not the expected
 # one, payments created != rows loaded, totals or balances that do not move
 # by exactly the loaded amounts.
-# Rolls back unless DO_COMMIT=1.
+# An optional «nota» in the row is appended to the memo (cross of the 2026
+# cash sheets, 31/10/2026). Rolls back unless DO_COMMIT=1.
 import json
 import os
 import re
@@ -83,7 +84,9 @@ def problem(item):
     for pay in lab:
         if near(day, pay.date, amount, pay.amount):
             return 'en el lab ya está %s del %s por %s (%s)' % (pay.name, pay.date, pay.amount, pay.journal_id.code)
-        if fact and pay.journal_id.type == 'cash' and fact in (pay.memo or ''):
+        # Opt-in per row: a confirmed second partial cash payment of the same invoice.
+        if fact and pay.journal_id.type == 'cash' and fact in (pay.memo or '') \
+                and not item.get('permitir_factura_repetida'):
             return 'en el lab %s (%s) ya cita la factura %s' % (pay.name, pay.journal_id.code, fact)
     for pay in online_by_partner.get(item['online_partner'], []):
         when = date.fromisoformat(pay['date'])
@@ -135,7 +138,8 @@ for item in items:
     payment = Payment.create({
         'payment_type': 'inbound', 'partner_type': 'customer', 'partner_id': partner.id,
         'amount': item['efectivo'], 'journal_id': journal.id, 'date': item['date'],
-        'memo': 'Efectivo · cobró %s · planilla %s · %s' % (item['repartidor'], item['date'].strftime('%d/%m'), doc),
+        'memo': 'Efectivo · cobró %s · planilla %s · %s%s' % (item['repartidor'], item['date'].strftime('%d/%m'), doc,
+                                                          ' · %s' % item['nota'] if item.get('nota') else ''),
         'payment_reference': item['clave'], 'company_id': env.company.id,
     })
     payment.action_post()

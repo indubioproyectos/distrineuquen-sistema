@@ -70,6 +70,7 @@ exp = {int(k): v for k, v in PAYLOAD['exp'].items()}
 diff = {k: (exp.get(k, 0.0), lab.get(k, 0.0)) for k in set(exp) | set(lab)
         if abs(exp.get(k, 0.0) - lab.get(k, 0.0)) > 0.005}
 result.update(created_rows=len(new_vals), updated_rows=len(PAYLOAD['upd']), deleted_rows=len(PAYLOAD['del']),
+              lab_fixes_kept=len(PAYLOAD.get('protected', [])),
               rows_without_partner=missing_partner, customers_compared=len(exp),
               balance_mismatches=len(diff), mismatch_ids=sorted(diff)[:20],
               receivable_total_online=round(sum(exp.values()), 2), receivable_total_lab=round(sum(lab.values()), 2))
