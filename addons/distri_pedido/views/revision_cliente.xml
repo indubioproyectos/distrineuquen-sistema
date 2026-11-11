@@ -38,7 +38,7 @@
         <button name="action_confirm_card" type="object" string="Confirmar" icon="fa-check"
                 class="btn-link"
                 invisible="origin != 'card' or card_state != 'draft' or not has_receipt or migration_duplicate"
-                groups="distri_pedido.grupo_administracion"
+                groups="distri_pedido.grupo_cobros,base.group_system"
                 confirm="Se registra el pago con la confirmación del tablero. ¿Seguir?"/>
         <button name="action_mark_reviewed" type="object" string="Marcar revisado"
                 icon="fa-eye" class="btn-link" invisible="review_state != 'pending'"
@@ -46,7 +46,7 @@
         <button name="action_unrecorded_sale" type="object" string="Venta sin registrar"
                 icon="fa-file-text-o" class="btn-link text-danger"
                 invisible="not red_flag or vsr_invoice_id"
-                groups="distri_pedido.grupo_administracion"
+                groups="distri_pedido.grupo_cobros,base.group_system"
                 />
         <button name="action_receipt_viewer" type="object" string="Comprobante"
                 icon="fa-picture-o" class="btn-link" invisible="not receipt_id"
@@ -79,7 +79,7 @@
                   title="Cuenta corriente en una pestaña nueva"/>
           <button name="action_balance_adjustment" type="object" string="Ajustar saldo"
                   icon="fa-balance-scale" class="btn-secondary"
-                  groups="distri_pedido.grupo_administracion"
+                  groups="distri_pedido.grupo_cobros,base.group_system"
                   title="Dejar el saldo del lab en el saldo real confirmado por la gerencia"/>
           <field name="state" widget="statusbar"/>
         </header>
@@ -165,7 +165,7 @@
         <field name="currency_id" column_invisible="1"/>
         <button name="action_balance_adjustment" type="object" string="Ajustar saldo"
                 icon="fa-balance-scale" class="btn-link"
-                groups="distri_pedido.grupo_administracion"/>
+                groups="distri_pedido.grupo_cobros,base.group_system"/>
       </list>
     </field>
   </record>
@@ -249,7 +249,7 @@
       <xpath expr="//header/field[@name='state']" position="before">
         <button name="action_unrecorded_sale" type="object" string="Venta sin registrar"
                 invisible="kind != 'income' or state not in ('draft', 'confirmed')"
-                groups="distri_pedido.grupo_administracion"/>
+                groups="distri_pedido.grupo_cobros,base.group_system"/>
       </xpath>
     </field>
   </record>
@@ -263,7 +263,7 @@
         <button t-if="kind == 'income' and (draft or record.state.raw_value == 'confirmed')"
                 name="action_unrecorded_sale" type="object"
                 class="btn btn-sm btn-link text-danger"
-                groups="distri_pedido.grupo_administracion">
+                groups="distri_pedido.grupo_cobros,base.group_system">
           Venta sin registrar
         </button>
       </xpath>

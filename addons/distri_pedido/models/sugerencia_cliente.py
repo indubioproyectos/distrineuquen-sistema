@@ -28,7 +28,7 @@ import unicodedata
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-from .cobros import RECEIPT_TEXT_WINDOW, SELLER_NOTE_WINDOW, SELLER_TEXT_WINDOW, _check_admin
+from .cobros import RECEIPT_TEXT_WINDOW, SELLER_NOTE_WINDOW, SELLER_TEXT_WINDOW, _check_cobros
 
 _logger = logging.getLogger(__name__)
 
@@ -284,7 +284,7 @@ class DistriMpCollectionSugerencia(models.Model):
         """«Usar este cliente»: the suggested customer, assigned by hand as
         «Elegir cliente» does (the payer's CUIT is not learned)."""
         self.ensure_one()
-        _check_admin(self.env)
+        _check_cobros(self.env)
         receipt = self.sudo().receipt_id
         partner = receipt.distri_suggested_partner_id
         if not partner:

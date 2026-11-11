@@ -71,10 +71,12 @@
               <field name="candidate_note" string="Nota"/>
               <button name="action_approve_candidate" type="object" string="Aprobar"
                       class="btn-primary" icon="fa-check"
-                      invisible="not receipt_id or state != 'draft'"/>
+                      invisible="not receipt_id or state != 'draft'"
+                      groups="distri_pedido.grupo_cobros,base.group_system"/>
               <button name="action_open_vouch" type="object" string="Aprobar sin comprobante"
                       class="btn-secondary" icon="fa-handshake-o"
-                      invisible="receipt_id or state != 'draft'"/>
+                      invisible="receipt_id or state != 'draft'"
+                      groups="distri_pedido.grupo_cobros,base.group_system"/>
             </list>
           </field>
         </div>

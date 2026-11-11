@@ -30,7 +30,7 @@ from markupsafe import Markup
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-from .cobros import AMOUNT_TOLERANCE, digits, format_cuit, operation_close
+from .cobros import AMOUNT_TOLERANCE, _check_cobros, digits, format_cuit, operation_close
 from .estado_cuenta import _money
 from .migracion import names_match
 from .reparto_cliente import AR_TZ, friendly_case
@@ -182,6 +182,8 @@ class DistriMpCollectionCard(models.Model):
 
     def write(self, vals):
         if any(name in vals for name in PAY_FIELDS):
+            # which invoice the payment goes to is part of authorizing it
+            _check_cobros(self.env)
             closed = self.filtered(lambda c: c.state not in CHOOSABLE_STATES)
             if closed:
                 raise UserError("La factura que paga se elige antes de confirmar: %s ya no está "
@@ -203,6 +205,7 @@ class DistriMpCollectionCard(models.Model):
     def action_choose_invoice(self):
         """«Elegir factura»: a dialog with the customer's invoices, newest first."""
         self.ensure_one()
+        _check_cobros(self.env)
         if self.state not in CHOOSABLE_STATES or self.kind == "receipt":
             raise UserError("Solo se elige la factura de un cobro pendiente con movimiento o "
                             "comprobante por verificar.")
@@ -221,6 +224,7 @@ class DistriMpCollectionCard(models.Model):
 
     def action_pay_on_account(self):
         """«A cuenta»: no invoice cited."""
+        _check_cobros(self.env)
         self.write({"pay_invoice_id": False, "pay_move_id": False})
         return {"type": "ir.actions.act_window_close"}
 

@@ -51,7 +51,7 @@ from odoo.exceptions import UserError
 
 from .cobros import (
     AMOUNT_TOLERANCE, RECEIPT_AFTER, RECEIPT_BEFORE, RECEIPT_CLOSED_STATES, RECEIPT_DATE_WINDOW,
-    RECEIPT_TEXT_WINDOW, RECEIPT_TIME_CLOSE, _check_admin, digits, local_when, operation_close,
+    RECEIPT_TEXT_WINDOW, RECEIPT_TIME_CLOSE, _check_admin, _check_cobros, digits, local_when, operation_close,
 )
 from .puesta_al_dia import PARAM_ONLINE_SYNC, _check_admin_or_raise
 from .reparto import _money
@@ -672,7 +672,7 @@ class DistriMpCollectionMigration(models.Model):
 
     def action_migration_approve(self):
         """«Aprobar» one card: the same preview and guards as the batch."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         return self.env["distri.migration.approve"]._open(self, mode="single")
 
     def _migration_problem(self, mode, sync, cutoff, duplicates=None):
@@ -873,7 +873,7 @@ class DistriMigrationSummary(models.TransientModel):
                            self._weak_online_domain(), group_by=False, view="list")
 
     def action_batch_approve(self):
-        _check_admin(self.env)
+        _check_cobros(self.env)
         cards = self.env["distri.mp.collection"].search(self._period_domain() + [
             ("migration_box", "=", "to_approve"), ("state", "=", "draft")],
             order="date desc, id desc", limit=BATCH_LIMIT)
@@ -938,7 +938,7 @@ class DistriMigrationApprove(models.TransientModel):
 
     @api.model
     def _open(self, cards, mode):
-        _check_admin(self.env)
+        _check_cobros(self.env)
         if mode == "batch" and len(cards) > BATCH_LIMIT:
             cards = cards[:BATCH_LIMIT]
         cards._migration_recompute()
@@ -971,7 +971,7 @@ class DistriMigrationApprove(models.TransientModel):
     def action_approve(self):
         """Checks every guard again, then the board's own confirmation, one
         card at a time, each with its evidence in the chatter."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         self.ensure_one()
         cards = self.line_ids.mapped("collection_id")
         _sync, rows = self._preview(cards, self.mode)

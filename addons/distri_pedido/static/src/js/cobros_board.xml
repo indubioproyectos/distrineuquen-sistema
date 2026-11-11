@@ -58,7 +58,7 @@
                 <i class="fa fa-check-circle" aria-hidden="true"/>
                 Ya cargados en Online (<t t-esc="state.data.online.count"/>)
             </button>
-            <button t-if="state.data.export and state.data.export.count" type="button"
+            <button t-if="state.data.can_authorize and state.data.export and state.data.export.count" type="button"
                     class="btn btn-link o_distri_counter o_distri_counter_export"
                     t-on-click="() => this.open('action_open_export')">
                 <i class="fa fa-upload" aria-hidden="true"/>

@@ -136,7 +136,7 @@
               <field name="suggested_partner_id"/> · <field name="suggestion_note"/>
               <button t-if="record.state.raw_value == 'draft'" name="action_use_suggestion"
                       type="object" class="btn btn-sm btn-primary ms-1"
-                      groups="distri_pedido.grupo_administracion">
+                      groups="distri_pedido.grupo_cobros,base.group_system">
                 Usar este cliente
               </button>
             </div>
@@ -166,7 +166,7 @@
               </button>
               <button t-if="box in ['to_approve', 'review'] and record.state.raw_value == 'draft'"
                       name="action_migration_approve" type="object" class="btn btn-sm btn-primary"
-                      groups="distri_pedido.grupo_administracion">
+                      groups="distri_pedido.grupo_cobros,base.group_system">
                 Confirmar
               </button>
             </div>
@@ -209,10 +209,10 @@
         <button name="action_tab_account" type="object" string="Cuenta" icon="fa-external-link"
                 class="btn-link" invisible="not partner_id"/>
         <button name="action_migration_approve" type="object" string="Confirmar" icon="fa-check"
-                class="btn-link" groups="distri_pedido.grupo_administracion"
+                class="btn-link" groups="distri_pedido.grupo_cobros,base.group_system"
                 invisible="state != 'draft' or migration_box not in ('to_approve', 'review')"/>
         <button name="action_online_unlink" type="object" string="No está en Online"
-                icon="fa-chain-broken" class="btn-link" groups="distri_pedido.grupo_administracion"
+                icon="fa-chain-broken" class="btn-link" groups="distri_pedido.grupo_cobros,base.group_system"
                 invisible="not online_payment_id or export_batch_id"
                 confirm="El cobro vuelve al tablero y no se vuelve a vincular por importe y fecha. ¿Seguir?"/>
         <field name="online_payment_id" column_invisible="1"/>
@@ -284,7 +284,7 @@
           <button name="action_open_board" type="object" string="Abrir el tablero"
                   class="btn-primary"/>
           <button name="action_batch_approve" type="object" string="Confirmar lote"
-                  groups="distri_pedido.grupo_administracion" invisible="sync_stale"/>
+                  groups="distri_pedido.grupo_cobros,base.group_system" invisible="sync_stale"/>
           <button name="action_refresh_all" type="object" string="Recalcular todo"
                   groups="distri_pedido.grupo_administracion"/>
         </header>
@@ -410,7 +410,8 @@
         <footer>
           <button name="action_approve" type="object" string="Confirmar" class="btn-primary"
                   invisible="not ok_count"
-                  confirm="Se registran los pagos de las tarjetas sin problemas. ¿Seguir?"/>
+                  confirm="Se registran los pagos de las tarjetas sin problemas. ¿Seguir?"
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button special="cancel" string="Cancelar" class="btn-secondary"/>
         </footer>
       </form>

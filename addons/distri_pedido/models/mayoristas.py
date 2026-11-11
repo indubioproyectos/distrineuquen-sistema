@@ -28,7 +28,7 @@ from datetime import timedelta
 from odoo import api, fields, models, tools
 from odoo.exceptions import UserError
 
-from .cobros import ADMIN_GROUP, _check_admin, digits
+from .cobros import ADMIN_GROUP, _check_admin, _check_cobros, digits
 from .reparto import _money
 
 APARTADO = "apartado"
@@ -107,8 +107,10 @@ class DistriMpWholesaleRule(models.Model):
             rule.payment_count, rule.payment_total = groups[0][0], groups[0][1] or 0.0
 
     def action_refresh_conflict(self):
-        """«Revisar»: the customer of the CUIT may have changed."""
-        self._compute_conflict()
+        """«Revisar»: the customer of the CUIT may have changed. Only reads
+        the customers again: whoever sees the rules may refresh it."""
+        self.check_access("read")
+        self.sudo()._compute_conflict()
         return True
 
     def _distri_apply(self):
@@ -125,7 +127,7 @@ class DistriMpWholesaleRule(models.Model):
     def action_undo(self):
         """«Deshacer la regla»: archived, and its payments still set aside
         (no payment exists for them) go back to the board."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         Collection = self.env["distri.mp.collection"].sudo()
         back = Collection.browse()
         for rule in self:
@@ -203,7 +205,7 @@ class DistriMpCollectionWholesale(models.Model):
 
     def action_mark_wholesale(self):
         """«Es de mayorista»: the wizard (one or several payments)."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         todo = self.filtered(lambda c: c.kind == "income" and c.state == "draft")
         if not todo:
             raise UserError("Solo se apartan ingresos pendientes del reporte de Mercado Pago.")
@@ -218,7 +220,7 @@ class DistriMpCollectionWholesale(models.Model):
 
     def action_unmark_wholesale(self):
         """«Volver al tablero»."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         back = self._distri_bring_back("marcado a mano")
         if not back:
             raise UserError("Ninguno de los elegidos está apartado.")
@@ -405,7 +407,7 @@ class DistriMpWholesaleMark(models.TransientModel):
                 else False
 
     def action_apply(self):
-        _check_admin(self.env)
+        _check_cobros(self.env)
         self.ensure_one()
         Rule = self.env["distri.mp.wholesale.rule"].sudo()
         cards = self.collection_ids.filtered(lambda c: c.kind == "income" and c.state == "draft")

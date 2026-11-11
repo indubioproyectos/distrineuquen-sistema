@@ -47,3 +47,4 @@ from . import sugerencia_cliente
 from . import visor_chat
 from . import deudores
 from . import tarjeta_confirmacion
+from . import permisos_cobros

@@ -54,5 +54,26 @@
       <field name="comment">Ve todo, carga compras y lleva el stock.</field>
     </record>
 
+    <!-- 19.0.1.73.0: who authorizes money. Implied by no other group on
+         purpose: Administración and Gerencia keep seeing everything, and
+         giving the permission back is adding the user here. A privilege of
+         its own (same category): in the user form each privilege is one
+         drop-down, so inside «Distri Neuquén» choosing it would take
+         Administración or Gerencia away. -->
+    <record id="privilegio_cobros" model="res.groups.privilege">
+      <field name="name">Cobros</field>
+      <field name="category_id" ref="categoria_distri"/>
+      <field name="sequence">20</field>
+      <field name="description">Quién autoriza la plata. Se suma al rol de Distri Neuquén, no lo reemplaza.</field>
+    </record>
+
+    <record id="grupo_cobros" model="res.groups">
+      <field name="name">Cobros: autorizar pagos</field>
+      <field name="privilege_id" ref="privilegio_cobros"/>
+      <field name="sequence">10</field>
+      <field name="comment">Confirma, descarta y deshace las tarjetas de Mercado Pago, aprueba sin comprobante, elige el cliente de un cobro, registra pagos de clientes, cierra el día, ajusta saldos y aprueba la puesta al día.</field>
+      <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
+    </record>
+
   </data>
 </odoo>

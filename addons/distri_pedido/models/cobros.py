@@ -51,7 +51,7 @@ import shutil
 from datetime import datetime, timedelta, timezone
 
 from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 from odoo.modules import module as odoo_module
 from odoo.tools.pdf import PdfReader
 
@@ -65,6 +65,12 @@ from .reparto_cliente import AR_TZ, friendly_case, today_ar
 _logger = logging.getLogger(__name__)
 
 ADMIN_GROUP = "distri_pedido.grupo_administracion"
+# 19.0.1.73.0: who authorizes money (confirms, vouches, discards, undoes, picks
+# the customer of a card, closes the day, adjusts balances). A group of its
+# own, implied by no other: giving it back is adding a user to it.
+COBROS_GROUP = "distri_pedido.grupo_cobros"
+COBROS_DENIED = ("Solo quien autoriza cobros (grupo «Cobros: autorizar pagos») confirma, "
+                 "descarta o registra pagos.")
 WITHOUT_RECEIPT_LABEL = "Confirmado sin comprobante"
 # 19.0.1.45.0: a card attached to a customer that waits for its WhatsApp
 # receipt; it is never confirmed (never lowers the balance) until it arrives
@@ -261,6 +267,19 @@ def _ar_time(moment):
 def _check_admin(env):
     if not (env.su or env.user.has_group(ADMIN_GROUP)):
         raise UserError("Solo administración y gerencia confirman cobros.")
+
+
+def can_authorize_money(env):
+    """The user may authorize money: superuser context (scripts, crons, the
+    sudo of a flow already gated), grupo_cobros or Settings (base.group_system)."""
+    return bool(env.su or env.user.has_group(COBROS_GROUP)
+                or env.user.has_group("base.group_system"))
+
+
+def _check_cobros(env):
+    """Gate of every action that moves money (see COBROS_GROUP)."""
+    if not can_authorize_money(env):
+        raise AccessError(COBROS_DENIED)
 
 
 def digits(value):
@@ -1973,7 +1992,7 @@ class DistriMpCollection(models.Model):
     def _confirm_todo(self):
         """The pending incomes of `self` that can be confirmed; raises when
         one cannot."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         todo = self.filtered(lambda c: c.state == "draft" and c.kind == "income")
         if not todo:
             raise UserError("No hay cobros pendientes para confirmar.")
@@ -2015,7 +2034,7 @@ class DistriMpCollection(models.Model):
         in the Mercado Pago report and someone (the manager) vouches that it is
         this customer's. Asks who, then confirms."""
         self.ensure_one()
-        _check_admin(self.env)
+        _check_cobros(self.env)
         return self.env["distri.mp.vouch"]._open(self)
 
     def action_confirm_board(self):
@@ -2127,7 +2146,7 @@ class DistriMpCollection(models.Model):
         (`_tie_authorized`); one that covers the moment without it sends the
         card to «Sin transferencia», with an alert
         (`DistriMpReport._flag_hand_verified_missing`)."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         for rec in self:
             if rec.kind != "verify" or rec.state != "draft":
                 raise UserError("%s no es un comprobante pendiente de verificar." % rec.name)
@@ -2205,7 +2224,7 @@ class DistriMpCollection(models.Model):
     def _ready_to_confirm(self):
         """(ready, skipped) of «Confirmar todos»: the draft cards of
         «Confirmado contra reporte MP», the ones with a problem apart."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         ready = self.search([("state", "=", "draft"), ("column", "=", "confirm"),
                              ("kind", "=", "income"), ("partner_id", "!=", False),
                              "|", ("receipt_candidate", "=", False), ("receipt_id", "!=", False)])
@@ -2265,7 +2284,7 @@ class DistriMpCollection(models.Model):
     def action_undo(self):
         """Wrong customer: cancels the payment and sends the card back. A
         delivery authorized by hand goes back to «Esperando reporte MP»."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         for rec in self.sudo():
             if rec.state == "authorized":
                 rec._undo_authorization()
@@ -2344,7 +2363,7 @@ class DistriMpCollection(models.Model):
     def action_assign(self):
         """«Elegir cliente»."""
         self.ensure_one()
-        _check_admin(self.env)
+        _check_cobros(self.env)
         return {
             "type": "ir.actions.act_window",
             "name": "Elegir cliente",
@@ -2358,7 +2377,7 @@ class DistriMpCollection(models.Model):
     def action_ignore(self):
         """«Descartar»: not a customer payment, or a receipt without money."""
         self.ensure_one()
-        _check_admin(self.env)
+        _check_cobros(self.env)
         return {
             "type": "ir.actions.act_window",
             "name": "Descartar",
@@ -2437,7 +2456,7 @@ class DistriMpAssign(models.TransientModel):
 
     def _apply(self):
         self.ensure_one()
-        _check_admin(self.env)
+        _check_cobros(self.env)
         rec = self.collection_id.sudo()
         if rec.state != "draft":
             raise UserError("El cobro ya no está pendiente.")
@@ -2610,7 +2629,7 @@ class DistriMpVouch(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
-        _check_admin(self.env)
+        _check_cobros(self.env)
         card = self.collection_id
         if not (card.receipt_candidate and not card.receipt_id and card.state == "draft"):
             raise UserError("%s ya no es un pago a confirmar sin comprobante." % card.name)
@@ -2634,7 +2653,7 @@ class DistriMpIgnore(models.TransientModel):
 
     def action_ignore(self):
         self.ensure_one()
-        _check_admin(self.env)
+        _check_cobros(self.env)
         rec = self.collection_id.sudo()
         if rec.state != "draft":
             raise UserError("El cobro ya no está pendiente.")
@@ -2783,7 +2802,7 @@ class DistriMpDay(models.Model):
 
     def action_close(self):
         """Closes the day. A difference needs an explanation and alerts management."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         for day in self:
             if day.state != "open":
                 raise UserError("El día ya se cerró.")
@@ -2819,7 +2838,7 @@ class DistriMpDay(models.Model):
         return True
 
     def action_reopen(self):
-        _check_admin(self.env)
+        _check_cobros(self.env)
         self.write({"state": "open", "closed_by_id": False, "closed_at": False})
 
     def _alert(self):

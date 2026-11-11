@@ -51,7 +51,7 @@ from markupsafe import Markup
 from odoo import Command, api, fields, models
 from odoo.exceptions import UserError
 
-from .cobros import AMOUNT_TOLERANCE
+from .cobros import AMOUNT_TOLERANCE, _check_cobros
 from .puesta_al_dia import _check_admin_or_raise
 from .reparto import _money
 
@@ -594,7 +594,7 @@ class DistriBalanceReviewLine(models.Model):
         passes the guards of the migration board (receipt, customer, not
         duplicated, not in Online, Online synced in the last 24 h)."""
         from .migracion import cutoff_moment, online_sync_state
-        _check_admin_or_raise(self.env)
+        _check_cobros(self.env)
         cards = self.mapped("collection_id").filtered(lambda c: c.state == "draft")
         if not cards:
             raise UserError("No hay tarjetas pendientes para confirmar.")
@@ -639,7 +639,7 @@ class DistriBalanceReviewLine(models.Model):
     def action_unrecorded_sale(self):
         """«Venta sin registrar» from the review: only on a line that leaves
         the customer in credit (the wizard checks it again)."""
-        _check_admin_or_raise(self.env)
+        _check_cobros(self.env)
         self.ensure_one()
         line = self.sudo()
         line.review_id._distri_refresh_self()
@@ -733,7 +733,7 @@ class DistriMpCollectionVsr(models.Model):
         }
 
     def action_unrecorded_sale(self):
-        _check_admin_or_raise(self.env)
+        _check_cobros(self.env)
         self.ensure_one()
         card = self.sudo()
         if card.kind != "income" or card.state not in ("draft", "confirmed"):
@@ -776,7 +776,7 @@ class DistriUnrecordedSaleWizard(models.TransientModel):
             wiz.card_without_receipt = wiz.card_pending and not wiz.collection_id.receipt_id
 
     def action_apply(self):
-        _check_admin_or_raise(self.env)
+        _check_cobros(self.env)
         self.ensure_one()
         # the wizard opens with default_* keys (payment_id, amount, ...): they
         # must not reach the payment, the invoice or its lines

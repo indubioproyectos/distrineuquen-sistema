@@ -34,3 +34,4 @@ from . import test_ajuste_cuenta
 from . import test_visor_chat
 from . import test_deudores
 from . import test_tarjeta_confirmacion
+from . import test_permisos_cobros

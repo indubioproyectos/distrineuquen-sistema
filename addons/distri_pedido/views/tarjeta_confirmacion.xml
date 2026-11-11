@@ -84,7 +84,7 @@
                   <button name="action_choose_invoice" type="object" string="Elegir factura"
                           class="btn btn-sm btn-primary"
                           invisible="not partner_id or kind == 'receipt' or state not in ('draft', 'authorized')"
-                          groups="distri_pedido.grupo_administracion"/>
+                          groups="distri_pedido.grupo_cobros,base.group_system"/>
                   <button name="action_card_statement" type="object" string="Estado de cuenta"
                           class="btn btn-sm btn-secondary"
                           invisible="not partner_id and not suggested_partner_id"/>
@@ -172,7 +172,8 @@
         <footer>
           <button special="save" string="Guardar" class="btn-primary"/>
           <button name="action_pay_on_account" type="object" string="A cuenta"
-                  class="btn-secondary"/>
+                  class="btn-secondary"
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button special="cancel" string="Cancelar" class="btn-secondary"/>
         </footer>
       </form>

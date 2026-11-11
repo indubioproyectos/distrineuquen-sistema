@@ -33,7 +33,7 @@
       <xpath expr="//header" position="inside">
         <button name="action_online_unlink" type="object" string="No está en Online"
                 invisible="not online_payment_id or export_batch_id"
-                groups="distri_pedido.grupo_administracion"
+                groups="distri_pedido.grupo_cobros,base.group_system"
                 confirm="El pago de Online del mismo importe es otro cobro: este vuelve al tablero y no se vincula de nuevo por importe. ¿Seguir?"/>
       </xpath>
       <xpath expr="//header" position="after">
@@ -67,7 +67,8 @@
         <field name="export_batch_id" column_invisible="1"/>
         <button name="action_online_unlink" type="object" string="No está en Online"
                 invisible="not online_payment_id or export_batch_id"
-                confirm="El pago de Online del mismo importe es otro cobro: este vuelve al tablero. ¿Seguir?"/>
+                confirm="El pago de Online del mismo importe es otro cobro: este vuelve al tablero. ¿Seguir?"
+                groups="distri_pedido.grupo_cobros,base.group_system"/>
       </list>
     </field>
   </record>
@@ -114,7 +115,8 @@
           <field name="allow_pending" invisible="not pending_count"/>
         </group>
         <footer>
-          <button name="action_export" type="object" string="Exportar" class="btn-primary"/>
+          <button name="action_export" type="object" string="Exportar" class="btn-primary"
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button special="cancel" string="Cerrar" class="btn-secondary"/>
         </footer>
       </form>
@@ -355,7 +357,7 @@
   <menuitem id="menu_puesta_online" name="Ya cargados en Online" parent="menu_cobros_puesta"
             action="action_mp_online_already" sequence="30"/>
   <menuitem id="menu_puesta_export" name="Exportar para Odoo Online" parent="menu_cobros_puesta"
-            action="action_online_export_wizard" sequence="40"/>
+            action="action_online_export_wizard" sequence="40" groups="distri_pedido.grupo_cobros,base.group_system"/>
   <menuitem id="menu_puesta_batches" name="Lotes exportados" parent="menu_cobros_puesta"
             action="action_online_export" sequence="45"/>
   <menuitem id="menu_puesta_balances" name="Saldos lab vs Online" parent="menu_cobros_puesta"

@@ -24,6 +24,7 @@ from markupsafe import Markup
 from odoo import Command, api, fields, models
 from odoo.exceptions import UserError
 
+from .cobros import _check_cobros
 from .puesta_al_dia import _check_admin_or_raise
 from .reparto import _money
 
@@ -101,7 +102,7 @@ class ResPartnerAjusteCuenta(models.Model):
 
     def action_distri_balance_adjustment(self):
         """«Ajustar saldo»: the wizard for the commercial partner."""
-        _check_admin_or_raise(self.env)
+        _check_cobros(self.env)
         self.ensure_one()
         partner = self.commercial_partner_id
         if partner.distri_generic_partner:
@@ -154,11 +155,11 @@ class DistriBalanceAdjustmentWizard(models.TransientModel):
 
     @api.model_create_multi
     def create(self, vals_list):
-        _check_admin_or_raise(self.env)
+        _check_cobros(self.env)
         return super().create(vals_list)
 
     def action_apply(self):
-        _check_admin_or_raise(self.env)
+        _check_cobros(self.env)
         self.ensure_one()
         # default_partner_id must not reach the move or the adjustment
         self = self.with_context(

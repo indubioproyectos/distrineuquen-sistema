@@ -45,7 +45,7 @@ from datetime import datetime, timedelta, timezone
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
 
-from .cobros import AMOUNT_TOLERANCE, RECEIPT_TIME_CLOSE, _check_admin, digits, local_day
+from .cobros import AMOUNT_TOLERANCE, RECEIPT_TIME_CLOSE, _check_admin, _check_cobros, digits, local_day
 from .reparto import _money
 from .reparto_cliente import AR_TZ
 
@@ -326,7 +326,7 @@ class DistriMpCollectionOnline(models.Model):
     def action_online_unlink(self):
         """«No está en Online»: the Online payment of the same amount was
         another one. Back to the board, never linked by amount again."""
-        _check_admin(self.env)
+        _check_cobros(self.env)
         for card in self.filtered("online_payment_id"):
             if card.export_batch_id:
                 raise UserError("%s se exportó desde el lab: el vínculo es por memo." % card.name)
@@ -648,7 +648,7 @@ class DistriOnlineExportWizard(models.TransientModel):
 
     def action_export(self):
         self.ensure_one()
-        _check_admin_or_raise(self.env)
+        _check_cobros(self.env)
         if self.pending_count and not self.allow_pending:
             raise UserError("Quedan %s pendientes de revisar en el tablero. Resolvelos o tildá "
                             "«Exportar aunque haya pendientes»." % self.pending_count)

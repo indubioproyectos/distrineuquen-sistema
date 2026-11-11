@@ -448,7 +448,10 @@ class DistriRoute(models.Model):
             raise UserError("Elegí el diario donde entra el efectivo.")
         partner = stop.partner_id.commercial_partner_id
         label = "Depósito" if self.kind == "depot" else "Reparto"
-        payment = self.env["account.payment"].create({
+        # sudo: the cash the driver (or the depot) handed in is registered by
+        # the settlement itself, whoever closes it; customer payments are
+        # otherwise reserved to grupo_cobros (models/permisos_cobros.py)
+        payment = self.env["account.payment"].sudo().create({
             "payment_type": "inbound",
             "partner_type": "customer",
             "partner_id": partner.id,

@@ -18,15 +18,16 @@
           <!-- 19.0.1.42.0: a preview first, with how many have no WhatsApp
                receipt (models/cobros.py, distri.mp.confirm.notice) -->
           <button name="action_confirm_ready_notice" type="object" display="always"
-                  string="Confirmar todos" class="btn-primary"/>
+                  string="Confirmar todos" class="btn-primary"
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_confirm_board" type="object" string="Confirmar los elegidos"
-                  class="btn-primary"/>
+                  class="btn-primary" groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_mark_wholesale" type="object" string="Es de mayorista"
-                  groups="distri_pedido.grupo_administracion"/>
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_import_report" type="object" display="always"
                   string="Importar reporte"/>
           <button name="action_open_export" type="object" display="always"
-                  string="Exportar para Odoo Online" groups="distri_pedido.grupo_administracion"/>
+                  string="Exportar para Odoo Online" groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_check_alerts" type="object" display="always"
                   string="Revisar alertas" groups="distri_pedido.grupo_administracion"/>
         </header>
@@ -34,6 +35,7 @@
         <field name="column"/>
         <field name="kind"/>
         <field name="state"/>
+        <field name="can_authorize"/>
         <field name="partner_id"/>
         <field name="receipt_id"/>
         <field name="receipt_is_image"/>
@@ -169,8 +171,8 @@
               <i class="fa fa-lightbulb-o" title="Cliente sugerido"/>
               <b>Cliente sugerido:</b> <field name="suggested_partner_id"/> ·
               <field name="suggestion_note"/>
-              <button t-if="draft" name="action_use_suggestion" type="object"
-                      class="btn btn-sm btn-primary ms-1" groups="distri_pedido.grupo_administracion">
+              <button t-if="draft and record.can_authorize.raw_value" name="action_use_suggestion"
+                      type="object" class="btn btn-sm btn-primary ms-1">
                 Usar este cliente
               </button>
             </div>
@@ -235,20 +237,20 @@
             </div>
             <!-- primary action of the column, full width -->
             <div class="o_distri_primary">
-              <button t-if="col == 'verify' and kind == 'verify' and draft"
+              <button t-if="col == 'verify' and kind == 'verify' and draft and record.can_authorize.raw_value"
                       name="action_verify" type="object" class="btn btn-primary"
-                      groups="distri_pedido.grupo_administracion"
                       confirm="¿Viste esta transferencia en la app de Mercado Pago, con el mismo importe y número de operación? Se autoriza entregar la mercadería. No se registra ningún pago: se registra cuando el reporte traiga la transferencia.">
                 <i class="fa fa-truck" aria-hidden="true"/> Visto en MP: autorizar entrega
               </button>
-              <button t-elif="col == 'confirm' and kind == 'income' and record.partner_id.raw_value and draft"
+              <button t-elif="col == 'confirm' and kind == 'income' and record.partner_id.raw_value and draft and record.can_authorize.raw_value"
                       name="action_confirm_board" type="object" class="btn btn-primary">
                 <i class="fa fa-check" aria-hidden="true"/> Confirmar
               </button>
               <a t-elif="col == 'review'" type="open" role="button" class="btn btn-primary">
                 <i class="fa fa-eye" aria-hidden="true"/> Revisar
               </a>
-              <button t-elif="col == 'unidentified' and draft" name="action_assign" type="object"
+              <button t-elif="col == 'unidentified' and draft and record.can_authorize.raw_value"
+                      name="action_assign" type="object"
                       class="btn btn-primary">
                 <i class="fa fa-user-plus" aria-hidden="true"/> Asignar cliente
               </button>
@@ -259,7 +261,7 @@
             </div>
             <!-- the other actions, compact -->
             <div class="o_distri_secondary">
-              <button t-if="col != 'confirm' and kind == 'income' and record.partner_id.raw_value and draft and !(record.receipt_candidate.raw_value and !record.receipt_id.raw_value)"
+              <button t-if="col != 'confirm' and kind == 'income' and record.partner_id.raw_value and draft and !(record.receipt_candidate.raw_value and !record.receipt_id.raw_value) and record.can_authorize.raw_value"
                       name="action_confirm_board" type="object" class="btn btn-sm btn-light">
                 Confirmar
               </button>
@@ -272,25 +274,24 @@
                       name="action_view_receipt" type="object" class="btn btn-sm btn-light">
                 <i class="fa fa-picture-o" title="Foto"/> Ver foto
               </button>
-              <button t-if="draft and col != 'unidentified'" name="action_assign" type="object"
+              <button t-if="draft and col != 'unidentified' and record.can_authorize.raw_value"
+                      name="action_assign" type="object"
                       class="btn btn-sm btn-light">
                 <t t-if="record.partner_id.raw_value">Corregir cliente</t>
                 <t t-else="">Elegir cliente</t>
               </button>
-              <button t-if="draft" name="action_ignore" type="object"
+              <button t-if="draft and record.can_authorize.raw_value" name="action_ignore" type="object"
                       class="btn btn-sm btn-link text-muted">
                 <t t-if="kind == 'receipt'">Investigar</t>
                 <t t-else="">Descartar</t>
               </button>
-              <button t-if="record.report_review.raw_value and !authorized" name="action_undo"
-                      type="object" class="btn btn-sm btn-link text-danger"
-                      groups="distri_pedido.grupo_administracion"
+              <button t-if="record.report_review.raw_value and !authorized and record.can_authorize.raw_value"
+                      name="action_undo" type="object" class="btn btn-sm btn-link text-danger"
                       confirm="Se anula el pago registrado y el comprobante vuelve a «Esperando reporte MP». ¿Seguir?">
                 Deshacer
               </button>
-              <button t-if="authorized" name="action_undo" type="object"
-                      class="btn btn-sm btn-link text-danger"
-                      groups="distri_pedido.grupo_administracion"
+              <button t-if="authorized and record.can_authorize.raw_value" name="action_undo"
+                      type="object" class="btn btn-sm btn-link text-danger"
                       confirm="Se quita la autorización de entrega y el comprobante vuelve a «Esperando reporte MP». ¿Seguir?">
                 Deshacer autorización
               </button>
@@ -309,11 +310,12 @@
             decoration-muted="state == 'ignored'" decoration-success="state == 'confirmed'"
             decoration-info="state == 'authorized'">
         <header>
-          <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"/>
+          <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_mark_wholesale" type="object" string="Es de mayorista"
-                  groups="distri_pedido.grupo_administracion"/>
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_unmark_wholesale" type="object" string="Volver al tablero"
-                  groups="distri_pedido.grupo_administracion"/>
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
         </header>
         <field name="date"/>
         <field name="source_id"/>
@@ -347,10 +349,11 @@
       <form string="Cobro de Mercado Pago" create="0" edit="0" delete="0">
         <header>
           <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"
-                  invisible="state != 'draft' or kind != 'income' or not partner_id or (receipt_candidate and not receipt_id)"/>
+                  invisible="state != 'draft' or kind != 'income' or not partner_id or (receipt_candidate and not receipt_id)"
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_verify" type="object" string="Visto en MP: autorizar entrega"
                   class="btn-primary" invisible="state != 'draft' or kind != 'verify'"
-                  groups="distri_pedido.grupo_administracion"
+                  groups="distri_pedido.grupo_cobros,base.group_system"
                   confirm="¿Viste esta transferencia en la app de Mercado Pago, con el mismo importe y número de operación? Se autoriza entregar la mercadería. No se registra ningún pago: se registra cuando el reporte traiga la transferencia."/>
           <button name="action_clear_review" type="object" string="Revisado"
                   invisible="not report_review or state == 'authorized'"
@@ -358,23 +361,23 @@
           <button name="action_use_suggestion" type="object" string="Usar este cliente"
                   class="btn-primary"
                   invisible="state != 'draft' or partner_id or not suggested_partner_id"
-                  groups="distri_pedido.grupo_administracion"/>
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_assign" type="object" string="Elegir cliente"
-                  invisible="state != 'draft'"/>
+                  invisible="state != 'draft'" groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_view_receipt" type="object" string="Ver foto"
                   invisible="not receipt_id"/>
           <button name="action_ignore" type="object" string="Descartar"
-                  invisible="state != 'draft'"/>
+                  invisible="state != 'draft'" groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_mark_wholesale" type="object" string="Es de mayorista"
                   invisible="state != 'draft' or kind != 'income'"
-                  groups="distri_pedido.grupo_administracion"/>
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_unmark_wholesale" type="object" string="Volver al tablero"
-                  invisible="state != 'apartado'" groups="distri_pedido.grupo_administracion"/>
+                  invisible="state != 'apartado'" groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_undo" type="object" string="Deshacer"
-                  invisible="state in ('draft', 'authorized', 'apartado')"
+                  invisible="state in ('draft', 'authorized', 'apartado')" groups="distri_pedido.grupo_cobros,base.group_system"
                   confirm="Se anula el pago registrado y el cobro vuelve al tablero. ¿Seguir?"/>
           <button name="action_undo" type="object" string="Deshacer autorización"
-                  invisible="state != 'authorized'" groups="distri_pedido.grupo_administracion"
+                  invisible="state != 'authorized'" groups="distri_pedido.grupo_cobros,base.group_system"
                   confirm="Se quita la autorización de entrega y el comprobante vuelve a «Esperando reporte MP». ¿Seguir?"/>
           <field name="state" widget="statusbar"/>
         </header>
@@ -823,9 +826,9 @@
       <form string="Cierre diario" create="0" delete="0">
         <header>
           <button name="action_close" type="object" string="Cerrar el día" class="btn-primary"
-                  invisible="state != 'open'"/>
+                  invisible="state != 'open'" groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_reopen" type="object" string="Reabrir"
-                  invisible="state == 'open'"/>
+                  invisible="state == 'open'" groups="distri_pedido.grupo_cobros,base.group_system"/>
           <field name="state" widget="statusbar"/>
         </header>
         <sheet>
@@ -1185,7 +1188,7 @@
         <field name="currency_id" column_invisible="1"/>
         <button name="action_view_payments" type="object" string="Ver pagos" icon="fa-list"/>
         <button name="action_mark_wholesale" type="object" string="Es de mayorista"
-                icon="fa-archive"/>
+                icon="fa-archive" groups="distri_pedido.grupo_cobros,base.group_system"/>
       </list>
     </field>
   </record>
@@ -1245,6 +1248,7 @@
         <field name="currency_id" column_invisible="1"/>
         <button name="action_refresh_conflict" type="object" string="Revisar" icon="fa-refresh"/>
         <button name="action_undo" type="object" string="Deshacer la regla" icon="fa-undo"
+                groups="distri_pedido.grupo_cobros,base.group_system"
                 confirm="La regla se archiva y sus pagos apartados vuelven al tablero. ¿Seguir?"/>
       </list>
     </field>
@@ -1292,7 +1296,7 @@
             action="action_promise" sequence="30"/>
   <menuitem id="menu_cobros_day" name="Cierre diario" parent="menu_cobros_root"
             action="action_mp_day" sequence="40"
-            groups="distri_pedido.grupo_administracion,base.group_system"/>
+            groups="distri_pedido.grupo_cobros,base.group_system"/>
   <menuitem id="menu_cobros_reports" name="Reportes de Mercado Pago" parent="menu_cobros_root"
             action="action_mp_report" sequence="50"
             groups="distri_pedido.grupo_administracion,base.group_system"/>

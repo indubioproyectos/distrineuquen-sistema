@@ -156,7 +156,7 @@
 
   <menuitem id="menu_cobros_balance_adjustment" name="Ajustes de cuenta"
             parent="menu_cobros_root" action="action_balance_adjustment" sequence="17"
-            groups="distri_pedido.grupo_administracion,base.group_system"/>
+            groups="distri_pedido.grupo_cobros,base.group_system"/>
 
   <!-- the customer form: «Ajustar saldo» next to «Estado de cuenta» -->
   <record id="view_partner_form_ajuste_cuenta" model="ir.ui.view">
@@ -168,7 +168,7 @@
         <button class="oe_stat_button" type="object" name="action_distri_balance_adjustment"
                 icon="fa-balance-scale" string="Ajustar saldo"
                 invisible="not id or distri_generic_partner"
-                groups="distri_pedido.grupo_administracion"/>
+                groups="distri_pedido.grupo_cobros,base.group_system"/>
       </button>
     </field>
   </record>
