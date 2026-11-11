@@ -327,7 +327,7 @@ class TestCuentasApp(HttpCase):
         self.assertNotIn("card", detail)
         self.assertIn("Efectivo", detail["cash"]["memo"])
         self.assertIn("planilla 09/11", detail["cash"]["memo"])
-        self.assertIsNone(detail["cash"]["sheet"], "the cash sheet link is the next stage")
+        self.assertIsNone(detail["cash"]["sheet"], "a cash payment on no sheet row has no sheet")
         online = app.app_line(self.pa.id, "online:99100")
         self.assertEqual(online["online"]["origen_id"], 99100)
         self.assertEqual(online["online"]["comprobante"], "0001/2025/99100")
@@ -417,7 +417,7 @@ class TestCuentasApp(HttpCase):
         public = {name for name in dir(type(self.env["distri.account.app"]))
                   if name.startswith("app_")}
         self.assertEqual(public, {"app_debtors", "app_account", "app_line", "app_receipt",
-                                  "app_add_comment", "app_delete_comment"})
+                                  "app_sheet_file", "app_add_comment", "app_delete_comment"})
 
         def money_state():
             return (self.env["account.payment"].search_count([]),

@@ -22,11 +22,12 @@
     search: "",
     showUncollectible: false,
     showSettled: false,
-    showOpts: false,    // the small «ajustes» panel of the list
+    showOpts: false,
+    showLoad: false,    // the «Última carga» note of the list    // the small «ajustes» panel of the list
     account: null,      // {id, period, data, rows}
     loadingMore: false,
     line: null,         // the open row detail
-    zoom: null,         // receipt url shown full screen
+    zoom: null,         // receipt or sheet photo url shown full screen
     draft: "",          // comment being written on the account
     lineDraft: "",
     busy: false,
@@ -201,8 +202,20 @@
     var y = window.scrollY;
     var keepScroll = render.lastId === (r.id || 0);
     render.lastId = r.id || 0;
+    var csRows = document.getElementById("cs-rows");
+    var csKeep = csRows && S.line && csRows.dataset.line === S.line.line_key ? csRows.scrollTop : null;
     app.innerHTML = r.id ? viewAccount() : viewDebtors();
     sheetRoot.innerHTML = (S.line ? viewLine() : "") + (S.zoom ? viewZoom() : "");
+    csRows = document.getElementById("cs-rows");
+    if (csRows) {
+      csRows.dataset.line = S.line.line_key;
+      var hit = document.getElementById("cs-hit");
+      if (csKeep != null) csRows.scrollTop = csKeep;
+      else if (hit) {
+        csRows.scrollTop = Math.max(0, hit.offsetTop - (csRows.clientHeight - hit.offsetHeight) / 2);
+        if (hit.scrollIntoView) hit.scrollIntoView({ block: "nearest" });
+      }
+    }
     document.body.style.overflow = S.line || S.zoom ? "hidden" : "";
     if (focus) {
       var el = document.getElementById(focus);
@@ -252,7 +265,15 @@
 
   function viewDebtors() {
     var D = S.debtors;
-    var head = '<div class="sticky"><div class="head compact"><div class="kicker">Cuentas de clientes</div>';
+    var load = D && D.last_load;
+    var head = '<div class="sticky"><div class="head compact"><div class="row"><div class="kicker">Cuentas de clientes</div>' +
+      (load ? '<button type="button" id="lastload" class="loadbtn' + (S.showLoad ? " on" : "") + '" aria-expanded="' +
+        (S.showLoad ? "true" : "false") + '">Última carga</button>' : "") + "</div>";
+    if (load && S.showLoad) {
+      head += '<div class="loadinfo">Comprobantes del chat cargados hasta el <b>' + h(load.receipts_until) + "</b>" +
+        (load.import_file ? '<span>Zip «' + h(load.import_file) + "», importado el " + h(load.imported_at) +
+          (load.imported_by ? " por " + h(load.imported_by) : "") + "</span>" : "") + "</div>";
+    }
     if (D) {
       head += '<div class="total num">' + money(D.total_debt) + "</div>" +
         '<div class="sub">' + plural(D.debtor_count, "cliente debe", "clientes deben") +
@@ -478,14 +499,7 @@
           '<a class="btn outline" href="' + h(img) + '" target="_blank" rel="noopener">Ver comprobante</a>') :
           '<div class="note">Sin comprobante adjunto.</div>') + "</div>");
       }
-      if (L.cash) {
-        // next stage: link the real cash sheet (models/cuentas_app.py _app_cash_sheet)
-        parts.push('<div class="block placeholder"><div class="label">Planilla de rendición</div>' +
-          '<div class="note">' + h(L.cash.memo) + "</div>" +
-          (L.cash.sheet ? '<a class="btn outline" href="' + h(L.cash.sheet.url) + '">' + h(L.cash.sheet.name) + "</a>" :
-            '<div class="small muted">Pago en efectivo. El vínculo con la planilla llega en la próxima etapa.</div>') +
-          "</div>");
-      }
+      if (L.cash) parts.push(cashView(L.cash));
       if (L.online) {
         parts.push('<div class="block"><div class="label">Historia de Odoo Online</div>' + kv([
           ["Comprobante", h(L.online.comprobante)],
@@ -511,8 +525,47 @@
       '<div class="inner">' + body + "</div></div></div>";
   }
 
+  // the cash sheet of a cash payment (models/cuentas_app.py _app_cash_sheet):
+  // the rows the user may see, the paired one marked and scrolled into view
+  function cashView(cash) {
+    var sh = cash.sheet;
+    if (!sh) {
+      return '<div class="block placeholder"><div class="label">Planilla de rendición</div>' +
+        '<div class="note">' + h(cash.memo) + "</div>" +
+        '<div class="small muted">Pago en efectivo. Todavía no está vinculado a una fila de planilla.</div></div>';
+    }
+    var head = [h(sh.collector), day(sh.date), h(sh.origin_label)].filter(Boolean).join(" · ");
+    var rows = sh.rows.map(function (r) {
+      var cls = "cs-row" + (r.hit ? " hit" : "") + (r.kind !== "cliente" || r.after_total ? " other" : "");
+      var sub = [r.invoice, r.kind_label, r.after_total ? "debajo del total" : "",
+        r.method && r.method !== "efectivo" ? r.method.replace(/_/g, " ") : "", r.note].filter(Boolean);
+      return '<div class="' + cls + '"' + (r.hit ? ' id="cs-hit"' : "") + '>' +
+        '<div class="l"><span class="t">' + h(r.client || "(sin cliente)") + "</span>" +
+        (sub.length ? '<span class="c">' + h(sub.join(" · ")) + "</span>" : "") + "</div>" +
+        '<div class="r"><span class="m num">' + (r.paid ? money(r.paid) : "—") + "</span>" +
+        (r.invoiced ? '<span class="b num">Fact. ' + money(r.invoiced) + "</span>" : "") + "</div></div>";
+    }).join("");
+    if (!rows) rows = '<div class="empty">Sin filas para mostrar.</div>';
+    var hidden = sh.hidden_count ?
+      '<div class="cs-hidden">' + plural(sh.hidden_count, "fila de otros clientes", "filas de otros clientes") + "</div>" : "";
+    var files = sh.files.map(function (f) {
+      if (f.kind === "image") {
+        return '<button type="button" class="btn outline" data-zoom="' + h(f.url) + '">Ver foto</button>';
+      }
+      return '<a class="btn outline" href="' + h(f.url) + '" download>' +
+        (f.kind === "xlsx" ? "Descargar planilla (xlsx)" : "Descargar " + h(f.name)) + "</a>";
+    }).join("");
+    return '<div class="block"><div class="label">Planilla de rendición</div>' +
+      '<div class="cs"><div class="cs-head"><b>' + h(sh.name) + '</b><span>' + head + "</span></div>" +
+      '<div class="cs-rows" id="cs-rows" data-sheet="' + sh.id + '">' + rows + "</div>" + hidden +
+      '<div class="cs-total"><span>' + h(sh.total_label) + '</span><b class="num">' + money(sh.total) + "</b></div></div>" +
+      (files ? '<div class="cs-files">' + files + "</div>" : "") +
+      (sh.note ? '<div class="small muted">' + h(sh.note) + "</div>" : "") +
+      '<div class="small muted">' + h(cash.memo) + "</div></div>";
+  }
+
   function viewZoom() {
-    return '<div class="zoom" id="zoom"><img src="' + h(S.zoom) + '" alt="Comprobante" data-zoomtoggle="1"/>' +
+    return '<div class="zoom" id="zoom"><img src="' + h(S.zoom) + '" alt="Imagen ampliada" data-zoomtoggle="1"/>' +
       '<button type="button" class="close" data-unzoom="1" aria-label="Cerrar">×</button></div>';
   }
 
@@ -585,7 +638,7 @@
 
   document.addEventListener("click", function (ev) {
     var t = ev.target.closest("[data-seller],[data-period],[data-line],[data-close],[data-send],[data-delete]," +
-      "[data-zoom],[data-unzoom],[data-zoomtoggle],#more,#opts");
+      "[data-zoom],[data-unzoom],[data-zoomtoggle],#more,#opts,#lastload");
     if (!t) return;
     if (t.dataset.seller) {
       if (S.seller !== t.dataset.seller) { S.seller = t.dataset.seller; loadDebtors(); }
@@ -605,6 +658,8 @@
       S.zoom = null; render();
     } else if (t.dataset.zoomtoggle) {
       document.getElementById("zoom").classList.toggle("big");
+    } else if (t.id === "lastload") {
+      S.showLoad = !S.showLoad; render();
     } else if (t.id === "opts") {
       S.showOpts = !S.showOpts; render();
     } else if (t.id === "more") {

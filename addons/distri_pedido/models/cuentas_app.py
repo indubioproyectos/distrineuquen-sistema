@@ -2,7 +2,8 @@
 (19.0.1.74.0, controllers/cuentas.py, static/src/cuentas/).
 
 Read-only: it shows debtors, statements, the Mercado Pago card and receipt
-of a payment and the memo of a cash payment. It authorizes nothing: no
+of a payment and the memo and cash sheet of a cash payment (19.0.1.75.0,
+models/cash_sheet.py; a seller sees only his customers' rows of a sheet). It authorizes nothing: no
 payment, card or adjustment action is reachable from it. The only write is
 a comment on an account or on one statement row (distri.account.comment).
 
@@ -275,6 +276,24 @@ class DistriAccountApp(models.AbstractModel):
             "total_debt": round(sum(d["balance"] for d in debtors), 2),
             "debtor_count": len(debtors),
             "uncollectible_total": round(sum(d["balance"] for d in groups["uncollectible"]), 2),
+            "last_load": self._app_last_load(),
+        }
+
+    @api.model
+    def _app_last_load(self):
+        """Up to when the WhatsApp receipts are loaded: the newest receipt that
+        came in an imported chat zip, and that import (read only, no amounts)."""
+        Message = self.env["distri.whatsapp.message"].sudo()
+        last = Message.search([("distri_chat_import_id", "!=", False), ("distri_is_receipt", "=", True)],
+                              order="timestamp desc, id desc", limit=1)
+        if not last:
+            return False
+        chat = self.env["distri.whatsapp.chat.import"].sudo().search([], limit=1)  # _order id desc
+        return {
+            "receipts_until": _local_text(last.timestamp),
+            "import_file": chat.name or "",
+            "imported_at": _local_text(chat.imported_at),
+            "imported_by": chat.imported_by_id.name or "",
         }
 
     # ------------------------------------------------------------ account
@@ -383,7 +402,7 @@ class DistriAccountApp(models.AbstractModel):
     def app_line(self, partner_id, line_key):
         """Every field of one statement row plus what it links to: the card
         and receipt of a Mercado Pago payment, the memo of a cash payment
-        and its cash sheet (next stage), the Online history record."""
+        and its cash sheet, the Online history record."""
         partner = self._app_partner(partner_id)
         row = self._app_find_row(partner, line_key or "")
         comments = self.env["distri.account.comment"].sudo().search(
@@ -426,11 +445,107 @@ class DistriAccountApp(models.AbstractModel):
         return " · ".join(x for x in (day, row["doc_type"], row["number"]) if x)
 
     @api.model
+    def _app_visible_partner_ids(self, partners):
+        """The ids of `partners` the user may see: all of them for
+        administración, those the record rules let him read for a seller
+        (searched as the user, never with sudo)."""
+        if self._app_check() == "all":
+            return set(partners.ids)
+        return set(self.env["res.partner"].with_context(active_test=False).search(
+            [("id", "in", partners.ids)]).ids)
+
+    @api.model
+    def _app_sheet_files(self, sheet, visible):
+        """The originals of a sheet, only for a user who sees every row of it
+        (a photo or an xlsx shows the whole sheet)."""
+        lines = sheet.line_ids
+        if not lines or any(not l.partner_id or l.partner_id.id not in visible for l in lines):
+            if self._app_check() != "all":
+                return []
+        files = []
+        for attachment in sheet.attachment_ids.sorted(lambda a: (a.mimetype or "", a.id)):
+            mimetype = attachment.mimetype or ""
+            kind = "image" if mimetype.startswith("image/") and mimetype != "image/svg+xml" else \
+                "xlsx" if (attachment.name or "").lower().endswith(".xlsx") else "file"
+            files.append({
+                "id": attachment.id,
+                "name": attachment.name or "",
+                "kind": kind,
+                "url": "/cuentas/api/sheet_file?sheet=%d&file=%d" % (sheet.id, attachment.id),
+            })
+        return files
+
+    @api.model
     def _app_cash_sheet(self, move):
-        """TODO (next stage): the cash sheet («planilla de rendición») a cash
-        payment comes from, as {"id", "name", "date", "url"}. None until the
-        payments carry a link to it; today only their memo names it."""
-        return None
+        """The cash sheet («planilla de rendición») a cash payment comes from
+        (models/cash_sheet.py): collector, date, its rows with the paired one
+        marked, the total and its originals. A seller sees only the rows of
+        the customers of his portfolio; the others are only counted, with no
+        name or amount, and the originals are offered only when he sees every
+        row. None when the payment is on no sheet."""
+        line = self.env["distri.cash.sheet.line"].sudo().search(
+            [("payment_id.move_id", "=", move.id)], limit=1)
+        if not line:
+            return None
+        sheet = line.sheet_id
+        full = self._app_check() == "all"
+        visible = self._app_visible_partner_ids(sheet.line_ids.partner_id)
+        rows, hidden = [], 0
+        for item in sheet.line_ids:
+            if not full and (not item.partner_id or item.partner_id.id not in visible):
+                hidden += 1
+                continue
+            rows.append({
+                "id": item.id,
+                "client": item.client_raw or item.partner_id.name or "",
+                "invoice": item.invoice_ref or "",
+                "invoiced": item.amount_invoiced or 0.0,
+                "paid": item.amount_paid or 0.0,
+                "method": item.method or "",
+                "kind": item.row_kind or "cliente",
+                "kind_label": dict(item._fields["row_kind"].selection).get(item.row_kind, "")
+                if item.row_kind != "cliente" else "",
+                "after_total": item.after_total,
+                "note": item.notes or "",
+                "linked": bool(item.payment_id),
+                "hit": item == line,
+            })
+        counted = [r for r in rows if r["kind"] == "cliente" and not r["after_total"]]
+        return {
+            "id": sheet.id,
+            "name": sheet.name or "",
+            "collector": sheet.collector_label or "",
+            "date": _iso(sheet.date),
+            "origin": sheet.origin,
+            "origin_label": dict(sheet._fields["origin"].selection).get(sheet.origin, ""),
+            "rows": rows,
+            "hidden_count": hidden,
+            "total": round(sum(r["paid"] for r in counted), 2),
+            "total_label": "Total cobrado" if full else "Total de tus clientes",
+            "files": self._app_sheet_files(sheet, visible),
+            "note": sheet.note or "",
+        }
+
+    @api.model
+    def app_sheet_file(self, sheet_id, file_id):
+        """(bytes, mimetype, filename) of one original of a cash sheet, under
+        the same rule as `_app_sheet_files`; AccessError otherwise."""
+        self._app_check()
+        try:
+            sheet = self.env["distri.cash.sheet"].sudo().browse(int(sheet_id or 0)).exists()
+            wanted = int(file_id or 0)
+        except (TypeError, ValueError):
+            sheet, wanted = self.env["distri.cash.sheet"].sudo(), 0
+        if not sheet:
+            raise AccessError("No se encontró la planilla.")
+        visible = self._app_visible_partner_ids(sheet.line_ids.partner_id)
+        allowed = {f["id"] for f in self._app_sheet_files(sheet, visible)}
+        attachment = sheet.attachment_ids.filtered(lambda a: a.id == wanted and a.id in allowed)
+        if not attachment:
+            raise AccessError("No podés ver ese archivo de la planilla.")
+        attachment = attachment.sudo()
+        return attachment.raw, attachment.mimetype or "application/octet-stream", \
+            attachment.name or "planilla"
 
     @api.model
     def _app_card_for(self, partner, card_id):

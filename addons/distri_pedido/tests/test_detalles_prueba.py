@@ -45,6 +45,17 @@ class TestLoginLanding(HttpCase):
         self.assertTrue(res.headers["Location"].endswith("/reparto"))
         res = self._login("admin_landing")
         self.assertIn("/odoo", res.headers["Location"])
+        # 19.0.1.76.0: the bare backend home of the staff is our tablero, not Discuss
+        res = self.url_open("/odoo", allow_redirects=False)
+        self.assertEqual(res.status_code, 303)
+        self.assertTrue(res.headers["Location"].endswith("/tablero"), res.headers["Location"])
+        self.assertNotIn("Location", self.url_open("/odoo?apps=1", allow_redirects=False).headers)
+        page = self.url_open("/tablero")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("Estado de cuentas", page.text)
+        self.assertIn("Cobros", page.text)
+        self.assertIn('href="/cuentas"', page.text)
+        self.assertIn("Todas las aplicaciones", page.text)
 
 
 @tagged("post_install", "-at_install", "distri_detalles")

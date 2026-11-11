@@ -27,13 +27,15 @@
   </template>
 
   <record id="action_cuentas_pantalla" model="ir.actions.act_url">
-    <field name="name">Cuentas (celular)</field>
+    <field name="name">Estado de cuentas</field>
     <field name="url">/cuentas</field>
     <field name="target">self</field>
   </record>
 
-  <menuitem id="menu_cobros_cuentas_celular" name="Cuentas (celular)" parent="menu_cobros_root"
-            action="action_cuentas_pantalla" sequence="12"
+  <!-- 19.0.1.76.0: its own app in the main menu (it used to sit inside Cobros). -->
+  <menuitem id="menu_cuentas_root" name="Estado de cuentas" sequence="43"
+            web_icon="distri_pedido,static/src/img/cuenta.png"
+            action="action_cuentas_pantalla"
             groups="distri_pedido.grupo_vendedor,base.group_system"/>
 
   <!-- comments of an account (distri.account.comment) -->

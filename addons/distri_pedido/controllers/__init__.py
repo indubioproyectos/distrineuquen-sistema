@@ -8,3 +8,4 @@ from . import despacho
 from . import proyecto
 from . import portal
 from . import cuentas
+from . import tablero

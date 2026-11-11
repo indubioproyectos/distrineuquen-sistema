@@ -65,7 +65,11 @@ class InicioComerciante(Home):
         path = request.httprequest.path.rstrip("/")
         if uid and path in ("/odoo", "/web") and not kw and not s_action \
                 and not request.httprequest.query_string:
-            landing = request.env["res.users"].sudo().browse(uid)._distri_landing()
+            user = request.env["res.users"].sudo().browse(uid)
+            landing = user._distri_landing()
             if landing:
                 return request.redirect(landing, 303)
+            # 19.0.1.76.0: the rest of the staff starts on our tablero, not on Discuss
+            if not user.share:
+                return request.redirect("/tablero", 303)
         return super().web_client(s_action=s_action, **kw)

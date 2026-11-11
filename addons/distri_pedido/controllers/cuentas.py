@@ -1,5 +1,5 @@
 """«Cuentas (celular)»: the phone app to review customer accounts
-(19.0.1.74.0). Same shape as /despacho: a standalone page and a small JSON
+(19.0.1.74.0; cash sheets 19.0.1.75.0). Same shape as /despacho: a standalone page and a small JSON
 API that runs as the logged-in user. The rules and the seller scope live in
 models/cuentas_app.py (distri.account.app); this file only translates HTTP.
 
@@ -149,6 +149,22 @@ class Cuentas(http.Controller):
             data, mimetype, name = self._app().app_receipt(id, int(card or 0))
         except (AccessError, ValueError, TypeError):
             raise Forbidden()
+        return self._file(data, mimetype, name)
+
+    @http.route("/cuentas/api/sheet_file", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def sheet_file(self, sheet=None, file=None, **kw):
+        """A photo or the xlsx of a cash sheet, only for a user who sees every
+        row of it (models/cuentas_app.py app_sheet_file)."""
+        if not app_scope(request.env):
+            raise Forbidden()
+        try:
+            data, mimetype, name = self._app().app_sheet_file(sheet, file)
+        except (AccessError, ValueError, TypeError):
+            raise Forbidden()
+        return self._file(data, mimetype, name)
+
+    def _file(self, data, mimetype, name):
         # an image or a PDF opens in the page; anything else only downloads
         inline = mimetype.startswith("image/") or mimetype == "application/pdf"
         if mimetype == "image/svg+xml":

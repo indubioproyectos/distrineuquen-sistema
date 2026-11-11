@@ -155,3 +155,9 @@ access_mp_confirm_notice_sistema,distri.mp.confirm.notice sistema,model_distri_m
 access_mp_vouch_sistema,distri.mp.vouch sistema,model_distri_mp_vouch,base.group_system,1,1,1,1
 access_account_comment_vendedor,distri.account.comment vendedor,model_distri_account_comment,distri_pedido.grupo_vendedor,1,1,1,1
 access_account_comment_sistema,distri.account.comment sistema,model_distri_account_comment,base.group_system,1,1,1,1
+access_cash_sheet_admin,distri.cash.sheet administracion,model_distri_cash_sheet,distri_pedido.grupo_administracion,1,0,0,0
+access_cash_sheet_readonly,distri.cash.sheet consulta,model_distri_cash_sheet,account.group_account_readonly,1,0,0,0
+access_cash_sheet_sistema,distri.cash.sheet sistema,model_distri_cash_sheet,base.group_system,1,1,1,1
+access_cash_sheet_line_admin,distri.cash.sheet.line administracion,model_distri_cash_sheet_line,distri_pedido.grupo_administracion,1,0,0,0
+access_cash_sheet_line_readonly,distri.cash.sheet.line consulta,model_distri_cash_sheet_line,account.group_account_readonly,1,0,0,0
+access_cash_sheet_line_sistema,distri.cash.sheet.line sistema,model_distri_cash_sheet_line,base.group_system,1,1,1,1

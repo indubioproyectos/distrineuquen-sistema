@@ -18,6 +18,10 @@
 # by exactly the loaded amounts.
 # An optional «nota» in the row is appended to the memo (cross of the 2026
 # cash sheets, 31/10/2026). Rolls back unless DO_COMMIT=1.
+# Cash sheets (19.0.1.75.0): each payment created is also put on its sheet
+# row (distri.cash.sheet, models/cash_sheet.py _link_loader_row: collector +
+# date + sheet index of the fila), in the same transaction, so a rollback
+# drops both. Without that model installed the load runs as before.
 import json
 import os
 import re
@@ -36,6 +40,7 @@ Payment = env['account.payment'].sudo()
 OnlinePayment = env['distri.online.payment'].sudo()
 Mov = env['distri.cuenta.movimiento'].sudo()
 Route = env['distri.route'].sudo()
+CashSheet = env['distri.cash.sheet'].sudo() if 'distri.cash.sheet' in env.registry else None
 
 
 def abort(message):
@@ -151,6 +156,13 @@ for item in items:
     if Mov.search([('partner_id', '=', partner.id)]).filtered(
             lambda m: clave_documento(m.comprobante, m.debe, m.haber) == key):
         abort('el asiento %s coincide con un movimiento de la historia de Online' % payment.move_id.name)
+    if CashSheet is not None:
+        try:
+            with env.cr.savepoint():
+                if CashSheet._link_loader_row(item, payment).payment_id == payment:
+                    stats['planilla_vinculadas'] = stats.get('planilla_vinculadas', 0) + 1
+        except Exception as exc:  # the sheet row is a convenience: never stops the load
+            out('WARN', fila=item['fila'], motivo='no quedó en la planilla: %s' % exc)
     loaded |= payment
     loaded_by_partner[partner.id] = loaded_by_partner.get(partner.id, 0.0) + item['efectivo']
     stats['cargado'] = stats.get('cargado', 0) + 1

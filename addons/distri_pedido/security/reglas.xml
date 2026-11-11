@@ -196,5 +196,36 @@
       <field name="domain_force">[(1, '=', 1)]</field>
     </record>
 
+    <!-- Cash sheets (19.0.1.75.0, models/cash_sheet.py): only Settings writes
+         (access rights); administración, gerencia and accounting read-only
+         see every sheet. A seller has no access right to them; should one be
+         added, he would read only the rows of his portfolio and no sheet.
+         The phone app reads them with sudo and filters the rows itself
+         (models/cuentas_app.py _app_cash_sheet). -->
+    <record id="regla_cash_sheet_vendedor" model="ir.rule">
+      <field name="name">Planillas de efectivo: no para vendedores</field>
+      <field name="model_id" ref="model_distri_cash_sheet"/>
+      <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
+      <field name="domain_force">[(0, '=', 1)]</field>
+    </record>
+    <record id="regla_cash_sheet_todos" model="ir.rule">
+      <field name="name">Planillas de efectivo: administración, gerencia y consulta</field>
+      <field name="model_id" ref="model_distri_cash_sheet"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion')), (4, ref('account.group_account_readonly')), (4, ref('base.group_system'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+    <record id="regla_cash_sheet_line_vendedor" model="ir.rule">
+      <field name="name">Filas de planillas de efectivo: vendedor, solo su cartera</field>
+      <field name="model_id" ref="model_distri_cash_sheet_line"/>
+      <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
+      <field name="domain_force">[('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+    </record>
+    <record id="regla_cash_sheet_line_todos" model="ir.rule">
+      <field name="name">Filas de planillas de efectivo: administración, gerencia y consulta</field>
+      <field name="model_id" ref="model_distri_cash_sheet_line"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion')), (4, ref('account.group_account_readonly')), (4, ref('base.group_system'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
   </data>
 </odoo>

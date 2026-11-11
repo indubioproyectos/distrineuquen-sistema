@@ -13,6 +13,11 @@
 .head.compact h1{font-size:19px}
 .head.compact .sub{font-size:12px}
 .head.compact .back{font-size:13px}
+.loadbtn{border:1px solid var(--head-sub);background:transparent;color:var(--mint);border-radius:99px;padding:2px 9px;
+         font-size:11px;font-weight:700;cursor:pointer}
+.loadbtn.on{background:var(--mint);border-color:var(--mint);color:var(--navy)}
+.loadinfo{font-size:12px;color:#fff;display:flex;flex-direction:column;gap:1px}
+.loadinfo span{color:var(--head-sub);font-size:11px}
 .head .total{font-size:22px;font-weight:800;line-height:1.1}
 .head .total small{font-size:14px;font-weight:600;color:var(--head-sub)}
 .tools{background:#fff;border-bottom:1px solid var(--line);padding:6px 10px;display:flex;flex-direction:column;gap:6px}
@@ -117,3 +122,27 @@
 /* denser account screen: shared card/button sizes shrunk for this app only */
 #app .card{padding:8px 10px;border-radius:10px}
 #app .btn{padding:9px;font-size:14px;border-radius:10px}
+
+/* cash sheet of a cash payment (line detail): compact rows, the paired one marked */
+.cs{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cs-head{display:flex;flex-direction:column;gap:1px;padding:6px 9px;border-bottom:1px solid var(--line-2)}
+.cs-head b{font-size:13px}
+.cs-head span{font-size:11.5px;color:var(--muted)}
+.cs-rows{position:relative;max-height:46vh;overflow-y:auto;overscroll-behavior:contain}
+.cs-row{display:flex;gap:8px;padding:5px 9px;border-top:1px solid var(--line-2);min-height:36px}
+.cs-row:first-child{border-top:0}
+.cs-row .l{flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cs-row .l .t{font-size:12.5px;font-weight:700;overflow-wrap:anywhere}
+.cs-row .l .c{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.cs-row .r{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.cs-row .r .m{font-size:13px;font-weight:800}
+.cs-row .r .b{font-size:10.5px;color:var(--muted)}
+.cs-row.other{background:var(--tint)}
+.cs-row.other .l .t{font-weight:600;color:var(--soft)}
+.cs-row.hit{background:var(--amber-bg-2);box-shadow:inset 4px 0 0 var(--teal)}
+.cs-hidden{padding:5px 9px;font-size:11.5px;color:var(--muted);font-style:italic;border-top:1px dashed var(--line)}
+.cs-total{display:flex;justify-content:space-between;gap:8px;padding:6px 9px;border-top:1px solid var(--line);
+          background:var(--tint);font-size:12.5px}
+.cs-total b{font-size:14px;font-weight:800}
+.cs-files{display:flex;gap:6px;flex-wrap:wrap}
+.cs-files .btn{flex:1 1 auto;width:auto;padding:7px 10px;font-size:13px}

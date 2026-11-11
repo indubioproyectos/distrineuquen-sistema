@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Cash sheets («planillas de rendición», models/cash_sheet.py). Read-only
+       for everyone but Settings (security/ir.model.access.csv): loaded by
+       scripts/planillas-lab/ and by the cash loader. -->
+  <record id="view_cash_sheet_line_list" model="ir.ui.view">
+    <field name="name">distri.cash.sheet.line.list</field>
+    <field name="model">distri.cash.sheet.line</field>
+    <field name="arch" type="xml">
+      <list string="Filas de planillas" decoration-muted="row_kind != 'cliente' or after_total"
+            decoration-success="payment_id">
+        <field name="sheet_id" optional="hide"/>
+        <field name="sheet_date" optional="hide"/>
+        <field name="collector" optional="hide"/>
+        <field name="sequence" optional="hide"/>
+        <field name="source_cell" optional="hide"/>
+        <field name="client_raw"/>
+        <field name="partner_id" optional="show"/>
+        <field name="invoice_ref"/>
+        <field name="amount_invoiced" sum="Facturado"/>
+        <field name="amount_paid" sum="Pagado"/>
+        <field name="method" optional="show"/>
+        <field name="row_kind" optional="show"/>
+        <field name="after_total" optional="hide"/>
+        <field name="dup_status" optional="hide"/>
+        <field name="notes" optional="hide"/>
+        <field name="payment_id" optional="show"/>
+        <field name="link_kind" optional="hide"/>
+        <field name="match_kind" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_cash_sheet_line_form" model="ir.ui.view">
+    <field name="name">distri.cash.sheet.line.form</field>
+    <field name="model">distri.cash.sheet.line</field>
+    <field name="arch" type="xml">
+      <form string="Fila de planilla">
+        <sheet>
+          <group>
+            <group>
+              <field name="sheet_id"/>
+              <field name="client_raw"/>
+              <field name="partner_id"/>
+              <field name="invoice_ref"/>
+              <field name="amount_invoiced"/>
+              <field name="amount_paid"/>
+              <field name="method"/>
+            </group>
+            <group>
+              <field name="row_date"/>
+              <field name="row_kind"/>
+              <field name="after_total"/>
+              <field name="dup_status"/>
+              <field name="source_cell"/>
+              <field name="source_key" groups="base.group_no_one"/>
+              <field name="payment_id"/>
+              <field name="payment_state"/>
+              <field name="link_kind"/>
+              <field name="match_kind"/>
+            </group>
+          </group>
+          <field name="notes" placeholder="Notas"/>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_cash_sheet_line_search" model="ir.ui.view">
+    <field name="name">distri.cash.sheet.line.search</field>
+    <field name="model">distri.cash.sheet.line</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="client_raw"/>
+        <field name="partner_id"/>
+        <field name="invoice_ref"/>
+        <field name="payment_id"/>
+        <field name="collector"/>
+        <filter name="linked" string="Con pago" domain="[('payment_id', '!=', False)]"/>
+        <filter name="unlinked" string="Sin pago" domain="[('payment_id', '=', False)]"/>
+        <filter name="clients" string="Filas de clientes" domain="[('row_kind', '=', 'cliente')]"/>
+        <group>
+          <filter name="by_sheet" string="Planilla" context="{'group_by': 'sheet_id'}"/>
+          <filter name="by_collector" string="Cobrador" context="{'group_by': 'collector'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="view_cash_sheet_list" model="ir.ui.view">
+    <field name="name">distri.cash.sheet.list</field>
+    <field name="model">distri.cash.sheet</field>
+    <field name="arch" type="xml">
+      <list string="Planillas de efectivo">
+        <field name="date"/>
+        <field name="collector_label" string="Cobró"/>
+        <field name="name"/>
+        <field name="origin"/>
+        <field name="line_count" sum="Filas"/>
+        <field name="linked_count" sum="Con pago"/>
+        <field name="total_paid" sum="Cobrado"/>
+        <field name="has_photo" optional="show"/>
+        <field name="source_path" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_cash_sheet_form" model="ir.ui.view">
+    <field name="name">distri.cash.sheet.form</field>
+    <field name="model">distri.cash.sheet</field>
+    <field name="arch" type="xml">
+      <form string="Planilla de efectivo">
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name"/></h1>
+          </div>
+          <group>
+            <group>
+              <field name="collector"/>
+              <field name="collector_label" string="Cobró"/>
+              <field name="date"/>
+              <field name="sheet_index"/>
+              <field name="origin"/>
+            </group>
+            <group>
+              <field name="line_count"/>
+              <field name="linked_count"/>
+              <field name="total_paid"/>
+              <field name="source_path"/>
+              <field name="source_tab"/>
+              <field name="sha256" groups="base.group_no_one"/>
+              <field name="source_key" groups="base.group_no_one"/>
+            </group>
+          </group>
+          <field name="note" placeholder="Nota"/>
+          <notebook>
+            <page string="Filas" name="lines">
+              <field name="line_ids" context="{'list_view_ref': 'distri_pedido.view_cash_sheet_line_list'}"/>
+            </page>
+            <page string="Originales" name="files">
+              <field name="attachment_ids" widget="many2many_binary"/>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_cash_sheet_search" model="ir.ui.view">
+    <field name="name">distri.cash.sheet.search</field>
+    <field name="model">distri.cash.sheet</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="name"/>
+        <field name="collector"/>
+        <field name="date"/>
+        <field name="line_ids" string="Cliente o factura"
+               filter_domain="['|', '|', ('line_ids.client_raw', 'ilike', self), ('line_ids.invoice_ref', 'ilike', self), ('line_ids.partner_id', 'ilike', self)]"/>
+        <filter name="xlsx" string="Planillas Excel" domain="[('origin', '=', 'xlsx')]"/>
+        <filter name="transcription" string="Transcripciones" domain="[('origin', '=', 'transcription')]"/>
+        <filter name="no_photo" string="Sin foto" domain="[('has_photo', '=', False)]"/>
+        <group>
+          <filter name="by_collector" string="Cobrador" context="{'group_by': 'collector'}"/>
+          <filter name="by_month" string="Mes" context="{'group_by': 'date:month'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_cash_sheet" model="ir.actions.act_window">
+    <field name="name">Planillas de efectivo</field>
+    <field name="res_model">distri.cash.sheet</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todavía no hay planillas de efectivo cargadas.</p>
+      <p>Las carga el script de planillas del lab y la carga de efectivo; acá solo se consultan.</p>
+    </field>
+  </record>
+
+  <record id="action_cash_sheet_line" model="ir.actions.act_window">
+    <field name="name">Filas de planillas de efectivo</field>
+    <field name="res_model">distri.cash.sheet.line</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <menuitem id="menu_cobros_cash_sheets" name="Planillas de efectivo" parent="menu_cobros_root"
+            action="action_cash_sheet" sequence="45"
+            groups="distri_pedido.grupo_administracion,account.group_account_readonly,base.group_system"/>
+  <menuitem id="menu_cobros_cash_sheet_lines" name="Filas de planillas de efectivo"
+            parent="menu_cobros_root" action="action_cash_sheet_line" sequence="46"
+            groups="distri_pedido.grupo_administracion,account.group_account_readonly,base.group_system"/>
+
+</odoo>
