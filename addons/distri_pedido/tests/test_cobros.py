@@ -8,6 +8,7 @@ import os
 import shutil
 import tempfile
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from lxml import etree
 
@@ -22,8 +23,9 @@ from odoo.addons.distri_pedido.models.cobros import (
     ALERT_SUMMARY, AUTHORIZED_LABEL, CANDIDATE_LABEL, WITHOUT_RECEIPT_NOTICE, AUTHORIZED_MISSING, AUTHORIZED_WAITING, COLUMN_HELP,
     COLUMNS, HAND_VERIFIED_MISSING, PARAM_ALERT_HOURS, MP_JOURNAL_CODE, REVERSAL_SUMMARY,
     TWO_CUSTOMERS, local_when, operation_close, own_account, parse_amount_ar,
-    parse_mp_datetime, parse_operation, read_report,
+    parse_mp_datetime, parse_operation, read_report, receipt_caption_amount,
 )
+from odoo.addons.distri_pedido.models.ocr_comprobante import parse_receipt
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
 DATA = "distri_pedido/tests/data/%s"
@@ -210,6 +212,9 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(parse_amount_ar("Te transferí $ 45.000 recién"), 45000)
         self.assertEqual(parse_amount_ar("$45.000,50"), 45000.5)
         self.assertEqual(parse_amount_ar("sin monto"), 0)
+        # a cash note next to the photo is another payment (card 50534, 31/10/2026)
+        self.assertEqual(receipt_caption_amount("Chino Lanin\nRecibí efectivo $ 600.000 Ivo Laurenti"), 0)
+        self.assertEqual(receipt_caption_amount("Te transferí $ 45.000\nEfectivo $ 10.000"), 45000)
         self.assertEqual(parse_operation("Número de operación de Mercado Pago 180819825054"),
                          "180819825054")
         self.assertEqual(parse_mp_datetime("2026-09-24T10:15:00.000-03:00"),
@@ -296,15 +301,14 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self._apply_notice(wizard.action_assign_confirm())
         self.assertEqual(card.state, "confirmed")
         self.assertTrue(card.confirmed_without_receipt)
-        identity = self.env["distri.payer.identity"].search([("value", "=", "20999000029")])
-        self.assertEqual(identity.partner_id, self.other)
-        self.assertEqual(identity.kind, "cuit")
-        # the other pending transfer from that account moved by itself
-        self.assertEqual(later.partner_id, self.other)
-        self.assertEqual(later.column, "confirm")
-        # a new transfer from that account is proposed by itself
-        self.assertEqual(self.env["res.partner"]._distri_partners_by_cuit("20-99900002-9"),
-                         self.other)
+        # 19.0.1.69.0: confirmed without its receipt in the WhatsApp group, the
+        # payer's CUIT is NOT learned (01/11/2026: hundreds of learned CUITs
+        # assigned other people's transfers); the other pending transfer from
+        # that account stays unidentified
+        self.assertFalse(self.env["distri.payer.identity"].search([("value", "=", "20999000029")]))
+        self.assertFalse(later.partner_id)
+        self.assertEqual(later.column, "unidentified")
+        self.assertFalse(self.env["res.partner"]._distri_partners_by_cuit("20-99900002-9"))
         # undo: the payment is cancelled and the card goes back
         card.action_undo()
         self.assertEqual(card.state, "draft")
@@ -465,6 +469,11 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self._import("mp_report_25col.csv")
         card = self._card("900000000001")
         card.action_confirm()
+        # the statement links the payment to its card (31/10/2026)
+        row = [r for r in self.known._distri_statement_rows()
+               if r["res_model"] == "account.move" and r["res_id"] == card.payment_id.move_id.id]
+        self.assertEqual(row[0].get("card_id"), card.id)
+        self.assertIn("/odoo/distri.mp.collection/%d" % card.id, str(self.known.distri_statement_html))
         self.assertEqual(first.state, "fulfilled", "the oldest one, covered")
         self.assertEqual(second.state, "open", "15.321 left: a partial payment")
         self.assertIn("no cubre", second.partial_note)
@@ -1706,3 +1715,103 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self.assertFalse(card.receipt_candidate)
         self.assertAlmostEqual(self.known._distri_account_balance(), balance - 45321)
         self.assertFalse(self.known._distri_statement()["candidates"])
+
+    # ------------------------------------------------------------ import 20 (06/11/2026)
+
+    # the OCR of a Mercado Pago receipt that lost its header and the label
+    # «N.° de operación» (fictitious name and number)
+    NO_LABEL = ("Comprobante de\ntransferencia\nComprobante de transferencia\n$ 159.100\n"
+                "Carla Ejemplar Gómez\nDistri Neuquén\n%s")
+
+    def _two_transfers_same_amount(self):
+        """The receipt's transfer at 18:35 and another one of the same amount
+        and payer 8 minutes later."""
+        self.Report._import_file("same_amount_8min.csv", self._report(
+            self._row("186900000407", "2026-11-05T18:35:28.000-03:00", 159100),
+            self._row("186900000737", "2026-11-05T18:43:44.000-03:00", 159100)))
+        return self._card("186900000407"), self._card("186900000737")
+
+    def _photo_with_text(self, when, text, operation=False):
+        """A receipt whose stored OCR text is `text`, its operation number
+        as the parser left it (`operation`)."""
+        return self.env["distri.whatsapp.message"].sudo().with_context(
+            distri_defer_receipt_read=True).create({
+                "wa_message_id": "wamid.test.%s" % when.isoformat(), "direction": "in",
+                "wa_id": "5492995000999", "message_type": "image", "timestamp": when,
+                "media_mime_type": "image/jpeg", "media_id": "123", "media_state": "done",
+                "distri_is_receipt": True, "distri_receipt_state": "pending",
+                "distri_amount": 159100, "distri_amount_confidence": "high",
+                "distri_file_text": text, "distri_operation": operation})
+
+    def _read_photo(self, when, text):
+        """A photo read by the current parser (the file reading patched)."""
+        Message = self.env["distri.whatsapp.message"]
+        msg = Message.sudo().with_context(distri_defer_receipt_read=True).create({
+            "wa_message_id": "wamid.test.%s" % when.isoformat(), "direction": "in",
+            "wa_id": "5492995000999", "message_type": "image", "timestamp": when,
+            "media_mime_type": "image/jpeg", "media_id": "123", "media_state": "pending"})
+        reading = parse_receipt(text, own=own_account(self.env))
+        with patch.object(type(Message), "_distri_file_reading",
+                          lambda m: (text, reading)):
+            msg._distri_read_receipt(read_file=True)
+        return msg
+
+    def test_two_photos_of_one_receipt_without_label(self):
+        # both photos read now: the number is the operation, the second
+        # photo is «Ya recibido», the later transfer keeps waiting
+        first = self._read_photo(datetime(2026, 11, 5, 21, 50), self.NO_LABEL % "186900000407")
+        second = self._read_photo(datetime(2026, 11, 5, 21, 51), self.NO_LABEL % "186900000407")
+        self.assertEqual(first.distri_operation, "186900000407")
+        self.assertEqual(second.distri_receipt_state, "duplicate")
+        self.assertIn("Ya recibido", second.distri_receipt_note)
+        mine, other = self._two_transfers_same_amount()
+        self.assertEqual(mine.receipt_id, first)
+        self.assertFalse(other.receipt_id, "never the copy by amount")
+
+    def test_number_in_the_text_is_never_another_transfers_receipt(self):
+        # stored before the fix: the number is in the text, not in the field
+        first = self._photo_with_text(datetime(2026, 11, 5, 21, 50),
+                                      self.NO_LABEL % "186900000407")
+        second = self._photo_with_text(datetime(2026, 11, 5, 21, 51),
+                                       self.NO_LABEL % "186900000407")
+        mine, other = self._two_transfers_same_amount()
+        self.assertEqual(mine.receipt_id, first, "the first one received, by its number")
+        self.assertFalse(other.receipt_id)
+        self.assertEqual(second.distri_receipt_state, "duplicate")
+        self.assertNotIn(second, other._amount_candidates())
+
+    def test_photo_with_another_transfers_number_after_the_report(self):
+        mine, other = self._two_transfers_same_amount()
+        photo = self._photo_with_text(datetime(2026, 11, 5, 21, 50),
+                                      self.NO_LABEL % "186900000407")
+        photo._distri_match_income()
+        self.assertEqual(mine.receipt_id, photo)
+        self.assertFalse(other.receipt_id)
+        # a copy arriving later is «Ya recibido», not the 18:43 transfer's
+        copy = self._photo_with_text(datetime(2026, 11, 5, 21, 52),
+                                     self.NO_LABEL % "186900000407")
+        copy._distri_match_income()
+        self.assertFalse(other.receipt_id)
+        self.assertEqual(copy.distri_receipt_state, "duplicate")
+
+    def test_recompute_operations_fills_only_open_receipts(self):
+        waiting = self._photo_with_text(datetime(2026, 11, 5, 21, 50),
+                                        self.NO_LABEL % "186900000407")
+        nothing = self._photo_with_text(datetime(2026, 11, 5, 21, 55),
+                                        "Comprobante de\ntransferencia\nMercado")
+        mine, other = self._two_transfers_same_amount()
+        # the photo of the 18:35 transfer tied by amount to a confirmed card
+        held = self._photo_with_text(datetime(2026, 11, 5, 21, 51),
+                                     self.NO_LABEL % "186900000407")
+        other._link_receipt(held)
+        other.sudo().write({"state": "confirmed"})
+        report = self.env["distri.whatsapp.message"]._distri_recompute_operations(
+            [waiting.id, nothing.id, held.id])
+        rows = {row["id"]: row for row in report}
+        self.assertEqual(set(rows), {waiting.id, held.id})
+        self.assertEqual(rows[held.id]["action"], "reported")
+        self.assertEqual(rows[held.id]["owner"], mine.id)
+        self.assertFalse(held.distri_operation, "a confirmed card is never changed")
+        self.assertEqual(other.receipt_id, held)
+        self.assertEqual(waiting.distri_operation, "186900000407")
+        self.assertEqual(mine.receipt_id, waiting)

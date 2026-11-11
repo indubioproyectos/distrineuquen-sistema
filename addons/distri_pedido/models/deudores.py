@@ -149,7 +149,7 @@ def debtor_balances(env, partners, date_to=False):
     for pid in seen:
         seen[pid].discard(None)
 
-    history = env["distri.cuenta.movimiento"].sudo().search_read(
+    history = env["distri.cuenta.movimiento"].sudo().with_context(active_test=True).search_read(
         [("partner_id", "in", ids)], ["partner_id", "fecha", "comprobante", "debe", "haber", "tipo"],
         order="fecha, id")
     for mov in history:

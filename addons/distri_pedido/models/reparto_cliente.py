@@ -167,7 +167,7 @@ class ResPartnerDelivery(models.Model):
         seen = {clave_documento(line.move_id.name, line.debit, line.credit) for line in lines}
         seen.discard(None)
         balance = sum(lines.mapped("debit")) - sum(lines.mapped("credit"))
-        for mov in self.env["distri.cuenta.movimiento"].sudo().search([
+        for mov in self.env["distri.cuenta.movimiento"].sudo().with_context(active_test=True).search([
                 ("partner_id", "=", partner.id)]):
             if clave_documento(mov.comprobante, mov.debe, mov.haber) not in seen:
                 balance += (mov.debe or 0.0) - (mov.haber or 0.0)

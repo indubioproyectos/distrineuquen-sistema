@@ -486,6 +486,17 @@ class CuentaMovimientoOnline(models.Model):
                                                "registrado en el lab (ver «Pago del lab»).")
     lab_payment_id = fields.Many2one("account.payment", string="Pago del lab", readonly=True,
                                      index=True, ondelete="set null")
+    # «Adeudada (revisada)» (19.0.1.68.0): an invoice the account review found
+    # unpaid, set by hand from the review's conclusions, never inferred. The
+    # Online sync only rewrites date, number, concept and amounts, so the mark
+    # survives it.
+    distri_owed = fields.Boolean(
+        string="Adeudada (revisada)", index=True,
+        help="La revisión de la cuenta encontró esta factura sin pagar (o pagada de menos).")
+    distri_owed_amount = fields.Monetary(
+        string="Importe adeudado", currency_field="currency_id",
+        help="Lo que falta pagar de esta factura; vacío = el total.")
+    distri_owed_note = fields.Char(string="Nota de la revisión")
 
 
 # ====================================================================== export

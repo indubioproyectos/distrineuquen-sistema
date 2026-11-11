@@ -71,6 +71,41 @@ class TestEstadoCuenta(HttpCase):
         self.assertEqual(odoo_row["remito"], self.remito.name)
         self.assertEqual(data["balance"], self.partner._distri_account_balance())
 
+    def test_archived_payment_is_out_even_with_archived_records_shown(self):
+        """A payment archived as repeated (01/11/2026) never counts, also when the screen
+        opens with archived records included (the candidates list of the wizard)."""
+        repeated = self.env["distri.cuenta.movimiento"].sudo().create({
+            "partner_id": self.partner.id, "fecha": "2025-05-10", "comprobante": "PCSH1/2025/00099",
+            "concepto": "repetido · archivado en el lab el 01/11/2026", "tipo": "pago", "haber": 400.0,
+            "active": False})
+        balance = self.partner._distri_account_balance()
+        loose = self.partner.with_context(active_test=False)
+        self.assertEqual(loose._distri_account_balance(), balance)
+        self.assertNotIn(repeated.comprobante, [r["number"] for r in loose._distri_statement_rows()])
+        wizard = self.env["distri.estado.cuenta"].with_context(active_test=False).create(
+            {"partner_id": self.partner.id})
+        self.assertEqual(wizard.balance, balance)
+        self.assertNotIn(repeated.comprobante, str(wizard.statement_html))
+
+    def test_owed_invoice_found_by_the_review_is_red(self):
+        """An invoice the review found unpaid is shown in red with what is owed (01/11/2026);
+        nothing is inferred for the other rows."""
+        invoice = self.historia[0]
+        invoice.write({"distri_owed": True, "distri_owed_amount": 1100.0,
+                       "distri_owed_note": "pagó $400 de $1.500"})
+        rows = self.partner._distri_statement_rows()
+        owed = [r for r in rows if r.get("owed")]
+        self.assertEqual([r["number"] for r in owed], ["0001/2025/00001"])
+        self.assertEqual(owed[0]["owed"], 1100.0)
+        html = str(self.partner.distri_statement_html)
+        self.assertIn("table-danger", html)
+        self.assertIn("Facturas adeudadas (revisadas): 1", html)
+        self.assertEqual(html.count("o_distri_estado_adeudada'"), 1)
+        # unmarked: no red at all
+        invoice.write({"distri_owed": False})
+        self.assertNotIn("table-danger", str(self.partner._distri_statement_table(
+            self.partner._distri_statement())))
+
     def test_date_filter_keeps_the_opening_balance(self):
         data = self.partner._distri_statement(date(2025, 5, 1), date(2025, 12, 31))
         self.assertEqual(len(data["rows"]), 1)

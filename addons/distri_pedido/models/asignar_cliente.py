@@ -258,7 +258,7 @@ class DistriAsignarCliente(models.TransientModel):
         pedidos = self.env["sale.order"].sudo().search(
             [("partner_id", "child_of", socio.commercial_partner_id.id),
              ("state", "=", "sale")], order="date_order desc")
-        historia = self.env["distri.cuenta.movimiento"].sudo().search(
+        historia = self.env["distri.cuenta.movimiento"].sudo().with_context(active_test=True).search(
             [("partner_id", "=", socio.commercial_partner_id.id), ("tipo", "=", "factura")],
             order="fecha desc")
         fechas = [f for f in (pedidos[:1].date_order and pedidos[:1].date_order.date(),

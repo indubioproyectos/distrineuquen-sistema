@@ -13,6 +13,9 @@
         <field name="concepto" optional="hide"/>
         <field name="debe" sum="Total debe"/>
         <field name="haber" sum="Total haber"/>
+        <field name="distri_owed" optional="show"/>
+        <field name="distri_owed_amount" optional="hide"/>
+        <field name="distri_owed_note" optional="hide"/>
         <field name="currency_id" column_invisible="1"/>
       </list>
     </field>

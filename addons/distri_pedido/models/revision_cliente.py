@@ -44,6 +44,8 @@ leaves a credit balance that does not exist.
   after every action; the review state of each line survives (it is keyed
   by its card, or by its payment when there is no card).
 """
+from collections import namedtuple
+
 from markupsafe import Markup
 
 from odoo import Command, api, fields, models
@@ -52,6 +54,9 @@ from odoo.exceptions import UserError
 from .cobros import AMOUNT_TOLERANCE
 from .puesta_al_dia import _check_admin_or_raise
 from .reparto import _money
+
+# a VSR invoice without a lab payment, read like a balance adjustment
+LooseVsr = namedtuple("LooseVsr", "date id difference")
 
 VSR_JOURNAL_CODE = "VSR"
 VSR_JOURNAL_NAME = "Ventas sin registrar"
@@ -199,6 +204,12 @@ class DistriBalanceReview(models.Model):
     summary = fields.Char(string="Ya conciliado", readonly=True)
     state = fields.Selection([("pending", "Pendiente"), ("reviewed", "Revisado")],
                              string="Estado", default="pending", readonly=True, index=True)
+    # 19.0.1.70.0: the balance audit's own mark. Unlike `state`, a refresh never
+    # touches it: a new payment sends the customer back to «Pendiente» but the
+    # account stays audited (green in the list).
+    audited = fields.Boolean(string="Auditado", readonly=True, index=True, copy=False)
+    audited_on = fields.Date(string="Auditado el", readonly=True, copy=False)
+    audited_note = fields.Char(string="Nota de auditoría", readonly=True, copy=False)
     line_ids = fields.One2many("distri.balance.review.line", "review_id", string="Pagos nuevos",
                                readonly=True)
     online_sync_label = fields.Char(string="Online", compute="_compute_online_sync")
@@ -264,6 +275,16 @@ class DistriBalanceReview(models.Model):
         adjustments = {}
         for adj in self.env["distri.balance.adjustment"].sudo().search(adj_domain):
             adjustments.setdefault(adj.partner_id.id, []).append(adj)
+        # 19.0.1.71.0: a VSR invoice paid by an Online payment (no lab payment
+        # to hang it on, e.g. the audit's sale of 06/07/2026) counts like an
+        # adjustment on its own date
+        loose_domain = [("journal_id.code", "=", "VSR"), ("state", "=", "posted"),
+                        ("move_type", "=", "out_invoice"), ("distri_vsr_payment_id", "=", False)]
+        if only is not None:
+            loose_domain.append(("partner_id.commercial_partner_id", "in", list(only)))
+        for move in self.env["account.move"].sudo().search(loose_domain):
+            adjustments.setdefault(move.partner_id.commercial_partner_id.id, []).append(
+                LooseVsr(move.invoice_date, -move.id, move.amount_total))
 
         by_partner = {}
         for pay in payments:

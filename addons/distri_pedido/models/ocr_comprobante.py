@@ -747,23 +747,29 @@ def _operation(lines, bank=""):
                     continue
                 return token.replace("-", "") if token.replace("-", "").isdigit() else token
     if bank == "Mercado Pago":
-        return _bare_mp_id(lines)
+        candidates = _bare_mp_ids(lines)
+        return candidates[0] if candidates else ""
+    if not bank:
+        # no bank named (the OCR lost the header and the «Número de operación
+        # de Mercado Pago» label, import 20 of 06/11/2026): a bare Mercado
+        # Pago id only when it is the only plausible one
+        candidates = set(_bare_mp_ids(lines))
+        return candidates.pop() if len(candidates) == 1 else ""
     return ""
 
 
-def _bare_mp_id(lines):
-    """A Mercado Pago screenshot cropped above its «Número de operación»
-    label: the first 11-13 digit number starting with 1 that is not a CUIT,
-    a CVU, a date or an amount."""
+def _bare_mp_ids(lines):
+    """A Mercado Pago screenshot cropped above (or OCR'd without) its
+    «Número de operación» label: the 11-13 digit numbers starting with 1
+    that are not a CUIT, a CVU, a date or an amount, in reading order."""
+    found = []
     for line in lines:
         if "$" in line:
             continue
         line = _CUIT.sub(" ", _without_dates_and_ids(line))
         line = _CBU.sub(" ", line.replace(" ", "")) if _CBU.search(line.replace(" ", "")) else line
-        match = _MP_BARE_ID.search(line)
-        if match:
-            return match.group(1)
-    return ""
+        found += _MP_BARE_ID.findall(line)
+    return found
 
 
 def _date(text, reference=None):

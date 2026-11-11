@@ -430,6 +430,76 @@ class TestParseReceiptRules(TransactionCase):
         # only Mercado Pago screenshots: a bank receipt keeps asking for a label
         self.assertEqual(parse_receipt("Galicia\n$ 12.000\n107785538272")["operation"], "")
 
+    # OCR texts of chat import 20 (06/11/2026), names, CUITs, CVUs and
+    # operation numbers replaced by fictitious ones: the receipts the parser
+    # left without an operation number, and some it read right
+    MP_NO_HEADER = ("Comprobante de\ntransferencia\nComprobante de transferencia\n"
+                    "$ 159.100\nCarla Ejemplar Gómez\nDistri Neuquén\n186900000407")
+    MP_NO_HEADER_COPY = ("Comprobante de\ntransferencia\nComprobante de transferencia\n"
+                         "$ 159.100\nS Carla Ejemplar Gómez\n<S Distri Neuquén\n186900000407")
+    MP_GARBLED = ("Comprobante de\npo rencia\nDOS pago vO\n“Omprobante J26 a de las da 17:5 "
+                  "ncia\n$ Motivo: 201.400 Var rios\n09 gen y destino\nRosario\nMercado al p "
+                  "ac yde Perez Diaz\nOr\nVU: O( 4 DO: 00003 34 8 3956903 +\n"
+                  "Í ALZAS» £3-072 32€ 316182\n-4\nS Distri Neuquén")
+    MP_CROPPED = "io 15 Comprobante de\ntransferencia\n3 Ge Mercado\npago"
+    MP_CROPPED_2 = "118 | Comprobante de\ntransferencia\nMercado"
+    UALA_UUID = ("uN ualá\nComprobante de transferencia\n$191.200\n06/11/2026 - 06:45 hs\n"
+                 "Destinatario Marcos Daniel Ejemplar\nCuenta destino Mercado Pago\n"
+                 "CVU destino 0000003100090000000018\nCUIT/CUIL destino 23-99999999-9\n"
+                 "Emisor Juan Pérez Ejemplo\nCBU emisor 3840200500000099999999\n"
+                 "CUIT/CUIL emisor 20-11111111-2\nMotivo Varios\n"
+                 "ld. Op. ff3f4408-7c34-1083-130c-2d325d551579")
+    MP_LABELED = ("mercado\npago\nComprobante de transferencia\n5/noviembre/2026 a las 11:35.\n"
+                  "$ 128.000\nMotivo: Varios\nOrigen y destino\n<S Juan Pérez Ejemplo\n"
+                  "Mercado Pago\nCVU: 0000003100011111111111\nCUIT/CUIL: 20-11111111-2\n"
+                  "0 Distri Neuquén\nMercado Pago\nCVU: 0000003100090000000018\n"
+                  "CUIT/CUIL: 23-99999999-9\nN.? de operación de Mercado Pago\n186800000093\n"
+                  "Mago, tu asistente\nHacé pagos y\ntransferencias . Transferí $ 3.00")
+    MP_LABELED_CVU_PIECE = ("Comprobante de\ntransferencia\n$ 175.600\nOrigen y destino\n"
+                            "<S Carla Ejemplar Gómez\n3100089999999999\n7-99999999-4\n"
+                            "Distri Neuquén\nMercado Pago\nCVU: 0000003100090000000018\n"
+                            "CUIT/CUIL: 23-99999999-9\nN.? de operación de Mercado Pago\n"
+                            "187900000576")
+    BANK_LABELED = ("Número de operación 0455600062\nTitular origen: EJEMPLO 653\n"
+                    "CUIT/CUIL origen: 20111111112\ncvu origen: 0000034500000099999999\n"
+                    "Fecha y hora: 05/11/2026 13:37:34\nTitular destino: Marcos Daniel Ejemplar\n"
+                    "CUIT/CUIL destino: 23999999999\nCBU/CVU destino: 000000310009 0000000018\n"
+                    "Importe: -617500,00\nComprobante: 0455600062")
+
+    def test_bare_mercado_pago_id_without_a_bank(self):
+        # the OCR lost both the header and the «N.° de operación» label: the
+        # only Mercado Pago-like number is the operation (import 20)
+        for text in (self.MP_NO_HEADER, self.MP_NO_HEADER_COPY):
+            result = parse_receipt(text, own=own_account_values(TEST_OWN_ACCOUNT))
+            self.assertEqual(result["bank"], "")
+            self.assertEqual(result["operation"], "186900000407")
+            self.assertEqual(result["amount"], 159100)
+
+    def test_receipts_without_any_operation_number_stay_without_one(self):
+        for text in (self.MP_GARBLED, self.MP_CROPPED, self.MP_CROPPED_2, self.UALA_UUID):
+            self.assertEqual(parse_receipt(text)["operation"], "", text)
+
+    def test_labeled_operation_still_wins(self):
+        self.assertEqual(parse_receipt(self.MP_LABELED)["operation"], "186800000093")
+        self.assertEqual(parse_receipt(self.MP_LABELED_CVU_PIECE)["operation"], "187900000576")
+        self.assertEqual(parse_receipt(self.BANK_LABELED)["operation"], "0455600062")
+
+    def test_bare_number_without_a_bank_must_be_the_only_one(self):
+        base = "Comprobante de transferencia\n$ 159.100\nCarla Ejemplar Gómez\n"
+        # two different candidates: none
+        self.assertEqual(parse_receipt(base + "186900000407\n186900000999")["operation"], "")
+        # the same number twice (the OCR read it again) is still one
+        self.assertEqual(parse_receipt(base + "186900000407\nop 186900000407")["operation"],
+                         "186900000407")
+        # never a CVU, a CUIT (formatted or not), a phone, a date or an amount
+        for noise in ("CVU 0000003100090000000018", "0000003100 090000000018",
+                      "CUIT 20-11111111-2", "CUIT 20111111112", "20111111112",
+                      "2995123456", "5492995123456", "06/11/2026 14:30", "$ 186900000407",
+                      "15-1234-5678"):
+            self.assertEqual(parse_receipt(base + noise)["operation"], "", noise)
+        # a bank that is not Mercado Pago keeps asking for a label
+        self.assertEqual(parse_receipt("Galicia\n" + base + "186900000407")["operation"], "")
+
     def test_uala_operation_id(self):
         result = parse_receipt("Ualá\nid Op.\nA1B2C3D4E5F6G7H8I9J0K1\n$ 20.000")
         self.assertEqual(result["operation"], "A1B2C3D4E5F6G7H8I9J0K1")

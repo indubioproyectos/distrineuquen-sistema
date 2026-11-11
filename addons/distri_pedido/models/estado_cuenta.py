@@ -97,6 +97,15 @@ def _imported_staff_type(mov):
     return "Ajuste" if mov.tipo != "otro" else "Movimiento"
 
 
+def _statement_number(row):
+    """The row's number; a payment from a Mercado Pago card links to the card."""
+    number = html_escape(row["number"])
+    if not row.get("card_id"):
+        return number
+    return ("%s <a href='/odoo/distri.mp.collection/%d' target='_blank' "
+            "class='o_distri_estado_tarjeta'>Ver tarjeta</a>" % (number, row["card_id"]))
+
+
 def _money(amount):
     """$ 62.300 / $ 62.300,50 / -$ 1.200"""
     sign = "-" if (amount or 0.0) < -0.004 else ""
@@ -177,13 +186,15 @@ class ResPartnerEstadoCuenta(models.Model):
                 "debit": line.debit,
                 "credit": line.credit,
                 "provisional": False,
+                "owed": 0.0,
+                "owed_note": "",
                 "res_model": "account.move",
                 "res_id": move.id,
                 "key": (line.date, _SOURCE_ORDER[SOURCE_ODOO], line.id),
             })
         seen.discard(None)
 
-        history = self.env["distri.cuenta.movimiento"].sudo().search(
+        history = self.env["distri.cuenta.movimiento"].sudo().with_context(active_test=True).search(
             [("partner_id", "=", partner.id)], order="fecha, id")
         for mov in history:
             if clave_documento(mov.comprobante, mov.debe, mov.haber) in seen:
@@ -201,6 +212,9 @@ class ResPartnerEstadoCuenta(models.Model):
                 "debit": mov.debe or 0.0,
                 "credit": mov.haber or 0.0,
                 "provisional": False,
+                # «Adeudada (revisada)»: the amount still owed, set by the review
+                "owed": (mov.distri_owed_amount or mov.debe or 0.0) if mov.distri_owed else 0.0,
+                "owed_note": (mov.distri_owed_note or "") if mov.distri_owed else "",
                 "res_model": "distri.cuenta.movimiento",
                 "res_id": mov.id,
                 "key": (mov.fecha, _SOURCE_ORDER[SOURCE_ONLINE], mov.id),
@@ -223,11 +237,22 @@ class ResPartnerEstadoCuenta(models.Model):
                 "debit": 0.0,
                 "credit": ret.amount,
                 "provisional": True,
+                "owed": 0.0,
+                "owed_note": "",
                 "res_model": "distri.route.return",
                 "res_id": ret.id,
                 "key": (when, _SOURCE_ORDER[SOURCE_RETURN], ret.id),
             })
 
+        # a payment registered from a Mercado Pago card links back to it
+        move_ids = [r["res_id"] for r in rows if r["res_model"] == "account.move" and r["credit"]]
+        if move_ids:
+            cards = self.env["distri.mp.collection"].sudo().search(
+                [("payment_id.move_id", "in", move_ids)])
+            by_move = {c.payment_id.move_id.id: c.id for c in cards}
+            for row in rows:
+                if row["res_model"] == "account.move" and row["res_id"] in by_move:
+                    row["card_id"] = by_move[row["res_id"]]
         rows.sort(key=lambda r: (r["key"][0] or date.min,) + r["key"][1:])
         balance = 0.0
         for row in rows:
@@ -302,6 +327,11 @@ class ResPartnerEstadoCuenta(models.Model):
                 (" · incluye devoluciones informadas a controlar por %s"
                  % html_escape(_money(data["provisional"]))) if data["provisional"] else ""),
         ]
+        owed = [r for r in rows if r.get("owed")]
+        if owed:
+            out.append("<p class='text-danger o_distri_estado_adeudadas'><b>Facturas adeudadas "
+                       "(revisadas): %d por %s</b> · en rojo en la tabla</p>" % (
+                           len(owed), html_escape(_money(sum(r["owed"] for r in owed)))))
         if candidates:
             out.append("<p><b>%s: %s</b> · %d %s por %s, no restados del saldo</p>" % (
                 WHATIF_LABEL, html_escape(_money(data["whatif_balance"])), len(candidates),
@@ -330,12 +360,17 @@ class ResPartnerEstadoCuenta(models.Model):
                 "<tr%s><td>%s</td><td>%s%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>"
                 "<td class='text-end'>%s</td><td class='text-end'>%s</td>"
                 "<td class='text-end'>%s</td></tr>" % (
-                    " class='table-warning'" if row["provisional"] else "",
+                    " class='table-warning'" if row["provisional"] else (
+                        " class='table-danger o_distri_estado_adeudada'%s" % (
+                            " title='%s'" % html_escape(row["owed_note"])
+                            if row.get("owed_note") else "") if row.get("owed") else ""),
                     row["date"].strftime("%d/%m/%Y") if row["date"] else "",
                     html_escape(row["doc_type"]),
                     " <span class='badge text-bg-warning'>a controlar</span>"
-                    if row["provisional"] else "",
-                    html_escape(row["number"]), html_escape(row["remito"]),
+                    if row["provisional"] else (
+                        " <span class='badge text-bg-danger'>debe %s</span>" % html_escape(
+                            _money(row["owed"])) if row.get("owed") else ""),
+                    _statement_number(row), html_escape(row["remito"]),
                     html_escape(row["concept"]), html_escape(SOURCE_LABELS[row["source"]]),
                     html_escape(_money(row["debit"])) if row["debit"] else "",
                     html_escape(_money(row["credit"])) if row["credit"] else "",

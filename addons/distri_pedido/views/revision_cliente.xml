@@ -139,11 +139,12 @@
     <field name="model">distri.balance.review</field>
     <field name="arch" type="xml">
       <list string="Revisión por cliente" create="0" delete="0" edit="0"
-            decoration-danger="has_flag" decoration-muted="state == 'reviewed'">
+            decoration-danger="has_flag" decoration-success="audited and not has_flag">
         <header>
           <button name="action_refresh" type="object" string="Actualizar" display="always"/>
         </header>
         <field name="has_flag" string="Alerta" widget="boolean_toggle" readonly="1"/>
+        <field name="audited" widget="boolean" optional="show"/>
         <field name="partner_id"/>
         <field name="online_balance" sum="Total"/>
         <field name="posted_count" optional="show"/>
@@ -183,7 +184,11 @@
         <separator/>
         <filter name="to_review" string="Con pagos para revisar" domain="[('state', '=', 'pending')]"/>
         <filter name="reviewed" string="Revisados" domain="[('state', '=', 'reviewed')]"/>
+        <separator/>
+        <filter name="audited" string="Auditados" domain="[('audited', '=', True)]"/>
+        <filter name="not_audited" string="Sin auditar" domain="[('audited', '=', False)]"/>
         <group>
+          <filter name="by_audited" string="Auditoría" context="{'group_by': 'audited'}"/>
           <filter name="by_state" string="Estado" context="{'group_by': 'state'}"/>
           <filter name="by_flag" string="Alerta" context="{'group_by': 'has_flag'}"/>
         </group>

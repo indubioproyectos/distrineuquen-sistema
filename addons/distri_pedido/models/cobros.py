@@ -228,6 +228,9 @@ _OPERATION_RE = re.compile(
     r"(?:operaci[oó]n|transacci[oó]n|comprobante|referencia|n[uú]mero)\D{0,40}?(\d{9,16})",
     re.IGNORECASE)
 _ORDER_RE = re.compile(r"\bS\d{5,}\b")
+# a seller's note about cash («Recibí efectivo $ 600.000 Ivo») written next to
+# a transfer's photo is another payment: its amount is not the transfer's
+_CASH_NOTE_RE = re.compile(r"\befectivo\b", re.IGNORECASE)
 _RECEIPT_WORDS = re.compile(r"comprobante|transfer|pag(?:o|ué|ue)|mercado\s*pago|cvu|alias",
                             re.IGNORECASE)
 
@@ -288,6 +291,16 @@ def operation_close(read, source):
     if abs(len(read) - len(source)) == 1:
         return read.startswith(source) or source.startswith(read)
     return False
+
+
+# A run of 10-13 digits in a receipt's text: possibly the operation number
+# of a transfer, even when the parser could not tell it was one.
+_LONG_NUMBER_RE = re.compile(r"(?<!\d)\d{10,13}(?!\d)")
+
+
+def text_numbers(text):
+    """The 10-13 digit numbers written in a receipt's text (OCR or PDF)."""
+    return set(_LONG_NUMBER_RE.findall(text or ""))
 
 
 def format_cuit(value):
@@ -352,6 +365,13 @@ def parse_amount_ar(text):
             continue
     found = [a for a in found if a > 0]
     return max(found) if found else 0.0
+
+
+def receipt_caption_amount(text):
+    """The amount the texts next to a receipt give it: `parse_amount_ar` on
+    every line except the ones about cash, which are another payment."""
+    lines = (text or "").splitlines()
+    return parse_amount_ar("\n".join(l for l in lines if not _CASH_NOTE_RE.search(l)))
 
 
 def parse_operation(text):
@@ -1621,7 +1641,8 @@ class DistriMpCollection(models.Model):
 
     def _find_receipt(self):
         """The WhatsApp receipt of this transfer with the same operation number
-        (or one OCR slip away from it, with the same amount). Receipts of the
+        (read, or written in its text without a label; or one OCR slip away
+        from it, with the same amount). Receipts of the
         same amount only are paired by `_pair_receipts_by_amount`."""
         self.ensure_one()
         Message = self.env["distri.whatsapp.message"].sudo()
@@ -1636,6 +1657,14 @@ class DistriMpCollection(models.Model):
                                order="timestamp, id", limit=1)
         if found:
             return found
+        # the number is written in the photo but the parser missed it (no
+        # label survived the OCR): the same, the first one received
+        domain = base + [("distri_operation", "=", False)] + ["|"] * (len(numbers) - 1) + [
+            ("distri_file_text", "ilike", n) for n in numbers]
+        found = Message.search(domain, order="timestamp, id").filtered(
+            lambda m: text_numbers(m.distri_file_text) & set(numbers))[:1]
+        if found:
+            return found
         near = Message.search(base + [
             ("distri_operation", "!=", False),
             ("distri_amount", ">=", self.amount - AMOUNT_TOLERANCE),
@@ -1644,6 +1673,33 @@ class DistriMpCollection(models.Model):
         # never a receipt whose number is exactly another transfer's
         taken = self._transfer_numbers(near.mapped("distri_operation"))
         return near.filtered(lambda m: m.distri_operation not in taken)[:1]
+
+    def _close_receipt_copies(self, receipt):
+        """Other waiting receipts carrying this transfer's operation number
+        (as read, or written in their text) are copies of `receipt`: «Ya
+        recibido», never paired by amount to another transfer. A copy of
+        another customer stays for a person to look at."""
+        self.ensure_one()
+        numbers = [n for n in (self.source_id, self.bank_transfer_id) if n]
+        if not numbers:
+            return
+        Message = self.env["distri.whatsapp.message"].sudo()
+        copies = Message.search([
+            ("id", "!=", receipt.id), ("distri_is_receipt", "=", True),
+            ("distri_receipt_state", "in", ("pending", "no_money")),
+            "|", ("distri_operation", "in", numbers),
+            "&", ("distri_operation", "=", False),
+        ] + ["|"] * (len(numbers) - 1) + [("distri_file_text", "ilike", n) for n in numbers]
+        ).filtered(lambda m: m.distri_operation in numbers
+                    or text_numbers(m.distri_file_text) & set(numbers))
+        customer = receipt.distri_partner_id.commercial_partner_id
+        for copy in copies:
+            other = copy.distri_partner_id.commercial_partner_id
+            if customer and other and other != customer:
+                continue
+            copy._distri_close("duplicate", "Ya recibido el %s (%s)." % (
+                local_when(receipt.timestamp),
+                receipt.distri_forwarded_by_id.name or receipt.profile_name or receipt.wa_id or ""))
 
     def _receipt_by_operation(self):
         """The receipt tied to this transfer has its operation number (or one
@@ -1704,9 +1760,17 @@ class DistriMpCollection(models.Model):
             ("timestamp", "<=", self.date + RECEIPT_AFTER),
         ])
         # a receipt whose operation number is another transfer's belongs to
-        # that transfer only, whatever its amount and time
-        taken = self._transfer_numbers(candidates.mapped("distri_operation"))
-        return candidates.filtered(lambda m: m.distri_operation not in taken)
+        # that transfer only, whatever its amount and time; so does one whose
+        # text shows another transfer's number the parser missed (import 20
+        # of 06/11/2026: a second photo of one receipt went to the transfer
+        # of the same amount 8 minutes later)
+        own = {n for n in (self.source_id, self.bank_transfer_id) if n}
+        written = {m.id: text_numbers(m.distri_file_text) for m in candidates}
+        taken = self._transfer_numbers(
+            candidates.mapped("distri_operation") + [n for ns in written.values() for n in ns])
+        taken -= own
+        return candidates.filtered(
+            lambda m: m.distri_operation not in taken and not (written[m.id] & taken))
 
     @api.model
     def _transfer_numbers(self, numbers):
@@ -1744,6 +1808,7 @@ class DistriMpCollection(models.Model):
         self.ensure_one()
         self.receipt_id = receipt
         receipt.write({"distri_receipt_state": "matched", "distri_collection_id": self.id})
+        self._close_receipt_copies(receipt)
         cards = self.search([("kind", "in", ("receipt", "verify")),
                              ("receipt_id", "=", receipt.id), ("state", "=", "draft")])
         if cards:
@@ -2012,7 +2077,10 @@ class DistriMpCollection(models.Model):
         # the administrator chose the customer («A mano»).
         chosen = record.proposal == "manual"
         amount_only = record._receipt_by_amount_only()
-        if record.payer_cuit and (chosen or record.proposal in (
+        # 19.0.1.69.0: a CUIT is learned only from a transfer whose receipt
+        # reached the WhatsApp group (record.receipt_id); a card confirmed
+        # without receipt never teaches who the payer is
+        if record.payer_cuit and record.receipt_id and (chosen or record.proposal in (
                 "cuit", "link", "operation", "authorized")):
             self.env["distri.payer.identity"]._learn(
                 "cuit", record.payer_cuit, partner, friendly_case(record.payer_name))
@@ -2395,7 +2463,7 @@ class DistriMpAssign(models.TransientModel):
             return rec
         rec.write({"partner_id": partner.id, "proposal": "manual",
                    "proposal_note": "Asignado por %s" % self.env.user.name})
-        if self.learn and rec.payer_cuit:
+        if self.learn and rec.payer_cuit and rec.receipt_id:
             self.env["distri.payer.identity"]._learn(
                 "cuit", rec.payer_cuit, partner, friendly_case(rec.payer_name))
         if rec.kind in ("receipt", "verify") and rec.receipt_id:
@@ -3195,7 +3263,7 @@ class WhatsappMessageComprobante(models.Model):
                 if conflict:
                     vals.update(distri_conflict=conflict, distri_partner_id=False,
                                 distri_partner_source=False)
-            caption_amount = parse_amount_ar(msg._distri_nearby_text())
+            caption_amount = receipt_caption_amount(msg._distri_nearby_text())
             if read_file:
                 vals.update(msg._distri_file_values(reading, caption_amount))
             elif not msg.distri_amount and caption_amount:
@@ -3274,6 +3342,59 @@ class WhatsappMessageComprobante(models.Model):
                              before[0].display_name or "-",
                              msg.distri_partner_id.display_name or "-")
         return {"receipts": len(receipts), "changed": changed}
+
+    @api.model
+    def _distri_recompute_operations(self, ids=None):
+        """Reads the operation number again from the stored text of the
+        receipts that have none (19.0.1.72.0: a bare Mercado Pago id on a
+        receipt whose bank the OCR lost). A receipt tied to a confirmed or
+        authorized card, or already registered, is only reported: a person
+        fixes it. A waiting receipt is classified and matched again (a copy
+        becomes «Ya recibido»); one already tied to a draft card keeps its
+        card, and a number of another loaded transfer is only reported.
+        From odoo shell:
+            env["distri.whatsapp.message"]._distri_recompute_operations(); env.cr.commit()
+        Returns a list of {"id", "operation", "card", "card_state", "action",
+        "state"}; action is "filled", "reported" or "conflict"."""
+        _check_admin(self.env)
+        domain = [("distri_is_receipt", "=", True), ("distri_file_text", "!=", False),
+                  "|", ("distri_operation", "=", False), ("distri_operation", "=", "")]
+        if ids:
+            domain.append(("id", "in", list(ids)))
+        own = own_account(self.env)
+        Collection = self.env["distri.mp.collection"].sudo()
+        report = []
+        for msg in self.sudo().search(domain, order="timestamp, id"):
+            operation = parse_receipt(msg.distri_file_text, own=own).get("operation")
+            if not operation:
+                continue
+            card = msg.distri_collection_id
+            row = {"id": msg.id, "operation": operation, "card": card.id or False,
+                   "card_state": card.state or False}
+            owner = Collection.search([("kind", "=", "income"), "|",
+                                       ("source_id", "=", operation),
+                                       ("bank_transfer_id", "=", operation)], limit=1)
+            if card.state in ("confirmed", "authorized") or \
+                    msg.distri_receipt_state == "registered":
+                row["action"] = "reported"
+            elif card.kind == "income" and owner and owner != card:
+                row["action"] = "conflict"
+            else:
+                row["action"] = "filled"
+                msg.with_context(distri_receipt_matching=True).write(
+                    {"distri_operation": operation})
+                if msg.distri_receipt_state in ("pending", "no_money"):
+                    msg._distri_classify()
+                    msg._distri_match_income()
+                    msg._distri_sync_verify_card()
+                elif card.kind == "income" and card.state == "draft":
+                    card._close_receipt_copies(msg)
+            row["state"] = msg.distri_receipt_state
+            if owner and owner != card:
+                row["owner"] = owner.id
+            _logger.info("Operación de comprobante %s: %s", msg.id, row)
+            report.append(row)
+        return report
 
     def _distri_note_vs_payer(self, note_partner, reading):
         """The conflict note when the customer named by the note is not the
@@ -3410,6 +3531,22 @@ class WhatsappMessageComprobante(models.Model):
                 found = Collection.search(base + [("id", "in", owner.ids)], limit=1)
                 if not found:
                     receipt._distri_already(owner)
+                    for income in owner.filtered("receipt_id"):
+                        income._close_receipt_copies(income.receipt_id)
+                    return False
+        elif amount:
+            # no number read, but the text shows a loaded transfer's: that
+            # one or none, never another transfer of the same amount
+            written = text_numbers(receipt.distri_file_text)
+            owner = written and Collection.search([("kind", "=", "income"), "|",
+                                                   ("source_id", "in", list(written)),
+                                                   ("bank_transfer_id", "in", list(written))])
+            if owner:
+                found = Collection.search(base + [("id", "in", owner.ids)], limit=1)
+                if not found:
+                    receipt._distri_already(owner)
+                    for income in owner.filtered("receipt_id"):
+                        income._close_receipt_copies(income.receipt_id)
                     return False
         if not found and amount:
             found = receipt._distri_by_amount(base)
