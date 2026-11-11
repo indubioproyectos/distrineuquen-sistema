@@ -12,13 +12,13 @@
   <meta name="theme-color" content="#10243f"/>
   <title>Cuentas · <t t-esc="empresa"/></title>
   <link rel="manifest" href="/cuentas/manifest.webmanifest"/>
-  <link rel="icon" t-att-href="icons + 'icon-192.png'"/>
-  <link rel="apple-touch-icon" t-att-href="icons + 'icon-192.png'"/>
+  <link rel="icon" t-att-href="icons + 'app-192.png'"/>
+  <link rel="apple-touch-icon" t-att-href="icons + 'app-192.png'"/>
   <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
   <link rel="stylesheet" t-att-href="static + 'cuentas.css?v=' + version"/>
 </head>
 <body>
-  <div id="app"><div class="cargando">Cargando…</div></div>
+  <div id="app" t-att-data-uid="uid"><div class="cargando">Cargando…</div></div>
   <div id="sheet-root"></div>
   <div id="toast" hidden="hidden"></div>
   <script t-att-src="static + 'cuentas.js?v=' + version" defer="defer"></script>
@@ -34,7 +34,7 @@
 
   <!-- 19.0.1.76.0: its own app in the main menu (it used to sit inside Cobros). -->
   <menuitem id="menu_cuentas_root" name="Estado de cuentas" sequence="43"
-            web_icon="distri_pedido,static/src/img/cuenta.png"
+            web_icon="distri_pedido,static/src/img/iconos/cuentas.png"
             action="action_cuentas_pantalla"
             groups="distri_pedido.grupo_vendedor,base.group_system"/>
 

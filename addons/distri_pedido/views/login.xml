@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- The login page (controllers/tienda.py, web_login): only user and
+       password, in the look of the depot screens and /tablero. Same form
+       fields Odoo expects (csrf_token, login, password, redirect, type). -->
+  <template id="login_page" name="Ingreso del equipo">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#10243f"/>
+  <meta name="robots" content="noindex"/>
+  <title>Ingresar · Distri Neuquén</title>
+  <link rel="manifest" href="/tablero/manifest.webmanifest"/>
+  <link rel="icon" href="/distri_pedido/static/src/img/iconos/app-192.png"/>
+  <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/iconos/app-192.png"/>
+  <link rel="stylesheet" href="/distri_pedido/static/src/css/distri_ui.css"/>
+  <style>
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(160deg,#1b5fc4 0%,#10243f 55%,#0b1a2e 100%);display:flex;
+         align-items:center;justify-content:center;padding:24px 16px;box-sizing:border-box}
+    .box{width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;gap:18px}
+    .brand{display:flex;flex-direction:column;align-items:center;gap:10px;color:#fff;text-align:center}
+    .brand img{width:76px;height:76px;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+    .brand b{font-size:22px;font-weight:800;letter-spacing:.3px}
+    .brand span{font-size:13px;color:#b9c7d6}
+    form{width:100%;background:#fff;border-radius:18px;padding:20px 18px;display:flex;flex-direction:column;gap:12px;
+         box-shadow:0 12px 32px rgba(0,0,0,.28);box-sizing:border-box}
+    label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:700;color:var(--soft)}
+    input.f{font:inherit;font-size:16px;padding:12px 12px;border:1px solid var(--input);border-radius:12px;
+            background:#fff;color:var(--text);outline:none}
+    input.f:focus{border-color:#1b5fc4;box-shadow:0 0 0 3px rgba(27,95,196,.18)}
+    .pw{position:relative;display:flex}
+    .pw input{flex-grow:1;padding-right:76px}
+    .pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;
+               color:#1b5fc4;font-weight:700;font-size:13px;padding:8px;cursor:pointer}
+    .go{margin-top:4px;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:800;color:#fff;cursor:pointer;
+        background:linear-gradient(135deg,#1b5fc4,#10243f)}
+    .go:active{opacity:.9}
+    .err{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);border-radius:10px;
+         padding:9px 11px;font-size:13px;font-weight:600}
+    .foot{font-size:11px;color:#8ea3bb}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="brand">
+      <img src="/distri_pedido/static/src/img/iconos/app-192.png" alt=""/>
+      <b>Distri Neuquén</b>
+      <span>Ingreso del equipo</span>
+    </div>
+    <form method="post" action="/web/login" onsubmit="this.querySelector('.go').disabled=true">
+      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+      <input type="hidden" name="redirect" t-att-value="redirect"/>
+      <input type="hidden" name="type" value="password"/>
+      <div t-if="error" class="err" role="alert"><t t-esc="error"/></div>
+      <label>Usuario
+        <input class="f" type="text" name="login" t-att-value="login" autocomplete="username"
+               autocapitalize="none" autocorrect="off" spellcheck="false" required="required"
+               t-att-autofocus="'autofocus' if not login else None"/>
+      </label>
+      <label>Contraseña
+        <span class="pw">
+          <input class="f" type="password" name="password" id="pw" autocomplete="current-password"
+                 required="required" t-att-autofocus="'autofocus' if login else None"/>
+          <button type="button" onclick="var i=document.getElementById('pw');var s=i.type==='password';i.type=s?'text':'password';this.textContent=s?'Ocultar':'Ver'">Ver</button>
+        </span>
+      </label>
+      <button type="submit" class="go">Entrar</button>
+    </form>
+    <div class="foot">¿Olvidaste la contraseña? Pedila a administración.</div>
+  </div>
+</body>
+</html>
+  </template>
+
+</odoo>

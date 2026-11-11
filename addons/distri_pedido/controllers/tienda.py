@@ -44,6 +44,15 @@ class InicioComerciante(Home):
     administradores del sistema siguen entrando a Odoo.
     """
 
+    @http.route()
+    def web_login(self, redirect=None, **kw):
+        """19.0.1.78.0: Odoo's own login logic, our clean page (only user and
+        password; no website header, reset link or database selector)."""
+        response = super().web_login(redirect=redirect, **kw)
+        if getattr(response, "is_qweb", False) and response.template == "web.login":
+            response.template = "distri_pedido.login_page"
+        return response
+
     def _login_redirect(self, uid, redirect=None):
         usuario = request.env["res.users"].sudo().browse(uid)
         if not redirect:

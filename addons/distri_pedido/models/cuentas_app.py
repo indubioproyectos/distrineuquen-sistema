@@ -225,10 +225,11 @@ class DistriAccountApp(models.AbstractModel):
     # ------------------------------------------------------------ debtors
 
     @api.model
-    def app_debtors(self, seller="all"):
+    def app_debtors(self, seller="all", settled=False):
         """The debtors screen: every customer of the scope with its balance,
-        highest debt first, the uncollectible ones and the settled ones
-        (zero or in credit) apart."""
+        highest debt first, the uncollectible ones and, when `settled` is
+        asked (the «saldos a favor» toggle), the settled ones (zero or in
+        credit) apart: they are most of the customers and most of the bytes."""
         scope = self._app_check()
         customers = self._app_customers()
         if scope != "all" or seller not in SELLER_FILTER_VALUES:
@@ -272,7 +273,8 @@ class DistriAccountApp(models.AbstractModel):
             "seller": seller,
             "debtors": debtors,
             "uncollectible": groups["uncollectible"],
-            "settled": groups["settled"],
+            "settled": groups["settled"] if settled else [],
+            "settled_loaded": bool(settled),
             "total_debt": round(sum(d["balance"] for d in debtors), 2),
             "debtor_count": len(debtors),
             "uncollectible_total": round(sum(d["balance"] for d in groups["uncollectible"]), 2),

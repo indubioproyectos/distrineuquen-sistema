@@ -116,7 +116,7 @@
        principal, para no tener que entrar a Ventas cada vez. -->
   <menuitem id="menu_transicion_app"
             name="Transición AgilPedido"
-            web_icon="distri_pedido,static/description/icon.png"
+            web_icon="distri_pedido,static/src/img/iconos/transicion.png"
             groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia"
             sequence="85"/>
 

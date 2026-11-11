@@ -50,3 +50,4 @@ from . import tarjeta_confirmacion
 from . import permisos_cobros
 from . import cuentas_app
 from . import cash_sheet
+from . import iconos

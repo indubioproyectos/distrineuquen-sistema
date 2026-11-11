@@ -682,7 +682,7 @@
   <!-- ============================================================== menus -->
 
   <menuitem id="menu_reparto_root" name="Reparto" sequence="45"
-            web_icon="distri_pedido,static/src/reparto/icon-192.png"
+            web_icon="distri_pedido,static/src/img/iconos/reparto.png"
             groups="distri_pedido.grupo_administracion,base.group_system"/>
   <menuitem id="menu_reparto_routes" name="Rutas" parent="menu_reparto_root"
             action="action_route" sequence="10"/>

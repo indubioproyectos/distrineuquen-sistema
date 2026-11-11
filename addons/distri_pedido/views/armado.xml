@@ -687,7 +687,7 @@ window.addEventListener('pageshow', function () {
   </record>
 
   <menuitem id="menu_armado_app" name="Armado" sequence="44"
-            web_icon="distri_pedido,static/src/img/armado-icon.png"
+            web_icon="distri_pedido,static/src/img/iconos/armado.png"
             action="action_armado_pantalla"
             groups="distri_pedido.grupo_armador"/>
 

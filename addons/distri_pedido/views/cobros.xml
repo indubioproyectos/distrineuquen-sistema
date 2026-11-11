@@ -1284,7 +1284,7 @@
   <!-- ================================================= menus -->
 
   <menuitem id="menu_cobros_root" name="Cobros" sequence="46"
-            web_icon="distri_pedido,static/src/img/cobros-icon.png"
+            web_icon="distri_pedido,static/src/img/iconos/cobros.png"
             groups="distri_pedido.grupo_vendedor,base.group_system"/>
   <menuitem id="menu_cobros_board" name="Tablero" parent="menu_cobros_root"
             action="action_mp_board" sequence="10"

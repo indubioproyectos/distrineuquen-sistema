@@ -128,20 +128,43 @@
     else if (!r.key) { S.line = null; render(); }
   }
 
-  function loadDebtors() {
-    S.debtors = null;
-    render();
-    return get("debtors?seller=" + encodeURIComponent(S.seller)).then(function (data) {
-      S.debtors = data;
-      render();
-    }).catch(fail);
+  // Stale-while-revalidate: the last list this user saw on this phone shows
+  // at once while the fresh one loads (balances take about a second on the
+  // server). Keyed by user, so another login never sees it.
+  var UID = (document.getElementById("app") || {}).dataset ? document.getElementById("app").dataset.uid : "";
+  function storeKey(name) { return "cuentas:" + UID + ":" + name; }
+  function stored(name) {
+    try { return JSON.parse(localStorage.getItem(storeKey(name)) || "null"); } catch (e) { return null; }
+  }
+  function store(name, value) {
+    try { localStorage.setItem(storeKey(name), JSON.stringify(value)); } catch (e) { /* full or blocked */ }
   }
 
+  function loadDebtors() {
+    var key = "debtors:" + S.seller + ":" + (S.showSettled ? 1 : 0);
+    var cached = stored(key);
+    if (cached && (!S.debtors || S.debtors.seller !== S.seller)) S.debtors = cached;
+    else if (!cached && (!S.debtors || S.debtors.seller !== S.seller)) S.debtors = null;
+    S.refreshing = true;
+    render();
+    return get("debtors?seller=" + encodeURIComponent(S.seller) + "&settled=" + (S.showSettled ? 1 : 0))
+      .then(function (data) {
+        S.debtors = data;
+        store(key, data);
+      }).catch(fail).then(function () { S.refreshing = false; render(); });
+  }
+
+  // accounts already opened in this visit show at once and refresh behind
+  var accountCache = {};
+
   function loadAccount(id, period) {
-    S.account = { id: id, period: period, data: null, rows: [] };
+    var cacheKey = id + ":" + period;
+    var cached = accountCache[cacheKey];
+    S.account = { id: id, period: period, data: cached || null, rows: cached ? cached.rows : [] };
     render();
     return get("account?id=" + id + "&period=" + period).then(function (data) {
-      if (!S.account || S.account.id !== id) return;
+      accountCache[cacheKey] = data;
+      if (!S.account || S.account.id !== id || S.account.period !== period) return;
       S.account.data = data;
       S.account.rows = data.rows;
       render();
@@ -277,7 +300,8 @@
     if (D) {
       head += '<div class="total num">' + money(D.total_debt) + "</div>" +
         '<div class="sub">' + plural(D.debtor_count, "cliente debe", "clientes deben") +
-        (D.scope === "portfolio" ? " · tu cartera" : "") + " · " + h(D.user) + "</div>";
+        (D.scope === "portfolio" ? " · tu cartera" : "") + " · " + h(D.user) +
+        (S.refreshing ? ' · <span class="upd">actualizando…</span>' : "") + "</div>";
     } else {
       head += "<h1>Deudores</h1>";
     }
@@ -682,7 +706,10 @@
 
   document.addEventListener("change", function (ev) {
     if (ev.target.id === "t-unc") { S.showUncollectible = ev.target.checked; render(); }
-    if (ev.target.id === "t-set") { S.showSettled = ev.target.checked; render(); }
+    if (ev.target.id === "t-set") {
+      S.showSettled = ev.target.checked;
+      if (S.showSettled && S.debtors && !S.debtors.settled_loaded) loadDebtors(); else render();
+    }
   });
 
   document.addEventListener("keydown", function (ev) {

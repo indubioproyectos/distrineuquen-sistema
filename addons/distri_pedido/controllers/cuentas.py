@@ -21,7 +21,7 @@ from .main import FICHA
 from .reparto import SHARED_CSS, _disk
 
 STATIC = "/distri_pedido/static/src/cuentas/"
-ICONS = "/distri_pedido/static/src/reparto/"
+ICONS = "/distri_pedido/static/src/img/iconos/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "cuentas")
 ASSETS = ("cuentas.js", "cuentas.css")
 
@@ -85,6 +85,7 @@ class Cuentas(http.Controller):
         version = asset_version()
         html = request.env["ir.qweb"]._render("distri_pedido.cuentas_app", {
             "version": version,
+            "uid": request.env.uid,
             "static": STATIC,
             "icons": ICONS,
             "shared_css": SHARED_CSS,
@@ -109,8 +110,8 @@ class Cuentas(http.Controller):
             "background_color": "#f7f8f7",
             "theme_color": "#10243f",
             "icons": [
-                {"src": ICONS + "icon-192.png", "sizes": "192x192", "type": "image/png"},
-                {"src": ICONS + "icon-512.png", "sizes": "512x512", "type": "image/png"},
+                {"src": ICONS + "app-192.png", "sizes": "192x192", "type": "image/png"},
+                {"src": ICONS + "app-512.png", "sizes": "512x512", "type": "image/png"},
             ],
         }
         return request.make_response(json.dumps(data, ensure_ascii=False), headers=[
@@ -122,8 +123,8 @@ class Cuentas(http.Controller):
 
     @http.route("/cuentas/api/debtors", type="http", auth="user", methods=["GET"],
                 sitemap=False)
-    def debtors(self, seller="all", **kw):
-        return self._call("app_debtors", seller=seller)
+    def debtors(self, seller="all", settled="0", **kw):
+        return self._call("app_debtors", seller=seller, settled=settled == "1")
 
     @http.route("/cuentas/api/account", type="http", auth="user", methods=["GET"],
                 sitemap=False)

@@ -18,6 +18,7 @@
 .loadbtn.on{background:var(--mint);border-color:var(--mint);color:var(--navy)}
 .loadinfo{font-size:12px;color:#fff;display:flex;flex-direction:column;gap:1px}
 .loadinfo span{color:var(--head-sub);font-size:11px}
+.head .upd{color:var(--mint)}
 .head .total{font-size:22px;font-weight:800;line-height:1.1}
 .head .total small{font-size:14px;font-weight:600;color:var(--head-sub)}
 .tools{background:#fff;border-bottom:1px solid var(--line);padding:6px 10px;display:flex;flex-direction:column;gap:6px}

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Our icon family on every top menu (models/iconos.py). Runs on every update. -->
+  <function model="ir.ui.menu" name="_distri_apply_app_icons"/>
+</odoo>

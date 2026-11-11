@@ -166,7 +166,10 @@ class TestCuentasApp(HttpCase):
         self.assertFalse(self.env["distri.account.comment"].search([("partner_id", "=", self.pa.id)]))
 
     def test_seller_sees_only_his_portfolio(self):
-        data = self._app(self.seller_a).app_debtors(seller="italo")
+        self.assertEqual(self._app(self.seller_a).app_debtors()["settled"], [],
+                         "the settled customers come only when asked")
+        data = self._app(self.seller_a).app_debtors(seller="italo", settled=True)
+        self.assertTrue(data["settled_loaded"])
         self.assertFalse(data["can_filter_seller"])
         self.assertEqual(data["seller"], "all", "a seller has no seller filter")
         ids = {d["id"] for d in data["debtors"] + data["settled"] + data["uncollectible"]}

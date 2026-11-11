@@ -16,17 +16,17 @@ from odoo.http import request
 from .main import FICHA
 from .reparto import SHARED_CSS
 
-IMG = "/distri_pedido/static/src/img/"
+IMG = "/distri_pedido/static/src/img/iconos/"
 
 # (menu xmlid, title, subtitle, icon, url or None = open the menu in the backend)
 TILES = [
     ("distri_pedido.menu_cuentas_root", "Estado de cuentas", "Deudores y cuentas, también en el celular",
-     IMG + "cuenta.png", "/cuentas"),
-    ("distri_pedido.menu_cobros_root", "Cobros", "Tablero MP, tarjetas y planillas", IMG + "cobros-icon.png", None),
+     IMG + "cuentas.png", "/cuentas"),
+    ("distri_pedido.menu_cobros_root", "Cobros", "Tablero MP, tarjetas y planillas", IMG + "cobros.png", None),
     ("distri_pedido.menu_reparto_root", "Reparto", "Rutas, rendiciones y zonas",
-     "/distri_pedido/static/src/reparto/icon-192.png", None),
-    ("distri_pedido.menu_armado_app", "Armado", "Pantalla del armador", IMG + "armado-icon.png", "/armado"),
-    ("distri_pedido.menu_reparto_despacho", "Despacho", "Salida de los repartos", IMG + "seguimiento.png",
+     IMG + "reparto.png", None),
+    ("distri_pedido.menu_armado_app", "Armado", "Pantalla del armador", IMG + "armado.png", "/armado"),
+    ("distri_pedido.menu_reparto_despacho", "Despacho", "Salida de los repartos", IMG + "despacho.png",
      "/despacho"),
 ]
 
@@ -102,7 +102,6 @@ class Tablero(http.Controller):
         """The whole lab as one home-screen app. Scope «/» keeps Odoo, /cuentas,
         /armado, /reparto... inside the app window: with a narrower scope the
         phone shows its «x · title · domain» frame on every other page."""
-        icons = "/distri_pedido/static/src/reparto/"
         data = {
             "name": FICHA["nombre"],
             "short_name": "Distri",
@@ -114,8 +113,10 @@ class Tablero(http.Controller):
             "background_color": "#f7f8f7",
             "theme_color": "#10243f",
             "icons": [
-                {"src": icons + "icon-192.png", "sizes": "192x192", "type": "image/png"},
-                {"src": icons + "icon-512.png", "sizes": "512x512", "type": "image/png"},
+                {"src": IMG + "app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                {"src": IMG + "app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+                {"src": IMG + "app-maskable-512.png", "sizes": "512x512", "type": "image/png",
+                 "purpose": "maskable"},
             ],
         }
         return request.make_response(json.dumps(data, ensure_ascii=False), headers=[
