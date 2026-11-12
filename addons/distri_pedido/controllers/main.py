@@ -35,6 +35,11 @@ def _ya_se_esta_armando():
 # administrador en Ajustes > Tecnico > Parametros del sistema.
 PARAM_ALIAS = "distri_pedido.alias_transferencia"
 
+# Switch that pauses the order screen (/pedido and /pedido/enviar) while its
+# catalog is out of date: "1" pauses it for everyone except system
+# administrators. Settings > Technical > System Parameters, no deploy needed.
+PARAM_PAUSADO = "distri_pedido.pedido_pausado"
+
 # Web orders without a customer go under a generic contact, one per list:
 # orders with MAYORISTA-section lines use the wholesale one, so the administrator
 # tells them apart at a glance. The generics are found by flag
@@ -895,6 +900,8 @@ class TomaDePedidos(http.Controller):
 
     @http.route("/pedido", type="http", auth="public", website=True, sitemap=False)
     def pantalla(self, **kw):
+        if self._pedido_pausado():
+            return self._pantalla_pausada()
         if self._debe_cambiar_clave():
             return request.redirect("/mi-clave")
         return request.render("distri_pedido.pantalla", self._contexto_pantalla())
@@ -1310,6 +1317,8 @@ class TomaDePedidos(http.Controller):
         invalid or expired one shows the page again with the cart, instead
         of Odoo's error page that loses it. See docs «Seguridad» of
         documentacion/integraciones."""
+        if self._pedido_pausado():
+            return self._pantalla_pausada()
         if (request.httprequest.content_length or 0) > MAX_CUERPO:
             return self._error_simple("El pedido es demasiado grande.", status=413)
         renglones, error = self._renglones_validos(post.get("renglones"))
@@ -1547,6 +1556,22 @@ class TomaDePedidos(http.Controller):
             datos["whatsapp"] = self._url_whatsapp_empresa(texto)
             datos["espera"] = pedido.distri_wa_state == "waiting"
         return request.render("distri_pedido.gracias", datos)
+
+    def _pedido_pausado(self):
+        """True while the order screen is paused (PARAM_PAUSADO), except for
+        system administrators, who keep it to check it."""
+        if request.env["ir.config_parameter"].sudo().get_param(PARAM_PAUSADO) != "1":
+            return False
+        return not request.env.user.has_group("base.group_system")
+
+    def _pantalla_pausada(self):
+        return request.make_response(
+            "<!DOCTYPE html><meta charset='utf-8'><meta name='viewport' "
+            "content='width=device-width'><title>Pedidos en pausa</title>"
+            "<p style='font:16px sans-serif;padding:1rem'>La toma de pedidos online está "
+            "en pausa por unos días mientras actualizamos el catálogo. Para hacer un "
+            "pedido, comunicate con tu vendedor.</p>",
+            headers=[("Content-Type", "text/html; charset=utf-8")], status=503)
 
     def _error_simple(self, texto, status=400):
         return request.make_response(
