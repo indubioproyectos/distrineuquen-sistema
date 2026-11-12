@@ -165,6 +165,29 @@ class TestCuentasApp(HttpCase):
                 "partner_id": self.pa.id, "body": "no"}).status_code, 403)
         self.assertFalse(self.env["distri.account.comment"].search([("partner_id", "=", self.pa.id)]))
 
+    def test_seller_locked_to_the_accounts_app(self):
+        Param = self.env["ir.config_parameter"].sudo()
+        Param.set_param("distri_pedido.vendedor_solo_cuentas", "0")
+        self.assertEqual(self.seller_a._distri_landing(), "")
+        Param.set_param("distri_pedido.vendedor_solo_cuentas", "1")
+        self.assertEqual(self.seller_a._distri_landing(), "/cuentas")
+        for user in (self.admin_u, self.manager_u, self.system_u, self.plain_u):
+            self.assertFalse(user._distri_seller_only_accounts(), user.login)
+        menu = self.env.ref("sale.sale_menu_root", raise_if_not_found=False)
+        self.authenticate(self.seller_a.login, self.seller_a.login)
+        urls = ["/odoo", "/web", "/odoo/action-base.action_res_users"]
+        if menu:
+            urls.append("/odoo?menu_id=%d" % menu.id)
+        for url in urls:
+            res = self._get(url)
+            self.assertIn(res.status_code, (301, 302, 303), url)
+            self.assertTrue(res.headers.get("Location", "").endswith("/cuentas"), url)
+        self.assertEqual(self._get("/cuentas").status_code, 200)
+        self.assertTrue(self._get("/cuentas/api/debtors").json()["ok"])
+        self.authenticate(self.admin_u.login, self.admin_u.login)
+        res = self._get("/odoo/action-base.action_res_users")
+        self.assertFalse(res.headers.get("Location", "").endswith("/cuentas"))
+
     def test_seller_sees_only_his_portfolio(self):
         self.assertEqual(self._app(self.seller_a).app_debtors()["settled"], [],
                          "the settled customers come only when asked")

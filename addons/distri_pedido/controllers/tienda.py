@@ -72,6 +72,9 @@ class InicioComerciante(Home):
         go to their screen."""
         uid = request.session.uid
         path = request.httprequest.path.rstrip("/")
+        # a seller locked to the accounts app: every backend page, any menu or record
+        if uid and request.env["res.users"].sudo().browse(uid)._distri_seller_only_accounts():
+            return request.redirect("/cuentas", 303)
         if uid and path in ("/odoo", "/web") and not kw and not s_action \
                 and not request.httprequest.query_string:
             user = request.env["res.users"].sudo().browse(uid)

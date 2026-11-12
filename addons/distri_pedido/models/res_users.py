@@ -6,6 +6,8 @@ from odoo import api, fields, models
 # web client shows times in the browser's zone and warns when it differs
 # from the user's.
 DEFAULT_TZ = "America/Argentina/Buenos_Aires"
+# Settings > Technical > System Parameters: "1" locks sellers to /cuentas
+PARAM_SELLER_ONLY_ACCOUNTS = "distri_pedido.vendedor_solo_cuentas"
 
 
 class ResUsers(models.Model):
@@ -46,7 +48,24 @@ class ResUsers(models.Model):
             return "/reparto"
         if user.has_group("distri_pedido.grupo_armador"):
             return "/armado"
+        if user._distri_seller_only_accounts():
+            return "/cuentas"
         return ""
+
+    def _distri_seller_only_accounts(self):
+        """12/11/2026: while PARAM_SELLER_ONLY_ACCOUNTS is "1" a seller works
+        only in the accounts app (/cuentas): every backend page sends him
+        there (controllers/tienda.py web_client). Administración, gerencia
+        and system administrators are never locked. /pedido keeps its own
+        switch (distri_pedido.pedido_pausado)."""
+        self.ensure_one()
+        user = self.sudo()
+        if user.share or user.has_group("distri_pedido.grupo_administracion") \
+                or user.has_group("base.group_system"):
+            return False
+        if not user.has_group("distri_pedido.grupo_vendedor"):
+            return False
+        return self.env["ir.config_parameter"].sudo().get_param(PARAM_SELLER_ONLY_ACCOUNTS) == "1"
 
     @api.model
     def _distri_set_argentina_tz(self):
