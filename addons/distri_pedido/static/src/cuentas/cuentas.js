@@ -305,7 +305,9 @@
     } else {
       head += "<h1>Deudores</h1>";
     }
-    var custom = S.seller !== "all" || S.showUncollectible || S.showSettled;
+    // a seller never sees the «incobrable» state (models/cuentas_app.py app_debtors)
+    var seeUnc = !!(D && D.can_see_uncollectible);
+    var custom = S.seller !== "all" || (seeUnc && S.showUncollectible) || S.showSettled;
     head += "</div>" + banner() + '<div class="tools"><div class="searchrow">' +
       '<input id="q" class="inp" type="search" inputmode="search" autocomplete="off" ' +
       'placeholder="Buscar nombre, ref. o teléfono" value="' + h(S.search) + '"/>' +
@@ -322,8 +324,8 @@
         }).join("") + "</div>";
       }
       head += '<div class="toggles">' +
-        '<label><input type="checkbox" id="t-unc"' + (S.showUncollectible ? " checked" : "") +
-        "/> Incobrables aparte</label>" +
+        (seeUnc ? '<label><input type="checkbox" id="t-unc"' + (S.showUncollectible ? " checked" : "") +
+          "/> Incobrables aparte</label>" : "") +
         '<label><input type="checkbox" id="t-set"' + (S.showSettled ? " checked" : "") +
         "/> Saldos a favor o en cero</label></div></div>";
     }
@@ -334,7 +336,7 @@
     var debtors = visibleDebtors(D.debtors);
     out.push(debtors.length ? debtors.map(debtorRow).join("") :
       '<div class="empty">' + (S.search ? "Ningún deudor coincide con la búsqueda." : "No hay deudores.") + "</div>");
-    if (S.showUncollectible) {
+    if (seeUnc && S.showUncollectible) {
       var unc = visibleDebtors(D.uncollectible);
       out.push('<div class="section-title"><span>Deudas incobrables (aparte)</span><span class="num">' +
         money(D.uncollectible_total) + "</span></div>");

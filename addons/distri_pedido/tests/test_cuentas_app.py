@@ -207,6 +207,31 @@ class TestCuentasApp(HttpCase):
         self.assertTrue(own["ok"])
         self.assertEqual(own["data"]["partner"]["ref"], "ODOO-990001")
 
+    def test_seller_never_sees_the_uncollectible_state(self):
+        self.pa.sudo().write({"distri_uncollectible": True,
+                              "distri_uncollectible_note": "Nota de prueba"})
+        seller = self._app(self.seller_a).app_debtors()
+        self.assertFalse(seller["can_see_uncollectible"])
+        self.assertEqual(seller["uncollectible"], [])
+        self.assertEqual(seller["uncollectible_total"], 0)
+        self.assertIn(self.pa.id, {d["id"] for d in seller["debtors"]},
+                      "an uncollectible customer is an ordinary debtor for his seller")
+        self.assertEqual([d["rank"] for d in seller["debtors"]],
+                         list(range(1, len(seller["debtors"]) + 1)))
+        balances = [d["balance"] for d in seller["debtors"]]
+        self.assertEqual(balances, sorted(balances, reverse=True))
+        own = self._app(self.seller_a).app_account(self.pa.id)["partner"]
+        self.assertFalse(own["uncollectible"])
+        self.assertEqual(own["uncollectible_note"], "")
+
+        admin = self._app(self.admin_u).app_debtors()
+        self.assertTrue(admin["can_see_uncollectible"])
+        self.assertIn(self.pa.id, {d["id"] for d in admin["uncollectible"]})
+        self.assertNotIn(self.pa.id, {d["id"] for d in admin["debtors"]})
+        full = self._app(self.admin_u).app_account(self.pa.id)["partner"]
+        self.assertTrue(full["uncollectible"])
+        self.assertEqual(full["uncollectible_note"], "Nota de prueba")
+
     def test_debtors_equal_the_debtor_report(self):
         report = self.env["distri.debtor.report"].with_user(self.admin_u).create({})
         data = self._app(self.admin_u).app_debtors()

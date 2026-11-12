@@ -261,15 +261,23 @@ class DistriAccountApp(models.AbstractModel):
                 "comment_count": counts.get(partner.id, 0),
             }
 
+        # 12/11/2026: a seller must not learn that the «incobrable» state
+        # exists (so he never pushes his debts there): his uncollectible
+        # customers are listed as ordinary debtors, in the same balance order
+        hide_uncollectible = scope != "all"
         groups = {"debtor": [], "uncollectible": [], "settled": []}
         for entry in entries:
-            bucket = groups[entry["kind"]]
+            kind = entry["kind"]
+            if hide_uncollectible and kind == "uncollectible":
+                kind = "debtor"
+            bucket = groups[kind]
             bucket.append(payload(entry, len(bucket) + 1))
         debtors = groups["debtor"]
         return {
             "user": self.env.user.name,
             "scope": scope,
             "can_filter_seller": scope == "all",
+            "can_see_uncollectible": not hide_uncollectible,
             "seller": seller,
             "debtors": debtors,
             "uncollectible": groups["uncollectible"],
@@ -333,6 +341,7 @@ class DistriAccountApp(models.AbstractModel):
         """The account screen: header, balances, account comments and one
         page of the statement rows of the period, newest first."""
         partner = self._app_partner(partner_id)
+        full = self._app_check() == "all"
         if period not in PERIODS:
             period = DEFAULT_PERIOD
         date_from = self._app_period_start(period)
@@ -372,8 +381,9 @@ class DistriAccountApp(models.AbstractModel):
                 "phone": phone,
                 "whatsapp": "".join(ch for ch in (partner.distri_whatsapp or partner.phone or "")
                                     if ch.isdigit()),
-                "uncollectible": partner.distri_uncollectible,
-                "uncollectible_note": partner.distri_uncollectible_note or "",
+                # a seller never sees the «incobrable» state (see app_debtors)
+                "uncollectible": full and partner.distri_uncollectible,
+                "uncollectible_note": (full and partner.distri_uncollectible_note) or "",
             },
             "balance": data["balance"],
             "provisional": data["provisional"],
