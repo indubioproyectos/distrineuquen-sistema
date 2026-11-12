@@ -290,8 +290,12 @@
     var D = S.debtors;
     var load = D && D.last_load;
     var head = '<div class="sticky"><div class="head compact"><div class="row"><div class="kicker">Cuentas de clientes</div>' +
+      '<span class="headbtns">' +
       (load ? '<button type="button" id="lastload" class="loadbtn' + (S.showLoad ? " on" : "") + '" aria-expanded="' +
-        (S.showLoad ? "true" : "false") + '">Última carga</button>' : "") + "</div>";
+        (S.showLoad ? "true" : "false") + '">Última carga</button>' : "") +
+      // the only way out for a seller locked to this app (distri_pedido.vendedor_solo_cuentas)
+      '<a class="loadbtn logout" href="/web/session/logout?redirect=%2Fweb%2Flogin">Salir</a>' +
+      "</span></div>";
     if (load && S.showLoad) {
       head += '<div class="loadinfo">Comprobantes del chat cargados hasta el <b>' + h(load.receipts_until) + "</b>" +
         (load.import_file ? '<span>Zip «' + h(load.import_file) + "», importado el " + h(load.imported_at) +

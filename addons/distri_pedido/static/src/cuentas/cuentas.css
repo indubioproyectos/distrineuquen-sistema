@@ -16,6 +16,8 @@
 .loadbtn{border:1px solid var(--head-sub);background:transparent;color:var(--mint);border-radius:99px;padding:2px 9px;
          font-size:11px;font-weight:700;cursor:pointer}
 .loadbtn.on{background:var(--mint);border-color:var(--mint);color:var(--navy)}
+.headbtns{display:flex;gap:6px;align-items:center}
+.loadbtn.logout{text-decoration:none;color:#fff}
 .loadinfo{font-size:12px;color:#fff;display:flex;flex-direction:column;gap:1px}
 .loadinfo span{color:var(--head-sub);font-size:11px}
 .head .upd{color:var(--mint)}
