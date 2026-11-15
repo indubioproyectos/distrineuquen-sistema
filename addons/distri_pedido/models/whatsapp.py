@@ -8,30 +8,42 @@ Images and documents (payment receipts) are NOT downloaded inside the webhook
 request: Meta wants the 200 in under 5 s. The message is stored with the
 media id as `pending` and a cron fetches the file later from the Graph API
 (first the media id -> short-lived URL, then the file with the same token).
+
+Several numbers (19.0.1.88.0): every number connected to the same Meta app
+posts to the same webhook; `metadata.phone_number_id` says which number
+received the message. `distri.whatsapp.numero` gives each one a role
+(models/wa_payload.py). The media download never depends on the number: the
+media id alone, with the single app access token.
 """
 import base64
 import hashlib
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 import requests
+from markupsafe import Markup, escape
 from psycopg2 import IntegrityError
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
+
+from .wa_payload import (
+    DEFAULT_ROLE, MEDIA_ALERT_EXPIRING_DAYS, MEDIA_ALERT_LATE_HOURS, MEDIA_EXPIRY_DAYS,
+    ROLES, USER_ID_MAX, sender_identity, status_recipient,
+)
 
 _logger = logging.getLogger(__name__)
 
 PARAM_VERIFY_TOKEN = "distri_pedido.wa_verify_token"
 PARAM_APP_SECRET = "distri_pedido.wa_app_secret"
 PARAM_ACCESS_TOKEN = "distri_pedido.wa_access_token"
-# Reserved, not read today (19.0.1.37.0, T9): the number and the business
-# account of the Cloud API. Odoo only receives; they are needed the day Odoo
-# sends messages or checks which number a notification is for (the real
-# number, cobranza/README.md «Día de conexión del número real»).
+# Legacy single number (19.0.1.37.0). Since 19.0.1.88.0 the numbers and their
+# roles live in `distri.whatsapp.numero`; the parameter is only read once, by
+# the 19.0.1.88.0 migration (`_wa_migrate_phone_param`).
 PARAM_PHONE_NUMBER_ID = "distri_pedido.wa_phone_number_id"
 PARAM_WABA_ID = "distri_pedido.wa_waba_id"
 
@@ -57,6 +69,18 @@ MEDIA_CRON_BATCH = 20
 # The short-lived download URL comes from the Graph API answer; the token is
 # only ever sent to Meta's own hosts, never to a URL taken from elsewhere.
 MEDIA_URL_HOSTS = (".fbsbx.com", ".facebook.com", ".whatsapp.net", ".fbcdn.net")
+
+# Media alerts (`_wa_cron_media_alerts`): one To-Do for administración,
+# anchored on the receiving number, updated while it is open.
+MEDIA_ALERT_LATE = "late"
+MEDIA_ALERT_EXPIRING = "expiring"
+MEDIA_ALERT_SUMMARY = {
+    MEDIA_ALERT_LATE: "WhatsApp: comprobantes sin descargar",
+    MEDIA_ALERT_EXPIRING: "WhatsApp: comprobantes por vencer en Meta",
+}
+MEDIA_ALERT_LIST_MAX = 40
+ADMIN_GROUP = "distri_pedido.grupo_administracion"
+AR_TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 
 
 class WhatsappMediaError(Exception):
@@ -124,6 +148,123 @@ def _safe_filename(name, ext):
     return name
 
 
+class WhatsappNumero(models.Model):
+    """A WhatsApp number connected to the Meta app, with its role.
+
+    A model and not parameters: several numbers, each with a role and an
+    on/off switch, editable by an administrator without restarting Odoo, and
+    a record to hang the media alerts on (activities need mail.thread)."""
+    _name = "distri.whatsapp.numero"
+    _description = "Número de WhatsApp conectado"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "sequence, id"
+
+    name = fields.Char(string="Número", required=True, tracking=True,
+                       help="El número como se muestra, con código de país. "
+                            "Ej.: +54 9 299 000-0000.")
+    phone_number_id = fields.Char(
+        string="Phone Number ID", required=True, tracking=True,
+        help="Identificador del número en Meta (WhatsApp Manager › Configuración de la API). "
+             "Llega en cada aviso como metadata.phone_number_id.")
+    rol = fields.Selection(ROLES, string="Uso", required=True, default=DEFAULT_ROLE,
+                           tracking=True,
+                           help="Pedidos y comprobantes: confirma pedidos por código y lee "
+                                "comprobantes (como siempre). Solo comprobantes: el número de "
+                                "repartidores y vendedores; nunca confirma pedidos ni verifica "
+                                "teléfonos, y toda foto o PDF es un comprobante. Solo pedidos: "
+                                "las fotos no se leen como comprobantes.")
+    active = fields.Boolean(string="Activo", default=True, tracking=True,
+                            help="Un número archivado se trata como no configurado: sus "
+                                 "mensajes se guardan igual, marcados.")
+    sequence = fields.Integer(default=10)
+    whatsapp_count = fields.Integer(string="Mensajes", compute="_compute_whatsapp_count")
+
+    _phone_number_id_unique = models.Constraint(
+        "UNIQUE(phone_number_id)", "Ese Phone Number ID ya está cargado.",
+    )
+
+    @api.constrains("phone_number_id")
+    def _check_phone_number_id(self):
+        for record in self:
+            if not (record.phone_number_id or "").isdigit():
+                raise ValidationError(_("El Phone Number ID son solo números."))
+
+    def _compute_whatsapp_count(self):
+        groups = self.env["distri.whatsapp.message"].sudo()._read_group(
+            [("numero_id", "in", self.ids)], ["numero_id"], ["__count"])
+        counts = {numero.id: count for numero, count in groups}
+        for record in self:
+            record.whatsapp_count = counts.get(record.id, 0)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get("phone_number_id"):
+                vals["phone_number_id"] = str(vals["phone_number_id"]).strip()
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if vals.get("phone_number_id"):
+            vals = dict(vals, phone_number_id=str(vals["phone_number_id"]).strip())
+        return super().write(vals)
+
+    @api.model
+    def _wa_route(self, phone_number_id):
+        """(numero, role, not_configured) for the number that received a
+        message. Empty phone_number_id (app photos, chat imports): no number,
+        default role, not flagged. Unknown or archived: default role, flagged."""
+        phone_number_id = (phone_number_id or "").strip()
+        if not phone_number_id:
+            return self.browse(), False, False
+        numero = self.sudo().search([("phone_number_id", "=", phone_number_id)], limit=1)
+        if numero:
+            return numero, numero.rol, False
+        return self.browse(), DEFAULT_ROLE, True
+
+    @api.model
+    def _wa_default(self):
+        """The number that takes the alerts of messages without a known one."""
+        Numero = self.sudo()
+        return (Numero.search([("rol", "=", DEFAULT_ROLE)], limit=1)
+                or Numero.search([], limit=1))
+
+    @api.model
+    def _wa_migrate_phone_param(self):
+        """19.0.1.88.0: the single `distri_pedido.wa_phone_number_id` becomes a
+        number with role «Pedidos y comprobantes» (same behaviour as before),
+        and its messages get the number. Idempotent. Returns the number."""
+        value = (self.env["ir.config_parameter"].sudo().get_param(PARAM_PHONE_NUMBER_ID)
+                 or "").strip()
+        if not value.isdigit():
+            return self.browse()
+        Numero = self.sudo().with_context(active_test=False)
+        numero = Numero.search([("phone_number_id", "=", value)], limit=1)
+        if not numero:
+            numero = Numero.create({
+                "name": "Número principal (%s)" % value,
+                "phone_number_id": value,
+                "rol": DEFAULT_ROLE,
+            })
+            _logger.info("WhatsApp number %s migrated from the parameter", value)
+        self.env.cr.execute("""
+            UPDATE distri_whatsapp_message
+               SET numero_id = %s, wa_rol = %s
+             WHERE phone_number_id = %s AND numero_id IS NULL
+        """, [numero.id, numero.rol, value])
+        self.env["distri.whatsapp.message"].invalidate_model(["numero_id", "wa_rol"])
+        return numero
+
+    def action_view_messages(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Mensajes de %s", self.name),
+            "res_model": "distri.whatsapp.message",
+            "view_mode": "list,form",
+            "domain": [("numero_id", "=", self.id)],
+        }
+
+
 class WhatsappMessage(models.Model):
     _name = "distri.whatsapp.message"
     _description = "Mensaje WhatsApp"
@@ -146,7 +287,29 @@ class WhatsappMessage(models.Model):
     timestamp = fields.Datetime(string="Fecha del mensaje", readonly=True)
     status = fields.Char(string="Estado", readonly=True)
     status_date = fields.Datetime(string="Fecha del estado", readonly=True)
-    phone_number_id = fields.Char(string="Phone Number ID", readonly=True)
+    phone_number_id = fields.Char(string="Phone Number ID", readonly=True, index=True)
+    # 19.0.1.88.0: the receiving number and its role, fixed when the message
+    # arrives (changing a number's role later does not re-route old messages)
+    numero_id = fields.Many2one("distri.whatsapp.numero", string="Número que recibió",
+                                readonly=True, index=True, ondelete="set null")
+    wa_rol = fields.Selection(ROLES, string="Uso del número", readonly=True,
+                              help="El uso del número que recibió el mensaje, al llegar. "
+                                   "Vacío: mensajes de la app de reparto o de un chat importado.")
+    wa_numero_no_configurado = fields.Boolean(
+        string="Número no configurado", readonly=True, index=True,
+        help="Llegó a un Phone Number ID que no está en «Números de WhatsApp» (o está "
+             "archivado). Se guardó y se trató como «Pedidos y comprobantes».")
+    numero_recibido = fields.Char(string="Recibido en", compute="_compute_numero_recibido")
+    # senders without a phone (WhatsApp usernames, 2026)
+    wa_user_id = fields.Char(string="Usuario de WhatsApp (BSUID)", readonly=True, index=True,
+                             help="Identificador de usuario que manda Meta (user_id). Llega "
+                                  "aunque el remitente oculte su teléfono con un nombre de "
+                                  "usuario.")
+    wa_username = fields.Char(string="Nombre de usuario", readonly=True)
+    wa_sin_telefono = fields.Boolean(
+        string="Remitente sin teléfono", readonly=True, index=True,
+        help="El aviso de Meta no trajo el número del remitente (usa nombre de usuario). "
+             "Un pedido con código no verifica teléfono y un comprobante va a «Revisar».")
     payload = fields.Text(string="Aviso recibido (JSON)", readonly=True)
 
     # media (image / document): downloaded later by the cron
@@ -160,6 +323,11 @@ class WhatsappMessage(models.Model):
     )
     media_attempts = fields.Integer(string="Intentos de descarga", readonly=True, copy=False)
     media_error = fields.Char(string="Último error de descarga", readonly=True, copy=False)
+    media_alert = fields.Selection(
+        [(MEDIA_ALERT_LATE, "Avisado: sin descargar"),
+         (MEDIA_ALERT_EXPIRING, "Avisado: por vencer")],
+        string="Alerta de descarga", readonly=True, copy=False,
+        help="La última alerta a administración por este archivo sin descargar.")
     attachment_id = fields.Many2one(
         "ir.attachment", string="Archivo", readonly=True, copy=False, ondelete="set null",
     )
@@ -178,6 +346,21 @@ class WhatsappMessage(models.Model):
     def _compute_has_attachment(self):
         for record in self:
             record.has_attachment = bool(record.attachment_id)
+
+    @api.depends("numero_id", "phone_number_id")
+    def _compute_numero_recibido(self):
+        for record in self:
+            record.numero_recibido = record.numero_id.name or record.phone_number_id or False
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        Numero = self.env["distri.whatsapp.numero"]
+        for vals in vals_list:
+            if vals.get("phone_number_id") and "wa_rol" not in vals:
+                numero, role, unknown = Numero._wa_route(vals["phone_number_id"])
+                vals.update(numero_id=numero.id or False, wa_rol=role,
+                            wa_numero_no_configurado=unknown)
+        return super().create(vals_list)
 
     @api.depends("attachment_id.mimetype")
     def _compute_media_is_image(self):
@@ -217,15 +400,12 @@ class WhatsappMessage(models.Model):
                 if not isinstance(change, dict) or change.get("field") != "messages":
                     continue
                 value = change.get("value") if isinstance(change.get("value"), dict) else {}
-                phone_number_id = _text((value.get("metadata") or {}).get("phone_number_id"), 32)
-                names = {}
-                for contact in value.get("contacts") or []:
-                    if isinstance(contact, dict) and contact.get("wa_id"):
-                        names[str(contact["wa_id"])] = _text(
-                            (contact.get("profile") or {}).get("name"), 256)
+                metadata = value.get("metadata") if isinstance(value.get("metadata"), dict) else {}
+                phone_number_id = _text(metadata.get("phone_number_id"), 32)
+                contacts = value.get("contacts") if isinstance(value.get("contacts"), list) else []
                 for message in value.get("messages") or []:
                     if isinstance(message, dict) and self._wa_store_message(
-                            message, names, phone_number_id):
+                            message, contacts, phone_number_id):
                         created += 1
                 for status in value.get("statuses") or []:
                     if isinstance(status, dict) and self._wa_store_status(status, phone_number_id):
@@ -247,20 +427,25 @@ class WhatsappMessage(models.Model):
             return Message.browse()
 
     @api.model
-    def _wa_store_message(self, message, names, phone_number_id):
+    def _wa_store_message(self, message, contacts, phone_number_id):
+        """One incoming message. The sender may come without a phone (only
+        a BSUID): it is stored all the same, flagged «Remitente sin teléfono»."""
         message_id = _text(message.get("id"), 256)
         if not message_id:
             return False
-        sender = _text(message.get("from"), 32)
+        sender = sender_identity(message, contacts)
         kind = _text(message.get("type"), 32)
         body = ""
-        if kind == "text":
-            body = _text((message.get("text") or {}).get("body"), 8192)
+        if kind == "text" and isinstance(message.get("text"), dict):
+            body = _text(message["text"].get("body"), 8192)
         values = {
             "wa_message_id": message_id,
             "direction": "in",
-            "wa_id": sender,
-            "profile_name": names.get(sender, ""),
+            "wa_id": sender["phone"] or False,
+            "wa_user_id": sender["user_id"] or False,
+            "wa_username": sender["username"] or False,
+            "wa_sin_telefono": not sender["phone"],
+            "profile_name": sender["name"] or sender["username"] or "",
             "message_type": kind,
             "body": body,
             "timestamp": _parse_wa_timestamp(message.get("timestamp")),
@@ -310,10 +495,12 @@ class WhatsappMessage(models.Model):
         Message = self.sudo()
         record = Message.search([("wa_message_id", "=", message_id)], limit=1)
         if not record:
+            phone, user_id = status_recipient(status)
             record = self._wa_create_once(dict(values, **{
                 "wa_message_id": message_id,
                 "direction": "out",
-                "wa_id": _text(status.get("recipient_id"), 32),
+                "wa_id": phone or False,
+                "wa_user_id": user_id[:USER_ID_MAX] or False,
                 "phone_number_id": phone_number_id,
             }))
             if record:
@@ -344,8 +531,11 @@ class WhatsappMessage(models.Model):
     def _wa_fetch_media(self, token, media_id):
         """Return (bytes, mime, sha256 reported by the Graph API).
 
-        Always asks for a fresh URL: it lives about 5 minutes, the media id
-        about 30 days."""
+        Every call (so every attempt of the cron or the button) asks the
+        Graph API for a fresh URL first: the URL lives about 5 minutes, the
+        media id about 7 days (webhook media). Only the media id and the
+        single app token are used: no phone_number_id in the path, so it
+        works the same for every connected number."""
         if not media_id.isdigit() or len(media_id) > 32:
             raise WhatsappMediaError("ID de archivo inválido", final=True)
         response = self._wa_graph_get(token, "%s/%s" % (WA_GRAPH_API, media_id))
@@ -486,8 +676,12 @@ class WhatsappMessage(models.Model):
     def _wa_cron_download_media(self):
         """Every minute: download the pending images/documents."""
         token = self._wa_param(PARAM_ACCESS_TOKEN)
+        # without a media id there is nothing to ask Meta (a chat import cut
+        # halfway leaves files «pending» with their attachment): never let
+        # those fill the batch and block the real ones
         pending = self.sudo().search(
-            [("media_state", "=", "pending"), ("direction", "=", "in")],
+            [("media_state", "=", "pending"), ("direction", "=", "in"),
+             ("media_id", "!=", False), ("attachment_id", "=", False)],
             order="id", limit=MEDIA_CRON_BATCH,
         )
         if not pending:
@@ -525,3 +719,135 @@ class WhatsappMessage(models.Model):
             if record.media_id and record.media_state != "done":
                 record._wa_download_media(token)
         return True
+
+    # ------------------------------------------------------------ media alerts
+
+    @api.model
+    def _wa_missing_media_domain(self):
+        """Incoming photos and PDFs Meta announced whose file is not saved."""
+        return [("direction", "=", "in"), ("message_type", "in", list(MEDIA_TYPES)),
+                ("media_mime_type", "in", list(MEDIA_ALLOWED)),
+                ("media_state", "in", ("pending", "error")),
+                ("attachment_id", "=", False)]
+
+    @api.model
+    def _wa_admin_user(self):
+        """The administración user who gets the media alerts."""
+        root = self.env.ref("base.user_root")
+        group = self.env.ref(ADMIN_GROUP, raise_if_not_found=False)
+        users = group.sudo().user_ids.filtered(
+            lambda u: u.active and not u.share and u != root) if group else self.env["res.users"]
+        return users.sorted("id")[:1]
+
+    @api.model
+    def _wa_cron_media_alerts(self, now=None):
+        """Hourly: one To-Do for administración (activities only, no email)
+        when a photo or PDF is still not downloaded more than
+        MEDIA_ALERT_LATE_HOURS after it arrived, and again when it is more
+        than MEDIA_ALERT_EXPIRING_DAYS old (Meta drops it after about
+        MEDIA_EXPIRY_DAYS). Each message is reported once per level. The
+        activity hangs on the receiving number (the default one for app or
+        unknown numbers); while it is open new messages are appended to it
+        instead of opening another. Returns {level: messages alerted}."""
+        now = now or fields.Datetime.now()
+        Message = self.sudo()
+        # older than the expiry plus a day: the file is gone, alerting helps
+        # nobody (it stays in «Comprobantes sin archivo»)
+        horizon = now - timedelta(days=MEDIA_EXPIRY_DAYS + 1)
+        base = self._wa_missing_media_domain() + [("create_date", ">=", horizon)]
+        levels = (
+            (MEDIA_ALERT_EXPIRING, [("create_date", "<=",
+                                     now - timedelta(days=MEDIA_ALERT_EXPIRING_DAYS)),
+                                    ("media_alert", "!=", MEDIA_ALERT_EXPIRING)]),
+            (MEDIA_ALERT_LATE, [("create_date", "<=",
+                                 now - timedelta(hours=MEDIA_ALERT_LATE_HOURS)),
+                                ("media_alert", "=", False)]),
+        )
+        result = {}
+        user = self._wa_admin_user()
+        todo = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        Numero = self.env["distri.whatsapp.numero"]
+        for level, extra in levels:
+            found = Message.search(base + extra, order="create_date, id")
+            if not found:
+                continue
+            if not (user and todo):
+                _logger.warning("WhatsApp media alert (%s): %s messages, no administración "
+                                "user to warn", level, len(found))
+                continue
+            default = Numero._wa_default()
+            by_number = {}
+            for msg in found:
+                anchor = msg.numero_id if msg.numero_id.active else default
+                by_number.setdefault(anchor, Message.browse())
+                by_number[anchor] |= msg
+            alerted = Message.browse()
+            for anchor, msgs in by_number.items():
+                if not anchor:
+                    _logger.warning("WhatsApp media alert (%s): %s messages, no WhatsApp "
+                                    "number to attach the activity to", level, len(msgs))
+                    continue
+                self._wa_alert_activity(anchor, level, msgs, user, todo)
+                alerted |= msgs
+            # the 2 h alert is not needed any more once it is about to expire
+            alerted.write({"media_alert": level})
+            result[level] = alerted
+            _logger.info("WhatsApp media alert (%s): %s messages", level, len(alerted))
+        return result
+
+    @api.model
+    def _wa_alert_line(self, msg):
+        sender = msg.distri_forwarded_by_id.name if "distri_forwarded_by_id" in msg else ""
+        sender = sender or msg.profile_name or (("+" + msg.wa_id) if msg.wa_id else "") \
+            or msg.wa_username or "remitente sin teléfono"
+        when = msg.create_date.replace(tzinfo=timezone.utc).astimezone(AR_TZ).strftime(
+            "%d/%m %H:%M")
+        state = dict(msg._fields["media_state"].selection).get(msg.media_state, "")
+        line = "Mensaje %s · %s · %s · %s" % (msg.id, when, sender, state)
+        if msg.media_error:
+            line += " (%s)" % msg.media_error
+        return line
+
+    @api.model
+    def _wa_alert_activity(self, anchor, level, msgs, user, todo):
+        summary = MEDIA_ALERT_SUMMARY[level]
+        if level == MEDIA_ALERT_LATE:
+            intro = ("Fotos o PDF recibidos por WhatsApp que siguen sin descargar después de "
+                     "%s h. Revisá «Comprobantes sin archivo» y probá «Descargar ahora»; si "
+                     "Meta ya no lo entrega, pedile al remitente que lo mande de nuevo."
+                     % MEDIA_ALERT_LATE_HOURS)
+        else:
+            intro = ("Fotos o PDF de más de %s días sin descargar: Meta los borra a los %s "
+                     "días. Descargalos ahora o pedile al remitente que los mande de nuevo."
+                     % (MEDIA_ALERT_EXPIRING_DAYS, MEDIA_EXPIRY_DAYS))
+        lines = [escape(self._wa_alert_line(m)) for m in msgs[:MEDIA_ALERT_LIST_MAX]]
+        if len(msgs) > MEDIA_ALERT_LIST_MAX:
+            lines.append(escape("y %s más" % (len(msgs) - MEDIA_ALERT_LIST_MAX)))
+        listed = Markup("<br/>").join(lines)
+        anchor = anchor.sudo().with_context(mail_activity_quick_update=True, mail_notrack=True)
+        open_activity = anchor.activity_ids.filtered(lambda a: a.summary == summary)[:1]
+        if open_activity:
+            # the same activity, never a second one while it is open
+            open_activity.write({"note": Markup("%s<br/>%s") % (
+                Markup(open_activity.note or ""), listed)})
+            return open_activity
+        return anchor.activity_schedule(
+            activity_type_id=todo.id, summary=summary, user_id=user.id,
+            note=Markup("%s<br/>%s") % (intro, listed))
+
+    @api.model
+    def action_wa_missing_files(self):
+        """«Comprobantes sin archivo»: the daily reconciliation. Photos and
+        PDFs Meta announced whose file is not saved (pending or error), the
+        last day by default (the filter can be removed)."""
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Comprobantes sin archivo"),
+            "res_model": "distri.whatsapp.message",
+            "view_mode": "list,form",
+            "views": [(self.env.ref("distri_pedido.view_whatsapp_missing_files_list").id, "list"),
+                      (False, "form")],
+            "domain": self._wa_missing_media_domain(),
+            "context": {"search_default_ultimo_dia": 1, "create": False},
+            "help": _("<p>No hay fotos ni PDF sin archivo.</p>"),
+        }

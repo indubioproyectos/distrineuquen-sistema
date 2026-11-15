@@ -18,6 +18,7 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from .despacho import LOAD_LOCKED
+from .ar_phone import normalize_whatsapp
 from .reparto_cliente import normalize_days, normalize_hours
 
 _logger = logging.getLogger(__name__)
@@ -34,6 +35,8 @@ EVENT_TYPES = [
     # 19.0.1.35.0 (reparto_gps.py): «Llegué» and the location notice
     ("arrive", "Llegada al cliente"),
     ("gps_notice", "Aviso de ubicación aceptado"),
+    # 19.0.1.86.0 (comprobante_app.py): the transfer receipt photographed in the app
+    ("receipt", "Foto del comprobante"),
 ]
 
 UUID_RE = re.compile(r"^[0-9a-fA-F-]{16,64}$")
@@ -184,7 +187,9 @@ class DistriSyncEvent(models.Model):
             raise UserError("Tipo de evento desconocido.")
         route = self._route_for(user, event)
         captured = parse_phone_time(event.get("captured_at")) or fields.Datetime.now()
-        if route.state == "settled":
+        # a receipt photo is still welcome after the settlement: it resolves the
+        # pending receipt that would otherwise be charged to the driver
+        if route.state == "settled" and kind != "receipt":
             raise UserError("La ruta ya se rindió.")
         if kind in ("load", "depart", "visit", "expense", "parcel", "arrive") \
                 and route.state == "closed":
@@ -268,6 +273,10 @@ class DistriSyncEvent(models.Model):
         number = _text(payload.get("number"), 32)
         if len(re.sub(r"\D", "", number)) < 8:
             raise UserError("El número de WhatsApp es muy corto.")
+        try:
+            number = normalize_whatsapp(number)
+        except ValueError as error:
+            raise UserError(str(error)) from None
         partner.write({
             "distri_whatsapp": number,
             "distri_whatsapp_confirmed": True,
@@ -290,6 +299,30 @@ class DistriSyncEvent(models.Model):
 
     def _apply_expense(self, user, route, payload, captured):
         return self.env["distri.route.expense"]._distri_apply(route, payload, captured)
+
+    def _apply_receipt(self, user, route, payload, captured):
+        """«Sacar foto del comprobante» (comprobante_app.py): the photo of a
+        transfer receipt becomes a receipt to review in Cobros, the same
+        record a photo received by WhatsApp becomes. The photo carries its
+        own id, so a retry or a second event with the same photo never
+        creates it twice."""
+        stop = self._stop_for(route, payload)
+        if stop.order_id.distri_encomienda:
+            raise UserError("Ese pedido es una encomienda: no lleva comprobante de transferencia.")
+        photo_uuid = str(payload.get("photo_uuid") or "")
+        if not UUID_RE.match(photo_uuid):
+            raise UserError("Foto sin identificador.")
+        Message = self.env["distri.whatsapp.message"].sudo()
+        existing = Message._distri_app_receipt_by_uuid(photo_uuid)
+        if existing:
+            if existing.distri_app_stop_id != stop:
+                raise UserError("Esa foto es de otro pedido.")
+            return "ya estaba"
+        from .gasto import decode_photo
+        photo = decode_photo(payload.get("photo"))
+        amount = _number(payload.get("transfer_amount"))
+        Message._distri_app_receipt_create(stop, user, photo, photo_uuid, captured, amount)
+        return False
 
     def _apply_parcel(self, user, route, payload, captured):
         """«Despachar encomienda»: guide photo, guide number, shipping cost
@@ -458,7 +491,9 @@ class DistriSyncEvent(models.Model):
         """«¿Paga con transferencia?»: (transfer, amount, receipt answer).
 
         «Sí» needs the amount transferred and the driver's answer about the
-        receipt («Ya lo reenvié» / «Todavía no me lo mandó»). «Transfiere
+        receipt: «Sacar foto del comprobante» (the photo travels in its own
+        «receipt» event), «El cliente lo manda por WhatsApp» or «Lo manda
+        después»; «Ya lo reenvié» from the app of before 19.0.1.86.0. «Transfiere
         después» no longer exists. A phone with the app of before
         19.0.1.25.0 may still send «Ya transfirió» ("done"): it counts as a
         transfer of what was left to collect, with the receipt still to come.
@@ -481,8 +516,10 @@ class DistriSyncEvent(models.Model):
         if amount <= 0:
             raise UserError("Poné el importe transferido.")
         answer = payload.get("receipt_answer")
-        if answer not in ("forwarded", "not_yet"):
-            raise UserError("Respondé si ya reenviaste el comprobante a la empresa.")
+        # «forwarded»: the app of before 19.0.1.86.0 (no photo in the app)
+        if answer not in ("photo", "customer_wa", "not_yet", "forwarded"):
+            raise UserError("Elegí cómo llega el comprobante: foto, WhatsApp del cliente o "
+                            "lo manda después.")
         return "yes", amount, answer
 
     def _clean_returns(self, stop, items):

@@ -69,6 +69,8 @@
         <separator/>
         <filter name="distri_sin_whatsapp" string="Esperando el WhatsApp"
                 domain="[('distri_wa_state', '=', 'waiting'), ('state', '!=', 'cancel')]"/>
+        <filter name="distri_wa_sin_telefono" string="WhatsApp sin teléfono"
+                domain="[('distri_wa_sin_telefono', '=', True), ('state', '!=', 'cancel')]"/>
         <field name="distri_wa_code"/>
       </xpath>
     </field>
@@ -106,6 +108,11 @@
           <b><field name="distri_wa_code" readonly="1" class="oe_inline"/></b>. Hasta que
           llegue no se arma, no se asigna a una ruta ni se factura.
         </div>
+        <div class="alert alert-warning mb-0 text-center" role="alert"
+             invisible="not distri_wa_sin_telefono or state == 'cancel'">
+          El WhatsApp con el código llegó de un usuario que no comparte su teléfono: no hay
+          teléfono verificado. Revisá quién es el cliente.
+        </div>
       </xpath>
       <xpath expr="//notebook" position="inside">
         <page string="WhatsApp" name="distri_whatsapp" invisible="not distri_wa_state">
@@ -115,6 +122,7 @@
               <field name="distri_wa_code"/>
               <field name="distri_wa_phone"/>
               <field name="distri_telefono_verificado"/>
+              <field name="distri_wa_sin_telefono" invisible="not distri_wa_sin_telefono"/>
               <field name="distri_wa_message_id"/>
               <field name="distri_wa_proposal_id" invisible="not distri_wa_proposal_id"/>
             </group>

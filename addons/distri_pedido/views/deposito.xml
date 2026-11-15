@@ -16,7 +16,7 @@
                 groups="distri_pedido.grupo_administracion"
                 invisible="state != 'sale' or distri_armado != 'armado' or distri_partner_generic or distri_delivery_state in ('delivered', 'on_route', 'dispatched')"/>
         <button name="action_distri_counter_sale" type="object" string="Venta en mostrador"
-                groups="distri_pedido.grupo_administracion"
+                groups="distri_pedido.grupo_administracion" context="{'distri_wa_ask': True}"
                 invisible="state not in ('draft', 'sent') or distri_partner_generic or distri_armado != 'pendiente'"
                 confirm="Se confirma el pedido, se arma completo tal como se pidió, se valida el remito y sale la factura. Después se registra la entrega y el cobro. ¿Seguir?"/>
       </xpath>

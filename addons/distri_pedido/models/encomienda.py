@@ -29,6 +29,7 @@ from urllib.parse import quote
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+from .ar_phone import wa_digits
 from .reparto_cliente import town_from_name
 
 PAYERS = [
@@ -395,10 +396,7 @@ class DistriParcel(models.Model):
         self.ensure_one()
         if not self.partner_id:
             return ""
-        digits = re.sub(r"\D", "", self.partner_id._distri_whatsapp_shown()).lstrip("0")
-        if digits and not digits.startswith("54"):
-            digits = "549" + digits
-        return digits
+        return wa_digits(self.partner_id._distri_whatsapp_shown())
 
     def action_notify_whatsapp(self):
         """Opens the customer's chat with the message written and marks the

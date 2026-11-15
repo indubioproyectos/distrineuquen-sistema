@@ -320,7 +320,10 @@ class DistriAsignarCliente(models.TransientModel):
         pedido.with_context(distri_asignar_cliente=True).write({"partner_id": cliente.id})
         pedido.message_post(body="Cliente asignado: %s." % cliente.display_name)
         if aprobar and pedido.state in ("draft", "sent"):
-            pedido.action_confirm()
+            # interactive: the customer's WhatsApp is asked when missing
+            resultado = pedido.with_context(distri_wa_ask=True).action_confirm()
+            if isinstance(resultado, dict):
+                return resultado
         return {"type": "ir.actions.act_window_close"}
 
     def _cliente(self):

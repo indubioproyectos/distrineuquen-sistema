@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- The order's short link (/p/<token>), «WhatsApp verificado» and
+       «Enviar código por WhatsApp» (models/pedido_link.py,
+       controllers/pedido_link.py). -->
+
+  <!-- ============================================ página pública /p/<token> -->
+
+  <template id="pedido_link" name="Recibimos tu pedido">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex, nofollow"/>
+  <meta name="referrer" content="no-referrer"/>
+  <title>Tu pedido · Distri Neuquén</title>
+  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#f5f5f5;color:#4a4a4a;min-height:100vh;display:flex;flex-direction:column;
+         align-items:center;justify-content:center;padding:24px 16px;
+         font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .tarjeta{width:100%;max-width:420px;background:#fff;border:1px solid #eee;border-radius:16px;
+             padding:1.6rem 1.2rem;text-align:center}
+    .logo{width:72px;height:72px;border-radius:50%;object-fit:cover;display:block;margin:0 auto .8rem}
+    h1{margin:0 0 .6rem;font-size:1.25rem;font-weight:700}
+    .estado{display:inline-block;margin-top:.2rem;padding:.35rem .9rem;border-radius:999px;
+            background:#e6faf7;color:#00806f;font-weight:700}
+    .equipo{margin-top:1.2rem;font-size:.8rem}
+    .equipo a{color:#7a7a7a}
+  </style>
+</head>
+<body>
+  <div class="tarjeta">
+    <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id" alt=""/>
+    <h1>Recibimos tu pedido <t t-esc="nombre"/></h1>
+    <div>Estado: <span class="estado" t-esc="estado"/></div>
+  </div>
+  <p class="equipo" t-if="login_url"><a t-att-href="login_url" rel="nofollow">Soy del equipo: ingresar</a></p>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================ asistente: WhatsApp verificado sin número -->
+
+  <record id="view_wa_confirm_wizard_verify" model="ir.ui.view">
+    <field name="name">distri.wa.confirm.wizard.form.verify</field>
+    <field name="model">distri.wa.confirm.wizard</field>
+    <field name="inherit_id" ref="distri_pedido.view_wa_confirm_wizard"/>
+    <field name="arch" type="xml">
+      <xpath expr="//p[@invisible='allow_skip']" position="before">
+        <p class="text-muted" invisible="then != 'verify'">
+          El pedido no tiene un teléfono escrito. Cargá el número que verificaste en el chat:
+          queda como WhatsApp del cliente.
+        </p>
+      </xpath>
+      <xpath expr="//p[@invisible='allow_skip']" position="attributes">
+        <attribute name="invisible">allow_skip or then == 'verify'</attribute>
+      </xpath>
+      <xpath expr="//p[@invisible='not allow_skip']" position="attributes">
+        <attribute name="invisible">not allow_skip or then == 'verify'</attribute>
+      </xpath>
+      <xpath expr="//button[@name='action_save_confirm']" position="attributes">
+        <attribute name="invisible">then == 'verify'</attribute>
+      </xpath>
+      <xpath expr="//button[@name='action_save_confirm']" position="after">
+        <button name="action_save_confirm" type="object" string="Guardar como verificado"
+                class="btn-primary" invisible="then != 'verify'"/>
+      </xpath>
+      <xpath expr="//button[@name='action_skip']" position="attributes">
+        <attribute name="invisible">not allow_skip or then == 'verify'</attribute>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ pedido: botones -->
+
+  <record id="view_order_form_pedido_link" model="ir.ui.view">
+    <field name="name">sale.order.form.pedido.link</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <field name="distri_wa_ya_verificado" invisible="1"/>
+        <field name="distri_receipt_wa_digits" invisible="1"/>
+        <button name="action_distri_wa_verificado" type="object" string="WhatsApp verificado"
+                icon="fa-check" groups="distri_pedido.grupo_administracion"
+                invisible="distri_wa_ya_verificado or state == 'cancel' or not partner_id"
+                confirm="El número que escribió el cliente en el pedido queda como su WhatsApp verificado. ¿Lo comprobaste en el chat?"/>
+        <button name="action_distri_receipt_code_whatsapp" type="object"
+                string="Enviar código por WhatsApp" icon="fa-whatsapp"
+                groups="distri_pedido.grupo_administracion"
+                invisible="state != 'sale' or not distri_receipt_wa_digits"
+                confirm="Se genera un código de recibido nuevo, el anterior deja de valer y se abre WhatsApp con el mensaje para el cliente. Si el pedido ya está en el celular del repartidor, que actualice la ruta. ¿Seguir?"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_order_kanban_revisar_pedido_link" model="ir.ui.view">
+    <field name="name">sale.order.kanban.revisar.pedido.link</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="distri_pedido.view_order_kanban_revisar"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='distri_revisar_wa_url']" position="after">
+        <field name="distri_wa_ya_verificado"/>
+        <field name="partner_id"/>
+      </xpath>
+      <xpath expr="//button[@name='action_distri_liberar']" position="after">
+        <button t-if="!record.distri_wa_ya_verificado.raw_value and record.state.raw_value != 'cancel' and record.partner_id.raw_value"
+                name="action_distri_wa_verificado" type="object"
+                class="btn btn-sm btn-outline-success"
+                confirm="El número que escribió el cliente en el pedido queda como su WhatsApp verificado. ¿Lo comprobaste en el chat?">
+          <i class="fa fa-check" title="Verificado"/> WhatsApp verificado
+        </button>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_order_list_revisar_pedido_link" model="ir.ui.view">
+    <field name="name">sale.order.list.revisar.pedido.link</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="distri_pedido.view_order_list_revisar"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='distri_revisar_wa_url']" position="after">
+        <field name="distri_wa_ya_verificado" column_invisible="1"/>
+      </xpath>
+      <xpath expr="//button[@name='action_distri_abrir_chat']" position="before">
+        <button name="action_distri_wa_verificado" type="object" string="WhatsApp verificado"
+                icon="fa-check" class="btn-link text-success"
+                invisible="distri_wa_ya_verificado or state == 'cancel' or not partner_id"
+                confirm="El número que escribió el cliente en el pedido queda como su WhatsApp verificado. ¿Lo comprobaste en el chat?"/>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

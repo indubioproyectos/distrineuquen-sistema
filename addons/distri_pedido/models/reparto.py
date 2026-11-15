@@ -5,12 +5,12 @@ orders to deliver; each stop also holds the visit recorded by the phone
 (see reparto_sync.py). The administrator settles the route at the depot:
 cash expected vs counted, declared returns and undelivered orders.
 """
-import re
 from urllib.parse import quote
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+from .ar_phone import wa_digits
 from .reparto_cliente import today_ar
 
 ROUTE_STATES = [
@@ -44,12 +44,20 @@ TRANSFER = [
     ("yes", "Sí"),
 ]
 
-# What the driver answers about the receipt of the transfer: he asks the
-# customer to send it to his WhatsApp and forwards it to the company.
+# What the driver answers about the receipt of the transfer. Since
+# 19.0.1.86.0 (comprobante_app.py) he takes a photo of it inside the app
+# («photo»), or says the customer sends it to the company's WhatsApp
+# («customer_wa») or sends it later («not_yet»). «forwarded» (he forwarded it
+# from his own WhatsApp) is what the app answered before; old phones may
+# still send it.
 RECEIPT_ANSWERS = [
     ("forwarded", "Ya lo reenvié"),
-    ("not_yet", "Todavía no me lo mandó"),
+    ("photo", "Foto en la app"),
+    ("customer_wa", "El cliente lo manda por WhatsApp"),
+    ("not_yet", "Lo manda después"),
 ]
+# the answers of a delivery at the depot (deposito.py): nobody takes a photo there
+DEPOT_RECEIPT_ANSWERS = [a for a in RECEIPT_ANSWERS if a[0] in ("forwarded", "not_yet")]
 
 # Before 19.0.1.25.0 the driver answered whether the customer had sent the
 # receipt to the seller. Kept only to read old visits.
@@ -1117,11 +1125,7 @@ class DistriPromisedTransfer(models.Model):
 
     def _whatsapp_digits(self):
         self.ensure_one()
-        digits = re.sub(r"\D", "", self.partner_id._distri_whatsapp_shown())
-        digits = digits.lstrip("0")
-        if digits and not digits.startswith("54"):
-            digits = "549" + digits
-        return digits
+        return wa_digits(self.partner_id._distri_whatsapp_shown())
 
     def action_remind_whatsapp(self):
         """«Reclamar por WhatsApp»: opens the customer's chat with the claim

@@ -786,7 +786,11 @@ class TomaDePedidos(http.Controller):
         confirma el pedido aunque el cliente borre el resto del texto."""
         lineas = []
         if pedido.distri_wa_code:
-            lineas += [pedido._distri_wa_code_line(), ""]
+            # this line stays exactly as is: the webhook matcher reads it
+            # (models/pedido_whatsapp.py find_codes, _WEB_CODE_RE)
+            lineas.append(pedido._distri_wa_code_line())
+        # the team opens the order from the chat (models/pedido_link.py)
+        lineas += [pedido._distri_link_line(), ""]
         lineas.append("*PEDIDO %s*" % pedido.name)
         if pedido.distri_modificado:
             lineas.append("_modificado por el cliente_")
@@ -1611,12 +1615,20 @@ class TomaDePedidos(http.Controller):
         return valores
 
     def _guardar_whatsapp_del_cliente(self, cliente, telefono):
-        """A customer without WhatsApp gets the phone the seller typed."""
-        if cliente.distri_whatsapp or not _wa().wa_digits(telefono):
+        """A customer without WhatsApp gets the phone the seller typed, in
+        the canonical format; a number that cannot be read for sure is not
+        stored (the confirmation asks for it)."""
+        if cliente.distri_whatsapp:
             return
-        cliente.sudo().write({"distri_whatsapp": telefono})
+        try:
+            numero = _wa().normalize_whatsapp(telefono)
+        except ValueError:
+            return
+        if not numero:
+            return
+        cliente.sudo().write({"distri_whatsapp": numero})
         cliente.sudo().message_post(body="WhatsApp cargado por %s al tomar un pedido: %s." % (
-            request.env.user.name, telefono))
+            request.env.user.name, numero))
 
     @http.route("/pedido/clientes", type="http", auth="user", methods=["GET"],
                 website=True, sitemap=False)

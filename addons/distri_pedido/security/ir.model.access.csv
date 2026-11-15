@@ -161,3 +161,9 @@ access_cash_sheet_sistema,distri.cash.sheet sistema,model_distri_cash_sheet,base
 access_cash_sheet_line_admin,distri.cash.sheet.line administracion,model_distri_cash_sheet_line,distri_pedido.grupo_administracion,1,0,0,0
 access_cash_sheet_line_readonly,distri.cash.sheet.line consulta,model_distri_cash_sheet_line,account.group_account_readonly,1,0,0,0
 access_cash_sheet_line_sistema,distri.cash.sheet.line sistema,model_distri_cash_sheet_line,base.group_system,1,1,1,1
+access_wa_confirm_wizard_user,distri.wa.confirm.wizard ventas,model_distri_wa_confirm_wizard,sales_team.group_sale_salesman,1,1,1,1
+access_cliente_sin_wa_admin,distri.cliente.sin.whatsapp administracion,model_distri_cliente_sin_whatsapp,distri_pedido.grupo_administracion,1,1,0,0
+access_retener_wizard_admin,distri.retener.wizard administracion,model_distri_retener_wizard,distri_pedido.grupo_administracion,1,1,1,1
+acceso_wa_numero_sistema,distri.whatsapp.numero sistema,model_distri_whatsapp_numero,base.group_system,1,1,1,1
+acceso_wa_numero_admin,distri.whatsapp.numero administracion,model_distri_whatsapp_numero,distri_pedido.grupo_administracion,1,0,0,0
+acceso_wa_numero_gerente_ventas,distri.whatsapp.numero gerente ventas,model_distri_whatsapp_numero,sales_team.group_sale_manager,1,0,0,0

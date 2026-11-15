@@ -65,4 +65,12 @@
     <field name="value">2026-09-15</field>
   </record>
 
+  <!-- «Pedidos para revisar» (models/revisar.py): with "1" every order that
+       arrives in red leaves one activity per gerencia user, once per order.
+       "0" turns the alert off; the list and the semaphore stay. -->
+  <record id="param_revisar_alerta_rojos" model="ir.config_parameter">
+    <field name="key">distri_pedido.revisar_alerta_rojos</field>
+    <field name="value">1</field>
+  </record>
+
 </odoo>

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- The customer's WhatsApp, asked at confirmation, and the list of
+       customers without it (models/whatsapp_cliente.py). -->
+
+  <!-- ============================================ pedido: botones Confirmar -->
+
+  <!-- `distri_wa_ask` marks the confirmation as interactive: only then the
+       wizard may appear. Code that calls action_confirm never gets it. -->
+  <record id="view_order_form_wa_confirm" model="ir.ui.view">
+    <field name="name">sale.order.form.wa.confirm</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header/button[@id='action_confirm']" position="attributes">
+        <attribute name="context">{'validate_analytic': True, 'distri_wa_ask': True}</attribute>
+      </xpath>
+      <xpath expr="//header/button[@name='action_confirm'][not(@id)]" position="attributes">
+        <attribute name="context">{'validate_analytic': True, 'distri_wa_ask': True}</attribute>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ asistente: WhatsApp del cliente -->
+
+  <record id="view_wa_confirm_wizard" model="ir.ui.view">
+    <field name="name">distri.wa.confirm.wizard.form</field>
+    <field name="model">distri.wa.confirm.wizard</field>
+    <field name="arch" type="xml">
+      <form string="WhatsApp del cliente">
+        <field name="allow_skip" invisible="1"/>
+        <field name="generic" invisible="1"/>
+        <field name="then" invisible="1"/>
+        <field name="order_id" invisible="1"/>
+        <h3>WhatsApp del cliente <field name="customer_name" readonly="1" class="oe_inline"/></h3>
+        <p class="text-muted" invisible="allow_skip">
+          Para confirmar el pedido hace falta el WhatsApp del cliente.
+        </p>
+        <p class="text-muted" invisible="not allow_skip">
+          El cliente no tiene WhatsApp cargado. Pedíselo y cargalo: es el canal de contacto con
+          el cliente. Si no lo tenés a mano, confirmá sin WhatsApp.
+        </p>
+        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+          <span class="fs-5 fw-bold">+54 9</span>
+          <field name="area" placeholder="Área (ej.: 299)" class="oe_inline"
+                 style="max-width: 9rem;"/>
+          <field name="number" placeholder="Número (ej.: 4222444)" class="oe_inline"
+                 style="max-width: 13rem;"/>
+        </div>
+        <div class="text-muted small mb-2">
+          Área sin el 0 y número sin el 15 (si los escribís, se sacan solos). Entre los dos
+          suman 10 dígitos.
+        </div>
+        <div invisible="not preview">
+          Queda así: <b><field name="preview" readonly="1" class="oe_inline"/></b>
+        </div>
+        <div class="text-danger" invisible="not error">
+          <field name="error" readonly="1"/>
+        </div>
+        <footer>
+          <button name="action_test" type="object" string="Probar en WhatsApp"
+                  icon="fa-whatsapp" class="btn-secondary" invisible="not preview"/>
+          <button name="action_save_confirm" type="object" string="Guardar y confirmar"
+                  class="btn-primary"/>
+          <button name="action_skip" type="object" string="Confirmar sin WhatsApp"
+                  class="btn-secondary" invisible="not allow_skip"/>
+          <button string="Volver" class="btn-link" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- ============================================ lista: clientes sin WhatsApp -->
+
+  <record id="view_cliente_sin_whatsapp_list" model="ir.ui.view">
+    <field name="name">distri.cliente.sin.whatsapp.list</field>
+    <field name="model">distri.cliente.sin.whatsapp</field>
+    <field name="arch" type="xml">
+      <list string="Clientes sin WhatsApp" editable="bottom" create="0" delete="0">
+        <field name="currency_id" column_invisible="1"/>
+        <field name="partner_id" readonly="1"/>
+        <field name="city" optional="show"/>
+        <field name="user_id" optional="show"/>
+        <field name="phone" optional="show"/>
+        <field name="order_count"/>
+        <field name="amount_total" sum="Total" optional="show"/>
+        <field name="last_order_date" optional="show"/>
+        <field name="distri_whatsapp" placeholder="+54 9 299 4222444"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_cliente_sin_whatsapp_search" model="ir.ui.view">
+    <field name="name">distri.cliente.sin.whatsapp.search</field>
+    <field name="model">distri.cliente.sin.whatsapp</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="partner_id"/>
+        <field name="user_id"/>
+        <field name="city"/>
+        <group>
+          <filter name="by_user" string="Vendedor" context="{'group_by': 'user_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_cliente_sin_whatsapp" model="ir.actions.act_window">
+    <field name="name">Clientes sin WhatsApp</field>
+    <field name="res_model">distri.cliente.sin.whatsapp</field>
+    <field name="view_mode">list</field>
+    <field name="domain">[('distri_whatsapp', '=', False)]</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todos los clientes que compraron en los últimos
+        90 días tienen WhatsApp.</p>
+      <p>Clientes con pedidos confirmados en los últimos 90 días y sin WhatsApp, los que más
+        compran primero. Cargá el número en la columna WhatsApp: +54 9, el área sin el 0 y el
+        número sin el 15 (ej.: +54 9 299 4222444).</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_cliente_sin_whatsapp"
+            name="Clientes sin WhatsApp"
+            action="action_cliente_sin_whatsapp"
+            parent="sale.sale_order_menu"
+            groups="distri_pedido.grupo_administracion"
+            sequence="3"/>
+
+  <menuitem id="menu_transicion_cliente_sin_whatsapp"
+            name="Clientes sin WhatsApp"
+            action="action_cliente_sin_whatsapp"
+            parent="menu_transicion"
+            groups="distri_pedido.grupo_administracion"
+            sequence="41"/>
+
+  <menuitem id="menu_app_cliente_sin_whatsapp"
+            name="Clientes sin WhatsApp"
+            action="action_cliente_sin_whatsapp"
+            parent="menu_transicion_app"
+            groups="distri_pedido.grupo_administracion"
+            sequence="41"/>
+
+</odoo>

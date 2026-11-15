@@ -18,7 +18,7 @@ import uuid
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-from .reparto import RECEIPT_ANSWERS, TRANSFER, _money
+from .reparto import DEPOT_RECEIPT_ANSWERS, TRANSFER, _money
 
 ADMIN_GROUP = "distri_pedido.grupo_administracion"
 
@@ -141,7 +141,7 @@ class DistriDepotDelivery(models.TransientModel):
     transfer = fields.Selection(TRANSFER, string="¿Paga con transferencia?", required=True,
                                 default="no")
     transfer_amount = fields.Monetary(string="Importe transferido")
-    receipt_answer = fields.Selection(RECEIPT_ANSWERS, string="Comprobante",
+    receipt_answer = fields.Selection(DEPOT_RECEIPT_ANSWERS, string="Comprobante",
                                       help="El comprobante tiene que llegar al WhatsApp de la "
                                            "empresa. Queda pendiente hasta que llega.")
     no_payment = fields.Boolean(string="No pagó nada")

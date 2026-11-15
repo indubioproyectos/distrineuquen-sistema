@@ -118,7 +118,11 @@ class ResPartnerDelivery(models.Model):
         string="Recibe", compute="_compute_distri_delivery_text")
     distri_driver_note = fields.Text(
         string="Comentario para los repartidores", copy=False)
-    distri_whatsapp = fields.Char(string="WhatsApp", copy=False)
+    distri_whatsapp = fields.Char(
+        string="WhatsApp", copy=False,
+        help="+54 9, el código de área sin el 0 y el número sin el 15 (10 dígitos después "
+             "del +54 9). Ej.: +54 9 299 4222444. Si lo escribís con el 0 o el 15, se "
+             "guarda corregido: +5492994222444.")
     distri_whatsapp_confirmed = fields.Boolean(
         string="WhatsApp confirmado", copy=False, readonly=True)
     distri_whatsapp_date = fields.Datetime(
@@ -212,8 +216,11 @@ class SaleOrderDelivery(models.Model):
 
     # ---------------------------------------------------- receipt code
 
-    def _distri_generate_receipt_code(self):
-        """New 4-digit code. Returns it in plain text; only the hash is kept."""
+    def _distri_generate_receipt_code(self, note=None):
+        """New 4-digit code. Returns it in plain text; only the hash is kept.
+
+        `note` replaces the default chatter note (models/pedido_link.py:
+        «Enviar código por WhatsApp» says who prepared it)."""
         self.ensure_one()
         code = "%0*d" % (RECEIPT_CODE_DIGITS, secrets.randbelow(10 ** RECEIPT_CODE_DIGITS))
         salt = secrets.token_hex(8)
@@ -222,6 +229,9 @@ class SaleOrderDelivery(models.Model):
             "distri_receipt_hash": receipt_code_hash(salt, code),
             "distri_receipt_date": fields.Datetime.now(),
         })
+        if note:
+            self.message_post(body=note)
+            return code
         sent = self._distri_send_receipt_code(code)
         self.message_post(body=(
             "Se generó el código de recibido." if sent else

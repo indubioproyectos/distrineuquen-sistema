@@ -258,6 +258,44 @@ class TestDeposito(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(stop.route_id.payment_ids.journal_id, self._depot_journal())
         self.assertEqual(invoice.amount_residual, 0)
 
+    def test_counter_sale_asks_the_customer_whatsapp(self):
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.pedido_requiere_whatsapp", "0")
+        self.partner.distri_whatsapp = False
+        order = self._quotation(qty_a=1, qty_b=1)
+        action = order.with_context(distri_wa_ask=True).action_distri_counter_sale()
+        self.assertEqual(action["res_model"], "distri.wa.confirm.wizard")
+        self.assertEqual(order.state, "draft")
+        self.assertFalse(order.distri_wa_state, "nothing changes until the wizard answers")
+        wizard = self.env[action["res_model"]].with_context(action["context"]).create(
+            {"area": "0299", "number": "15 5001234"})
+        self.assertEqual(wizard.then, "counter")
+        result = wizard.action_save_confirm()
+        # the counter sale goes on: confirmed, packed, and its delivery dialog
+        self.assertEqual(result["res_model"], "distri.depot.delivery")
+        self.assertTrue(result["context"]["default_counter_sale"])
+        self.assertEqual(order.state, "sale")
+        self.assertEqual(order.distri_armado, "armado")
+        self.assertEqual(order.distri_wa_state, "counter")
+        self.assertEqual(self.partner.distri_whatsapp, "+5492995001234")
+        # with the number on file the button goes straight to the sale
+        other = self._quotation(qty_a=1, qty_b=1)
+        action = other.with_context(distri_wa_ask=True).action_distri_counter_sale()
+        self.assertEqual(action["res_model"], "distri.depot.delivery")
+
+    def test_counter_sale_skip_without_whatsapp(self):
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.pedido_requiere_whatsapp", "0")
+        self.partner.distri_whatsapp = False
+        order = self._quotation(qty_a=1, qty_b=1)
+        action = order.with_context(distri_wa_ask=True).action_distri_counter_sale()
+        wizard = self.env[action["res_model"]].with_context(action["context"]).create({})
+        result = wizard.action_skip()
+        self.assertEqual(result["res_model"], "distri.depot.delivery")
+        self.assertEqual(order.state, "sale")
+        self.assertIn("Confirmado sin WhatsApp del cliente por",
+                      "\n".join(order.message_ids.mapped("body")))
+
     def test_counter_sale_needs_a_real_quotation(self):
         order = self._packed()
         with self.assertRaises(UserError):

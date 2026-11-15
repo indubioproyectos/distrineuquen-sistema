@@ -173,6 +173,9 @@ a.opt{display:block;text-decoration:none}
 .red-text{color:var(--red);font-weight:600}
 .card.redcard{border:2px solid var(--red-border);background:var(--red-bg)}
 .card.rcard{border:2px solid var(--green)}
+/* the three answers about the transfer receipt (comprobante_app.py) */
+.rchoices{display:grid;gap:8px}
+.rchoices .photo-btn{cursor:pointer}
 .pendbox{display:flex;flex-direction:column;gap:2px;background:var(--amber-bg);color:var(--amber-text);
   border:2px solid var(--amber-border);border-radius:10px;padding:10px 12px;font-size:14px}
 .rcpt.late{border:2px solid var(--red-border);background:var(--red-bg)}

@@ -27,6 +27,7 @@ from . import ocr_comprobante
 from . import encomienda
 from . import gasto
 from . import pedido_whatsapp
+from . import whatsapp_cliente
 from . import datos_entrega
 from . import agilpedido_wa
 from . import agil_equivalencia
@@ -51,3 +52,6 @@ from . import permisos_cobros
 from . import cuentas_app
 from . import cash_sheet
 from . import iconos
+from . import revisar
+from . import comprobante_app
+from . import pedido_link

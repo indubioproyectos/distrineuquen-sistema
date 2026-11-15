@@ -261,7 +261,12 @@ class TestFacturaArmado(RepartoMixin, AccountTestInvoicingCommon):
         accion = order.action_distri_asignar_cliente()
         asistente = self.env[accion["res_model"]].with_context(accion["context"]).create({
             "modo": "existente", "partner_id": cliente.id})
-        asistente.action_asignar_y_aprobar()
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.pedido_requiere_whatsapp", "0")
+        accion = asistente.action_asignar_y_aprobar()
+        # the customer has no WhatsApp: «Asignar y aprobar» asks for it (19.0.1.84.0)
+        self.assertEqual(accion["res_model"], "distri.wa.confirm.wizard")
+        self.env[accion["res_model"]].with_context(accion["context"]).create({}).action_skip()
         self.assertEqual(order.partner_id, cliente)
         self.assertEqual(order.state, "sale")
         factura = self._facturas(order)

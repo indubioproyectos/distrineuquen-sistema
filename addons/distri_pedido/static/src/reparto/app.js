@@ -11,6 +11,10 @@
  * - Photos (expense receipts, parcel guides) are compressed on the phone and
  *   travel inside their outbox event, so they are kept in IndexedDB until the
  *   server has them. Only a small thumbnail stays in the local state.
+ * - The transfer receipt photographed at the visit (19.0.1.86.0,
+ *   models/comprobante_app.py) travels in its own «receipt» event, queued
+ *   right after the visit, with an id of the photo (photo_uuid): the visit
+ *   stays light and the server never creates the same photo twice.
  * - Location (19.0.1.35.0, models/reparto_gps.py): one fresh position only at
  *   «Salir a repartir», «Llegué», closing a visit and «Cerrar la ruta», and
  *   only while the route is active. It travels inside the event as "gps".
@@ -32,6 +36,12 @@
                        ["parcel", "Encomienda"], ["other", "Otro"]];
   var PHOTO_WARNING = "La foto tiene que mostrar todos los datos del comprobante, legibles. " +
     "El comprobante en papel se entrega en la rendición.";
+  // the transfer receipt photographed at the visit (comprobante_app.py)
+  var RECEIPT_PHOTO_WARNING = "La foto tiene que mostrar todos los datos del comprobante, legibles: " +
+    "importe, fecha y hora, número de operación y quién transfirió.";
+  // no «capture»: the phone offers the camera and the gallery
+  var RECEIPT_INPUT = '<input type="file" accept="image/*" data-f="rphoto" hidden>';
+  var RECEIPT_LABELS = { forwarded: "reenviado", customer_wa: "lo manda el cliente", not_yet: "pendiente" };
   var REASONS = ["Envase golpeado", "Vencido", "No lo pidió", "Producto equivocado", "Sobrante"];
   var DAYS = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
 
@@ -293,8 +303,28 @@
     var red = redOf(stop);
     return round2(dueToday(stop, returns) + (red ? red.debt || 0 : 0));
   }
-  function waDigits(number) {
+  // same rule as wa_digits in models/pedido_whatsapp.py: 54 9 + area
+  // without 0 + number without 15; the 15 is dropped only when unambiguous
+  function arNational(number) {
     var d = String(number || "").replace(/\D/g, "").replace(/^0+/, "");
+    if (d.indexOf("54") === 0 && d.length >= 12) {
+      d = d.slice(2);
+      if (d.charAt(0) === "9" && (d.length === 11 || d.length === 13)) d = d.slice(1);
+      d = d.replace(/^0+/, "");
+    }
+    if (d.length === 10) return d;
+    if (d.length === 12) {
+      var cuts = [2, 3, 4].filter(function (n) { return d.substr(n, 2) === "15"; });
+      if (cuts.length === 1) return d.slice(0, cuts[0]) + d.slice(cuts[0] + 2);
+    }
+    return "";
+  }
+  function waDigits(number) {
+    var text = String(number || "").trim();
+    var d = text.replace(/\D/g, "").replace(/^0+/, "");
+    if (text.charAt(0) === "+" && d.indexOf("54") !== 0) return d;
+    var national = arNational(text);
+    if (national) return "549" + national;
     if (d && d.indexOf("54") !== 0) d = "549" + d;
     return d;
   }
@@ -379,6 +409,14 @@
     return Promise.all(stale.map(function (e) { return outboxDel(e.uuid); }))
       .then(function () { return outboxPut(ev); })
       .then(function () { syncNow(); });
+  }
+
+  // a change that never reached the server and is no longer wanted
+  function dropQueued(key) {
+    var queued = S.outbox.filter(function (e) { return e.key === key; });
+    if (!queued.length) return Promise.resolve();
+    S.outbox = S.outbox.filter(function (e) { return queued.indexOf(e) < 0; });
+    return Promise.all(queued.map(function (e) { return outboxDel(e.uuid); }));
   }
 
   function isLoginPage(res) {
@@ -474,6 +512,14 @@
   }
 
   function markVisit(ev, error) {
+    if (ev.type === "receipt") {
+      var rv = S.local.visits[ev.payload.stop_id];
+      if (rv && rv.photo_uuid === ev.payload.photo_uuid) {
+        if (!error) rv.receipt_photo = true;
+        rv.photo_error = error || null;
+      }
+      return;
+    }
     if (ev.type === "expense") {
       var e = S.local.expenses[ev.payload.expense_uuid];
       if (e && !ev.payload.deleted) { e.synced = !error; e.error = error || null; }
@@ -813,7 +859,8 @@
   // --- visits list
 
   var EVENT_LABELS = { visit: "Visita", parcel: "Encomienda", expense: "Gasto", customer: "Ubicación y horarios",
-                       whatsapp: "WhatsApp del cliente", load: "Carga", depart: "Salida", close: "Cierre de la ruta" };
+                       whatsapp: "WhatsApp del cliente", load: "Carga", depart: "Salida", close: "Cierre de la ruta",
+                       receipt: "Foto del comprobante" };
   function viewRejections() {
     var list = openRejections();
     var cards = list.map(function (x) {
@@ -825,6 +872,8 @@
       var fix = "";
       if ((ev.type === "visit" || ev.type === "parcel") && stop) {
         fix = '<a class="opt primary" href="#visita/' + stop.id + '">Corregir y guardar de nuevo</a>';
+      } else if (ev.type === "receipt" && stop) {
+        fix = '<a class="opt primary" href="#visita/' + stop.id + '">Sacar la foto de nuevo</a>';
       } else if (ev.type === "expense") {
         fix = '<a class="opt primary" href="#gasto">Corregir el gasto</a>';
       }
@@ -879,8 +928,7 @@
         var pays = [];
         if (v.cash > 0) pays.push("Efectivo " + money(v.cash));
         if (v.transfer === "yes" || v.transfer === "done") {
-          pays.push("Transferencia " + money(v.transfer_amount || 0) + " · comprobante " +
-            (v.receipt_answer === "forwarded" ? "reenviado" : "pendiente"));
+          pays.push("Transferencia " + money(v.transfer_amount || 0) + " · comprobante " + receiptLabel(s, v));
         }
         detail = '<div class="d">' + h(pays.join(" · ")) + "</div>";
       } else if (st === "not_paid") {
@@ -942,6 +990,14 @@
   }
 
   // what «Guardar: no se entregó» throws away, in words
+  // what became of the receipt of a saved visit, for the visits list
+  function receiptLabel(stop, v) {
+    if (v.receipt_answer !== "photo") return RECEIPT_LABELS[v.receipt_answer] || "pendiente";
+    if (v.photo_error) return "la foto no se envió";
+    if (S.outbox.some(function (e) { return e.key === "receipt:" + stop.id; })) return "foto por enviar";
+    return v.receipt_photo ? "foto enviada" : "sin foto";
+  }
+
   function discardedText(d) {
     var parts = [];
     if (d.code_ok || (d.code || "").length) parts.push("código");
@@ -950,6 +1006,7 @@
     if (n) parts.push(n + (n === 1 ? " devolución" : " devoluciones"));
     if (d.cash > 0) parts.push("efectivo " + money(d.cash));
     if (d.transfer === "yes") parts.push("transferencia de " + money(d.transfer_amount || 0));
+    if (d.transfer === "yes" && d.receipt_answer === "photo" && d.photo) parts.push("foto del comprobante");
     return parts.join(", ");
   }
   function parcelDiscardedText(d) {
@@ -1078,6 +1135,8 @@
       returns_answer: null, returns: [], code: "", code_ok: false, without_code: false,
       cash: 0, transfer: "no", transfer_amount: 0, receipt_answer: null, red_ok: false,
       no_payment: false, comment: "",
+      // the receipt photo: «photo» only until it is queued, the thumbnail stays
+      photo: null, thumb: null, photo_uuid: null, receipt_photo: false,
     };
   }
 
@@ -1203,21 +1262,41 @@
         (short > 1 ? '<div class="small red-text">Faltan ' + money(short) + " del pedido de hoy: exigí el total. La diferencia queda a tu cargo.</div>" : "");
       var company = S.route.company_whatsapp || "";
       var cwa = whatsappOf(stop);
-      out += '<div class="card rcard" style="gap:10px"><div class="q">Comprobante</div>' +
-        '<div class="small">Pedile que te mande el comprobante a tu WhatsApp y reenvialo a la empresa.</div>' +
-        (cwa.number ? '<a class="opt second" target="_blank" rel="noopener" href="' +
+      var ra = d.receipt_answer, hasPhoto = !!(d.thumb || d.receipt_photo);
+      out += '<div class="card rcard" style="gap:10px"><div class="q">Comprobante <small>Obligatorio</small></div>' +
+        '<div class="small">Sacale una foto al comprobante en el celular del cliente, o elegí cómo lo va a mandar.</div>' +
+        '<div class="rchoices">' +
+        // with a photo already taken the button only chooses it back
+        (hasPhoto ? '<button class="opt teal photo-btn' + (ra === "photo" ? " on" : "") + '" data-a="rcpt" data-v="photo">' +
+          ICON_CAMERA + "Sacar foto del comprobante</button>"
+          : '<label class="opt teal photo-btn' + (ra === "photo" ? " on" : "") + '">' + ICON_CAMERA +
+          "Sacar foto del comprobante" + RECEIPT_INPUT + "</label>") +
+        '<button class="opt' + (ra === "customer_wa" ? " on" : "") + '" data-a="rcpt" data-v="customer_wa">El cliente lo manda por WhatsApp</button>' +
+        '<button class="opt' + (ra === "not_yet" ? " on" : "") + '" data-a="rcpt" data-v="not_yet">Lo manda después</button>' +
+        "</div>";
+      if (ra === "photo") {
+        out += '<div class="banner warn big-warn">' + ICON_CAMERA + "<span>" + h(RECEIPT_PHOTO_WARNING) + "</span></div>" +
+          '<div class="photo">' + (d.thumb ? '<img src="' + d.thumb + '" alt="Foto del comprobante">'
+            : '<span class="okline">' + ICON_CHECK + "Foto enviada</span>") +
+          '<label class="opt second">Sacar otra foto' + RECEIPT_INPUT + "</label></div>" +
+          '<div class="small muted">La foto queda en el celular y se envía sola cuando hay señal. Administración la ' +
+          "revisa; el pago se confirma con el reporte de Mercado Pago.</div>";
+      } else if (ra === "customer_wa") {
+        out += '<div class="pendbox"><b>Pendiente de comprobante · a tu cargo</b>' +
+          "<span>Pedile que lo mande al WhatsApp de la empresa con el número de pedido " + h(stop.order) +
+          ". Queda pendiente a tu nombre hasta que llegue.</span></div>";
+      } else if (ra === "not_yet") {
+        out += '<div class="pendbox"><b>Pendiente de comprobante · a tu cargo</b>' +
+          "<span>Queda pendiente a tu nombre hasta que el comprobante llegue a la empresa.</span></div>";
+      } else if (ra === "forwarded") {
+        out += '<div class="small muted">Respuesta anterior: «Ya lo reenvié». Queda pendiente hasta que la ' +
+          "empresa lo recibe; se resuelve solo.</div>";
+      }
+      // WhatsApp stays as the fallback
+      out += (cwa.number ? '<a class="opt second" target="_blank" rel="noopener" href="' +
           h(waLink(waDigits(cwa.number), visitClaim(stop, d.transfer_amount || 0))) + '">Pedirle el comprobante por WhatsApp</a>' : "") +
-        (company ? '<a class="btn teal" target="_blank" rel="noopener" href="' +
-          h(waLink(company, "Comprobante del pedido " + stop.order)) + '">Reenviar a la empresa</a>' +
-          '<div class="small muted">Abre el WhatsApp de la empresa con el texto «Comprobante del pedido ' + h(stop.order) + "».</div>" : "") +
-        '<div class="grid2">' +
-        '<button class="opt' + (d.receipt_answer === "forwarded" ? " on" : "") + '" data-a="rcpt" data-v="forwarded">Ya lo reenvié</button>' +
-        '<button class="opt' + (d.receipt_answer === "not_yet" ? " on" : "") + '" data-a="rcpt" data-v="not_yet">Todavía no me lo mandó</button>' +
-        "</div>" +
-        (d.receipt_answer === "not_yet" ? '<div class="pendbox"><b>Pendiente de comprobante · a tu cargo</b>' +
-          "<span>Queda pendiente a tu nombre hasta que el comprobante llegue a la empresa.</span></div>" : "") +
-        (d.receipt_answer === "forwarded" ? '<div class="small muted">Queda pendiente hasta que la empresa lo recibe; ' +
-          "se resuelve solo.</div>" : "") +
+        (company && ra !== "photo" ? '<a class="opt second" target="_blank" rel="noopener" href="' +
+          h(waLink(company, "Comprobante del pedido " + stop.order)) + '">Si te lo mandó a vos: reenviar a la empresa</a>' : "") +
         "</div>";
     }
     out += '<label class="stack">Comentario (opcional)<input class="inp" data-f="comment" value="' + h(d.comment) +
@@ -1291,6 +1370,7 @@
   }
 
   function storeVisit(stop, d, gps) {
+    var photoAnswer = d.transfer === "yes" && d.receipt_answer === "photo";
     var visit = {
       visit_uuid: d.visit_uuid, stop_id: stop.id, outcome: d.outcome, reason: d.reason || "",
       returns_answer: d.returns_answer, returns: d.returns, code: d.code_ok ? d.code : "", code_ok: !!d.code_ok,
@@ -1299,12 +1379,25 @@
       receipt_answer: d.transfer === "yes" ? d.receipt_answer : null, red_ok: !!d.red_ok,
       no_payment: !!d.no_payment,
       comment: d.comment || "", saved_at: new Date().toISOString(), synced: false, error: null,
+      // only the thumbnail: the photo itself lives in its outbox event
+      thumb: photoAnswer ? d.thumb || null : null, photo_uuid: photoAnswer ? d.photo_uuid || null : null,
+      receipt_photo: !!d.receipt_photo, photo_error: d.photo ? null : d.photo_error || null,
     };
     S.local.visits[stop.id] = visit;
     var payload = visitPayload(visit);
     if (gps !== undefined) payload.gps = gps;
     return saveLocal().then(function () {
       return enqueue("visit", payload, "visit:" + stop.id);
+    }).then(function () {
+      // the photo after its visit, in its own event: a retake before it
+      // left the phone replaces it; another answer drops it
+      if (photoAnswer && d.photo) {
+        var receipt = { photo_uuid: d.photo_uuid, stop_id: stop.id, visit_uuid: d.visit_uuid,
+                        transfer_amount: d.transfer_amount || 0, photo: d.photo };
+        d.photo = null;
+        return enqueue("receipt", receipt, "receipt:" + stop.id);
+      }
+      if (!photoAnswer) return dropQueued("receipt:" + stop.id);
     });
   }
 
@@ -1852,7 +1945,9 @@
       var err = validateDelivered(stop, draft);
       if (!err && isNaN(draft.cash)) err = "El efectivo no es un número.";
       if (!err && draft.transfer === "yes" && !(draft.transfer_amount > 0)) err = "Poné el importe transferido.";
-      if (!err && draft.transfer === "yes" && !draft.receipt_answer) err = "Respondé si ya reenviaste el comprobante a la empresa.";
+      if (!err && draft.transfer === "yes" && !draft.receipt_answer) err = "Elegí cómo llega el comprobante.";
+      if (!err && draft.transfer === "yes" && draft.receipt_answer === "photo" && !draft.photo && !draft.thumb &&
+          !draft.receipt_photo) err = "Sacá la foto del comprobante.";
       if (!err && !(draft.cash > 0) && draft.transfer === "no") err = "Si no pagó nada, tocá «No pagó nada».";
       if (err) return toast(err, true);
       draft.no_payment = false;
@@ -2049,6 +2144,17 @@
       readPhoto(el.files[0]).then(function (res) {
         target.photo = res.photo; target.thumb = res.thumb;
         toast("Foto lista (" + Math.round(res.photo.length * 0.75 / 1024) + " KB).");
+        rerender();
+      }).catch(function (e) { toast(e.message || "No se pudo leer la foto.", true); });
+    }
+    if (f === "rphoto" && el.files && el.files[0] && draft) {
+      var rd = draft;
+      toast("Preparando la foto…");
+      readPhoto(el.files[0]).then(function (res) {
+        if (draft !== rd) return;
+        // a new photo is a new receipt for the server: a new id
+        rd.photo = res.photo; rd.thumb = res.thumb; rd.photo_uuid = uuid(); rd.receipt_answer = "photo";
+        toast("Foto lista (" + Math.round(res.photo.length * 0.75 / 1024) + " KB). Guardá la visita.");
         rerender();
       }).catch(function (e) { toast(e.message || "No se pudo leer la foto.", true); });
     }

@@ -61,6 +61,7 @@ from .ocr_comprobante import (
 )
 from .reparto import _money
 from .reparto_cliente import AR_TZ, friendly_case, today_ar
+from .wa_payload import ROLE_ORDERS, ROLE_RECEIPTS
 
 _logger = logging.getLogger(__name__)
 
@@ -114,6 +115,8 @@ PROMISE_COLLECTION = timedelta(hours=48)
 # A text message with the order number next to a photo identifies it.
 RECEIPT_TEXT_WINDOW = timedelta(minutes=30)
 SELLER_TEXT_WINDOW = timedelta(minutes=3)
+# 19.0.1.88.0: a receipt whose sender hides the phone (WhatsApp username)
+NO_PHONE_REASON = "Remitente sin teléfono"
 # the seller's note that names the customer may come a while after the photo
 SELLER_NOTE_WINDOW = timedelta(minutes=10)
 # receipt fields shown on its «Esperando reporte MP» card
@@ -589,6 +592,8 @@ class DistriPayerIdentity(models.Model):
             for receipt in Message.search([("distri_is_receipt", "=", True),
                                            ("distri_partner_id", "=", False),
                                            ("distri_forwarded_by_id", "=", False),
+                                           # drivers' and sellers' number: never a customer's
+                                           ("wa_rol", "!=", ROLE_RECEIPTS),
                                            ("wa_id", "like", "%" + identity.value)]):
                 receipt.write({"distri_partner_id": identity.partner_id.id,
                                "distri_partner_source": "Teléfono de WhatsApp del cliente"})
@@ -1304,7 +1309,7 @@ class DistriMpCollection(models.Model):
 
     @api.depends("kind", "state", "proposal", "partner_id", "receipt_id.distri_forwarded_by_id",
                  "report_review", "amount", "receipt_id.distri_amount", "authorized_conflict",
-                 "reversal", "conflict_note", "receipt_candidate")
+                 "reversal", "conflict_note", "receipt_candidate", "receipt_id.wa_sin_telefono")
     def _compute_column(self):
         for rec in self:
             if rec.receipt_candidate and not rec.receipt_id and rec.state == "draft":
@@ -1317,6 +1322,10 @@ class DistriMpCollection(models.Model):
                 rec.column = "review"
             elif rec.conflict_note and rec.state == "draft" and rec.kind in ("income", "verify"):
                 # the same receipt came for two customers: a person decides
+                rec.column = "review"
+            elif rec._receipt_without_phone():
+                # 19.0.1.88.0: a WhatsApp username hides the sender's phone:
+                # nobody knows who sent it, a person checks
                 rec.column = "review"
             elif rec.kind == "verify":
                 # authorized (or, before 19.0.1.21.0, paid) by hand and the
@@ -1353,7 +1362,8 @@ class DistriMpCollection(models.Model):
     @api.depends("kind", "state", "proposal", "partner_id", "amount", "receipt_id", "column",
                  "payer_cuit", "receipt_id.distri_amount", "receipt_id.distri_partner_source",
                  "receipt_id.distri_forwarded_by_id", "reversal", "conflict_note", "date",
-                 "receipt_id.distri_receipt_date", "receipt_candidate")
+                 "receipt_id.distri_receipt_date", "receipt_candidate",
+                 "receipt_id.wa_sin_telefono")
     def _compute_card_flags(self):
         for rec in self:
             receipt = rec.receipt_id
@@ -1368,6 +1378,13 @@ class DistriMpCollection(models.Model):
                 rec.kind == "income" and read and rec.date
                 and abs(read - rec.date) > RECEIPT_DATE_WINDOW)
             rec.review_reason = rec._review_reason() if rec.column == "review" else False
+
+    def _receipt_without_phone(self):
+        """A draft card whose WhatsApp receipt came without the sender's
+        phone, not settled by hand."""
+        self.ensure_one()
+        return bool(self.receipt_id.wa_sin_telefono and self.state == "draft"
+                    and self.kind in ("income", "verify") and self.proposal != "manual")
 
     def _authorized_other_amount(self):
         """An income tied to a delivery authorized by hand whose amount is
@@ -1394,9 +1411,13 @@ class DistriMpCollection(models.Model):
             return ("Verificado a mano con otro importe" if self.amount_mismatch
                     else "Verificado a mano: revisar antes de confirmar")
         reasons = []
+        if self._receipt_without_phone():
+            reasons.append(NO_PHONE_REASON)
         seller = self.receipt_id.distri_forwarded_by_id
         if seller and self.proposal != "manual":
-            reasons.append("Foto reenviada por el vendedor")
+            # comprobante_app.py: a photo the driver took in the app
+            reasons.append("Foto sacada por el repartidor en la app"
+                           if self.receipt_id.distri_from_app else "Foto reenviada por el vendedor")
         if self.proposal == "several":
             reasons.append("El CUIT es de varios clientes")
         elif self.proposal == "promise":
@@ -1473,6 +1494,8 @@ class DistriMpCollection(models.Model):
         if self.proposal not in ("photo", "operation", "none"):
             return False
         source = self.receipt_id.distri_partner_source or ""
+        if self.receipt_id.distri_from_app:
+            return "App de reparto"
         if source.startswith("Nota de") or self.receipt_id.distri_forwarded_by_id:
             return "Texto del vendedor"
         if source.startswith("Teléfono"):
@@ -1653,7 +1676,9 @@ class DistriMpCollection(models.Model):
                 proposal, note = "several", several
             seller = rec.receipt_id.distri_forwarded_by_id
             if seller:
-                note = "Foto reenviada por %s%s" % (seller.name, (". " + note) if note else "")
+                note = "%s %s%s" % (
+                    "Foto sacada en la app de reparto por" if rec.receipt_id.distri_from_app
+                    else "Foto reenviada por", seller.name, (". " + note) if note else "")
             rec.write({"partner_id": partner.id, "proposal": proposal,
                        "proposal_note": note or False,
                        "conflict_note": rec.receipt_id.distri_conflict or False})
@@ -2103,7 +2128,10 @@ class DistriMpCollection(models.Model):
                 "cuit", "link", "operation", "authorized")):
             self.env["distri.payer.identity"]._learn(
                 "cuit", record.payer_cuit, partner, friendly_case(record.payer_name))
+        # 19.0.1.88.0: the phone of a «Solo comprobantes» number belongs to a
+        # driver or a seller, never to the customer
         if record.receipt_id and record.receipt_id.wa_id and \
+                record.receipt_id.wa_rol != ROLE_RECEIPTS and \
                 not record.receipt_id.distri_forwarded_by_id and (chosen or not amount_only):
             self.env["distri.payer.identity"]._learn(
                 "phone", record.receipt_id.wa_id, partner, record.receipt_id.profile_name)
@@ -3021,14 +3049,17 @@ class WhatsappMessageComprobante(models.Model):
         texts = [self.body or ""]
         # a seller forwards receipts of many customers in a row: only the
         # text written right next to the photo belongs to it
-        window = SELLER_TEXT_WINDOW if (self.distri_forwarded_by_id
-                                        or self.distri_chat_import_id) else RECEIPT_TEXT_WINDOW
+        window = SELLER_TEXT_WINDOW if (self.distri_forwarded_by_id or self.distri_chat_import_id
+                                        or self.wa_rol == ROLE_RECEIPTS) else RECEIPT_TEXT_WINDOW
         paired = self._distri_chat_paired_notes()
         if paired is not None:
             return "\n".join(t for t in texts + paired if t)
-        if self.timestamp and self.wa_id:
+        # a sender without a phone (WhatsApp username) is known by its BSUID
+        sender = (("wa_id", "=", self.wa_id) if self.wa_id
+                  else ("wa_user_id", "=", self.wa_user_id) if self.wa_user_id else None)
+        if self.timestamp and sender:
             texts += self.sudo().search([
-                ("wa_id", "=", self.wa_id), ("direction", "=", "in"), ("id", "!=", self.id),
+                sender, ("direction", "=", "in"), ("id", "!=", self.id),
                 ("message_type", "=", "text"),
                 ("timestamp", ">=", self.timestamp - window),
                 ("timestamp", "<=", self.timestamp + window),
@@ -3228,6 +3259,13 @@ class WhatsappMessageComprobante(models.Model):
         for msg in self.sudo():
             if msg.message_type not in ("image", "document"):
                 continue
+            if msg.wa_rol == ROLE_ORDERS and not msg.distri_is_receipt:
+                # a «Solo pedidos» number: photos are not receipts unless a
+                # person marks them («Es un comprobante nuevo»)
+                continue
+            # «Solo comprobantes» (drivers and sellers): every photo or PDF
+            # is a receipt; the sender's phone says nothing about the customer
+            receipts_only = msg.wa_rol == ROLE_RECEIPTS
             text = msg._distri_nearby_text()
             vals = {}
             reading = {}
@@ -3249,7 +3287,8 @@ class WhatsappMessageComprobante(models.Model):
                     if order and not order.partner_id.distri_generic_partner:
                         partner = order.partner_id.commercial_partner_id
                         source = "Pedido %s escrito junto a la foto" % order.name
-                if not partner and (msg.distri_forwarded_by_id or msg.distri_chat_import_id):
+                if not partner and (msg.distri_forwarded_by_id or msg.distri_chat_import_id
+                                    or receipts_only):
                     # the seller wrote the customer (name or CUIT) next to it;
                     # the seller's own number says nothing about the customer.
                     # A receipt of the staff's transfers group (chat imported,
@@ -3257,7 +3296,8 @@ class WhatsappMessageComprobante(models.Model):
                     partners = Partner._distri_partners_by_text(msg._distri_nearby_text())
                     partner = partners if len(partners) == 1 else Partner.browse()
                     source = "Nota de %s junto a la foto" % (
-                        msg.distri_forwarded_by_id.name or msg.distri_chat_sender or "")
+                        msg.distri_forwarded_by_id.name or msg.distri_chat_sender
+                        or msg.profile_name or msg.wa_id or "")
                     note_partner = partner
                 elif not partner:
                     partners = Partner._distri_partners_by_phone(msg.wa_id)
@@ -3294,6 +3334,8 @@ class WhatsappMessageComprobante(models.Model):
             partner = Partner.browse(vals.get("distri_partner_id")) or msg.distri_partner_id
             is_receipt = bool(
                 msg.distri_forwarded_by_id
+                or (receipts_only and (msg.message_type == "image"
+                                       or msg.media_mime_type == "application/pdf"))
                 or msg.media_mime_type == "application/pdf" or vals.get("distri_amount")
                 or vals.get("distri_read_amount") or reading.get("operation")
                 or msg.distri_amount or order_ref or _RECEIPT_WORDS.search(text or "")

@@ -712,7 +712,7 @@
         <page string="Reparto" name="distri_reparto">
           <group>
             <group string="WhatsApp">
-              <field name="distri_whatsapp"/>
+              <field name="distri_whatsapp" placeholder="+54 9 299 4222444"/>
               <field name="distri_whatsapp_confirmed"/>
               <field name="distri_whatsapp_date"/>
               <field name="distri_whatsapp_user_id"/>

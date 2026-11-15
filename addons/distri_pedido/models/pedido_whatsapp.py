@@ -13,11 +13,20 @@ web orders then enter directly, and a message with the code still verifies
 the customer's phone.
 
 Exceptions: orders taken on /pedido by staff (vendedor, administración,
-gerencia) and «Venta en mostrador». The customer of those must have a
-WhatsApp on file before the order is confirmed.
+gerencia) and «Venta en mostrador». Their interactive confirmation (and the
+one of backend quotations) asks for the customer's WhatsApp when it is
+missing (models/whatsapp_cliente.py, 19.0.1.84.0): with the switch off it can
+be skipped, with it on it is required.
 
 Sellers: their phone is stored on the user. A receipt photo sent from a
 seller's number is marked «reenviado por» and goes to «Revisar».
+
+Numbers with roles (19.0.1.88.0, models/wa_payload.py): a message to a
+«Solo comprobantes» number never confirms an order (nor creates an
+AgilPedido one) and never verifies a phone. A message without the sender's
+phone (WhatsApp usernames) still marks the order of its code «Recibido por
+WhatsApp», verifies no phone and flags the order «WhatsApp sin teléfono»
+for review (semaphore of models/revisar.py).
 """
 import logging
 import re
@@ -27,6 +36,12 @@ from urllib.parse import quote
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+
+from .ar_phone import (  # noqa: F401 (re-exported: controllers and tests import them from here)
+    AR_PREFIX, ar_mobile, ar_national, format_ar_mobile, format_local, normalize_whatsapp,
+    only_digits, phone_key, split_ar_national, wa_digits,
+)
+from .wa_payload import ROLE_RECEIPTS
 
 _logger = logging.getLogger(__name__)
 
@@ -59,30 +74,6 @@ STAFF_GROUPS = (
     "distri_pedido.grupo_administracion",
     "distri_pedido.grupo_gerencia",
 )
-
-
-def only_digits(value):
-    return re.sub(r"\D", "", str(value or ""))
-
-
-def phone_key(value):
-    """Last 10 digits: the wa_id carries 54 and the 9 of mobiles, the
-    typed phone usually does not."""
-    number = only_digits(value)
-    return number[-10:] if len(number) >= 8 else ""
-
-
-def wa_digits(value):
-    """Number for a wa.me link (Argentina when no country code)."""
-    number = only_digits(value).lstrip("0")
-    if len(number) < 8:
-        return ""
-    if not number.startswith("54"):
-        number = "549" + number
-    elif len(number) == 12:
-        # 54 + area + number: WhatsApp needs the 9 of mobiles
-        number = "549" + number[2:]
-    return number
 
 
 def valid_code(token):
@@ -216,6 +207,11 @@ class SaleOrderWhatsapp(models.Model):
                                   help="Número desde el que llegó el WhatsApp con el código.")
     distri_telefono_verificado = fields.Boolean(string="Teléfono verificado por WhatsApp",
                                                 copy=False, readonly=True)
+    distri_wa_sin_telefono = fields.Boolean(
+        string="WhatsApp sin teléfono", copy=False, readonly=True, index=True,
+        help="El WhatsApp con el código llegó de un usuario que oculta su teléfono (nombre de "
+             "usuario de WhatsApp). El pedido entró, pero no hay teléfono verificado: revisá "
+             "quién es el cliente.")
     distri_wa_message_id = fields.Many2one("distri.whatsapp.message", string="Mensaje recibido",
                                            copy=False, readonly=True, ondelete="set null")
     distri_wa_proposal_id = fields.Many2one(
@@ -274,24 +270,88 @@ class SaleOrderWhatsapp(models.Model):
         return super()._create_invoices(grouped=grouped, final=final, date=date)
 
     def action_confirm(self):
+        """Interactive confirmations (buttons that pass `distri_wa_ask`) ask
+        for the customer's WhatsApp when it is missing (distri.wa.confirm.wizard).
+        Other callers (crons, armado, imports, tests) never get the wizard:
+        with the switch off they confirm, with it on staff and counter orders
+        without a number are refused as before. `distri_wa_skip_check` is
+        set by the wizard on its final confirm so it never loops."""
+        # The same switch as the waiting step: while it is off (phase 1, most
+        # customers have no WhatsApp on file) staff and counter orders confirm.
+        require = self.env["distri.pedido.whatsapp.settings"].requires_whatsapp()
+        context = self.env.context
         for order in self:
             if order.distri_wa_state == "waiting":
                 raise UserError(
                     "El pedido %s espera el WhatsApp del cliente. Si el cliente ya avisó por "
                     "otro medio, usá «Confirmar a mano» en «Pedidos sin WhatsApp»." % order.name)
-            if order.distri_wa_state in ("staff", "counter") and not order._distri_wa_customer_number():
-                raise UserError(
-                    "El cliente de %s no tiene un WhatsApp cargado. Cargalo en el contacto "
-                    "(campo WhatsApp) antes de confirmar: es el canal de contacto con el cliente."
-                    % order.name)
-        return super().action_confirm()
+        if context.get("distri_wa_ask") and not context.get("distri_wa_skip_check"):
+            asking = self.filtered(lambda o: o._distri_wa_asks_on_confirm())
+            if asking and len(self) == 1:
+                return self._distri_wa_ask_wizard("confirm")
+            if asking and not require:
+                # several orders at once: no wizard per order; they confirm
+                # and the chatter keeps who confirmed them without the number
+                for order in asking:
+                    order.message_post(body=(
+                        "Confirmado sin WhatsApp del cliente por %s (confirmación de varios "
+                        "pedidos a la vez)." % self.env.user.name))
+        if require:
+            for order in self:
+                if (order.distri_wa_state in ("staff", "counter")
+                        and not order._distri_wa_customer_number()):
+                    raise UserError(
+                        "El cliente de %s no tiene un WhatsApp cargado. Cargalo en el contacto "
+                        "(campo WhatsApp) antes de confirmar: es el canal de contacto con el "
+                        "cliente." % order.name)
+        return super(SaleOrderWhatsapp, self.with_context(distri_wa_ask=False)).action_confirm()
 
     def action_distri_counter_sale(self):
-        """«Venta en mostrador» is an exception: the customer is present."""
+        """«Venta en mostrador» is an exception: the customer is present.
+        From the button (`distri_wa_ask`) it first asks for the customer's
+        WhatsApp when it is missing."""
+        context = self.env.context
+        if (context.get("distri_wa_ask") and not context.get("distri_wa_skip_check")
+                and len(self) == 1 and self.state in ("draft", "sent")
+                and not self.partner_id.distri_generic_partner
+                and self.distri_wa_state != "waiting"
+                and self._distri_wa_needs_number()):
+            return self._distri_wa_ask_wizard("counter")
         for order in self:
             if order.distri_wa_state in (False, "waiting", "direct"):
                 order.distri_wa_state = "counter"
-        return super().action_distri_counter_sale()
+        return super(SaleOrderWhatsapp,
+                     self.with_context(distri_wa_ask=False)).action_distri_counter_sale()
+
+    def _distri_wa_needs_number(self):
+        """No WhatsApp on file for the customer: the res.partner field (the
+        phone alone does not count), or the typed phone of a generic order."""
+        self.ensure_one()
+        order = self.sudo()
+        if order.partner_id.distri_generic_partner:
+            return not wa_digits(order.distri_wa_phone or order.distri_telefono)
+        partner = order.partner_id
+        return not (partner.distri_whatsapp or partner.commercial_partner_id.distri_whatsapp)
+
+    def _distri_wa_asks_on_confirm(self):
+        """Orders the confirmation asks the number for: staff (/pedido),
+        counter and backend quotations. Web customer orders (waiting,
+        direct, received, manual) keep their own WhatsApp flow."""
+        self.ensure_one()
+        return (self.state in ("draft", "sent")
+                and self.distri_wa_state in (False, "staff", "counter")
+                and self._distri_wa_needs_number())
+
+    def _distri_wa_ask_wizard(self, then):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "WhatsApp del cliente",
+            "res_model": "distri.wa.confirm.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_order_id": self.id, "default_then": then},
+        }
 
     def _distri_wa_customer_number(self):
         """The customer's WhatsApp on file (typed phone for a generic)."""
@@ -395,6 +455,12 @@ class SaleOrderWhatsapp(models.Model):
                                     "está cancelado." % (number or "un número sin dato"))
             return
         vals = {"distri_wa_message_id": message.id}
+        if not number:
+            # a WhatsApp username hides the phone: the order enters, nothing
+            # is verified, and a person checks who the customer is
+            vals["distri_wa_sin_telefono"] = True
+            who = message.wa_username or message.profile_name or message.wa_user_id or ""
+            number = "un usuario sin teléfono%s" % (" (%s)" % who if who else "")
         if order.distri_wa_state in ("waiting", "direct"):
             vals.update({"distri_wa_state": "received",
                          "distri_wa_confirmed_at": fields.Datetime.now(),
@@ -405,11 +471,13 @@ class SaleOrderWhatsapp(models.Model):
         if seller:
             body += " El número es del vendedor %s: no se guarda como WhatsApp del cliente." % (
                 seller.name)
-        elif number:
+        elif message.wa_id:
             vals["distri_wa_phone"] = number
+        if not message.wa_id:
+            body += " No trae teléfono: no se verifica ningún número y el pedido queda para revisar."
         order.write(vals)
         order.message_post(body=body)
-        if not seller and number:
+        if not seller and message.wa_id:
             order._distri_wa_store_phone()
 
     def _distri_wa_store_phone(self):
@@ -604,7 +672,9 @@ class WhatsappMessageOrder(models.Model):
                 if seller:
                     vals["distri_forwarded_by_id"] = seller.id
         records = super().create(vals_list)
-        for msg in records.filtered(lambda m: m.direction == "in" and m.message_type == "text"):
+        # a «Solo comprobantes» number never confirms nor creates orders
+        for msg in records.filtered(lambda m: m.direction == "in" and m.message_type == "text"
+                                    and m.wa_rol != ROLE_RECEIPTS):
             try:
                 with self.env.cr.savepoint():
                     self.env["sale.order"]._distri_wa_match_message(msg)

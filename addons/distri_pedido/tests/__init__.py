@@ -37,3 +37,8 @@ from . import test_tarjeta_confirmacion
 from . import test_permisos_cobros
 from . import test_cuentas_app
 from . import test_cash_sheet
+from . import test_whatsapp_cliente
+from . import test_revisar
+from . import test_comprobante_app
+from . import test_pedido_link
+from . import test_whatsapp_numeros

@@ -158,7 +158,14 @@ class TestSocioGenerico(GenericMixin, TransactionCase):
         self.assertEqual(asistente.nuevo_telefono, "299 411 2233")
         self.assertEqual(asistente.nuevo_lista_id, self.pricelist,
                          "a wholesale order keeps its list for the new customer")
-        asistente.action_asignar_y_aprobar()
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.pedido_requiere_whatsapp", "0")
+        accion = asistente.action_asignar_y_aprobar()
+        # the wizard starts from the phone typed for the new customer
+        wa = self.env[accion["res_model"]].with_context(accion["context"]).create({})
+        self.assertEqual((wa.area, wa.number), ("299", "4112233"))
+        wa.action_save_confirm()
+        self.assertEqual(order.partner_id.distri_whatsapp, "+5492994112233")
         cliente = order.partner_id
         self.assertEqual(cliente.name, "Almacén Nuevo Web")
         self.assertEqual(cliente.phone, "299 411 2233")
@@ -282,7 +289,11 @@ class TestAsignarComparacion(GenericMixin, TransactionCase):
         ficha = otra.action_ver_ficha()
         self.assertEqual(ficha["target"], "new")
         self.assertIn("/res.partner/%s" % self.parecido.id, ficha["url"])
-        asistente.action_asignar_y_aprobar()
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.pedido_requiere_whatsapp", "0")
+        accion = asistente.action_asignar_y_aprobar()
+        if accion.get("res_model") == "distri.wa.confirm.wizard":
+            self.env[accion["res_model"]].with_context(accion["context"]).create({}).action_skip()
         self.assertEqual(order.partner_id, self.parecido)
         self.assertEqual(order.state, "sale")
 

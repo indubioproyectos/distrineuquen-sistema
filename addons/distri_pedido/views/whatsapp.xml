@@ -12,6 +12,13 @@
         <field name="direction"/>
         <field name="wa_id"/>
         <field name="profile_name" optional="show"/>
+        <field name="numero_recibido" optional="show"/>
+        <field name="wa_numero_no_configurado" string="No configurado" widget="boolean_icon"
+               options="{'icon': 'fa-exclamation-triangle'}" optional="show"
+               invisible="not wa_numero_no_configurado"/>
+        <field name="wa_sin_telefono" string="Sin teléfono" widget="boolean_icon"
+               options="{'icon': 'fa-user-secret'}" optional="hide"
+               invisible="not wa_sin_telefono"/>
         <field name="message_type" optional="show"/>
         <field name="body"/>
         <field name="has_attachment" string="Archivo" widget="boolean_icon"
@@ -40,6 +47,15 @@
           <field name="media_state" widget="statusbar" invisible="not media_id"/>
         </header>
         <sheet>
+          <div class="alert alert-warning" role="alert" invisible="not wa_numero_no_configurado">
+            Llegó a un número que no está cargado en «Números de WhatsApp» (Phone Number ID
+            <field name="phone_number_id" class="oe_inline" readonly="1"/>). Se trató como
+            «Pedidos y comprobantes».
+          </div>
+          <div class="alert alert-info" role="alert" invisible="not wa_sin_telefono or direction != 'in'">
+            El remitente no compartió su teléfono (usa nombre de usuario de WhatsApp): un pedido
+            con código no verifica teléfono y un comprobante va a «Revisar».
+          </div>
           <div class="oe_title">
             <h1><field name="profile_name" class="oe_inline"/> <field name="wa_id" class="oe_inline"/></h1>
           </div>
@@ -49,7 +65,13 @@
               <field name="message_type"/>
               <field name="body"/>
               <field name="wa_message_id"/>
+              <field name="numero_id"/>
+              <field name="wa_rol"/>
+              <field name="wa_numero_no_configurado" invisible="not wa_numero_no_configurado"/>
               <field name="phone_number_id"/>
+              <field name="wa_user_id" invisible="not wa_user_id"/>
+              <field name="wa_username" invisible="not wa_username"/>
+              <field name="wa_sin_telefono" invisible="not wa_sin_telefono"/>
             </group>
             <group string="Fechas">
               <field name="timestamp"/>
@@ -65,6 +87,7 @@
               <field name="media_filename" invisible="not media_filename"/>
               <field name="media_attempts"/>
               <field name="media_error" invisible="not media_error"/>
+              <field name="media_alert" invisible="not media_alert"/>
               <field name="media_id"/>
               <field name="media_sha256"/>
             </group>
@@ -94,6 +117,9 @@
         <field name="wa_id"/>
         <field name="profile_name"/>
         <field name="body"/>
+        <field name="numero_id"/>
+        <field name="phone_number_id"/>
+        <field name="wa_user_id"/>
         <filter name="recibidos" string="Recibidos" domain="[('direction', '=', 'in')]"/>
         <filter name="enviados" string="Enviados" domain="[('direction', '=', 'out')]"/>
         <filter name="fallidos" string="Fallidos" domain="[('status', '=', 'failed')]"/>
@@ -101,6 +127,21 @@
         <filter name="con_archivo" string="Con archivo" domain="[('has_attachment', '=', True)]"/>
         <filter name="descarga_pendiente" string="Descarga pendiente" domain="[('media_state', '=', 'pending')]"/>
         <filter name="descarga_error" string="Descarga con error" domain="[('media_state', '=', 'error')]"/>
+        <separator/>
+        <filter name="numero_no_configurado" string="Número no configurado"
+                domain="[('wa_numero_no_configurado', '=', True)]"/>
+        <filter name="solo_comprobantes" string="Número de solo comprobantes"
+                domain="[('wa_rol', '=', 'receipts')]"/>
+        <filter name="sin_telefono" string="Remitente sin teléfono"
+                domain="[('wa_sin_telefono', '=', True)]"/>
+        <separator/>
+        <filter name="ultimo_dia" string="Último día"
+                domain="[('create_date', '&gt;=', (context_today() - relativedelta(days=1)).strftime('%Y-%m-%d'))]"/>
+        <group>
+          <filter name="por_numero" string="Número que recibió" context="{'group_by': 'numero_id'}"/>
+          <filter name="por_phone_number_id" string="Phone Number ID"
+                  context="{'group_by': 'phone_number_id'}"/>
+        </group>
       </search>
     </field>
   </record>

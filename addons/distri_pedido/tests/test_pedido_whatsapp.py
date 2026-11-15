@@ -210,6 +210,19 @@ class TestPedidoWhatsapp(PedidoWhatsappMixin, TransactionCase):
         with self.assertRaisesRegex(UserError, "WhatsApp"):
             waiting.with_user(self.admin_distri).action_distri_counter_sale()
 
+    def test_staff_order_without_whatsapp_confirms_when_switch_off(self):
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.pedido_requiere_whatsapp", "0")
+        customer = self.env["res.partner"].create({"name": "Cliente sin WA"})
+        order = self.env["sale.order"].create({
+            "partner_id": customer.id,
+            "order_line": [Command.create({"product_id": self.product.id,
+                                           "product_uom_qty": 1, "price_unit": 1000})],
+        })
+        order._distri_wa_start(staff=True)
+        order.action_confirm()
+        self.assertEqual(order.state, "sale")
+
 
 @tagged("post_install", "-at_install", "distri_pedido_whatsapp")
 class TestPedidoWhatsappHttp(PedidoWhatsappMixin, HttpCase):

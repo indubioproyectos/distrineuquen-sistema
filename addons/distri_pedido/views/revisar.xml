@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- «Retener / Liberar» and «Pedidos para revisar» with the risk
+       semaphore (models/revisar.py, models/semaforo.py). Made for the
+       manager's phone: kanban cards first, the list as a second view. -->
+
+  <!-- ============================================ asistente: retener -->
+
+  <record id="view_retener_wizard" model="ir.ui.view">
+    <field name="name">distri.retener.wizard.form</field>
+    <field name="model">distri.retener.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Retener el pedido">
+        <field name="order_id" invisible="1"/>
+        <p class="text-muted">
+          El pedido no se arma, no se factura y no sale en una ruta hasta que lo liberes.
+          El motivo queda en el historial del pedido.
+        </p>
+        <field name="motivo" placeholder="Ej.: cliente nuevo, pedido muy grande, confirmar por teléfono"
+               class="w-100"/>
+        <footer>
+          <button name="action_retener" type="object" string="Retener" class="btn-primary"/>
+          <button string="Volver" class="btn-link" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- ============================================ pedido: botones, aviso y semáforo -->
+
+  <record id="view_order_form_revisar" model="ir.ui.view">
+    <field name="name">sale.order.form.revisar</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <field name="distri_retenido" invisible="1"/>
+        <field name="distri_revisar_wa_url" invisible="1"/>
+        <button name="action_distri_retener" type="object" string="Retener" icon="fa-pause"
+                groups="distri_pedido.grupo_administracion"
+                invisible="distri_retenido or state == 'cancel'"/>
+        <button name="action_distri_liberar" type="object" string="Liberar" icon="fa-play"
+                class="btn-primary" groups="distri_pedido.grupo_administracion"
+                invisible="not distri_retenido"
+                confirm="El pedido vuelve al circuito normal: se arma, se factura y sale en ruta. ¿Seguimos?"/>
+        <button name="action_distri_abrir_chat" type="object" string="Abrir chat" icon="fa-whatsapp"
+                groups="distri_pedido.grupo_administracion"
+                invisible="not distri_revisar_wa_url"/>
+      </xpath>
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-warning mb-0" role="alert" invisible="not distri_retenido">
+          <strong class="fs-5">Pedido retenido</strong>
+          <div>
+            <field name="distri_retenido_por_id" readonly="1" class="d-inline"/> ·
+            <field name="distri_retenido_el" readonly="1" class="d-inline"/> ·
+            Motivo: <field name="distri_retenido_motivo" readonly="1" class="d-inline"/>
+          </div>
+          <div invisible="distri_armado != 'en_armado'">
+            El armador ya lo había tomado: puede terminarlo, pero no se factura ni sale en una
+            ruta hasta liberarlo.
+          </div>
+          <div invisible="distri_armado != 'armado'">
+            Ya está armado: no se factura ni sale en una ruta hasta liberarlo. Al liberarlo
+            sale la factura del armado.
+          </div>
+          <div invisible="not distri_retenido_rutas">
+            Sigue en la ruta <field name="distri_retenido_rutas" readonly="1" class="d-inline"/>,
+            que ya salió o ya se controló: avisale al repartidor.
+          </div>
+        </div>
+      </xpath>
+      <xpath expr="//group[@name='partner_details']" position="inside">
+        <field name="distri_semaforo" widget="badge" readonly="1"
+               groups="distri_pedido.grupo_administracion"
+               decoration-danger="distri_semaforo == 'rojo'"
+               decoration-warning="distri_semaforo == 'amarillo'"
+               decoration-success="distri_semaforo == 'verde'"/>
+        <field name="distri_semaforo_motivos" readonly="1"
+               groups="distri_pedido.grupo_administracion"
+               invisible="not distri_semaforo_motivos"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ pedidos para revisar -->
+
+  <record id="view_order_kanban_revisar" model="ir.ui.view">
+    <field name="name">sale.order.kanban.revisar</field>
+    <field name="model">sale.order</field>
+    <field name="priority">40</field>
+    <field name="arch" type="xml">
+      <kanban create="0" class="o_kanban_mobile" sample="0"
+              default_order="distri_semaforo_orden, date_order desc, id desc">
+        <field name="distri_semaforo"/>
+        <field name="distri_retenido"/>
+        <field name="distri_revisar_wa_url"/>
+        <field name="distri_wa_code"/>
+        <field name="currency_id"/>
+        <field name="state"/>
+        <templates>
+          <t t-name="card" class="p-2">
+            <div class="d-flex justify-content-between align-items-baseline gap-2">
+              <span class="fs-5 fw-bold">
+                <field name="distri_semaforo" widget="badge"
+                       decoration-danger="distri_semaforo == 'rojo'"
+                       decoration-warning="distri_semaforo == 'amarillo'"
+                       decoration-success="distri_semaforo == 'verde'"/>
+                <field name="name"/>
+              </span>
+              <field name="amount_total" widget="monetary" class="fs-5 fw-bold"/>
+            </div>
+            <field name="partner_id" class="fs-5"/>
+            <div class="small text-muted">
+              <field name="distri_revisar_origen"/>
+              <span t-if="record.distri_wa_code.raw_value"> · código <field name="distri_wa_code"/></span>
+              · <field name="date_order" widget="datetime"/>
+            </div>
+            <field name="distri_semaforo_motivos" class="small"/>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+              <field name="state" widget="badge" decoration-success="state == 'sale'"
+                     decoration-info="state in ('draft', 'sent')"/>
+              <span t-if="record.distri_retenido.raw_value" class="badge text-bg-warning">Retenido</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button t-if="!record.distri_retenido.raw_value and record.state.raw_value != 'cancel'"
+                      name="action_distri_retener" type="object"
+                      class="btn btn-sm btn-outline-warning">Retener</button>
+              <button t-if="record.distri_retenido.raw_value" name="action_distri_liberar"
+                      type="object" class="btn btn-sm btn-primary">Liberar</button>
+              <a t-if="record.distri_revisar_wa_url.raw_value"
+                 t-att-href="record.distri_revisar_wa_url.raw_value" target="_blank"
+                 class="btn btn-sm btn-outline-success" role="button">
+                <i class="fa fa-whatsapp" title="WhatsApp"/> Abrir chat
+              </a>
+            </div>
+          </t>
+        </templates>
+      </kanban>
+    </field>
+  </record>
+
+  <record id="view_order_list_revisar" model="ir.ui.view">
+    <field name="name">sale.order.list.revisar</field>
+    <field name="model">sale.order</field>
+    <field name="priority">40</field>
+    <field name="arch" type="xml">
+      <list string="Pedidos para revisar" create="0" delete="0"
+            default_order="distri_semaforo_orden, date_order desc, id desc"
+            decoration-danger="distri_semaforo == 'rojo'"
+            decoration-warning="distri_semaforo == 'amarillo'">
+        <field name="currency_id" column_invisible="1"/>
+        <field name="distri_revisar_wa_url" column_invisible="1"/>
+        <field name="distri_semaforo" string="Semáforo" widget="badge"
+               decoration-danger="distri_semaforo == 'rojo'"
+               decoration-warning="distri_semaforo == 'amarillo'"
+               decoration-success="distri_semaforo == 'verde'"/>
+        <field name="name" string="Pedido"/>
+        <field name="partner_id" string="Cliente"/>
+        <field name="amount_total" string="Total" widget="monetary"/>
+        <field name="distri_revisar_origen" string="Origen"/>
+        <field name="distri_wa_code" string="Código" optional="show"/>
+        <field name="state" widget="badge" optional="show"/>
+        <field name="distri_retenido" string="Retenido" widget="boolean"/>
+        <field name="distri_semaforo_motivos" optional="show"/>
+        <field name="date_order" optional="hide"/>
+        <button name="action_distri_retener" type="object" string="Retener" icon="fa-pause"
+                class="btn-link" invisible="distri_retenido or state == 'cancel'"/>
+        <button name="action_distri_liberar" type="object" string="Liberar" icon="fa-play"
+                class="btn-link" invisible="not distri_retenido"/>
+        <button name="action_distri_abrir_chat" type="object" string="Abrir chat"
+                icon="fa-whatsapp" class="btn-link text-success"
+                invisible="not distri_revisar_wa_url"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_order_search_revisar" model="ir.ui.view">
+    <field name="name">sale.order.search.revisar</field>
+    <field name="model">sale.order</field>
+    <field name="priority">40</field>
+    <field name="arch" type="xml">
+      <search string="Pedidos para revisar">
+        <field name="name" string="Pedido"/>
+        <field name="partner_id"/>
+        <field name="distri_wa_code"/>
+        <filter name="retenidos" string="Retenidos" domain="[('distri_retenido', '=', True)]"/>
+        <filter name="rojos" string="Rojos" domain="[('distri_semaforo', '=', 'rojo')]"/>
+        <filter name="amarillos" string="Amarillos" domain="[('distri_semaforo', '=', 'amarillo')]"/>
+        <separator/>
+        <filter name="hoy" string="Hoy" domain="[('distri_revisar_hoy', '=', True)]"/>
+        <group>
+          <filter name="por_semaforo" string="Semáforo" context="{'group_by': 'distri_semaforo'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_pedidos_revisar" model="ir.actions.act_window">
+    <field name="name">Pedidos para revisar</field>
+    <field name="res_model">sale.order</field>
+    <field name="view_mode">kanban,list,form</field>
+    <field name="domain">[('distri_revisar_en_lista', '=', True)]</field>
+    <field name="context">{}</field>
+    <field name="search_view_id" ref="view_order_search_revisar"/>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_order_kanban_revisar')}),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_order_list_revisar')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('sale.view_order_form')})]"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No hay pedidos para revisar.</p>
+      <p>Los pedidos de hoy y de ayer, y todos los retenidos: primero los rojos, después los
+         amarillos y al final los verdes. Rojo: cliente nuevo, sin compras anteriores o sin
+         cliente asignado. Amarillo: sin WhatsApp, o más del doble de lo que compra
+         habitualmente. Retené el que quieras revisar: no se arma, no se factura y no sale en
+         ruta hasta que lo liberes.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_pedidos_revisar"
+            name="Pedidos para revisar"
+            parent="sale.sale_order_menu"
+            action="action_pedidos_revisar"
+            groups="distri_pedido.grupo_administracion"
+            sequence="1"/>
+
+  <menuitem id="menu_transicion_pedidos_revisar"
+            name="Pedidos para revisar"
+            action="action_pedidos_revisar"
+            parent="menu_transicion"
+            groups="distri_pedido.grupo_administracion"
+            sequence="39"/>
+
+  <menuitem id="menu_app_pedidos_revisar"
+            name="Pedidos para revisar"
+            action="action_pedidos_revisar"
+            parent="menu_transicion_app"
+            groups="distri_pedido.grupo_administracion"
+            sequence="39"/>
+
+</odoo>

@@ -9,3 +9,4 @@ from . import proyecto
 from . import portal
 from . import cuentas
 from . import tablero
+from . import pedido_link
