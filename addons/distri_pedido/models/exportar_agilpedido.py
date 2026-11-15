@@ -130,7 +130,9 @@ class ExportarAgilpedido(models.TransientModel):
         """
         Producto = self.env["product.template"]
         productos = Producto.with_context(active_test=False).search(
-            [("sale_ok", "=", True)], order="name",
+            # the temporary copies of the storefront (catalogo_agil.py) never
+            # go back to AgilPedido
+            [("sale_ok", "=", True), ("distri_agil_temporal", "=", False)], order="name",
         )
         mayorista, minorista = self.env["sale.order"]._distri_agil_listas()
         con_mayorista = set()

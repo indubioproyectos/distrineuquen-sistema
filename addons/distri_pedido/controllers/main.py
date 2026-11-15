@@ -248,13 +248,25 @@ class TomaDePedidos(http.Controller):
         are not already seeing their own list."""
         return self._autorizado_lista_oculta() and not self._lista_propia()
 
+    def _catalogo_agil(self):
+        """True while /pedido shows the TEMPORARY copy of the AgilPedido
+        storefront (models/catalogo_agil.py) instead of the usual catalog."""
+        from ..models.agil_tienda import catalogo_agil_activo
+        return catalogo_agil_activo(request.env)
+
+    def _dominio_catalogo(self):
+        """Only the temporary AgilPedido products with the switch on; without
+        them otherwise, so a synced copy never shows in the usual catalog."""
+        return [("distri_agil_temporal", "=", self._catalogo_agil())]
+
     def _sin_precio(self, producto):
         """Los cigarrillos no tienen precio publico.
 
         Si el visitante tiene lista propia el precio SI se muestra: ahi el
-        precio del revendedor existe y esta cargado.
+        precio del revendedor existe y esta cargado. A temporary AgilPedido
+        product always shows its price, like the storefront it copies.
         """
-        if self._lista_propia():
+        if self._lista_propia() or producto.distri_agil_temporal:
             return False
         return producto.categ_id.name in CATEGORIAS_A_PRESUPUESTAR
 
@@ -274,18 +286,30 @@ class TomaDePedidos(http.Controller):
         Cada renglon lleva su unidad de venta y el precio DE ESA UNIDAD, no el
         de la unidad de stock: el comerciante ve el precio del bulto.
         """
+        agil = self._catalogo_agil()
+        if agil:
+            # the AgilPedido sections, in the storefront order
+            from ..models.agil_tienda import ORDEN_AGIL
+            orden = ORDEN_AGIL
+        else:
+            orden = "categ_id, name"
         productos = request.env["product.template"].sudo().search(
-            [("sale_ok", "=", True), ("is_published", "=", True)],
-            order="categ_id, name",
+            [("sale_ok", "=", True), ("is_published", "=", True)] + self._dominio_catalogo(),
+            order=orden,
         )
         lista = self._lista_del_visitante()
         precios = self._precios_en_lote(productos, lista)
         secciones = {}
         for producto in productos:
-            seccion = producto.categ_id.name or "Sin seccion"
+            if agil:
+                seccion = producto.distri_agil_seccion or "Otros"
+            else:
+                seccion = producto.categ_id.name or "Sin seccion"
             secciones.setdefault(seccion, []).append(
                 self._renglon(producto, lista, precios.get(producto.id))
             )
+        if agil:
+            return list(secciones.items())
         return sorted(secciones.items())
 
     def _precios_en_lote(self, productos, lista):
@@ -405,7 +429,7 @@ class TomaDePedidos(http.Controller):
         """Ofertas relampago: sueltas, arriba de todo y sin categoria."""
         productos = request.env["product.template"].sudo().search(
             [("destacado", "=", True), ("sale_ok", "=", True),
-             ("is_published", "=", True)],
+             ("is_published", "=", True)] + self._dominio_catalogo(),
             order="destacado_vence, name",
         )
         lista = self._lista_del_visitante()
@@ -421,10 +445,11 @@ class TomaDePedidos(http.Controller):
         aparece solo.
         """
         lista = self._lista_oculta() if self._ve_lista_oculta() else False
-        if not lista:
+        if not lista or self._catalogo_agil():
+            # the AgilPedido copy has its «May» rows as products of their own
             return []
         plantillas = lista.item_ids.mapped("product_tmpl_id").filtered(
-            lambda p: p.active and p.sale_ok and p.is_published
+            lambda p: p.active and p.sale_ok and p.is_published and not p.distri_agil_temporal
         )
         precios = self._precios_en_lote(plantillas, lista)
         renglones = []
@@ -445,11 +470,12 @@ class TomaDePedidos(http.Controller):
         le asigna la lista del cliente.
         """
         lista = self._lista_oculta() if self._ve_lista_oculta() else False
-        if not lista:
+        if not lista or self._catalogo_agil():
             return []
         productos = request.env["product.template"].sudo().search(
             [("categ_id.name", "in", list(CATEGORIAS_A_PRESUPUESTAR)),
-             ("sale_ok", "=", True), ("is_published", "=", True)],
+             ("sale_ok", "=", True), ("is_published", "=", True),
+             ("distri_agil_temporal", "=", False)],
             order="name",
         )
         renglones = []
@@ -856,7 +882,9 @@ class TomaDePedidos(http.Controller):
         """
         Tmpl = request.env["product.template"].sudo()
         Categoria = request.env["product.category"].sudo()
-        dominio = [("is_published", "=", True), ("sale_ok", "=", True)]
+        dominio = [("is_published", "=", True), ("sale_ok", "=", True)] + self._dominio_catalogo()
+        if self._catalogo_agil():
+            return self._secciones_portada_agil(Tmpl, dominio)
 
         cuentas = Tmpl.read_group(dominio, ["categ_id"], ["categ_id"])
         filas = []
@@ -887,6 +915,28 @@ class TomaDePedidos(http.Controller):
                 "foto": foto,
             })
         return sorted(filas, key=lambda f: f["nombre"])
+
+    def _secciones_portada_agil(self, Tmpl, dominio):
+        """The home page sections with the AgilPedido catalog on: its sections,
+        in its order. The photo is the one chosen for the Odoo category of the
+        same name, if any (the temporary products have no photo)."""
+        from ..models.agil_tienda import ORDEN_AGIL
+        filas, por_nombre = [], {}
+        for producto in Tmpl.search(dominio, order=ORDEN_AGIL):
+            nombre = producto.distri_agil_seccion or "Otros"
+            fila = por_nombre.get(nombre)
+            if not fila:
+                categoria = producto.categ_id
+                foto = False
+                if categoria.distri_imagen:
+                    foto = "/web/image/product.category/%s/distri_imagen" % categoria.id
+                elif categoria.distri_producto_id:
+                    foto = ("/web/image/product.template/%s/image_256"
+                            % categoria.distri_producto_id.id)
+                fila = por_nombre[nombre] = {"nombre": nombre, "cantidad": 0, "foto": foto}
+                filas.append(fila)
+            fila["cantidad"] += 1
+        return filas
 
     @http.route("/", type="http", auth="public", website=True, sitemap=True)
     def inicio(self, **kw):
@@ -1397,7 +1447,10 @@ class TomaDePedidos(http.Controller):
                 "product_uom_qty": float(renglon["cantidad"]),
                 "product_uom_id": unidad.id,
             }
-            es_may = bool(renglon.get("may")) and bool(lista_mayorista)
+            # a temporary AgilPedido product is never a DISTRIBUIDORAS row:
+            # its «May» copies are products of their own, at their own price
+            es_may = (bool(renglon.get("may")) and bool(lista_mayorista)
+                      and not plantilla.distri_agil_temporal)
             if es_may and plantilla.categ_id.name in CATEGORIAS_A_PRESUPUESTAR:
                 # a presupuestar: el gerente le pone el precio al asignarle
                 # la lista del revendedor

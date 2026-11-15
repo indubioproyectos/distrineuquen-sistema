@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- noupdate: once someone turns the daily update on, an upgrade keeps it on -->
+<odoo noupdate="1">
+
+  <!-- TEMPORARY catalog (models/catalogo_agil.py): copies the AgilPedido
+       storefront once a day. Created OFF: it is turned on by hand. -->
+  <record id="cron_catalogo_agil" model="ir.cron">
+    <field name="name">AgilPedido: actualizar el catálogo temporal</field>
+    <field name="model_id" ref="model_distri_agil_sincronizacion"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_distri_sincronizar()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">1</field>
+    <field name="interval_type">days</field>
+    <field name="active">False</field>
+  </record>
+
+</odoo>

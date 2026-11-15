@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- TEMPORARY catalog copied from the AgilPedido storefront (19.0.1.89.0,
+       models/catalogo_agil.py). Next week each temporary product is merged
+       into its definitive one and all of this goes away. -->
+
+  <record id="producto_form_agil" model="ir.ui.view">
+    <field name="name">product.template.form.agil</field>
+    <field name="model">product.template</field>
+    <field name="inherit_id" ref="product.product_template_form_view"/>
+    <field name="arch" type="xml">
+      <xpath expr="//div[hasclass('oe_title')]" position="before">
+        <div class="alert alert-warning" role="alert"
+             invisible="not distri_agil_temporal">
+          Producto temporal: copia exacta de AgilPedido. El nombre, el precio y la
+          visibilidad los pisa «Actualizar desde AgilPedido».
+        </div>
+      </xpath>
+      <xpath expr="//div[@name='options']" position="after">
+        <group name="distri_agil" invisible="not distri_agil_temporal and not distri_agil_id">
+          <field name="distri_agil_temporal"/>
+          <field name="distri_agil_id"/>
+          <field name="distri_agil_seccion"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="producto_busqueda_agil" model="ir.ui.view">
+    <field name="name">product.template.search.agil</field>
+    <field name="model">product.template</field>
+    <field name="inherit_id" ref="distri_pedido.producto_busqueda_visibles"/>
+    <field name="arch" type="xml">
+      <filter name="distri_destacados" position="after">
+        <separator/>
+        <filter name="distri_agil_temporal" string="Catálogo AgilPedido (temporal)"
+                domain="[('distri_agil_temporal', '=', True)]"/>
+        <filter name="distri_no_agil" string="Productos de Odoo (no temporales)"
+                domain="[('distri_agil_temporal', '=', False)]"/>
+        <filter name="distri_agil_por_seccion" string="Sección de AgilPedido"
+                context="{'group_by': 'distri_agil_seccion'}"/>
+      </filter>
+      <field name="name" position="after">
+        <field name="distri_agil_id"/>
+        <field name="distri_agil_seccion"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="producto_lista_agil" model="ir.ui.view">
+    <field name="name">product.template.list.agil</field>
+    <field name="model">product.template</field>
+    <field name="priority">90</field>
+    <field name="arch" type="xml">
+      <list string="Catálogo AgilPedido (temporal)" create="0"
+            default_order="distri_agil_seccion_orden, distri_agil_seccion, distri_agil_orden, id">
+        <field name="distri_agil_seccion"/>
+        <field name="name"/>
+        <field name="list_price" string="Precio"/>
+        <field name="is_published" string="Visible en la página" widget="boolean_toggle"
+               readonly="1"/>
+        <field name="distri_agil_id"/>
+        <field name="categ_id" optional="hide"/>
+        <field name="distri_agil_seccion_orden" optional="hide"/>
+        <field name="distri_agil_orden" optional="hide"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="accion_catalogo_agil" model="ir.actions.act_window">
+    <field name="name">Catálogo AgilPedido (temporal)</field>
+    <field name="res_model">product.template</field>
+    <field name="view_mode">list,form</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('producto_lista_agil')}),
+        (0, 0, {'view_mode': 'form'})]"/>
+    <field name="domain">[('distri_agil_temporal', '=', True)]</field>
+    <field name="context">{'active_test': False, 'search_default_distri_agil_temporal': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Todavía no se copió el catálogo</p>
+      <p>Usá «Actualizar desde AgilPedido»: crea un producto temporal por cada renglón
+         visible de la tienda, con el mismo nombre, precio y sección.</p>
+    </field>
+  </record>
+
+  <!-- run log: each update leaves its summary in the chatter -->
+  <record id="agil_sincronizacion_list" model="ir.ui.view">
+    <field name="name">distri.agil.sincronizacion.list</field>
+    <field name="model">distri.agil.sincronizacion</field>
+    <field name="arch" type="xml">
+      <list create="0" edit="0" delete="0" decoration-danger="estado == 'error'">
+        <field name="name"/>
+        <field name="origen"/>
+        <field name="estado"/>
+        <field name="leidos"/>
+        <field name="creados"/>
+        <field name="precios"/>
+        <field name="renombrados"/>
+        <field name="despublicados"/>
+        <field name="republicados"/>
+        <field name="fallidos"/>
+        <field name="imagenes"/>
+        <field name="imagenes_fallidas"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="agil_sincronizacion_form" model="ir.ui.view">
+    <field name="name">distri.agil.sincronizacion.form</field>
+    <field name="model">distri.agil.sincronizacion</field>
+    <field name="arch" type="xml">
+      <form create="0" edit="0" delete="0">
+        <sheet>
+          <div class="alert alert-danger" role="alert" invisible="estado != 'error'">
+            <field name="error" nolabel="1"/>
+          </div>
+          <div class="oe_title"><h1><field name="name"/></h1></div>
+          <group>
+            <group>
+              <field name="origen"/>
+              <field name="estado"/>
+              <field name="leidos"/>
+              <field name="fallidos"/>
+            </group>
+            <group>
+              <field name="creados"/>
+              <field name="precios"/>
+              <field name="renombrados"/>
+              <field name="despublicados"/>
+              <field name="republicados"/>
+              <field name="imagenes"/>
+              <field name="imagenes_fallidas"/>
+              <field name="sin_imagen"/>
+            </group>
+          </group>
+          <field name="resumen" nolabel="1" invisible="not resumen"/>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="accion_agil_sincronizaciones" model="ir.actions.act_window">
+    <field name="name">Actualizaciones desde AgilPedido</field>
+    <field name="res_model">distri.agil.sincronizacion</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <record id="agil_sincronizar_form" model="ir.ui.view">
+    <field name="name">distri.agil.sincronizar.form</field>
+    <field name="model">distri.agil.sincronizar</field>
+    <field name="arch" type="xml">
+      <form string="Actualizar desde AgilPedido">
+        <div class="text-muted mb8">
+          Copia la tienda de AgilPedido tal cual: crea los productos nuevos, actualiza
+          nombre, precio y sección, y oculta (sin borrar) los que AgilPedido ya no muestra.
+          Los productos de siempre de Odoo no se tocan. Si la página llega vacía o con
+          menos de la mitad de los productos, no se cambia nada.
+        </div>
+        <group>
+          <field name="temporales"/>
+          <field name="catalogo_activo"/>
+          <field name="archivo" filename="nombre_archivo"/>
+          <field name="nombre_archivo" invisible="1"/>
+        </group>
+        <footer>
+          <button name="action_actualizar" type="object" class="btn-primary"
+                  string="Actualizar desde AgilPedido"/>
+          <button name="action_mostrar_catalogo_agil" type="object" class="btn-secondary"
+                  string="Mostrar el catálogo de AgilPedido en /pedido"
+                  invisible="catalogo_activo" groups="distri_pedido.grupo_gerencia,base.group_system"
+                  confirm="Desde ahora /pedido muestra solo los productos copiados de AgilPedido. ¿Seguimos?"/>
+          <button name="action_volver_catalogo_odoo" type="object" class="btn-secondary"
+                  string="Volver al catálogo de Odoo en /pedido"
+                  invisible="not catalogo_activo" groups="distri_pedido.grupo_gerencia,base.group_system"/>
+          <button string="Cerrar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="accion_agil_sincronizar" model="ir.actions.act_window">
+    <field name="name">Actualizar desde AgilPedido</field>
+    <field name="res_model">distri.agil.sincronizar</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <menuitem id="menu_catalogo_agil" name="Catálogo AgilPedido (temporal)"
+            action="accion_catalogo_agil" parent="menu_transicion" sequence="40"/>
+  <menuitem id="menu_agil_sincronizar" name="Actualizar desde AgilPedido"
+            action="accion_agil_sincronizar" parent="menu_transicion" sequence="41"/>
+  <menuitem id="menu_agil_sincronizaciones" name="Actualizaciones desde AgilPedido"
+            action="accion_agil_sincronizaciones" parent="menu_transicion" sequence="42"/>
+
+  <menuitem id="menu_app_catalogo_agil" name="Catálogo AgilPedido (temporal)"
+            action="accion_catalogo_agil" parent="menu_transicion_app" sequence="31"/>
+  <menuitem id="menu_app_agil_sincronizar" name="Actualizar desde AgilPedido"
+            action="accion_agil_sincronizar" parent="menu_transicion_app" sequence="32"/>
+  <menuitem id="menu_app_agil_sincronizaciones" name="Actualizaciones desde AgilPedido"
+            action="accion_agil_sincronizaciones" parent="menu_transicion_app" sequence="33"/>
+
+</odoo>

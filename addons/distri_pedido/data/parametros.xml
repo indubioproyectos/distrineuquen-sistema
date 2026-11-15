@@ -73,4 +73,12 @@
     <field name="value">1</field>
   </record>
 
+  <!-- TEMPORARY catalog (models/catalogo_agil.py, 19.0.1.89.0): with "1"
+       /pedido shows only the products copied from the AgilPedido storefront;
+       "0" is the usual catalog, without them. Instantly reversible. -->
+  <record id="param_catalogo_agil" model="ir.config_parameter">
+    <field name="key">distri_pedido.catalogo_agil</field>
+    <field name="value">0</field>
+  </record>
+
 </odoo>

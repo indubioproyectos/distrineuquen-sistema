@@ -380,7 +380,13 @@ def leer_renglon(linea):
 
 
 def catalogo_normalizado(env):
-    productos = env["product.template"].search([("sale_ok", "=", True)])
+    from .agil_tienda import catalogo_agil_activo
+    dominio = [("sale_ok", "=", True)]
+    if not catalogo_agil_activo(env):
+        # the temporary AgilPedido copies (catalogo_agil.py) only count while
+        # /pedido shows them: otherwise they would duplicate today's names
+        dominio.append(("distri_agil_temporal", "=", False))
+    productos = env["product.template"].search(dominio)
     return {p: normalizar(p.name) for p in productos}
 
 

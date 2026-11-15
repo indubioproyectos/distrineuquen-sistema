@@ -167,3 +167,9 @@ access_retener_wizard_admin,distri.retener.wizard administracion,model_distri_re
 acceso_wa_numero_sistema,distri.whatsapp.numero sistema,model_distri_whatsapp_numero,base.group_system,1,1,1,1
 acceso_wa_numero_admin,distri.whatsapp.numero administracion,model_distri_whatsapp_numero,distri_pedido.grupo_administracion,1,0,0,0
 acceso_wa_numero_gerente_ventas,distri.whatsapp.numero gerente ventas,model_distri_whatsapp_numero,sales_team.group_sale_manager,1,0,0,0
+acceso_agil_sincronizacion_admin,distri.agil.sincronizacion admin,model_distri_agil_sincronizacion,distri_pedido.grupo_administracion,1,0,0,0
+acceso_agil_sincronizacion_ger,distri.agil.sincronizacion gerencia,model_distri_agil_sincronizacion,distri_pedido.grupo_gerencia,1,0,0,0
+acceso_agil_sincronizacion_sys,distri.agil.sincronizacion system,model_distri_agil_sincronizacion,base.group_system,1,0,0,0
+acceso_agil_sincronizar_admin,distri.agil.sincronizar admin,model_distri_agil_sincronizar,distri_pedido.grupo_administracion,1,1,1,1
+acceso_agil_sincronizar_ger,distri.agil.sincronizar gerencia,model_distri_agil_sincronizar,distri_pedido.grupo_gerencia,1,1,1,1
+acceso_agil_sincronizar_sys,distri.agil.sincronizar system,model_distri_agil_sincronizar,base.group_system,1,1,1,1
