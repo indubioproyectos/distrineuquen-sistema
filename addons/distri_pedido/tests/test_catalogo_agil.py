@@ -60,6 +60,17 @@ def cambiar(producto, **valores):
 class AgilMixin:
 
     @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # A database that already ran the real sync holds hundreds of
+        # temporary products: set them aside (inside the test transaction)
+        # so each test starts from the small sample feed alone.
+        cls.env["product.template"].with_context(active_test=False).search(
+            [("distri_agil_temporal", "=", True)]).write(
+            {"distri_agil_temporal": False, "distri_agil_id": False,
+             "is_published": False})
+
+    @classmethod
     def _sync(cls, contenido=None, env=None):
         Sinc = (env or cls.env)["distri.agil.sincronizacion"]
         return Sinc._distri_ejecutar(storefront() if contenido is None else contenido,
