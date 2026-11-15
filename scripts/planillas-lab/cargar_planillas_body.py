@@ -24,7 +24,7 @@ import collections
 import json
 import os
 
-from odoo.addons.distri_pedido.models.cash_sheet import MOV_RE
+from odoo.addons.distri_pedido.models.cash_sheet import MOV_RE, name_tokens
 
 DO_COMMIT = os.environ.get('DO_COMMIT') == '1'
 IN = os.environ.get('IN_DIR', '/in')
@@ -153,6 +153,55 @@ for (kind, what), count in sorted(pair_stats.items()):
     out('PAREOS', tipo=kind, resultado=what, filas=count)
 
 # ------------------------------------------------------------------ 3. customers
+# 3a. by invoice first: a client row whose invoice number is an invoice of
+# the account history (distri.cuenta.movimiento, synced from Online) of
+# exactly one customer is that customer's row, whatever name the seller
+# wrote (owner, 13/11/2026: every row of the archive, old ones included).
+# A mistyped or carried-over invoice would win silently, so when the written
+# name shares no word with the invoice's customer the row is NOT assigned and
+# is listed (FACTURA_OTRO_NOMBRE) for the owner to check: the 13/11 dry run
+# showed real wrong customers there (e.g. «LIBRERIA LANIN» on an invoice of
+# an Axion station), next to spelling variants of the same person.
+# Words of a trade or a town say nothing about who the customer is.
+GENERIC_WORDS = {
+    'KIOSCO', 'DESPENSA', 'ALMACEN', 'MERCADO', 'MINIMERCADO', 'AUTOSERVICIO', 'VERDULERIA',
+    'FIAMBRERIA', 'LIBRERIA', 'SUPER', 'SUPERMERCADO', 'MARKET', 'MINIMARKET', 'MINI', 'MARK',
+    'POLLERIA', 'CARNICERIA', 'PANADERIA', 'AGENCIA', 'QUINIELA', 'BARRIO', 'LOTEO', 'SOCIAL',
+    'CENTENARIO', 'PLOTTIER', 'ZAPALA', 'NEUQUEN', 'SENILLOSA', 'CIPOLLETTI', 'CUTRAL',
+    'PLAZA', 'HUINCUL', 'CHOCON', 'PAGO', 'DESTINO'}
+# Customers renamed in Odoo (owner): (words written on the sheets, words of
+# the customer's current name). NAVARRETE MARTIN is now ERIC OLAVE (13/11/2026);
+# NAVARRETE HUGO (Jamón Jamón) is another customer and keeps no alias.
+KNOWN_RENAMES = [({'NAVARRETE', 'MARTIN'}, {'ERIC', 'OLAVE'})]
+
+
+def renamed(written, current):
+    return any(old <= written and new <= current for old, new in KNOWN_RENAMES)
+
+
+Movement = env['distri.cuenta.movimiento'].sudo().with_context(active_test=False)
+by_invoice = Line.search([('partner_id', '=', False), ('row_kind', '=', 'cliente'),
+                          ('invoice_ref', '!=', False)])
+for line in by_invoice:
+    partners = Movement.search([('comprobante', '=', line.invoice_ref)]).mapped(
+        'partner_id').commercial_partner_id
+    if len(partners) == 1:
+        written = name_tokens(line.client_raw or '') - GENERIC_WORDS
+        current = name_tokens(partners.name) - GENERIC_WORDS
+        if written and not written & current and not renamed(written, current):
+            stats['factura_otro_nombre_sin_asignar'] += 1
+            out('FACTURA_OTRO_NOMBRE', linea=line.id, planilla=line.sheet_id.name,
+                fecha=line.row_date, escrito=line.client_raw, factura=line.invoice_ref,
+                cliente=partners.name, pagado=line.amount_paid)
+            continue
+        line.partner_id = partners
+        stats['clientes_por_factura'] += 1
+    else:
+        stats['factura_sin_cliente_unico'] += 1
+        out('FACTURA_SIN_CLIENTE', linea=line.id, factura=line.invoice_ref, clientes=len(partners))
+env.flush_all()
+
+# 3b. by the name cross (pareos / mapeo-clientes) for the rows still without one
 refs = {}
 for sheet in bundle['sheets']:
     for l in sheet['lines']:

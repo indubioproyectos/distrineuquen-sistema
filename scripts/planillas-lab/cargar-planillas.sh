@@ -40,6 +40,6 @@ mkdir -p "$HERE/logs"; chmod 700 "$HERE/logs"
 LOG=$HERE/logs/planillas-$STAMP-$MODE.log
 rg -N -e '^[A-Z_]+ [{\[]' -e '^(COMMITTED|NOT COMMITTED|ABORT)' -e 'Traceback' -e 'Error' "$OUT" > "$LOG" || true
 chmod 600 "$LOG"
-rg -N -e '^(RESULT|PAREOS|CARGA|MEMO|FOTOS|OMITIDO|ABORT|COMMITTED|NOT COMMITTED)' -e 'Traceback' -e 'Error' "$OUT" || true
+rg -N -e '^(RESULT|PAREOS|CARGA|MEMO|FOTOS|OMITIDO|FACTURA_SIN_CLIENTE|FACTURA_OTRO_NOMBRE|ABORT|COMMITTED|NOT COMMITTED)' -e 'Traceback' -e 'Error' "$OUT" || true
 echo "log: $LOG"
 rg -q '^(COMMITTED|NOT COMMITTED)' "$OUT"

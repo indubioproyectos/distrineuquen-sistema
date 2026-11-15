@@ -24,6 +24,13 @@ total counts only client rows above the TOTAL.
 Customer of a row: the Online customer of the cross (pareos.csv, any date,
 or mapeo-clientes.csv alta/media for rows from 2026-03-01 on, the owner's
 cutoff of the cross); older names stay without customer.
+Later Drive batches (BATCHES: <batch>/_procesado/inventario.csv and
+movimientos.csv, the xlsx in <batch>/descargas/): the same v2 scripts run on
+a copy of the archive plus the new files under their Drive folder; only the
+new files' rows are kept, with mov ids that continue after the last one
+already used (re-running v2 in place renumbers the rows after them). Their
+path is the archive path the file would have (source_path), the original is
+the download.
 Photos: the 23/10 photos with the invoices of planillas_revisadas.csv and
 the 27/10 photos with the invoices read from them (fotos-planillas.csv); the
 Odoo step attaches each to the one sheet that has those invoices.
@@ -42,6 +49,7 @@ INSUMOS = "/srv/docs/distrineuquen-modulo/insumos"
 ARCHIVE = os.path.join(INSUMOS, "planillas-efectivo-2026")
 V2 = os.path.join(ARCHIVE, "_procesado", "v2")
 CRUCE = os.path.join(ARCHIVE, "_cruce-online")
+BATCHES = [os.path.join(INSUMOS, "planillas-2026-11-13")]
 LOADER_GLOBS = [os.path.join(INSUMOS, "planillas-2026-10-28", "filas*.jsonl"),
                 os.path.join(CRUCE, "carga-lab", "filas-*.jsonl")]
 DRIVE_DIR = os.path.join(INSUMOS, "planillas-2026-11-06", "descargas")
@@ -100,6 +108,14 @@ def main(out_dir):
     os.makedirs(os.path.join(out_dir, "files"), exist_ok=True)
     inventory = {r["path"]: r for r in rows(os.path.join(V2, "inventario.csv"))}
     movements = rows(os.path.join(V2, "movimientos.csv"))
+    source_of = {}
+    for batch in BATCHES:
+        for r in rows(os.path.join(batch, "_procesado", "inventario.csv")):
+            assert r["path"] not in inventory, r["path"]
+            inventory[r["path"]] = r
+            source_of[r["path"]] = os.path.join(batch, "descargas", os.path.basename(r["path"]))
+        movements += rows(os.path.join(batch, "_procesado", "movimientos.csv"))
+    assert len({m["mov_id"] for m in movements}) == len(movements), "mov id repetido"
     pairings = rows(os.path.join(CRUCE, "pareos.csv"))
     mapping = {r["client_raw"]: int(r["partner_id"]) for r in rows(os.path.join(CRUCE, "mapeo-clientes.csv"))
                if r["usado_para_parear"] == "si" and r["partner_id"].isdigit()
@@ -139,7 +155,7 @@ def main(out_dir):
         tab_count[path] = tab_count.get(path, 0) + 1
     for (path, tab), movs in sorted(tabs.items()):
         inv = inventory[path]
-        source = os.path.join(ARCHIVE, path)
+        source = source_of.get(path) or os.path.join(ARCHIVE, path)
         if not os.path.exists(source):
             skip(path, "falta el archivo")
             continue
