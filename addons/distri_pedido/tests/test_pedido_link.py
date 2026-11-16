@@ -16,7 +16,7 @@ from odoo.addons.distri_pedido.models.pedido_link import (
     LINK_TOKEN_LENGTH, new_link_token, valid_link_token,
 )
 from odoo.addons.distri_pedido.models.pedido_whatsapp import find_codes, find_web_codes
-from odoo.addons.distri_pedido.tests.common_pedido import post_pedido
+from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
 from odoo.addons.distri_pedido.tests.test_pedido_whatsapp import PedidoWhatsappMixin
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
@@ -226,7 +226,7 @@ class TestPedidoLink(PedidoLinkMixin, TransactionCase):
 
 
 @tagged("post_install", "-at_install", "distri_pedido_link")
-class TestPedidoLinkHttp(PedidoLinkMixin, HttpCase):
+class TestPedidoLinkHttp(PedidoAbiertoMixin, PedidoLinkMixin, HttpCase):
 
     @classmethod
     def setUpClass(cls):
@@ -234,6 +234,8 @@ class TestPedidoLinkHttp(PedidoLinkMixin, HttpCase):
         cls._setup_link()
         cls.plantilla = cls.product.product_tmpl_id
         cls.plantilla.is_published = True
+        # one unit reaches the minimum purchase of /pedido (19.0.1.91.0)
+        cls.plantilla.list_price = 70000.0
 
     def test_customer_message_carries_the_link(self):
         res = post_pedido(self, {

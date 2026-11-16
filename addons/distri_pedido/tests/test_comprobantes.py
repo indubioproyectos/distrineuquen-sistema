@@ -35,6 +35,8 @@ VISIT_AT = datetime(2026, 9, 26, 15, 0)
 @tagged("post_install", "-at_install", "distri_comprobantes")
 class TestComprobantes(RepartoMixin, AccountTestInvoicingCommon):
 
+    ROUTE_ON_ROAD = True
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

@@ -14,7 +14,7 @@ from odoo.tests import HttpCase, TransactionCase, new_test_user, tagged
 from odoo.addons.distri_pedido.models.pedido_whatsapp import (
     PARAM_COMPANY_NUMBER, PARAM_REQUIRE, find_codes, wa_digits,
 )
-from odoo.addons.distri_pedido.tests.common_pedido import post_pedido
+from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
 
 
 class PedidoWhatsappMixin:
@@ -225,7 +225,7 @@ class TestPedidoWhatsapp(PedidoWhatsappMixin, TransactionCase):
 
 
 @tagged("post_install", "-at_install", "distri_pedido_whatsapp")
-class TestPedidoWhatsappHttp(PedidoWhatsappMixin, HttpCase):
+class TestPedidoWhatsappHttp(PedidoAbiertoMixin, PedidoWhatsappMixin, HttpCase):
 
     @classmethod
     def setUpClass(cls):
@@ -233,6 +233,8 @@ class TestPedidoWhatsappHttp(PedidoWhatsappMixin, HttpCase):
         cls._setup_pedido()
         cls.plantilla = cls.product.product_tmpl_id
         cls.plantilla.is_published = True
+        # one unit reaches the minimum purchase of /pedido (19.0.1.91.0)
+        cls.plantilla.list_price = 70000.0
         cls.cartera = cls.env["res.partner.category"].create({"name": "Cartera WA test"})
         cls.seller = new_test_user(
             cls.env, login="vendedor_wa", name="Vendedor WA",
@@ -346,7 +348,7 @@ class TestPedidoWhatsappHttp(PedidoWhatsappMixin, HttpCase):
 
 
 @tagged("post_install", "-at_install", "distri_pedido_whatsapp")
-class TestLinkDelPedido(PedidoWhatsappMixin, HttpCase):
+class TestLinkDelPedido(PedidoAbiertoMixin, PedidoWhatsappMixin, HttpCase):
     """The order link always opens «Tu pedido»; the catalog in edit mode is
     only reached with «Modificar mi pedido» while the order is editable."""
 
@@ -358,6 +360,8 @@ class TestLinkDelPedido(PedidoWhatsappMixin, HttpCase):
         cls._setup_pedido()
         cls.plantilla = cls.product.product_tmpl_id
         cls.plantilla.is_published = True
+        # one unit reaches the minimum purchase of /pedido (19.0.1.91.0)
+        cls.plantilla.list_price = 70000.0
 
     def _order(self):
         order = self._web_order(name="Despensa de Práctica")

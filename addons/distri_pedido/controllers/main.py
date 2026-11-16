@@ -56,7 +56,10 @@ def _wa():
     from ..models import pedido_whatsapp
     return pedido_whatsapp
 
-# Compra minima, igual que en AgilPedido
+# Compra minima, igual que en AgilPedido. Since 19.0.1.91.0 it applies to
+# EVERY order through /pedido (delivery and pickup, customers and staff) and
+# /pedido/enviar enforces it; smaller purchases are made at the store, and the
+# administrator loads them as a quotation from the backend (never blocked).
 COMPRA_MINIMA = 70000.0
 
 # /pedido/enviar (19.0.1.29.0): what a real order can be. The catalog has
@@ -65,6 +68,12 @@ MAX_RENGLONES = 300
 MAX_CANTIDAD = 10000
 MAX_RENGLONES_TEXTO = 100000
 MAX_CUERPO = 256 * 1024
+
+
+def unidades_enteras(cantidad):
+    """A quantity of /pedido in whole units (19.0.1.91.0): the screen only
+    sells whole units, so 0.001 is 0 (dropped) and 2.5 is 3."""
+    return int(math.floor(cantidad + 0.5))
 
 # Ficha del comercio en la cabecera. Es la misma informacion, en el mismo
 # orden, que hoy ve el cliente en AgilPedido: localidad, horario de reparto,
@@ -1310,7 +1319,9 @@ class TomaDePedidos(http.Controller):
     def _renglones_validos(self, crudo):
         """The order lines posted by /pedido, checked (19.0.1.29.0): a JSON
         list of at most MAX_RENGLONES objects with a numeric product id and a
-        quantity between 0 and MAX_CANTIDAD. Returns (lines, error)."""
+        quantity between 0 and MAX_CANTIDAD. Quantities are whole units
+        (19.0.1.91.0): rounded, and a line that ends at 0 is dropped.
+        Returns (lines, error)."""
         if len(crudo or "") > MAX_RENGLONES_TEXTO:
             return None, "El pedido es demasiado grande."
         try:
@@ -1335,9 +1346,36 @@ class TomaDePedidos(http.Controller):
             if cantidad > MAX_CANTIDAD:
                 return None, "La cantidad de un producto es demasiado grande (máximo %s)." % (
                     MAX_CANTIDAD)
-            if cantidad > 0:
-                limpios.append(dict(renglon, id=producto, cantidad=cantidad))
+            unidades = unidades_enteras(cantidad)
+            if unidades > 0:
+                limpios.append(dict(renglon, id=producto, cantidad=unidades))
         return limpios, None
+
+    def _plantillas_del_catalogo(self, ids):
+        """The products /pedido/enviar accepts (19.0.1.91.0): only what the
+        catalog on screen can show (_catalogo, _destacados, DISTRIBUIDORAS):
+        sellable, published, active, not a service (shipping, «Venta sin
+        detalle») and of the catalog currently on (_dominio_catalogo)."""
+        return request.env["product.template"].sudo().search(
+            [("id", "in", list(ids)), ("sale_ok", "=", True), ("is_published", "=", True),
+             ("type", "!=", "service")] + self._dominio_catalogo())
+
+    def _error_compra_minima(self, total):
+        """Below COMPRA_MINIMA: the order is not created nor changed."""
+        texto = ("La compra mínima por la página es de $ %s (este pedido suma $ %s). Las "
+                 "compras más chicas se pueden pedir en el local." % (
+                     self._plata(COMPRA_MINIMA), self._plata(total)))
+        if self._personal():
+            texto += " Administración las carga como presupuesto desde el sistema."
+        return self._error_volver(texto)
+
+    def _error_volver(self, texto, status=400):
+        """An error that keeps the cart: «Volver» goes back to the page."""
+        return request.make_response(
+            "<!DOCTYPE html><meta charset='utf-8'><meta name='viewport' "
+            "content='width=device-width'><p style='font:16px sans-serif;padding:1rem'>%s "
+            "<a href='javascript:history.back()'>Volver</a></p>" % texto,
+            headers=[("Content-Type", "text/html; charset=utf-8")], status=status)
 
     def _limite_superado(self):
         """Rate limit of /pedido/enviar (models/limites.py). Staff with their
@@ -1407,11 +1445,7 @@ class TomaDePedidos(http.Controller):
 
         encomienda, error_encomienda = self._datos_encomienda(post)
         if error_encomienda:
-            return request.make_response(
-                "<!DOCTYPE html><meta charset='utf-8'><meta name='viewport' "
-                "content='width=device-width'><p style='font:16px sans-serif;padding:1rem'>%s "
-                "<a href='javascript:history.back()'>Volver</a></p>" % error_encomienda,
-                headers=[("Content-Type", "text/html; charset=utf-8")], status=400)
+            return self._error_volver(error_encomienda)
         if encomienda.get("distri_encomienda_pedida"):
             # parcel to the terminal: never «Lo voy a retirar»
             entrega = "domicilio"
@@ -1434,10 +1468,12 @@ class TomaDePedidos(http.Controller):
         # alcanza con UN renglon de la seccion, con precio o a presupuestar,
         # para que el pedido entero sea de la lista Distribuidoras
         hay_distribuidoras = False
+        # only what the catalog on screen offers (19.0.1.91.0)
+        permitidas = set(self._plantillas_del_catalogo(r["id"] for r in renglones).ids)
         for renglon in renglones:
-            plantilla = Tmpl.browse(renglon["id"]).exists()
-            if not plantilla:
+            if renglon["id"] not in permitidas:
                 continue
+            plantilla = Tmpl.browse(renglon["id"])
             variante = plantilla.product_variant_id
             if not variante:
                 continue
@@ -1519,6 +1555,12 @@ class TomaDePedidos(http.Controller):
             if pedido.distri_armado != "pendiente":
                 return request.redirect("/pedido/%s?tomado=1" % token)
             return request.redirect("/pedido/%s" % token)
+        # the minimum purchase, new orders and changes alike,
+        # after the refusals above (19.0.1.91.0):
+        # only the priced lines count, a line «a confirmar» has no total yet
+        total = sum(v["product_uom_qty"] * v["price_unit"] for _, _, v in lineas)
+        if total < COMPRA_MINIMA:
+            return self._error_compra_minima(total)
 
         hay_mayorista = hay_distribuidoras
         original = json.dumps([

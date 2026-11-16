@@ -111,13 +111,18 @@ class TestPuestaAlDia(RepartoMixin, AccountTestInvoicingCommon):
 
     def test_already_in_online_never_exported(self):
         start = self.Collection.distri_board_counters()
+        # 19.0.1.91.0: a card without customer is linked only when its payer's
+        # CUIT confirms the payment's customer
+        self.env["distri.payer.identity"].create({"kind": "cuit", "value": "20999000022",
+                                                 "partner_id": self.beta.id})
         self.Online._distri_load([
             self._online(1, 990002, 5000, "2026-10-03"),
             # the payer's CUIT is Alfa's: never paired with Beta's payment
             self._online(2, 990002, 7000, "2026-10-03"),
             self._online(3, 990001, 9000, "2026-10-20"),   # too late: 19 days
         ])
-        self._import([_tech("900000000201", "2026-10-01T10:00:00.000-03:00", 5000),
+        self._import([_tech("900000000201", "2026-10-01T10:00:00.000-03:00", 5000,
+                            cuit="20999000022"),
                       _tech("900000000202", "2026-10-01T11:00:00.000-03:00", 7000,
                             cuit="20999000011"),
                       _tech("900000000203", "2026-10-01T12:00:00.000-03:00", 9000)])
@@ -144,6 +149,51 @@ class TestPuestaAlDia(RepartoMixin, AccountTestInvoicingCommon):
         wizard = self.env["distri.online.export.wizard"].create(dict(self.PERIOD, allow_pending=True))
         self.assertEqual(wizard.ready_count, 0)
         self.assertIn("doble carga", wizard.check_text)
+
+    def test_amount_link_needs_the_same_customer(self):
+        """19.0.1.91.0 (E2E-B B2): never a card tied to another customer's
+        Online payment, and never a customer taken from Online alone."""
+        self.Online._distri_load([
+            self._online(990021, 990002, 4100, "2026-10-02"),   # Beta's
+            self._online(990022, 990002, 4200, "2026-10-02"),   # Beta's
+        ])
+        self._import([_tech("900000000211", "2026-10-01T10:00:00.000-03:00", 4100),
+                      _tech("900000000212", "2026-10-01T11:00:00.000-03:00", 4200)])
+        unknown, alpha_card = self._card("900000000211"), self._card("900000000212")
+        # no CUIT, no customer: nobody can tell whose it is
+        self.assertEqual(unknown.online_status, "none")
+        self.assertFalse(unknown.partner_id)
+        self.assertFalse(self.Online.search([("online_id", "=", 990021)]).collection_id)
+        # Alfa's card never takes Beta's payment, even confirmed
+        alpha_card.write({"partner_id": self.alpha.id, "proposal": "manual"})
+        alpha_card.action_confirm()
+        self.Online._distri_link_all()
+        self.assertFalse(alpha_card.online_payment_id)
+        self.assertFalse(alpha_card.online_conflict)
+        # Beta's card (by hand, no CUIT) does take it
+        unknown.write({"partner_id": self.beta.id})
+        self.Online._distri_link_all()
+        self.assertEqual(unknown.online_status, "already")
+        self.assertEqual(unknown.partner_id, self.beta)
+
+    def test_archive_history_with_online_suffix(self):
+        """19.0.1.91.0 (E2E-B B1): Online's entry name now carries the
+        reconciled document, «PBNK1/2026/04264 (0001/2026/07930)»; the history
+        row keeps the bare number and is still archived."""
+        self._import([_tech("900000000221", "2026-10-01T10:00:00.000-03:00", 6100,
+                            cuit="20999000011")])
+        card = self._card("900000000221")
+        card.action_confirm()
+        self.assertTrue(card.payment_id)
+        history = self.env["distri.cuenta.movimiento"].create({
+            "partner_id": self.alpha.id, "fecha": "2026-10-01", "comprobante": "PBNK1/2026/990031",
+            "tipo": "pago", "debe": 0, "haber": 6100, "origen_id": 777031})
+        row = self._online(990031, 990001, 6100, "2026-10-01", memo="MP 900000000221")
+        row["move_name"] = "PBNK1/2026/990031 (0001/2026/07930)"
+        self.Online._distri_load([row])
+        self.assertEqual(card.online_payment_id.online_id, 990031)
+        self.assertFalse(history.active)
+        self.assertEqual(history.lab_payment_id, card.payment_id)
 
     def test_export_and_close_the_loop(self):
         # on a copy of the lab, its own pending cards of the period would count

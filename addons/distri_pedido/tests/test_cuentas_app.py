@@ -236,6 +236,26 @@ class TestCuentasApp(HttpCase):
         self.assertTrue(own["ok"])
         self.assertEqual(own["data"]["partner"]["ref"], "ODOO-990001")
 
+    def test_seller_reads_only_his_portfolio_payer_identities(self):
+        """19.0.1.91.0 (E2E-B B4): CUITs and phones of the payers, only the
+        seller's portfolio; administración and gerencia read all of them."""
+        Identity = self.env["distri.payer.identity"].sudo()
+        own = Identity.create({"kind": "cuit", "value": "20999000101", "partner_id": self.pa.id})
+        other = Identity.create({"kind": "phone", "value": "2995550202", "partner_id": self.pb.id})
+        mine = Identity.with_user(self.seller_a).search([("id", "in", (own | other).ids)])
+        self.assertEqual(mine, own)
+        self.assertEqual(Identity.with_user(self.seller_b).search(
+            [("id", "in", (own | other).ids)]), other)
+        with self.assertRaises(AccessError):
+            other.with_user(self.seller_a).read(["value"])
+        self.assertEqual(self.pa.with_user(self.seller_a).distri_payer_ids, own)
+        for user in (self.admin_u, self.manager_u):
+            self.assertEqual(Identity.with_user(user).search(
+                [("id", "in", (own | other).ids)]), own | other)
+        # the accounts app keeps working for the seller's own customer
+        self.authenticate(self.seller_a.login, self.seller_a.login)
+        self.assertTrue(self._get("/cuentas/api/account?id=%d" % self.pa.id).json()["ok"])
+
     def test_seller_never_sees_the_uncollectible_state(self):
         self.pa.sudo().write({"distri_uncollectible": True,
                               "distri_uncollectible_note": "Nota de prueba"})

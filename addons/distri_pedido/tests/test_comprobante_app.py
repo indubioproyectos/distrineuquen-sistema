@@ -32,6 +32,8 @@ def photo_url(raw):
 @tagged("post_install", "-at_install", "distri_comprobante_app")
 class TestComprobanteApp(RepartoMixin, AccountTestInvoicingCommon):
 
+    ROUTE_ON_ROAD = True
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -44,6 +46,8 @@ class TestComprobanteApp(RepartoMixin, AccountTestInvoicingCommon):
             "name": "Almacén Prueba Foto App", "company_type": "company"})
         cls.Promise = cls.env["distri.promised.transfer"].sudo()
         cls.Message = cls.env["distri.whatsapp.message"].sudo()
+        # a copy of the lab already has photos taken in the app: only this test's count
+        cls.photo_floor = cls.Message.search([], order="id desc", limit=1).id or 0
         cls.product_a.invoice_policy = "order"
         cls.env["ir.config_parameter"].sudo().set_param(PARAM_RED, "0")
 
@@ -66,7 +70,7 @@ class TestComprobanteApp(RepartoMixin, AccountTestInvoicingCommon):
         }, captured=captured)
 
     def _photos(self, stop=None):
-        domain = [("distri_from_app", "=", True)]
+        domain = [("distri_from_app", "=", True), ("id", ">", self.photo_floor)]
         if stop:
             domain.append(("distri_app_stop_id", "=", stop.id))
         return self.Message.search(domain)

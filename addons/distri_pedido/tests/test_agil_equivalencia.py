@@ -12,6 +12,7 @@ from odoo.tests import Form, TransactionCase, new_test_user, tagged
 from odoo.tools import mute_logger
 
 from odoo.addons.distri_pedido.controllers.main import LISTA_GENERAL, LISTA_OCULTA
+from odoo.addons.distri_pedido.models.agil_tienda import PARAM_CATALOGO_AGIL
 from odoo.addons.distri_pedido.models.agilpedido_wa import (
     MOTIVO_SIN_MAYORISTA, ORIGEN_AGILPEDIDO_WA, PARAM_AUTO,
 )
@@ -36,6 +37,9 @@ class TestAgilEquivalencias(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # the usual catalog: with the AgilPedido copy on (a copy of production
+        # may have it), codes resolve to its temporary products instead
+        cls.env["ir.config_parameter"].sudo().set_param(PARAM_CATALOGO_AGIL, "0")
         Tmpl = cls.env["product.template"]
         Pricelist = cls.env["product.pricelist"]
         cls.params = cls.env["ir.config_parameter"].sudo()

@@ -2,6 +2,9 @@
 needs the token rendered in the page (controllers/main.py «enviar»)."""
 import re
 
+from odoo.addons.distri_pedido.controllers.main import PARAM_PAUSADO
+from odoo.addons.distri_pedido.models.agil_tienda import PARAM_CATALOGO_AGIL
+
 CSRF_RE = re.compile(r'name="csrf_token" value="([^"]+)"')
 
 
@@ -16,3 +19,22 @@ def post_pedido(case, data, page="/pedido"):
     if "csrf_token" not in data:
         data["csrf_token"] = page_token(case, page)
     return case.url_open("/pedido/enviar", data=data)
+
+
+def abrir_pedidos(env):
+    """The order screen open and showing the usual catalog: a copy of
+    production may have it paused (PARAM_PAUSADO) or on the AgilPedido copy
+    (PARAM_CATALOGO_AGIL). Tests of that copy turn it on themselves."""
+    params = env["ir.config_parameter"].sudo()
+    params.set_param(PARAM_PAUSADO, "0")
+    params.set_param(PARAM_CATALOGO_AGIL, "0")
+
+
+class PedidoAbiertoMixin:
+    """HTTP tests of /pedido: the screen is open, with the usual catalog,
+    whatever the database says (19.0.1.91.0). Goes first in the bases, before HttpCase."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        abrir_pedidos(cls.env)

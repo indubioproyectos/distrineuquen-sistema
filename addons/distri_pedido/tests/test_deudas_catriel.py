@@ -11,6 +11,8 @@ from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 @tagged("post_install", "-at_install", "distri_deudas")
 class TestEmployeeDebts(RepartoMixin, AccountTestInvoicingCommon):
 
+    ROUTE_ON_ROAD = True
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

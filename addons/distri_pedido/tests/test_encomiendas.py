@@ -15,7 +15,7 @@ from odoo.addons.distri_pedido.models.encomienda import (
 from odoo.addons.distri_pedido.models.ocr_comprobante import ocr_available
 from odoo.addons.distri_pedido.tests import receipt_images
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin, _uuid
-from odoo.addons.distri_pedido.tests.common_pedido import post_pedido
+from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
 
 
 def photo_url(png):
@@ -56,6 +56,8 @@ class EncomiendaMixin(RepartoMixin):
 
 @tagged("post_install", "-at_install", "distri_encomiendas")
 class TestEncomiendas(EncomiendaMixin, AccountTestInvoicingCommon):
+
+    ROUTE_ON_ROAD = True
 
     @classmethod
     def setUpClass(cls):
@@ -275,8 +277,10 @@ class TestEncomiendas(EncomiendaMixin, AccountTestInvoicingCommon):
 
 
 @tagged("post_install", "-at_install", "distri_encomiendas")
-class TestEncomiendaCliente(EncomiendaMixin, HttpCase):
+class TestEncomiendaCliente(PedidoAbiertoMixin, EncomiendaMixin, HttpCase):
     """«Soy del interior» on /pedido and the parcel on the order page."""
+
+    ROUTE_ON_ROAD = True
 
     @classmethod
     def setUpClass(cls):

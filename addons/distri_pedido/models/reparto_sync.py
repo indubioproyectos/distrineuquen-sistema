@@ -39,6 +39,12 @@ EVENT_TYPES = [
     ("receipt", "Foto del comprobante"),
 ]
 
+# events that need the route on the road (state on_route, or already closed
+# where each one keeps its own rule below)
+ON_ROAD_EVENTS = ("visit", "customer", "expense", "receipt", "parcel", "close")
+NOT_DEPARTED = ("La ruta todavía no salió a repartir: cargá los pedidos y tocá «Salir a "
+                "repartir» primero.")
+
 UUID_RE = re.compile(r"^[0-9a-fA-F-]{16,64}$")
 MAX_EVENTS = 200
 MAX_CASH = 1e9
@@ -194,6 +200,12 @@ class DistriSyncEvent(models.Model):
         if kind in ("load", "depart", "visit", "expense", "parcel", "arrive") \
                 and route.state == "closed":
             raise UserError("La ruta ya está cerrada.")
+        # 19.0.1.91.0 (E2E-A A5): nothing is delivered, collected or closed
+        # before «Salir a repartir», which needs the double check of the load
+        # (despacho.py). An offline batch still works: its depart comes first
+        # and the events after it see the route on the road.
+        if kind in ON_ROAD_EVENTS and route.state == "draft":
+            raise UserError(NOT_DEPARTED)
         return getattr(self, "_apply_%s" % kind)(user, route, payload, captured)
 
     def _apply_load(self, user, route, payload, captured):

@@ -11,6 +11,8 @@ from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin, _uuid
 class TestDevolucion(RepartoMixin, AccountTestInvoicingCommon):
     """A received return goes back to stock and is never invoiced again."""
 
+    ROUTE_ON_ROAD = True
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()

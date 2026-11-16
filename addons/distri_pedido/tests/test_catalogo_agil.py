@@ -24,7 +24,7 @@ from odoo.addons.distri_pedido.models.agil_tienda import (
 from odoo.addons.distri_pedido.models.importar_pedido import (
     catalogo_normalizado, importe_ar, leer_renglon,
 )
-from odoo.addons.distri_pedido.tests.common_pedido import post_pedido
+from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
 # AgilPedido shows sections by `posicion`, not by name: Zeta goes first
@@ -69,6 +69,8 @@ class AgilMixin:
             [("distri_agil_temporal", "=", True)]).write(
             {"distri_agil_temporal": False, "distri_agil_id": False,
              "is_published": False})
+        # and the usual catalog, as installed: production may have it on
+        cls._switch("0")
 
     @classmethod
     def _sync(cls, contenido=None, env=None):
@@ -262,7 +264,10 @@ class TestCatalogoAgilSync(AgilMixin, TransactionCase):
     def test_instalar_no_cambia_nada(self):
         cron = self.env.ref("distri_pedido.cron_catalogo_agil")
         self.assertFalse(cron.active)
-        self.assertEqual(cron.interval_type, "days")
+        # installed once a day; administración may run it more often since
+        # (the record is not updated again), so a copy of production may differ
+        self.assertIn(cron.interval_type, ("days", "hours"))
+        self.assertEqual(cron.code.strip(), "model._cron_distri_sincronizar()")
         self.assertEqual(self.env.ref("distri_pedido.param_catalogo_agil").key, PARAM_CATALOGO_AGIL)
 
     def test_mismo_precio_en_todas_las_listas(self):
@@ -320,7 +325,7 @@ class TestCatalogoAgilSync(AgilMixin, TransactionCase):
 
 
 @tagged("post_install", "-at_install", "distri_catalogo_agil")
-class TestCatalogoAgilPagina(AgilMixin, HttpCase):
+class TestCatalogoAgilPagina(PedidoAbiertoMixin, AgilMixin, HttpCase):
 
     @classmethod
     def setUpClass(cls):
@@ -416,7 +421,7 @@ class TestCatalogoAgilPagina(AgilMixin, HttpCase):
     def test_pedido_con_un_temporal(self):
         self._switch("1")
         post_pedido(self, {
-            "renglones": json.dumps([{"id": self.galletita.id, "cantidad": 3},
+            "renglones": json.dumps([{"id": self.galletita.id, "cantidad": 60},
                                      {"id": self.cigarrillo.id, "cantidad": 1, "may": 1}]),
             "nombre": "Cliente Pruebagil", "telefono": "2995550199", "domicilio": "Calle 1",
         })
@@ -425,7 +430,7 @@ class TestCatalogoAgilPagina(AgilMixin, HttpCase):
         self.assertTrue(pedido)
         precios = {l.product_id.product_tmpl_id: l.price_unit for l in pedido.order_line}
         self.assertEqual(precios, {self.galletita: 1234.5, self.cigarrillo: 2500.0})
-        self.assertEqual(pedido.amount_total, 3 * 1234.5 + 2500.0)
+        self.assertEqual(pedido.amount_total, 60 * 1234.5 + 2500.0)
         self.assertNotIn("SIN PRECIO", pedido.note or "")
         self.assertTrue(re.search(r"ASIGNAR CLIENTE", str(pedido.note)))
 

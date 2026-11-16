@@ -129,7 +129,7 @@
       <div class="chips">
         <span class="chip"><t t-esc="ficha['reparto']"/></span>
         <span class="chip"><t t-esc="ficha['leyenda']"/></span>
-        <span class="chip">Envío sin cargo desde $ <t t-esc="compra_minima_texto"/></span>
+        <span class="chip">Compra mínima $ <t t-esc="compra_minima_texto"/>, envío sin cargo</span>
       </div>
     </div>
   </div>
@@ -197,8 +197,8 @@
       <div class="dos">
         <div class="bloque">
           <h3>Almacenes y kioscos</h3>
-          <p>Lista mayorista general, con envío sin cargo desde $ <t t-esc="compra_minima_texto"/>.
-             Si preferís retirar en el depósito, no hay mínimo.</p>
+          <p>Lista mayorista general. Compra mínima por la página: $ <t t-esc="compra_minima_texto"/>,
+             con envío sin cargo o para retirar en el depósito. Las compras más chicas, en el local.</p>
         </div>
         <div class="bloque">
           <h3>Clientes con usuario</h3>

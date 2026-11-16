@@ -92,9 +92,40 @@ def online_ref(partner):
     return int(ref[5:]) if ref.startswith("ODOO-") and ref[5:].isdigit() else 0
 
 
+# Online now names a payment's entry «PBNK1/2026/04264 (0001/2026/07930)»: the
+# history rows keep only the number before the reconciled document
+MOVE_SUFFIX_RE = re.compile(r"\s*\([^()]*\)\s*$")
+
+
+def online_move_numbers(move_name):
+    """The numbers a history row (distri.cuenta.movimiento.comprobante) may
+    carry for an Online entry: the name as is and without its « (...)»."""
+    name = (move_name or "").strip()
+    if not name:
+        return []
+    bare = MOVE_SUFFIX_RE.sub("", name).strip()
+    return [name, bare] if bare and bare != name else [name]
+
+
 def online_bank_journal(env):
     raw = env["ir.config_parameter"].sudo().get_param(PARAM_ONLINE_BANK)
     return int(raw) if raw and str(raw).isdigit() else DEFAULT_ONLINE_BANK
+
+
+def _same_customer(card, pay, owners):
+    """The commercial customer that makes `pay` the Online payment of `card`,
+    or an empty recordset. A card with a customer only takes a payment of
+    that same commercial customer; a card without one only when its payer's
+    CUIT is registered for the payment's customer (`owners`)."""
+    customer = pay.partner_id.commercial_partner_id
+    if not customer:
+        return customer
+    if card.partner_id:
+        if card.partner_id.commercial_partner_id != customer:
+            return customer.browse()
+        # the CUIT, when known, must not belong to someone else either
+        return customer if not owners or customer.id in owners else customer.browse()
+    return customer if customer.id in owners else customer.browse()
 
 
 # ====================================================================== mirror
@@ -232,6 +263,7 @@ class DistriOnlinePayment(models.Model):
             day = local_day(card.date)
             if not day:
                 continue
+            owners = known.get(card.payer_cuit or "", set())
             for key in (round(card.amount) - 1, round(card.amount), round(card.amount) + 1):
                 for pay in by_amount.get(key, []):
                     if abs(pay.amount - card.amount) > AMOUNT_TOLERANCE:
@@ -239,22 +271,24 @@ class DistriOnlinePayment(models.Model):
                     # the transfer between 10 days before and 3 after the payment
                     if not (pay.date - ONLINE_BEFORE <= day <= pay.date + ONLINE_AFTER):
                         continue
-                    owners = known.get(card.payer_cuit or "", set())
-                    if owners and pay.partner_id.commercial_partner_id.id not in owners:
-                        # the payer's CUIT belongs to another customer: not this payment
+                    customer = _same_customer(card, pay, owners)
+                    if not customer:
+                        # another customer's payment, or nobody can tell whose
                         continue
                     pairs.append((0 if owners else 1, abs((day - pay.date).days),
-                                  card.id, pay.id, card, pay))
+                                  card.id, pay.id, card, pay, customer))
         stats = {"by_amount": 0, "conflicts": 0}
         cards, pays = set(), set()
-        for _rank, _distance, card_id, pay_id, card, pay in sorted(pairs, key=lambda p: p[:4]):
+        for _rank, _distance, card_id, pay_id, card, pay, customer in sorted(
+                pairs, key=lambda p: p[:4]):
             if card_id in cards or pay_id in pays:
                 continue
             cards.add(card_id)
             pays.add(pay_id)
             pay.write({"collection_id": card.id, "link_kind": "amount",
                        "linked_at": now or fields.Datetime.now()})
-            card._distri_mark_online(pay)
+            # a card without customer takes the one its payer's CUIT confirmed
+            card._distri_mark_online(pay, partner=None if card.partner_id else customer)
             stats["conflicts" if card.state == "confirmed" else "by_amount"] += 1
         return stats
 
@@ -299,15 +333,17 @@ class DistriMpCollectionOnline(models.Model):
                 else "", pay.partner_id.name or "cliente %s de Online" % pay.online_partner_id,
                 " (borrador)" if pay.state == "draft" else "")) if pay else False
 
-    def _distri_mark_online(self, pay):
-        """An income found in Online by amount and date."""
+    def _distri_mark_online(self, pay, partner=None):
+        """An income found in Online by amount and date. `partner`: the
+        customer confirmed for a card without one (its payer's CUIT); never
+        taken from the Online payment alone."""
         for card in self:
             if card.state == "draft":
                 vals = {"online_payment_id": pay.id, "state": "ignored",
                         "ignore_reason": "online",
                         "ignore_note": "Ya cargado en Online: %s" % (pay.name or pay.move_name)}
-                if pay.partner_id and not card.partner_id:
-                    vals["partner_id"] = pay.partner_id.commercial_partner_id.id
+                if partner and not card.partner_id:
+                    vals["partner_id"] = partner.id
                 card.write(vals)
                 receipt = card.receipt_id
                 if receipt and receipt.distri_receipt_state in ("pending", "no_money", "matched"):
@@ -352,7 +388,7 @@ class DistriMpCollectionOnline(models.Model):
             if not pay.move_name or pay.state not in ONLINE_POSTED or not card.partner_id:
                 continue
             rows = Mov.search([("partner_id", "child_of", card.partner_id.commercial_partner_id.id),
-                               ("comprobante", "=", pay.move_name),
+                               ("comprobante", "in", online_move_numbers(pay.move_name)),
                                ("lab_payment_id", "=", False)])
             rows = rows.filtered(lambda r: abs((r.haber or 0.0) - card.amount) <= AMOUNT_TOLERANCE)
             if rows:

@@ -11,6 +11,7 @@ from odoo import Command
 from odoo.tests import HttpCase, TransactionCase, tagged
 
 from odoo.addons.distri_pedido.models import whatsapp as wa
+from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin
 
 WEBHOOK = "/pedido/whatsapp/webhook"
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
@@ -21,7 +22,7 @@ def _param(env, key, value):
 
 
 @tagged("post_install", "-at_install", "distri_cobertura")
-class TestWebhookWhatsapp(HttpCase):
+class TestWebhookWhatsapp(PedidoAbiertoMixin, HttpCase):
 
     def test_get_verification(self):
         _param(self.env, wa.PARAM_VERIFY_TOKEN, "token-de-prueba")
@@ -135,7 +136,7 @@ class TestDescargaDeArchivos(TransactionCase):
 
 
 @tagged("post_install", "-at_install", "distri_cobertura")
-class TestAccesoWebYPortada(HttpCase):
+class TestAccesoWebYPortada(PedidoAbiertoMixin, HttpCase):
 
     def test_web_access_and_password_change(self):
         partner = self.env["res.partner"].create({"name": "Almacén Cobertura",
@@ -191,7 +192,7 @@ class TestAccesoWebYPortada(HttpCase):
 
 
 @tagged("post_install", "-at_install", "distri_cobertura")
-class TestLinkDePago(HttpCase):
+class TestLinkDePago(PedidoAbiertoMixin, HttpCase):
 
     @classmethod
     def setUpClass(cls):

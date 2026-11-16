@@ -15,7 +15,8 @@ from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.models.mercado_pago import (
     PARAM_ENABLED, PARAM_TOKEN, PARAM_WEBHOOK_SECRET,
 )
-from odoo.addons.distri_pedido.tests.common_pedido import page_token
+from odoo.addons.distri_pedido.models.agil_tienda import PARAM_CATALOGO_AGIL
+from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, page_token
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
 
@@ -25,6 +26,8 @@ def _uuid():
 
 @tagged("post_install", "-at_install", "distri_seguridad")
 class TestRejectedChanges(RepartoMixin, AccountTestInvoicingCommon):
+
+    ROUTE_ON_ROAD = True
 
     @classmethod
     def setUpClass(cls):
@@ -133,14 +136,20 @@ class TestRejectedChanges(RepartoMixin, AccountTestInvoicingCommon):
 
 
 @tagged("post_install", "-at_install", "distri_seguridad")
-class TestPedidoEnviar(HttpCase):
+class TestPedidoEnviar(PedidoAbiertoMixin, HttpCase):
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.plantilla = cls.env["product.template"].create({
-            "name": "Producto Prueba Seguridad", "list_price": 100.0, "is_published": True,
-            "sale_ok": True})
+        # 19.0.1.91.0: one unit reaches the minimum purchase (COMPRA_MINIMA)
+        Tmpl = cls.env["product.template"]
+        cls.plantilla = Tmpl.create({
+            "name": "Producto Prueba Seguridad", "list_price": 70000.0, "is_published": True,
+            "sale_ok": True, "type": "consu", "taxes_id": [Command.clear()]})
+        cls.barata = Tmpl.create({
+            "name": "Producto Prueba Barato", "list_price": 1000.0, "is_published": True,
+            "sale_ok": True, "type": "consu", "taxes_id": [Command.clear()]})
+        cls.env["ir.config_parameter"].sudo().set_param(PARAM_CATALOGO_AGIL, "0")
 
     def _post(self, data, token=True):
         data = dict(data)
@@ -189,6 +198,100 @@ class TestPedidoEnviar(HttpCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(self._orders(), 1)
 
+    def _data_retira(self, renglones):
+        return dict(self._data(renglones), entrega="retira", domicilio="")
+
+    def _last_order(self):
+        return self.env["sale.order"].sudo().search(
+            [("distri_nombre", "=", "Kiosco Prueba Seguridad")], order="id desc", limit=1)
+
+    def test_minimum_purchase_for_delivery_and_pickup(self):
+        """19.0.1.91.0 (E2E-A A1): the minimum is checked by the server, for
+        home delivery and for pickup alike."""
+        for data in (self._data([{"id": self.barata.id, "cantidad": 6}]),
+                     self._data_retira([{"id": self.barata.id, "cantidad": 6}])):
+            res = self._post(data)
+            self.assertEqual(res.status_code, 400)
+            self.assertIn("La compra mínima por la página es de $ 70.000", res.text)
+            self.assertIn("este pedido suma $ 6.000", res.text)
+            self.assertIn("en el local", res.text)
+        self.assertEqual(self._orders(), 0)
+        res = self._post(self._data_retira([{"id": self.barata.id, "cantidad": 70}]))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(self._orders(), 1)
+        self.assertEqual(self._last_order().distri_entrega, "retira")
+
+    def test_minimum_purchase_on_the_token_change(self):
+        """19.0.1.91.0 (E2E-A A1): changing an order by its link can't take
+        it below the minimum either; the order stays as it was."""
+        self.assertEqual(self._post(self._data(
+            [{"id": self.barata.id, "cantidad": 80}])).status_code, 200)
+        order = self._last_order()
+        order._portal_ensure_token()
+        before = order.amount_untaxed
+        res = self._post(dict(self._data([{"id": self.barata.id, "cantidad": 28}]),
+                              token=order.access_token))
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("La compra mínima", res.text)
+        order.invalidate_recordset()
+        self.assertEqual(order.amount_untaxed, before)
+        self.assertEqual(order.order_line.product_uom_qty, 80)
+        res = self._post(dict(self._data([{"id": self.barata.id, "cantidad": 75}]),
+                              token=order.access_token))
+        self.assertEqual(res.status_code, 200)
+        order.invalidate_recordset()
+        self.assertEqual(order.order_line.product_uom_qty, 75)
+
+    def test_backend_quotation_below_the_minimum_is_allowed(self):
+        """The minimum is for /pedido only: administración still loads a small
+        purchase as a quotation from the backend."""
+        order = self.env["sale.order"].create({
+            "partner_id": self.env["res.partner"].create({"name": "Mostrador Prueba"}).id,
+            "order_line": [Command.create({"product_id": self.barata.product_variant_id.id,
+                                           "product_uom_qty": 1})]})
+        self.assertEqual(order.amount_untaxed, 1000.0)
+
+    def test_only_the_products_of_the_catalog(self):
+        """19.0.1.91.0 (E2E-A A2): services, unsellable, unpublished, archived
+        products and the ones of the other catalog are never ordered."""
+        Tmpl = self.env["product.template"]
+        base = {"list_price": 90000.0, "is_published": True, "sale_ok": True, "type": "consu"}
+        rejected = Tmpl.create([
+            dict(base, name="Envío Prueba Seguridad", type="service"),
+            dict(base, name="No Vendible Prueba Seguridad", sale_ok=False),
+            dict(base, name="No Publicado Prueba Seguridad", is_published=False),
+            dict(base, name="Archivado Prueba Seguridad", active=False),
+            dict(base, name="Temporal Prueba Seguridad", distri_agil_temporal=True),
+        ])
+        for tmpl in rejected:
+            res = self._post(self._data([{"id": tmpl.id, "cantidad": 1}]))
+            self.assertTrue(res.url.endswith("/pedido"), (tmpl.name, res.url))
+        self.assertEqual(self._orders(), 0)
+        # the valid lines go through, the others are left out
+        res = self._post(self._data([{"id": self.plantilla.id, "cantidad": 1}]
+                                    + [{"id": t.id, "cantidad": 1} for t in rejected]))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(self._last_order().order_line.product_id.product_tmpl_id,
+                         self.plantilla)
+        # the other way round with the AgilPedido catalog on
+        self.env["ir.config_parameter"].sudo().set_param(PARAM_CATALOGO_AGIL, "1")
+        res = self._post(self._data([{"id": self.plantilla.id, "cantidad": 1}]))
+        self.assertTrue(res.url.endswith("/pedido"), res.url)
+        self.assertEqual(self._orders(), 1)
+
+    def test_quantities_are_whole_units(self):
+        """19.0.1.91.0 (E2E-A A3): a fraction is rounded to whole units and a
+        line that ends at 0 is dropped: an order of $0 is impossible."""
+        res = self._post(self._data([{"id": self.plantilla.id, "cantidad": 0.001}]))
+        self.assertTrue(res.url.endswith("/pedido"), res.url)
+        self.assertEqual(self._orders(), 0)
+        res = self._post(self._data([{"id": self.plantilla.id, "cantidad": 1.6},
+                                     {"id": self.barata.id, "cantidad": 0.4}]))
+        self.assertEqual(res.status_code, 200)
+        order = self._last_order()
+        self.assertEqual(order.order_line.mapped("product_uom_qty"), [2.0])
+        self.assertEqual(order.amount_untaxed, 140000.0)
+
     def test_rate_limit_per_session_and_ip(self):
         params = self.env["ir.config_parameter"].sudo()
         params.set_param("distri_pedido.pedido_limite_sesion_10min", "2")
@@ -214,7 +317,7 @@ class TestPedidoEnviar(HttpCase):
 
 
 @tagged("post_install", "-at_install", "distri_seguridad")
-class TestMercadoPagoWebhook(HttpCase):
+class TestMercadoPagoWebhook(PedidoAbiertoMixin, HttpCase):
 
     SECRET = "secreto-de-prueba"
 

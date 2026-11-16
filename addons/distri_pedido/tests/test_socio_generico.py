@@ -7,7 +7,7 @@ from odoo.tests import HttpCase, TransactionCase, new_test_user, tagged
 from odoo.addons.distri_pedido.models.res_partner import (
     GENERIC_LOCKED_MESSAGE, GENERIC_NAMES, GENERIC_UNLOCK_KEY,
 )
-from odoo.addons.distri_pedido.tests.common_pedido import post_pedido
+from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
 
 
 class GenericMixin:
@@ -188,7 +188,7 @@ class TestSocioGenerico(GenericMixin, TransactionCase):
 
 
 @tagged("post_install", "-at_install", "distri_socio_generico")
-class TestPedidoWebGenerico(GenericMixin, HttpCase):
+class TestPedidoWebGenerico(PedidoAbiertoMixin, GenericMixin, HttpCase):
 
     @classmethod
     def setUpClass(cls):
@@ -203,7 +203,7 @@ class TestPedidoWebGenerico(GenericMixin, HttpCase):
         # the trap of the incident: a plain contact with the generic's name
         self.env["res.partner"].create({"name": GENERIC_NAMES["retail"]})
         res = post_pedido(self, {
-            "renglones": json.dumps([{"id": self.plantilla.id, "cantidad": 3}]),
+            "renglones": json.dumps([{"id": self.plantilla.id, "cantidad": 150}]),
             "nombre": "Kiosco Prueba Flag", "telefono": "2995550000",
             "domicilio": "Mitre 1", "entrega": "domicilio",
         })

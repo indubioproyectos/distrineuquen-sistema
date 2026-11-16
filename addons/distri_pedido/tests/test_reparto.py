@@ -52,12 +52,25 @@ class RepartoMixin:
         order.sudo().write({"distri_armado": "armado", "distri_bultos": 2})
         return order
 
-    def _route(self, orders, driver=None):
+    # 19.0.1.91.0: visits, expenses, receipts, parcels and the close need the
+    # route on the road. Classes that sync those events right away set this,
+    # and _route leaves the route «En reparto» (as after «Salir a repartir»)
+    ROUTE_ON_ROAD = False
+
+    def _route(self, orders, driver=None, on_road=None):
         route = self.env["distri.route"].sudo().create({
             "driver_id": (driver or self.driver).id,
             "date": fields.Date.today(),
         })
         route._add_orders(orders)
+        if self.ROUTE_ON_ROAD if on_road is None else on_road:
+            self._on_road(route)
+        return route
+
+    def _on_road(self, route):
+        """The route as it is after «Salir a repartir», without the load
+        ticks and the double check (see _depart for the real flow)."""
+        route.sudo().write({"state": "on_route", "departed_at": fields.Datetime.now()})
         return route
 
     def _event(self, route, kind, payload, captured="2026-09-26T15:00:00.000Z"):
@@ -91,6 +104,8 @@ class RepartoMixin:
 
 @tagged("post_install", "-at_install", "distri_reparto")
 class TestReparto(RepartoMixin, AccountTestInvoicingCommon):
+
+    ROUTE_ON_ROAD = True
 
     @classmethod
     def setUpClass(cls):
@@ -223,6 +238,48 @@ class TestReparto(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(route.state, "closed")
         self.assertEqual(self.order.distri_delivery_state, "delivered")
         self.assertEqual(other.distri_delivery_state, "pending")
+
+    def test_nothing_before_departing(self):
+        """19.0.1.91.0 (E2E-A A5): visits, customer data, expenses, receipts,
+        parcels and the close need the route on the road; the rejection goes
+        back to the app (and to «Cambios rechazados») like any other."""
+        route = self._route(self.order, on_road=False)
+        stop = route.stop_ids
+        events = [
+            self._event(route, "visit", self._visit(stop, cash=6000)),
+            self._event(route, "customer", {"partner_id": stop.shipping_partner_id.id,
+                                            "note": "portón verde"}),
+            self._event(route, "expense", {"expense_uuid": _uuid(), "kind": "fuel",
+                                           "amount": 100}),
+            self._event(route, "receipt", {"stop_id": stop.id, "photo_uuid": _uuid()}),
+            self._event(route, "parcel", {"visit_uuid": _uuid(), "stop_id": stop.id}),
+            self._event(route, "close", {}),
+        ]
+        results = self._sync(events)
+        for event, result in zip(events, results):
+            self.assertEqual(result["status"], "error", (event["type"], result))
+            self.assertFalse(result["retry"])
+            self.assertIn("Salir a repartir", result["error"])
+        self.assertEqual((route.state, stop.state, route.cash_collected), ("draft", "pending", 0))
+        self.assertFalse(route.departed_at)
+        self.assertEqual(self.env["distri.sync.rejection"].sudo().search_count(
+            [("route_id", "=", route.id), ("state", "=", "open")]), len(events))
+
+    def test_offline_batch_departs_then_visits(self):
+        """An offline batch still applies in order: the depart first, then
+        the visits and the close of the same batch."""
+        route = self._route(self.order, on_road=False)
+        stop = route.stop_ids
+        self._sync([self._event(route, "load", {"stop_id": stop.id, "loaded": True})])
+        stop.sudo().action_dispatch_check()
+        results = self._sync([
+            self._event(route, "depart", {}),
+            self._event(route, "visit", self._visit(stop, cash=1000)),
+            self._event(route, "close", {}),
+        ])
+        self.assertEqual([r["status"] for r in results], ["ok"] * 3, results)
+        self.assertEqual((route.state, stop.state), ("closed", "paid"))
+        self.assertTrue(route.departed_at)
 
     # ------------------------------------------ cash expected with returns
 
@@ -390,6 +447,8 @@ class TestReparto(RepartoMixin, AccountTestInvoicingCommon):
 
 @tagged("post_install", "-at_install", "distri_reparto")
 class TestRepartoHttp(RepartoMixin, HttpCase):
+
+    ROUTE_ON_ROAD = True
 
     @classmethod
     def setUpClass(cls):

@@ -19,7 +19,7 @@ from odoo.addons.distri_pedido.controllers.main import (
     CATEGORIAS_A_PRESUPUESTAR, DISTRIBUIDORAS, LISTA_GENERAL, LISTA_OCULTA,
     MENSAJE_DISTRIBUIDORA,
 )
-from odoo.addons.distri_pedido.tests.common_pedido import post_pedido
+from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
 
 PRECIO_GENERAL = 5123.0
 PRECIO_MAY = 3777.77          # shown as "3.778", sent as data-precio="3777.77"
@@ -28,7 +28,7 @@ PRECIO_REVENDEDOR = 7654.0
 
 
 @tagged("post_install", "-at_install", "distri_pedido_listas")
-class TestPedidoListas(HttpCase):
+class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
 
     @classmethod
     def setUpClass(cls):
@@ -135,7 +135,7 @@ class TestPedidoListas(HttpCase):
     def _enviar(self, **extra):
         data = {
             "renglones": json.dumps([
-                {"id": self.remedio.id, "cantidad": 2, "may": 1},
+                {"id": self.remedio.id, "cantidad": 20, "may": 1},
                 {"id": self.cigarrillo.id, "cantidad": 1, "may": 1},
             ]),
             "nombre": "Comprador Pruebalistas %s" % len(extra),

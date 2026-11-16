@@ -104,6 +104,7 @@
     .res .q{color:var(--tenue);white-space:nowrap}
     .tot{display:flex;justify-content:space-between;padding:.9rem 0 0;font-size:1.2rem;
          font-weight:700;color:var(--texto)}
+    .minimo-aviso{color:var(--alerta);font-weight:600;margin:.6rem 0 0}
     .opt{display:block;border:1px solid var(--linea);border-radius:4px;padding:.85rem;
          margin:.5rem 0;cursor:pointer;background:var(--tarjeta)}
     .opt.sel{border-color:var(--acento);background:#e6faf7}
@@ -408,6 +409,7 @@
       <div class="pc">
         <div id="detalle"></div>
         <div class="tot"><span>Total</span><span id="tot2">$ 0</span></div>
+        <p class="minimo-aviso" id="minimo_p2" style="display:none"></p>
 
         <h3 style="font-size:1rem;margin:1.4rem 0 .3rem">¿Cómo lo recibís?</h3>
         <div class="opt sel" id="op_dom" data-modo="domicilio">
@@ -416,7 +418,7 @@
         </div>
         <div class="opt" id="op_ret" data-modo="retira">
           <b>Lo voy a retirar</b>
-          <span>Pasás por el depósito. Sin mínimo de compra.</span>
+          <span>Pasás por el depósito.</span>
         </div>
       </div>
       <div class="barra">
@@ -506,11 +508,10 @@
 
   <script type="text/javascript">
     (function () {
-      var MINIMO = 70000;
-      // El cliente que entra con su usuario no tiene compra minima: siempre
-      // puede elegir envio gratis o retirar. El minimo es para el que pide
-      // sin identificarse.
-      var SIN_MINIMO = <t t-esc="'true' if lista_propia else 'false'"/>;
+      // 19.0.1.91.0: the minimum purchase is for EVERY order of this page,
+      // delivery or pickup, customer or staff (/pedido/enviar checks it too).
+      // Only the priced lines count: a line «a confirmar» has no total yet.
+      var MINIMO = <t t-esc="int(compra_minima)"/>;
       var filas = [].slice.call(document.querySelectorAll('.fila'));
       var bloques = [].slice.call(document.querySelectorAll('.bloque'));
       var p2 = document.getElementById('p2'), p3 = document.getElementById('p3');
@@ -582,11 +583,11 @@
           datos.length === 0 ? 'ningún producto'
             : datos.length + (datos.length === 1 ? ' producto' : ' productos');
         var faltan = MINIMO - total, av = document.getElementById('falta');
-        if (datos.length &amp;&amp; faltan > 0 &amp;&amp; !haySinPrecio &amp;&amp; !SIN_MINIMO) {
-          av.textContent = 'Faltan ' + plata(faltan) + ' para el envío a domicilio';
+        if (datos.length &amp;&amp; faltan > 0) {
+          av.textContent = 'Faltan ' + plata(faltan) + ' para la compra mínima';
           av.style.display = 'block';
         } else { av.style.display = 'none'; }
-        // el mínimo condiciona el envío, no el pedido: siempre se puede avanzar
+        // the cart can always be reviewed; below the minimum it can't be sent
         document.getElementById('ver').disabled = !datos.length;
         var barra = document.getElementById('barra');
         barra.classList.toggle('vacia', !datos.length);
@@ -660,24 +661,22 @@
         }
       });
 
+      function alcanzaMinimo() { return ultimoTotal >= MINIMO; }
+
       function ajustarEntrega() {
-        // El cliente identificado elige libremente. Y con cigarrillos sin valorizar
-        // tampoco se sabe el total, asi que el minimo no puede empujar al
-        // cliente a retirar en el deposito.
-        var alcanza = SIN_MINIMO || haySinPrecio || ultimoTotal >= MINIMO;
-        var dom = document.getElementById('op_dom');
-        var ret = document.getElementById('op_ret');
-        dom.classList.toggle('no', !alcanza);
+        // both ways need the minimum: below it the order can't go on
+        var alcanza = alcanzaMinimo();
+        var aviso = document.getElementById('minimo_p2');
+        aviso.textContent = alcanza ? '' : 'La compra mínima es de ' + plata(MINIMO) +
+          '. Te faltan ' + plata(MINIMO - ultimoTotal) +
+          '. Las compras más chicas se pueden pedir en el local.';
+        aviso.style.display = alcanza ? 'none' : 'block';
+        document.getElementById('ir3').disabled = !alcanza;
         var nota = 'Reparto de lunes a viernes, 9 a 19 h';
-        if (!alcanza) {
-          nota = 'Desde ' + plata(MINIMO) + '. Te faltan ' + plata(MINIMO - ultimoTotal);
-        } else if (SIN_MINIMO) {
-          nota = 'Envío gratis, sin compra mínima. Lunes a viernes, 9 a 19 h';
-        } else if (haySinPrecio) {
+        if (haySinPrecio) {
           nota = 'Reparto de lunes a viernes, 9 a 19 h. Te confirmamos el total.';
         }
         document.getElementById('nota_dom').textContent = nota;
-        if (!alcanza) { elegir(ret); } else if (modo === 'domicilio') { elegir(dom); }
       }
 
       document.getElementById('ver').addEventListener('click', function () {
@@ -694,6 +693,11 @@
       });
 
       document.getElementById('frm').addEventListener('submit', function (ev) {
+        if (!alcanzaMinimo()) {
+          ev.preventDefault();
+          p3.classList.remove('ver'); pintarDetalle(); ajustarEntrega(); p2.classList.add('ver');
+          return;
+        }
         var falla = false;
         var pares = [['f_nombre', 'e_nombre'], ['f_tel', 'e_tel']];
         if (enc.checked) {
