@@ -43,3 +43,4 @@ from . import test_comprobante_app
 from . import test_pedido_link
 from . import test_whatsapp_numeros
 from . import test_catalogo_agil
+from . import test_respaldo

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- «Respaldos» (19.0.1.90.0, models/respaldo.py): what the hourly backup
+       script last recorded. Read-only; scripts/respaldo-hora.sh writes it. -->
+
+  <record id="backup_status_form" model="ir.ui.view">
+    <field name="name">distri.backup.status.form</field>
+    <field name="model">distri.backup.status</field>
+    <field name="arch" type="xml">
+      <form string="Respaldos" create="0" edit="0" delete="0">
+        <sheet>
+          <div class="alert alert-success" role="alert" invisible="state != 'ok'">
+            <field name="state_message" nolabel="1"/>
+          </div>
+          <div class="alert alert-danger" role="alert" invisible="state == 'ok'">
+            <field name="state_message" nolabel="1"/>
+          </div>
+          <div class="oe_title"><h1>Respaldos</h1></div>
+          <group>
+            <group string="Copias">
+              <field name="state"/>
+              <field name="local_ok_display"/>
+              <field name="r2_ok_display"/>
+              <field name="r2_error" invisible="not r2_error"/>
+            </group>
+            <group string="Cloudflare R2">
+              <field name="r2_usage_percent" widget="progressbar"/>
+              <field name="r2_size_display"/>
+              <field name="r2_snapshots"/>
+              <field name="r2_checked_display"/>
+            </group>
+          </group>
+          <div class="text-muted">
+            El respaldo corre cada hora en el servidor: base de datos y archivos, guardados en
+            el servidor y copiados a Cloudflare R2. El espacio en R2 se mide una vez por día.
+            La tarjeta se pone en rojo si la última copia a R2 falló o tiene más de 26 horas.
+          </div>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_backup_status_open" model="ir.actions.server">
+    <field name="name">Respaldos</field>
+    <field name="model_id" ref="model_distri_backup_status"/>
+    <field name="state">code</field>
+    <field name="group_ids" eval="[(4, ref('base.group_system'))]"/>
+    <field name="code">action = model.action_open_status()</field>
+  </record>
+
+  <menuitem id="menu_backup_status" name="Respaldos" parent="base.menu_administration"
+            action="action_backup_status_open" sequence="90" groups="base.group_system"/>
+
+</odoo>

@@ -57,11 +57,51 @@ rm -rf "$STAGE"
 echo "$(date -Is) ok"
 
 # --- off-site copy to Cloudflare R2
-STATUS=$LAB/run/respaldo-estado.env   # KEY=VALUE lines, read by the Odoo backups card
+STATUS=$LAB/run/respaldo-estado.env   # KEY=VALUE lines (host side)
 PRUNE_HOUR=05
-set_status() {  # set_status KEY VALUE
-  touch "$STATUS"
-  { grep -v "^$1=" "$STATUS" || true; echo "$1=$2"; } > "$STATUS.tmp" && mv "$STATUS.tmp" "$STATUS"
+
+# The same values go to Odoo's «Respaldos» card (distri_pedido, model
+# distri.backup.status: one row, the lowest id), because the Odoo container
+# cannot see run/. Values travel as psql variables (:'v' quoting), never
+# inside the SQL text; the column comes from the fixed list in db_status. A
+# failed write never fails the backup: it is logged and the run goes on.
+PSQL=(docker exec -i odoo-lab-db-1 psql -X -q -U odoo -d "$DB" -v ON_ERROR_STOP=1)
+if found=$("${PSQL[@]}" -At -c "SELECT to_regclass('public.distri_backup_status') IS NOT NULL" 2>&1); then
+  if [ "$found" = t ]; then DB_STATUS=1; else
+    DB_STATUS=0; echo "$(date -Is) Odoo backup status table missing (distri_pedido not upgraded yet), not written"
+  fi
+else
+  DB_STATUS=0; echo "$(date -Is) could not check the Odoo backup status table, not written: $found"
+fi
+db_status() {  # db_status KEY VALUE; returns psql's exit code
+  local expr
+  case $1 in
+    local_ok|r2_ok|r2_checked) expr="NULLIF(:'v', '')::timestamptz AT TIME ZONE 'UTC'" ;;
+    r2_error)                  expr="NULLIF(:'v', '')" ;;
+    r2_bytes)                  expr="NULLIF(:'v', '')::numeric" ;;
+    r2_snapshots)              expr="NULLIF(:'v', '')::integer" ;;
+    *) echo "$(date -Is) unknown status key $1, not written to Odoo"; return 0 ;;
+  esac
+  # update the row, or create it when there is none yet
+  "${PSQL[@]}" -v v="$2" <<SQL
+WITH updated AS (
+  UPDATE distri_backup_status SET $1 = $expr, write_date = now() AT TIME ZONE 'UTC'
+   WHERE id = (SELECT min(id) FROM distri_backup_status)
+  RETURNING id)
+INSERT INTO distri_backup_status (create_date, write_date, $1)
+SELECT now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC', $expr
+ WHERE NOT EXISTS (SELECT 1 FROM updated);
+SQL
+}
+set_status() {  # set_status KEY VALUE; returns the env file write's status
+  local rc=0
+  touch "$STATUS" && { { grep -v "^$1=" "$STATUS" || true; echo "$1=$2"; } > "$STATUS.tmp" \
+    && mv "$STATUS.tmp" "$STATUS"; } || rc=$?
+  # set_status also runs where set -e is off (inside `if r2_copy`): check explicitly
+  if [ "$DB_STATUS" = 1 ]; then
+    db_status "$1" "$2" || echo "$(date -Is) writing $1 to the Odoo backup status table failed (backup unaffected)"
+  fi
+  return "$rc"
 }
 set_status local_ok "$(date -Is)"
 

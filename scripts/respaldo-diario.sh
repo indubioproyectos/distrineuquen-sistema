@@ -23,7 +23,7 @@ DB=${DB:-distri_lab}
 DB_CONTAINER=odoo-lab-db-1
 ODOO_CONTAINER=odoo-lab-odoo-1
 MIN_FREE_GB=${MIN_FREE_GB:-5}
-KEEP_DAILY=2 KEEP_WEEKLY=0 KEEP_MONTHLY=0
+KEEP_DAILY=7 KEEP_WEEKLY=4 KEEP_MONTHLY=3
 LOCK=$LAB/run/mantenimiento.lock
 LOG=$LAB/logs/respaldo.log
 TZ_AR=America/Argentina/Buenos_Aires

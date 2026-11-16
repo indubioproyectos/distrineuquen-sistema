@@ -173,3 +173,4 @@ acceso_agil_sincronizacion_sys,distri.agil.sincronizacion system,model_distri_ag
 acceso_agil_sincronizar_admin,distri.agil.sincronizar admin,model_distri_agil_sincronizar,distri_pedido.grupo_administracion,1,1,1,1
 acceso_agil_sincronizar_ger,distri.agil.sincronizar gerencia,model_distri_agil_sincronizar,distri_pedido.grupo_gerencia,1,1,1,1
 acceso_agil_sincronizar_sys,distri.agil.sincronizar system,model_distri_agil_sincronizar,base.group_system,1,1,1,1
+acceso_backup_status_sys,distri.backup.status system,model_distri_backup_status,base.group_system,1,0,0,0
