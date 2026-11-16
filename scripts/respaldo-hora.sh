@@ -14,6 +14,15 @@
 #
 # Retention: 24 hourly, 7 daily, 4 weekly, 6 monthly. Shares the maintenance
 # lock with actualizar-modulo.sh and respaldo-diario.sh.
+#
+# Off-site copy (since 15/11/2026): when ~/.config/indubio/r2.env exists
+# (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, R2_ENDPOINT, optional R2_BUCKET),
+# every run copies the new snapshots to the Cloudflare R2 repository
+# (`restic copy`: only new data travels). Once a day, at PRUNE_HOUR, the R2
+# repository gets the same retention plus a size check. An R2 failure never
+# fails the local backup: it is logged and recorded in STATUS.
+# The R2 token is limited to one bucket and to this server's IPv4 and IPv6
+# (restic connects over IPv6 when it can).
 set -euo pipefail
 umask 077
 
@@ -42,6 +51,43 @@ docker exec odoo-lab-odoo-1 tar -C /var/lib/odoo/filestore -cf - "$DB" > "$STAGE
 
 restic cat config >/dev/null 2>&1 || restic init
 restic backup --host distri-prod --tag hourly "$STAGE"
-restic forget --host distri-prod --prune --keep-hourly 24 --keep-daily 7 --keep-weekly 4 --keep-monthly 6
+KEEP=(--keep-hourly 24 --keep-daily 7 --keep-weekly 4 --keep-monthly 6)
+restic forget --host distri-prod --prune "${KEEP[@]}"
 rm -rf "$STAGE"
-echo "$(date -Is) ok"; ping ""
+echo "$(date -Is) ok"
+
+# --- off-site copy to Cloudflare R2
+STATUS=$LAB/run/respaldo-estado.env   # KEY=VALUE lines, read by the Odoo backups card
+PRUNE_HOUR=05
+set_status() {  # set_status KEY VALUE
+  touch "$STATUS"
+  { grep -v "^$1=" "$STATUS" || true; echo "$1=$2"; } > "$STATUS.tmp" && mv "$STATUS.tmp" "$STATUS"
+}
+set_status local_ok "$(date -Is)"
+
+# Runs in a subshell. Called from an `if`, where bash ignores set -e, so every
+# step checks its own exit code.
+r2_copy() (
+  set -a; . "$CONF/r2.env" || exit 1; set +a
+  src=$RESTIC_REPOSITORY
+  export RESTIC_REPOSITORY="s3:$R2_ENDPOINT/${R2_BUCKET:-distri-respaldos}"
+  restic copy --from-repo "$src" --from-password-file "$RESTIC_PASSWORD_FILE" --host distri-prod -q || exit 1
+  [ "$(date +%H)" = "$PRUNE_HOUR" ] || exit 0
+  restic forget --host distri-prod --prune -q "${KEEP[@]}" || exit 1
+  bytes=$(restic stats --mode raw-data --json | grep -oP '"total_size":\K[0-9]+') || exit 1
+  snaps=$(restic snapshots --json | grep -o '"short_id"' | wc -l) || exit 1
+  set_status r2_bytes "$bytes"
+  set_status r2_snapshots "$snaps"
+  set_status r2_checked "$(date -Is)"
+)
+if [ -f "$CONF/r2.env" ]; then
+  if r2_copy; then
+    set_status r2_ok "$(date -Is)"; set_status r2_error ""
+    echo "$(date -Is) r2 ok"
+  else
+    set_status r2_error "$(date -Is) copy to R2 failed, see logs/respaldo-hora.log"
+    echo "$(date -Is) R2 FAILED (the local backup is fine)"
+    logger -p user.err -t respaldo-hora "copy to R2 failed" 2>/dev/null || true
+  fi
+fi
+ping ""
