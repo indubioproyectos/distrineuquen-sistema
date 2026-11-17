@@ -10,8 +10,10 @@ from odoo import http
 from odoo.exceptions import UserError
 from odoo.http import request
 
+from ..models.armado import MAX_BULTOS
+from .kit import kit_context, staff_nav
 from .main import HORA_ARGENTINA, ficha
-from .reparto import SHARED_CSS, asset_version
+from .tablero import wants_tablero
 
 GRUPO_ARMADOR = "distri_pedido.grupo_armador"
 
@@ -23,6 +25,10 @@ DIAS_PRESUPUESTO = 7
 
 UTC = ZoneInfo("UTC")
 
+DIAS = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
+MESES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+         "septiembre", "octubre", "noviembre", "diciembre")
+
 
 class Armado(http.Controller):
     """La pantalla del armador en el celular.
@@ -30,6 +36,12 @@ class Armado(http.Controller):
     Todo corre con sudo(): el armador no tiene permisos de ventas en el
     backend. Por eso cada ruta exige el grupo, y la pantalla no muestra
     precios ni nada de la cuenta del cliente.
+
+    19.0.1.94.0: on the Distrineuquén kit (controllers/kit.py). Navigation
+    goes up one level: item -> order -> list -> staff home. Every action
+    (tomar, listo, falta, agregar, terminar, más tarde, bultos) answers JSON
+    when the page sends it with fetch() (X-Distri-Fetch: 1), so the page
+    does not reload; without JavaScript the same forms post and redirect.
     """
 
     # ---------------------------------------------------------------- datos
@@ -68,23 +80,43 @@ class Armado(http.Controller):
     def _cant(self, numero):
         return "{:g}".format(numero or 0)
 
-    def _base(self, **extra):
+    def _fecha(self):
+        hoy = self._hoy()
+        return "%s %s de %s" % (DIAS[hoy.weekday()], hoy.day, MESES[hoy.month - 1])
+
+    def _base(self, seccion="armado", **extra):
         empresa = request.env.company
         datos = {
             "empresa_id": empresa.id,
             # con "unique" Odoo manda el logo con cache larga: el celular no
             # lo vuelve a pedir en cada pantalla
-            "logo": "/web/image/res.company/%s/logo?unique=%s" % (
+            "icon": "/web/image/res.company/%s/logo?unique=%s" % (
                 empresa.id, int(empresa.sudo().write_date.timestamp())),
             "ficha": ficha(),
-            # el mismo estilo que la app del repartidor
-            "ui_css": "%s?v=%s" % (SHARED_CSS, asset_version()),
+            # the kit (dn.css, dn.js, sprite) plus this screen's own files
+            "dn": kit_context("armado.css", "armado.js"),
+            "nav": staff_nav(request.env, seccion),
+            # the list's parent: the staff home, for users that have one
+            "inicio": "/tablero" if wants_tablero(request.env.user) else "",
+            "fecha": self._fecha(),
             "usuario": request.env.user,
             "cant": self._cant,
             "hora": self._hora,
+            "foto": self._foto,
         }
         datos.update(extra)
         return datos
+
+    def _foto(self, producto):
+        """Thumbnail URL; «unique» makes Odoo send it with a long cache."""
+        return "/web/image/product.product/%s/image_128?unique=%s" % (
+            producto.id, int(producto.sudo().write_date.timestamp()))
+
+    def _render(self, template, values):
+        """Live data: never from the browser cache (back lands fresh)."""
+        respuesta = request.render(template, values)
+        respuesta.headers["Cache-Control"] = "no-store"
+        return respuesta
 
     def _pedidos_del_dia(self):
         """Sin armar, en armado, y los que se terminaron hoy.
@@ -150,7 +182,7 @@ class Armado(http.Controller):
     def lista(self, dejado="", terminado="", **kw):
         self._exigir_armador()
         pedidos = self._pedidos_del_dia()
-        return request.render("distri_pedido.armado_lista", self._base(
+        return self._render("distri_pedido.armado_lista", self._base(
             grupos=self._grupos_por_zona(pedidos),
             cuantos=len(pedidos),
             hoy=self._hoy(),
@@ -216,10 +248,15 @@ class Armado(http.Controller):
         self._exigir_armador()
         pedido = self._pedido(pedido_id)
         q = (q or "").strip()
-        return request.render("distri_pedido.armado_pedido", self._base(
+        renglones = pedido._distri_renglones_a_armar()
+        puede_tocar = self._puede_tocar(pedido)
+        return self._render("distri_pedido.armado_pedido", self._base(
             pedido=pedido,
-            renglones=pedido._distri_renglones_a_armar(),
-            puede_tocar=self._puede_tocar(pedido),
+            renglones=renglones,
+            actual=self._actual(renglones) if puede_tocar else None,
+            hechos=len(renglones.filtered(lambda l: l.distri_listo or l.distri_faltante)),
+            con_faltante=len(renglones.filtered("distri_faltante")),
+            puede_tocar=puede_tocar,
             puede_corregir=self._puede_corregir(pedido),
             q=q,
             resultados=self._buscar(pedido, q),
@@ -227,6 +264,10 @@ class Armado(http.Controller):
             nueva_clave=self._nueva_clave,
             error=error,
         ))
+
+    def _actual(self, renglones):
+        """The line to pack now: the first one not ticked nor short."""
+        return renglones.filtered(lambda l: not l.distri_listo and not l.distri_faltante)[:1]
 
     def _nueva_clave(self):
         """Una por boton "Agregar": ver sale.order.distri_agregar."""
@@ -300,12 +341,24 @@ class Armado(http.Controller):
             "l": linea,
             "pedido": pedido,
             "puede_tocar": self._puede_tocar(pedido),
+            "actual": None,
             "cant": self._cant,
+            "foto": self._foto,
+            "dn": kit_context(),
             "csrf_token": request.csrf_token(),
         })
 
-    def _pedido_para_tocar(self, pedido_id):
-        """El pedido, o la respuesta de rechazo si el usuario no lo arma."""
+    def _ir(self, url):
+        """Done: fetch() gets the next URL as JSON, a plain form a redirect."""
+        if self._por_fetch():
+            return self._json({"ok": True, "url": url})
+        return request.redirect(url)
+
+    def _pedido_para_tocar(self, pedido_id, tocar=True):
+        """El pedido, o la respuesta de rechazo si el usuario no lo arma.
+
+        tocar=False only checks the group and that the order is visible
+        (tomar, terminar, más tarde and bultos check the rest themselves)."""
         if not request.env.user.has_group(GRUPO_ARMADOR):
             if self._por_fetch():
                 return None, self._json({"ok": False, "error": "No tenés permiso de armador."}, 403)
@@ -315,17 +368,29 @@ class Armado(http.Controller):
             if self._por_fetch():
                 return None, self._json({"ok": False, "error": "El pedido no existe."}, 404)
             raise NotFound()
-        if not self._puede_tocar(pedido):
+        if tocar and not self._puede_tocar(pedido):
             return None, self._rechazo(pedido, self._por_que_no(pedido))
         return pedido, None
+
+    def _linea(self, pedido, linea_id):
+        try:
+            linea = request.env["sale.order.line"].sudo().browse(int(linea_id or 0)).exists()
+        except ValueError:
+            linea = None
+        if not linea or linea.order_id != pedido:
+            return None
+        return linea
 
     @http.route("/armado/pedido/<int:pedido_id>/tomar", type="http", auth="user",
                 methods=["POST"], website=True, sitemap=False)
     def tomar(self, pedido_id, **post):
-        self._exigir_armador()
-        pedido = self._pedido(pedido_id)
+        pedido, rechazo = self._pedido_para_tocar(pedido_id, tocar=False)
+        if rechazo:
+            return rechazo
         error = pedido.distri_tomar()
-        return self._volver(pedido, error)
+        if error:
+            return self._rechazo(pedido, error)
+        return self._ir("/armado/pedido/%s" % pedido.id)
 
     @http.route("/armado/pedido/<int:pedido_id>/falta", type="http", auth="user",
                 methods=["POST"], sitemap=False)
@@ -334,11 +399,8 @@ class Armado(http.Controller):
         pedido, rechazo = self._pedido_para_tocar(pedido_id)
         if rechazo:
             return rechazo
-        try:
-            linea = request.env["sale.order.line"].sudo().browse(int(linea_id or 0)).exists()
-        except ValueError:
-            linea = None
-        if not linea or linea.order_id != pedido:
+        linea = self._linea(pedido, linea_id)
+        if not linea:
             return self._rechazo(pedido, "Ese renglón no es de este pedido.", 422)
         if accion == "deshacer":
             faltante = 0.0
@@ -358,6 +420,27 @@ class Armado(http.Controller):
         if self._por_fetch():
             return self._json({"ok": True, "html": self._html_renglon(pedido, linea)})
         return self._volver(pedido, ancla="#r%s" % linea.id)
+
+    @http.route("/armado/pedido/<int:pedido_id>/listo", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def listo(self, pedido_id, linea_id=0, accion="listo", **post):
+        """«Listo, N» (19.0.1.94.0): the whole line is in the box. accion
+        «deshacer» takes the tick back («Volver a revisar»)."""
+        pedido, rechazo = self._pedido_para_tocar(pedido_id)
+        if rechazo:
+            return rechazo
+        linea = self._linea(pedido, linea_id)
+        if not linea:
+            return self._rechazo(pedido, "Ese renglón no es de este pedido.", 422)
+        try:
+            pedido.distri_marcar_listo(linea, accion != "deshacer")
+        except UserError as exc:
+            return self._rechazo(pedido, str(exc))
+        if self._por_fetch():
+            return self._json({"ok": True, "html": self._html_renglon(pedido, linea)})
+        # without JavaScript: back on the next line to pack
+        siguiente = self._actual(pedido._distri_renglones_a_armar()) or linea
+        return self._volver(pedido, ancla="#r%s" % siguiente.id)
 
     def _unidad_de_venta(self, producto):
         """La misma unidad que ve el cliente en la pantalla de pedidos."""
@@ -416,44 +499,57 @@ class Armado(http.Controller):
     @http.route("/armado/pedido/<int:pedido_id>/terminar", type="http", auth="user",
                 methods=["POST"], website=True, sitemap=False)
     def terminar(self, pedido_id, bultos="", **post):
-        self._exigir_armador()
-        pedido = self._pedido(pedido_id)
+        pedido, rechazo = self._pedido_para_tocar(pedido_id, tocar=False)
+        if rechazo:
+            return rechazo
         if pedido.distri_armado == "armado" and pedido.distri_armador_id == request.env.user:
             # doble toque: el primero ya lo termino
-            return request.redirect("/armado")
+            return self._ir("/armado")
         if not self._puede_tocar(pedido):
-            return self._volver(pedido, self._por_que_no(pedido))
+            return self._rechazo(pedido, self._por_que_no(pedido))
+        cuantos = self._bultos(bultos)
+        if not 1 <= cuantos <= MAX_BULTOS:
+            # a typing mistake: the page stays as it is (422, no reload)
+            return self._rechazo(pedido, "Poné en cuántos bultos quedó el pedido.", 422,
+                                 ancla="#terminar")
         try:
-            error = pedido.distri_terminar(self._bultos(bultos))
+            error = pedido.distri_terminar(cuantos)
         except UserError as exc:
             error = str(exc)
         if error:
-            return self._volver(pedido, error, ancla="#terminar")
+            return self._rechazo(pedido, error, ancla="#terminar")
         # «Imprimir etiquetas» right after finishing (19.0.1.33.0)
-        return request.redirect("/armado?" + urlencode({"terminado": pedido.id}))
+        return self._ir("/armado?" + urlencode({"terminado": pedido.id}))
 
     @http.route("/armado/pedido/<int:pedido_id>/mas-tarde", type="http", auth="user",
                 methods=["POST"], website=True, sitemap=False)
     def mas_tarde(self, pedido_id, **post):
         """Dejar para más tarde: vuelve a pendiente, libre para cualquiera."""
-        self._exigir_armador()
-        pedido = self._pedido(pedido_id)
+        pedido, rechazo = self._pedido_para_tocar(pedido_id, tocar=False)
+        if rechazo:
+            return rechazo
         try:
             error = pedido.distri_dejar_para_mas_tarde()
         except UserError as exc:
             error = str(exc)
         if error:
-            return self._volver(pedido, error)
-        return request.redirect("/armado?" + urlencode({"dejado": pedido.id}))
+            return self._rechazo(pedido, error)
+        return self._ir("/armado?" + urlencode({"dejado": pedido.id}))
 
     @http.route("/armado/pedido/<int:pedido_id>/bultos", type="http", auth="user",
                 methods=["POST"], website=True, sitemap=False)
     def bultos(self, pedido_id, bultos="", **post):
-        self._exigir_armador()
-        pedido = self._pedido(pedido_id)
+        pedido, rechazo = self._pedido_para_tocar(pedido_id, tocar=False)
+        if rechazo:
+            return rechazo
         if not self._puede_corregir(pedido):
-            return self._volver(pedido, "Los bultos los corrige el que armó el pedido.")
-        return self._volver(pedido, pedido.distri_corregir_bultos(self._bultos(bultos)))
+            return self._rechazo(pedido, "Los bultos los corrige el que armó el pedido.")
+        error = pedido.distri_corregir_bultos(self._bultos(bultos))
+        if not self._por_fetch():
+            return self._volver(pedido, error)
+        if error:
+            return self._json({"ok": False, "error": error}, status=422)
+        return self._json({"ok": True, "bultos": pedido.distri_bultos})
 
     @http.route("/armado/faltantes", type="http", auth="user", website=True, sitemap=False)
     def faltantes(self, **kw):
@@ -480,7 +576,8 @@ class Armado(http.Controller):
                 "faltan": linea.distri_faltante,
             })
         filas = sorted(por_producto.values(), key=lambda f: f["producto"].name or "")
-        return request.render("distri_pedido.armado_faltantes", self._base(
+        return self._render("distri_pedido.armado_faltantes", self._base(
+            seccion="faltantes",
             filas=filas,
             hoy=self._hoy(),
         ))

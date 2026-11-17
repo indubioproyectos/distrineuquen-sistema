@@ -40,27 +40,40 @@
     <field name="print_report_name">'Etiqueta de prueba'</field>
   </record>
 
+  <!-- 19.0.1.94.0 layout (owner): left column with the company line, the
+       customer (2 lines max), the store's street and locality in bold, the
+       destination, then date + order on one line; a 32 mm block on the right with
+       the package number big enough to read from a meter away; the Code128
+       at the bottom (70 x 8 mm). Everything is clipped inside 100 x 50 mm.
+       Old QtWebKit (wkhtmltopdf): absolute positions, no flex. -->
   <template id="etiqueta_estilo">
     <meta charset="utf-8"/>
     <style>
       html, body { margin: 0; padding: 0; }
+      /* web.html_container puts Bootstrap's .container on the body: its side
+         padding pushed the label 3 mm to the right */
+      body.container { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100mm; }
       .etq { width: 100mm; height: 50mm; box-sizing: border-box; padding: 2.5mm 3mm 2mm 3mm;
              overflow: hidden; position: relative; font-family: "DejaVu Sans", Arial, sans-serif;
              color: #000; page-break-after: always; }
       .etq:last-child { page-break-after: auto; }
-      .etq .cli { font-size: 15pt; font-weight: bold; line-height: 1.05; max-height: 11.5mm;
-                  overflow: hidden; }
-      .etq .loc { font-size: 9pt; margin-top: .6mm; }
-      .etq .fila { display: block; font-size: 9pt; margin-top: .8mm; white-space: nowrap;
-                   overflow: hidden; }
-      .etq .bulto { position: absolute; right: 3mm; top: 2.5mm; text-align: right;
-                    font-size: 8pt; line-height: 1.1; }
-      .etq .bulto b { display: block; font-size: 15pt; }
-      .etq .dest { font-size: 10pt; font-weight: bold; margin-top: .8mm; white-space: nowrap;
-                   overflow: hidden; }
+      .etq .izq { position: absolute; left: 3mm; top: 2.5mm; width: 60mm; height: 33mm; overflow: hidden; }
+      .etq .emp { font-size: 8pt; line-height: 1.15; white-space: nowrap; overflow: hidden; }
+      .etq .cli { font-size: 13.5pt; font-weight: bold; line-height: 1.05; max-height: 10mm;
+                  overflow: hidden; margin-top: .6mm; }
+      .etq .dir { font-size: 10.5pt; font-weight: bold; line-height: 1.1; max-height: 8.1mm;
+                  overflow: hidden; margin-top: .6mm; }
+      .etq .fila { font-size: 8pt; line-height: 1.2; margin-top: .5mm; white-space: nowrap; overflow: hidden; }
+      .etq .dest { font-size: 8.5pt; font-weight: bold; line-height: 1.2; margin-top: .5mm;
+                   white-space: nowrap; overflow: hidden; }
+      .etq .bulto { position: absolute; right: 3mm; top: 2.5mm; width: 32mm; height: 30mm; box-sizing: border-box;
+                    border: .35mm solid #000; border-radius: 2mm; text-align: center; overflow: hidden; }
+      .etq .bulto .cap { display: block; font-size: 8pt; font-weight: bold; letter-spacing: 1.5px; margin-top: 1.5mm; }
+      .etq .bulto .num { display: block; font-weight: bold; line-height: 1; margin-top: 2mm; white-space: nowrap; }
+      .etq .bulto .de { display: block; font-size: 8pt; margin-top: 1.5mm; }
       .etq .cod { position: absolute; left: 3mm; right: 3mm; bottom: 2mm; text-align: center; }
-      .etq .cod img { width: 80mm; height: 10mm; display: block; margin: 0 auto; }
-      .etq .cod span { font-size: 8pt; letter-spacing: .5px; }
+      .etq .cod img { width: 70mm; height: 8mm; display: block; margin: 0 auto; }
+      .etq .cod span { font-size: 7.5pt; letter-spacing: .5px; }
     </style>
   </template>
 
@@ -68,12 +81,21 @@
     <t t-call="web.html_container">
       <t t-call="distri_pedido.etiqueta_estilo"/>
       <div t-foreach="labels" t-as="e" class="etq">
-        <div class="bulto">Bulto<b><t t-esc="e['number']"/> de <t t-esc="e['total']"/></b></div>
-        <div class="cli" style="margin-right:22mm" t-esc="e['name']"/>
-        <div class="loc"><t t-if="e['prefix']"><b t-esc="e['prefix']"/> · </t><t t-esc="e['town']"/></div>
-        <div class="fila">Pedido <b t-esc="e['order']"/><t t-if="e['remito']"> · Remito <b t-esc="e['remito']"/></t></div>
-        <div class="dest"><t t-esc="e['destination']"/><t t-if="e['detail']"> · <t t-esc="e['detail']"/></t></div>
-        <div class="fila">Entrega: <b t-esc="e['date']"/></div>
+        <div class="izq">
+          <div class="emp" t-if="e.get('company')" t-esc="e['company']"/>
+          <div class="cli" t-esc="e['name']"/>
+          <div class="dir">
+            <t t-if="e.get('street')"><t t-esc="e['street']"/><t t-if="e['locality']">, </t></t>
+            <t t-esc="e['locality']"/><t t-if="e['prefix']"> (<t t-esc="e['prefix']"/>)</t>
+          </div>
+          <div class="dest"><t t-esc="e['destination']"/><t t-if="e['detail']"> · <t t-esc="e['detail']"/></t></div>
+          <div class="fila">Entrega: <b t-esc="e['date']"/> · Pedido <b t-esc="e['order']"/><t t-if="e['remito']"> · Remito <b t-esc="e['remito']"/></t></div>
+        </div>
+        <div class="bulto">
+          <span class="cap">BULTO</span>
+          <span class="num" t-attf-style="font-size:{{e['number_size']}}pt" t-esc="e['number_text']"/>
+          <span class="de">de <t t-esc="e['total']"/> <t t-esc="'bulto' if e['total'] == 1 else 'bultos'"/></span>
+        </div>
         <div class="cod">
           <img t-att-src="'data:image/png;base64,%s' % e['barcode']" alt=""/>
           <span t-esc="e['code']"/>

@@ -1,0 +1,115 @@
+"""Distrineuquén kit (19.0.1.94.0): the shared look of the standalone pages.
+
+static/src/kit/ holds dn.css (tokens and components), dn.js (helpers and
+the up-one-level router) and dn-icons.svg (the icon sprite). Pages keep
+their own small files next to their code (static/src/armado/). None of this
+goes through an Odoo asset bundle: every file is served as is by /dn/<name>
+with a version in the query (kit_version(), same idea as reparto's
+asset_version()) and a one-year «immutable» cache, so a phone downloads it
+once per release. Pages include the kit with the QWeb macros in
+views/kit.xml (distri_pedido.dn_head and distri_pedido.dn_nav).
+"""
+import hashlib
+import os
+
+from werkzeug.exceptions import NotFound
+
+from odoo import http
+from odoo.http import request
+
+from .reparto import _disk, fonts
+
+_SRC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src")
+# published name -> (path under static/src, content type)
+FILES = {
+    "dn.css": ("kit/dn.css", "text/css; charset=utf-8"),
+    "dn.js": ("kit/dn.js", "text/javascript; charset=utf-8"),
+    "dn-icons.svg": ("kit/dn-icons.svg", "image/svg+xml; charset=utf-8"),
+    "armado.css": ("armado/armado.css", "text/css; charset=utf-8"),
+    "armado.js": ("armado/armado.js", "text/javascript; charset=utf-8"),
+}
+IMMUTABLE = "public, max-age=31536000, immutable"
+
+
+def _path(name):
+    return os.path.join(_SRC, FILES[name][0])
+
+
+def kit_version():
+    """Changes whenever a kit or page file (or the font) changes."""
+    digest = hashlib.sha256()
+    paths = [_path(name) for name in sorted(FILES)] + [_disk(url) for url in fonts()]
+    for path in paths:
+        stat = os.stat(path)
+        digest.update(("%s:%s:%s;" % (path, stat.st_mtime_ns, stat.st_size)).encode())
+    return digest.hexdigest()[:12]
+
+
+def kit_url(name, version=None):
+    return "/dn/%s?v=%s" % (name, version or kit_version())
+
+
+def kit_context(*page_files):
+    """Values for the dn_head macro: dn['css'], dn['js'], dn['icons'],
+    dn['font'] and the page's own files (dn['armado.css']...)."""
+    version = kit_version()
+    dn = {
+        "css": kit_url("dn.css", version),
+        "js": kit_url("dn.js", version),
+        "icons": kit_url("dn-icons.svg", version),
+        "font": (fonts() or [""])[0],
+        "page_css": [],
+        "page_js": [],
+    }
+    for name in page_files:
+        key = "page_css" if name.endswith(".css") else "page_js"
+        dn[key].append(kit_url(name, version))
+    return dn
+
+
+def staff_nav(env, current):
+    """The bottom nav of a staff page, from the same groups as the menus.
+
+    Packers: Pedidos · Faltantes, plus Despacho when the user can open it and
+    Inicio (/tablero) for users that have the staff home (a user whose only
+    screen is /armado would just come back here). `current` is the key of
+    the active item. «Inicio» goes UP (the home is the parent of every app);
+    the rest are siblings and replace the page (dn.js).
+    """
+    from .tablero import wants_tablero
+
+    user = env.user
+    items = []
+    if wants_tablero(user):
+        items.append({"key": "inicio", "label": "Inicio", "icon": "home", "url": "/tablero", "how": "up"})
+    if user.has_group("distri_pedido.grupo_armador"):
+        items += [
+            {"key": "armado", "label": "Pedidos", "icon": "list", "url": "/armado", "how": "side"},
+            {"key": "faltantes", "label": "Faltantes", "icon": "alert", "url": "/armado/faltantes",
+             "how": "side"},
+        ]
+    menu = env.ref("distri_pedido.menu_reparto_despacho", raise_if_not_found=False)
+    if menu and menu.id in env["ir.ui.menu"]._visible_menu_ids():
+        items.append({"key": "despacho", "label": "Despacho", "icon": "truck", "url": "/despacho",
+                      "how": "side"})
+    for item in items:
+        item["on"] = item["key"] == current
+    return items
+
+
+class Kit(http.Controller):
+
+    @http.route("/dn/<string:name>", type="http", auth="public", methods=["GET"], sitemap=False)
+    def kit_file(self, name, v="", **kw):
+        if name not in FILES:
+            raise NotFound()
+        with open(_path(name), "rb") as handle:
+            body = handle.read()
+        # only the current version is immutable: an old ?v= gets today's
+        # file, and the next page view asks for the new URL anyway
+        cache = IMMUTABLE if v == kit_version() else "no-cache"
+        return request.make_response(body, headers=[
+            ("Content-Type", FILES[name][1]),
+            ("Cache-Control", cache),
+            ("X-Content-Type-Options", "nosniff"),
+        ])

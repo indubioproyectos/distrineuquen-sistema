@@ -1,0 +1,81 @@
+/* /armado on the kit (19.0.1.94.0): only what the packing screen adds to
+   ../kit/dn.css. Served versioned and cached by controllers/kit.py. */
+
+/* list */
+.arm-zona{display:flex;flex-direction:column;gap:8px}
+.arm-zona__tit{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.arm-zona__tit small{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none}
+.arm-zona--otra .arm-ped{background:var(--dn-tint)}
+.arm-lista{display:grid;gap:8px}
+.arm-ped{padding:12px 8px 12px 16px}
+.arm-ped>.dn-i{color:var(--dn-primary)}
+.arm-ped__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.arm-ped__nom{font-size:17px;font-weight:800;overflow-wrap:anywhere}
+.arm-ped__det{font-size:14px;color:var(--dn-muted)}
+.arm-ped__det b{color:var(--dn-ink)}
+.arm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.arm-ped--en_armado{box-shadow:inset 4px 0 0 var(--dn-navy)}
+
+/* lines of an order */
+.arm-ren{display:flex;flex-direction:column;gap:8px}
+.ren{background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r)}
+.ren__top{display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 12px;list-style:none;cursor:pointer}
+.ren__top::-webkit-details-marker{display:none}
+div.ren__top{cursor:default}
+.ren__mark{flex:none;display:flex}
+.ren__circle{width:32px;height:32px;border-radius:16px;border:2px solid var(--dn-input)}
+.ren__tick{width:32px;height:32px;border-radius:16px;background:var(--dn-primary);color:#fff;
+  display:flex;align-items:center;justify-content:center}
+.ren__tick .dn-i{width:18px;height:18px}
+.ren__foto{display:none;width:56px;height:56px;border-radius:10px;background:var(--dn-tint);object-fit:contain;flex:none}
+.ren__nom{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.ren__prod{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+.ren__res{font-size:14px;color:var(--dn-amber-text);font-weight:700}
+.ren__cant{flex:none;text-align:right;font-size:16px;font-weight:800;white-space:nowrap}
+.ren__cant small{font-weight:600;color:var(--dn-muted)}
+.ren__uni{display:block;font-size:12px}
+.ren__body{display:flex;flex-direction:column;gap:12px;padding:0 12px 12px}
+.ren--listo{opacity:.6}
+.ren--listo .ren__prod{text-decoration:line-through}
+.ren--listo[open]{opacity:1}
+.ren--falta{background:var(--dn-amber-bg);border-color:var(--dn-amber-line)}
+.ren[open]{border:2px solid var(--dn-navy)}
+.ren[open] .ren__foto{display:block}
+.ren[open] .ren__mark{display:none}
+.ren[open] .ren__prod{font-size:16px;font-weight:800;text-decoration:none}
+.ren[open] .ren__cant b{font-size:28px;color:var(--dn-navy)}
+.ren.guardando{opacity:.55;pointer-events:none}
+.ren.nuevo{animation:arm-nuevo 1.2s ease-out}
+@keyframes arm-nuevo{from{background:var(--dn-green-bg)}}
+.ren__top:focus-visible{outline:3px solid var(--dn-primary);outline-offset:-3px;border-radius:var(--dn-r)}
+.ren__falta{display:none;flex-direction:column;gap:10px;padding:12px;border:1px solid var(--dn-amber-line);
+  border-radius:var(--dn-r);background:#fff}
+.ren__tog:checked~.ren__falta{display:flex}
+.ren form{margin:0}
+label.dn-btn{user-select:none}
+
+/* add a product */
+.arm-agregar{padding:0;overflow:hidden}
+.arm-agregar>form{padding:12px}
+.arm-agregar .dn-btn--navy .dn-i{color:#fff}
+.arm-vacio{margin:0;padding:16px;color:var(--dn-muted);border-top:1px solid var(--dn-line);text-align:center}
+.arm-prod{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--dn-line)}
+.arm-prod__nom{flex:1;min-width:0;font-size:16px;font-weight:600}
+.arm-prod__nom small{display:block;color:var(--dn-muted);font-size:13px}
+.arm-prod form{display:flex;gap:8px;margin:0}
+.arm-prod .dn-input{width:72px;text-align:center;font-size:18px;font-weight:700;padding:8px 4px}
+.arm-prod .dn-btn{width:auto}
+.arm-hint{margin:0;font-size:14px;color:var(--dn-muted);text-align:center}
+.arm-lado{display:flex;flex-direction:column;gap:12px}
+.arm-form{display:flex;flex-direction:column;gap:12px}
+.arm-step{gap:8px}
+.arm-step .dn-input{width:96px;font-size:24px;font-weight:800;text-align:center}
+.arm-borra,.arm-quedan{color:var(--dn-amber-text);font-weight:700;background:var(--dn-amber-bg);border-radius:10px;padding:10px 12px}
+.arm-solojs{display:none}
+.dn-js .arm-solojs{display:flex}
+
+@media (min-width:900px){
+  .arm-main{max-width:1000px;padding-left:24px;padding-right:24px}
+  .arm-lista{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .arm-cols{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px;align-items:start}
+}

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Distrineuquén kit (19.0.1.94.0): the <head> and the bottom nav of the
+       standalone staff pages. Values come from controllers/kit.py:
+       dn = kit_context(<page files>), nav = staff_nav(env, <current>). -->
+
+  <!-- Inside <head>, after the page's <title>. Optional values:
+       manifest (URL of a web app manifest), icon (favicon URL). -->
+  <template id="dn_head" name="Kit: head">
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+    <meta name="theme-color" content="#10243f"/>
+    <meta t-if="request" name="csrf-token" t-att-content="request.csrf_token()"/>
+    <link t-if="dn['font']" rel="preload" as="font" type="font/woff2" crossorigin="anonymous" t-att-href="dn['font']"/>
+    <link rel="stylesheet" t-att-href="dn['css']"/>
+    <t t-foreach="dn['page_css']" t-as="href"><link rel="stylesheet" t-att-href="href"/></t>
+    <link t-if="manifest" rel="manifest" t-att-href="manifest"/>
+    <link t-if="icon" rel="icon" t-att-href="icon"/>
+    <script defer="defer" t-att-src="dn['js']"/>
+    <t t-foreach="dn['page_js']" t-as="src"><script defer="defer" t-att-src="src"/></t>
+  </template>
+
+  <!-- Role-based bottom nav (controllers/kit.py staff_nav). Put it inside
+       <div class="dn-bottom">, after the page's .dn-foot if it has one. -->
+  <template id="dn_nav" name="Kit: bottom nav">
+    <nav class="dn-nav" aria-label="Secciones" t-if="nav">
+      <t t-foreach="nav" t-as="it">
+        <a t-att-href="it['url']" t-att-data-dn="it['how']" t-att-class="'on' if it['on'] else None"
+           t-att-aria-current="'page' if it['on'] else None">
+          <span><svg class="dn-i" aria-hidden="true"><use t-att-href="'%s#%s' % (dn['icons'], it['icon'])"/></svg></span>
+          <span t-esc="it['label']"/>
+        </a>
+      </t>
+    </nav>
+  </template>
+
+  <!-- One icon of the sprite: t-call with i = the symbol id. -->
+  <template id="dn_icon" name="Kit: icon">
+    <svg class="dn-i" aria-hidden="true"><use t-att-href="'%s#%s' % (dn['icons'], i)"/></svg>
+  </template>
+</odoo>

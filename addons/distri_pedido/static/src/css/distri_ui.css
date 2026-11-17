@@ -1,7 +1,11 @@
 /* Shared look of the depot screens: the delivery driver's app (/reparto,
    static/src/reparto/app.css adds its own parts) and the packing screen
    (/armado). Colors and type from the mockups
-   (docs/distrineuquen-modulo/reparto/boceto). Change them here, once. */
+   (docs/distrineuquen-modulo/reparto/boceto). Change them here, once.
+   19.0.1.94.0: the new kit lives in ../kit/dn.css (it also carries these
+   class names, so a page can switch with no markup change). This file stays
+   for the pages not redesigned yet, with the kit's shared fixes: inputs at
+   16px (no iOS zoom) and touch targets of 44px or more. */
 
 /* Figtree, self-hosted by the theme module (distri_tema). Without it the
    system font takes over. */
@@ -33,8 +37,8 @@ a{color:var(--teal)}
 .head .kicker{font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mint);font-weight:700}
 .head h1{margin:0;font-size:24px;font-weight:800;line-height:1.15}
 .head .sub{font-size:14px;color:var(--head-sub)}
-.head .back{color:var(--mint);font-size:14px;font-weight:700;text-decoration:none;align-self:flex-start;
-            background:none;border:0;padding:0;cursor:pointer}
+.head .back{display:inline-flex;align-items:center;min-height:44px;color:var(--mint);font-size:15px;
+            font-weight:700;text-decoration:none;align-self:flex-start;background:none;border:0;padding:0;cursor:pointer}
 .head .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 
 /* banners */
@@ -68,11 +72,13 @@ a{color:var(--teal)}
 .btn.outline{background:#fff;color:var(--navy);border:2px solid var(--navy);padding:14px;font-size:17px}
 .btn:disabled{background:#c9d1d8;color:#fff;border-color:#c9d1d8;cursor:default}
 .btn.outline:disabled{background:#fff;color:#9aa6b1;border-color:#c9d1d8}
-.link{background:none;border:0;padding:0;color:var(--teal);font-size:15px;font-weight:700;cursor:pointer;text-align:left}
+.link{display:inline-flex;align-items:center;min-height:44px;background:none;border:0;padding:0;color:var(--teal);
+      font-size:15px;font-weight:700;cursor:pointer;text-align:left}
 .link.red{color:var(--red)}
 
 /* inputs */
-.inp{box-sizing:border-box;border:1px solid var(--input);border-radius:10px;padding:10px;background:#fff;font-size:15px;width:100%}
+.inp{box-sizing:border-box;border:1px solid var(--input);border-radius:10px;padding:10px;min-height:48px;background:#fff;
+     font-size:16px;width:100%}
 .inp:disabled{background:#eef1f3;color:#9aa6b1}
 .inp:focus,.btn:focus-visible,.link:focus-visible{outline:3px solid var(--mint);outline-offset:1px}
 

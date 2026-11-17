@@ -15,6 +15,7 @@ Never a price or an amount on a label. Direct TSPL printing is a documented
 future option, not built (docs: armado.md «Etiquetas de bultos»).
 """
 import base64
+import re
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -25,6 +26,22 @@ from .reparto_cliente import TOWN_PREFIXES, town_from_name
 LABEL_REPORT = "distri_pedido.report_etiquetas_bultos"
 TEST_REPORT = "distri_pedido.report_etiqueta_prueba"
 PREFIX_OF_TOWN = {town: prefix for prefix, town in TOWN_PREFIXES.items()}
+# 19.0.1.94.0: the company's public phone on every label (never in the code)
+PARAM_PHONE = "distri_pedido.telefono_empresa"
+
+
+def format_phone(raw):
+    """2995797248 -> «299 579-7248» (area code + local number); anything
+    that is not 10 digits is shown as it was loaded."""
+    digits = re.sub(r"\D", "", raw or "")
+    if len(digits) == 10:
+        return "%s %s-%s" % (digits[:3], digits[3:6], digits[6:])
+    return (raw or "").strip()
+
+
+def big_number_size(text):
+    """Font size (pt) of the «3/5» block, 32 mm wide: as big as fits."""
+    return {1: 34, 2: 34, 3: 34, 4: 30}.get(len(text), 25)
 
 
 class DistriPackage(models.Model):
@@ -75,8 +92,24 @@ class DistriPackage(models.Model):
             destination, detail = "Reparto", order.distri_zona_id.name or town
         when = stop.route_id.date if stop else (
             order.commitment_date.date() if order.commitment_date else False)
+        # 19.0.1.94.0: the store's address (the order's delivery address);
+        # a web order without a customer yet carries the address it typed
+        ship = order.partner_shipping_id or partner
+        if generic:
+            street, locality = order.distri_domicilio or "", town
+        else:
+            street = ", ".join(p.strip() for p in (ship.street, ship.street2) if p and p.strip())
+            locality = (ship.city or "").strip() or town
+        number_text = "%s/%s" % (self.number, total)
+        from ..controllers.main import FICHA
+        phone = format_phone(self.env["ir.config_parameter"].sudo().get_param(PARAM_PHONE))
         return {
             "name": name or "",
+            "street": street,
+            "locality": locality,
+            "company": " · ".join(x for x in (FICHA["nombre"], phone) if x),
+            "number_text": number_text,
+            "number_size": big_number_size(number_text),
             "town": town,
             "prefix": prefix,
             "order": order.name,

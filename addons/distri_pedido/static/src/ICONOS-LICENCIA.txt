@@ -15,3 +15,10 @@ Iconos usados (8):
 Para agregar otro, bajar el SVG de:
   https://use.fontawesome.com/releases/v5.13.0/svgs/<estilo>/<nombre>.svg
 y sumarlo como <symbol id="ic-<nombre>"> al sprite del template.
+
+Sprite del kit (static/src/kit/dn-icons.svg, 19.0.1.94.0)
+=========================================================
+
+Trazos simples de 24 px dibujados para este modulo, al estilo de Lucide
+(https://lucide.dev, licencia ISC). No copia archivos de terceros; si se
+suma un icono de Lucide tal cual, conservar el aviso de la licencia ISC.

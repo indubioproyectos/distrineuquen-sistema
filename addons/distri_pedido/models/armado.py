@@ -388,6 +388,8 @@ class SaleOrder(models.Model):
         con_faltante = self.order_line.filtered(
             lambda l: not l.display_type and l.distri_faltante > 0
         )
+        # 19.0.1.94.0: the «Listo» ticks go too, for the same reason
+        self.order_line.filtered("distri_listo").write({"distri_listo": False})
         for linea in con_faltante:
             # lo mismo que "No falta nada" en distri_marcar
             linea.with_context(distri_armado=True).write({
@@ -444,9 +446,30 @@ class SaleOrder(models.Model):
             cambios["distri_faltante"] = faltante
         if abs(linea.product_uom_qty - (pedida - faltante)) > 1e-6:
             cambios["product_uom_qty"] = pedida - faltante
+        # 19.0.1.94.0: «No falta nada» on a line that had a shortage means the
+        # packer checked it whole: it counts as «Listo»
+        if not faltante and linea.distri_faltante and not linea.distri_listo:
+            cambios["distri_listo"] = True
         # sin cambios no se escribe: tocar la cantidad recalcula la entrega
         if cambios:
             linea.with_context(distri_armado=True).write(cambios)
+        return linea
+
+    def distri_marcar_listo(self, linea, listo=True):
+        """«Listo, N» (19.0.1.94.0): the packer put the whole line in the box.
+
+        Only a tick for the screen (progress, next item): it changes no
+        quantity, and a line left without a tick is still delivered whole
+        (decision 2). Undo with listo=False. Returns the line.
+        """
+        self.ensure_one()
+        self._distri_bloquear()
+        self._distri_exigir_en_armado()
+        if linea.order_id != self or linea.display_type:
+            raise UserError("Ese renglón no es de este pedido.")
+        listo = bool(listo)
+        if linea.distri_listo != listo:
+            linea.with_context(distri_armado=True).distri_listo = listo
         return linea
 
     def distri_agregar(self, producto, cantidad, unidad, clave=""):
@@ -548,6 +571,8 @@ class SaleOrderLine(models.Model):
     distri_por_telefono = fields.Boolean(string="Agregado por teléfono", copy=False)
     # la clave del "Agregar" que creo el renglon: un reintento no lo duplica
     distri_clave = fields.Char(copy=False, readonly=True)
+    # 19.0.1.94.0: «Listo, N» in /armado (sale.order.distri_marcar_listo)
+    distri_listo = fields.Boolean(string="Revisado en el armado", copy=False, readonly=True)
 
     @api.depends("product_uom_qty", "distri_faltante")
     def _compute_distri_pedida(self):

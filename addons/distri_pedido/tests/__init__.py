@@ -45,3 +45,4 @@ from . import test_whatsapp_numeros
 from . import test_catalogo_agil
 from . import test_respaldo
 from . import test_cobro_efectivo
+from . import test_armado_app

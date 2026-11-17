@@ -9,6 +9,7 @@ from odoo.tests import tagged
 from odoo.tools.pdf import PdfReader
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
+from odoo.addons.distri_pedido.models.etiquetas import big_number_size, format_phone
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
 MM = 72 / 25.4  # PDF points per millimetre
@@ -70,8 +71,10 @@ class TestEtiquetas(RepartoMixin, AccountTestInvoicingCommon):
         self.assertIn("KIOSCO ETIQUETA PRUEBA".title(), text.title())
         self.assertIn("Plottier", text)
         self.assertIn(order.name, text)
-        self.assertIn("1 de 2", " ".join(text.split()))
-        self.assertIn("2 de 2", " ".join(text.split()))
+        # 19.0.1.94.0: the big «1/2» block, with the total spelled out
+        self.assertIn("1/2", text)
+        self.assertIn("2/2", text)
+        self.assertIn("de 2 bultos", " ".join(text.split()))
         self.assertIn("Entrega:", text)
         self.assertIn("data:image/png;base64,", html, "the Code128 barcode is embedded")
         self.assertIn("%s-01" % order.name, text)
@@ -117,3 +120,47 @@ class TestEtiquetas(RepartoMixin, AccountTestInvoicingCommon):
         box = reader.pages[0].mediabox
         self.assertAlmostEqual(float(box.width) / MM, 100, delta=1)
         self.assertAlmostEqual(float(box.height) / MM, 50, delta=1)
+
+    # ------------------------------------------------ 19.0.1.94.0 layout
+
+    def test_label_shows_store_address_company_and_phone(self):
+        self.env["ir.config_parameter"].sudo().set_param("distri_pedido.telefono_empresa", "2995797248")
+        self.customer.write({"street": "Av. San Martín 1234", "street2": "Local 2", "city": "Plottier"})
+        order = self._packed(2)
+        values = order._distri_packages()[0]._label_values()
+        self.assertEqual(values["street"], "Av. San Martín 1234, Local 2")
+        self.assertEqual(values["locality"], "Plottier")
+        self.assertEqual(values["company"], "Distri Neuquén · 299 579-7248")
+        self.assertEqual(values["number_text"], "1/2")
+        html = self._html(order._distri_packages())
+        self.assertIn("Av. San Martín 1234, Local 2", html)
+        self.assertIn("299 579-7248", html)
+
+    def test_label_without_street_or_phone(self):
+        self.env["ir.config_parameter"].sudo().set_param("distri_pedido.telefono_empresa", "")
+        order = self._packed(1)
+        values = order._distri_packages()._label_values()
+        self.assertEqual(values["street"], "")
+        self.assertEqual(values["locality"], "Plottier", "falls back to the town")
+        self.assertEqual(values["company"], "Distri Neuquén")
+        self.assertIn("Plottier", self._html(order._distri_packages()))
+
+    def test_long_values_stay_on_one_page_per_label(self):
+        """A long name, a long street and «12/12»: still one 100 x 50 page each."""
+        self.customer.write({
+            "name": "Y - SUPERMERCADO Y AUTOSERVICIO LOS HERMANOS GONZALEZ DE LA COSTA SRL",
+            "street": "Avenida Presidente Doctor Arturo Umberto Illia 12345 esquina Belgrano",
+            "city": "Plottier"})
+        order = self._packed(12)
+        values = order._distri_packages()[-1]._label_values()
+        self.assertEqual(values["number_text"], "12/12")
+        reader = self._pdf("distri_pedido.report_etiquetas_bultos", order._distri_packages().ids)
+        self.assertEqual(len(reader.pages), 12)
+
+    def test_phone_format_and_number_size(self):
+        self.assertEqual(format_phone("2995797248"), "299 579-7248")
+        self.assertEqual(format_phone("(299) 579-7248"), "299 579-7248")
+        self.assertEqual(format_phone("+54 9 299 579 7248"), "+54 9 299 579 7248")
+        self.assertEqual(format_phone(False), "")
+        self.assertGreaterEqual(big_number_size("3/5"), 30)
+        self.assertLess(big_number_size("12/12"), big_number_size("3/5"))
