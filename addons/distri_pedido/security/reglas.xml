@@ -20,6 +20,31 @@
       <field name="domain_force">[(1, '=', 1)]</field>
     </record>
 
+    <!-- Armador y reparto (19.0.1.96.0, audit F2): their screens (/armado,
+         /reparto, /despacho, labels, /cobro) read customers with sudo and
+         check the group themselves, so through the raw data API
+         (/web/dataset/call_kw, /json/2) they read no customer at all: only
+         their own contact and the companies' contacts. Not the colleagues'
+         either: group rules are OR'ed, so that would widen what a seller
+         who also drives reads (the seller rule shows him no colleague).
+         Many2one names in the web client are read with sudo by Odoo.
+         A driver who is also a seller keeps his
+         portfolio (regla_partner_vendedor), administración and gerencia
+         (which imply both groups) keep everything (regla_partner_todos). -->
+    <record id="regla_partner_armador" model="ir.rule">
+      <field name="name">Armador: sin clientes por la API (sus pantallas leen con sudo)</field>
+      <field name="model_id" ref="base.model_res_partner"/>
+      <field name="groups" eval="[(4, ref('grupo_armador'))]"/>
+      <field name="domain_force">['|', ('id', '=', user.partner_id.id), ('id', 'in', user.company_ids.partner_id.ids)]</field>
+    </record>
+
+    <record id="regla_partner_reparto" model="ir.rule">
+      <field name="name">Reparto: sin clientes por la API (sus pantallas leen con sudo)</field>
+      <field name="model_id" ref="base.model_res_partner"/>
+      <field name="groups" eval="[(4, ref('grupo_reparto'))]"/>
+      <field name="domain_force">['|', ('id', '=', user.partner_id.id), ('id', 'in', user.company_ids.partner_id.ids)]</field>
+    </record>
+
     <!-- «Comprobantes pendientes» (19.0.1.25.0): the seller sees the ones of
          his portfolio, administración and gerencia all of them -->
     <record id="regla_comprobante_pendiente_vendedor" model="ir.rule">
@@ -152,17 +177,20 @@
          distribuidoras (lista oculta o cliente con la marca). Escribir o crear
          un pedido así lo frena models/lista_oculta.py con un mensaje claro;
          por eso esas reglas no aplican a escribir ni crear. Lo que corre con
-         sudo (/pedido, cron, asistentes) no cambia. -->
+         sudo (/pedido, cron, asistentes) no cambia.
+         19.0.1.96.0 (audit F2): the same two rules on lists and prices now
+         filter armador and reparto too (they read them through the API);
+         their screens price nothing as the user. -->
     <record id="regla_vendedor_sin_listas_ocultas" model="ir.rule">
-      <field name="name">Vendedor: sin listas de precios ocultas</field>
+      <field name="name">Vendedor, armador y reparto: sin listas de precios ocultas</field>
       <field name="model_id" ref="product.model_product_pricelist"/>
-      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', '|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')]</field>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not (user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_armador') or user.has_group('distri_pedido.grupo_reparto')) or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', '|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')]</field>
     </record>
 
     <record id="regla_vendedor_sin_precios_ocultos" model="ir.rule">
-      <field name="name">Vendedor: sin precios de las listas ocultas</field>
+      <field name="name">Vendedor, armador y reparto: sin precios de las listas ocultas</field>
       <field name="model_id" ref="product.model_product_pricelist_item"/>
-      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')])]</field>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not (user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_armador') or user.has_group('distri_pedido.grupo_reparto')) or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')])]</field>
     </record>
 
     <!-- Clientes y visitantes (portal y público, 19.0.1.24.2): website_sale

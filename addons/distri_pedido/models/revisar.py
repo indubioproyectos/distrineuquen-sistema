@@ -22,6 +22,14 @@ A held order (`distri_retenido`):
 - cannot be confirmed (approved) until released.
 Cancelling works as usual. «Liberar» restores the flow and, when the order
 was packed meanwhile, the automatic invoice comes out then.
+
+19.0.1.96.0 (audit F1): an order sent from /pedido by an anonymous visitor
+(no session, so no known customer) is held on arrival with
+`distri_retenido_sin_cliente`: it never reaches /armado until
+administración assigns the customer and releases it. «Liberar» refuses while
+it is still on the generic «Pedidos web» contact; «Asignar y aprobar»
+releases it in the same step. Staff orders and logged-in customers' orders
+are not held (unchanged).
 """
 from datetime import timedelta
 
@@ -42,6 +50,9 @@ PARAM_ALERTA_ROJOS = "distri_pedido.revisar_alerta_rojos"
 RESUMEN_ALERTA = "Pedido para revisar (rojo)"
 
 MOTIVO_MAX = 250
+
+# the reason of the automatic hold of an anonymous /pedido order (F1)
+MOTIVO_SIN_CLIENTE_WEB = "Pedido de la página sin cliente: asignale el cliente y liberalo"
 
 ORIGENES_REVISAR = [
     ("web", "Página"),
@@ -79,6 +90,10 @@ class SaleOrderRevisar(models.Model):
     distri_retenido_por_id = fields.Many2one("res.users", string="Retenido por", copy=False,
                                              readonly=True)
     distri_retenido_el = fields.Datetime(string="Retenido el", copy=False, readonly=True)
+    # 19.0.1.96.0 (audit F1): held on arrival because nobody knows the
+    # customer; released only once the customer is assigned
+    distri_retenido_sin_cliente = fields.Boolean(
+        string="Retenido hasta asignar el cliente", copy=False, readonly=True)
     distri_retenido_rutas = fields.Char(
         string="Sigue en la ruta", compute="_compute_distri_retenido_rutas",
         help="Rutas que ya salieron (o ya se controlaron) donde el pedido retenido sigue "
@@ -311,6 +326,26 @@ class SaleOrderRevisar(models.Model):
             order._distri_sacar_de_rutas(motivo)
         return True
 
+    def _distri_retener_sin_cliente(self):
+        """Automatic hold of an anonymous /pedido order (audit F1). Called by
+        the controller right after creating it: no user to check, nothing to
+        take off a route yet. A held order is never packed nor confirmed
+        until released (_distri_armable, action_confirm)."""
+        for order in self.sudo().filtered(
+                lambda o: not o.distri_retenido and o.state != "cancel"
+                and o._distri_sin_cliente()):
+            order.write({
+                "distri_retenido": True,
+                "distri_retenido_sin_cliente": True,
+                "distri_retenido_motivo": MOTIVO_SIN_CLIENTE_WEB,
+                "distri_retenido_por_id": False,
+                "distri_retenido_el": fields.Datetime.now(),
+            })
+            order.message_post(body=(
+                "Pedido de la página sin cliente identificado: queda retenido y no pasa al "
+                "armado. Asignale el cliente y liberalo (o «Asignar y aprobar»)."))
+        return True
+
     def _distri_sacar_de_rutas(self, motivo):
         """Off the routes still at the depot, as «Queda en el depósito»
         (models/despacho.py). A route that already left keeps the stop: the
@@ -341,7 +376,11 @@ class SaleOrderRevisar(models.Model):
             order._distri_bloquear()
             if not order.distri_retenido:
                 raise UserError("El pedido %s no está retenido." % order.name)
-            order.sudo().write({"distri_retenido": False})
+            if order.distri_retenido_sin_cliente and order._distri_sin_cliente():
+                raise UserError(
+                    "El pedido %s llegó de la página sin cliente: asignale el cliente antes de "
+                    "liberarlo." % order.name)
+            order.sudo().write({"distri_retenido": False, "distri_retenido_sin_cliente": False})
             nota = "%s liberó el pedido: sigue el circuito normal." % usuario.name
             afuera = self.env["distri.route.left.order"].sudo().search([
                 ("order_id", "=", order.id), ("route_id.state", "=", "draft")])

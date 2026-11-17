@@ -319,6 +319,11 @@ class DistriAsignarCliente(models.TransientModel):
         cliente = self._cliente()
         pedido.with_context(distri_asignar_cliente=True).write({"partner_id": cliente.id})
         pedido.message_post(body="Cliente asignado: %s." % cliente.display_name)
+        if aprobar and pedido.distri_retenido_sin_cliente and (
+                self.env.su or self.env.user.has_group("distri_pedido.grupo_administracion")):
+            # 19.0.1.96.0 (audit F1): approving is the release of the hold
+            # that waited only for the customer
+            pedido.action_distri_liberar()
         if aprobar and pedido.state in ("draft", "sent"):
             # interactive: the customer's WhatsApp is asked when missing
             resultado = pedido.with_context(distri_wa_ask=True).action_confirm()

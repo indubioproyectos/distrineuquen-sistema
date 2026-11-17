@@ -223,6 +223,9 @@ class SaleOrder(models.Model):
         administrador todavia no aprobo (decision 7): un administrador que
         llega tarde no demora el armado. La factura espera a que tengan
         cliente. Una cotizacion cargada a mano en el backend no entra.
+        19.0.1.96.0 (audit F1): the anonymous ones arrive held
+        (models/revisar.py, distri_retenido_sin_cliente) and enter only
+        once the customer is assigned and the order released.
         """
         self.ensure_one()
         if self.state == "sale":

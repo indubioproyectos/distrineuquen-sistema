@@ -72,6 +72,15 @@ MAX_RENGLONES = 300
 MAX_CANTIDAD = 10000
 MAX_RENGLONES_TEXTO = 100000
 MAX_CUERPO = 256 * 1024
+# 19.0.1.96.0 (audit F1): tighter caps for the public page (visitors and
+# logged-in customers; staff keep MAX_CANTIDAD and no total cap). Real data
+# (distri_lab, 2026-11): the biggest invoiced line is 200 units and the
+# biggest invoice $ 24.4 M (median $ 176,000). "0" in a parameter turns
+# that cap off.
+PARAM_MAX_UNIDADES = "distri_pedido.pedido_max_unidades"
+MAX_UNIDADES_PUBLICO = 1000
+PARAM_MAX_TOTAL = "distri_pedido.pedido_max_total"
+MAX_TOTAL_PUBLICO = 30000000.0
 # the values of sale.order distri_entrega the form may send
 ENTREGAS = ("domicilio", "retira")
 
@@ -1375,12 +1384,12 @@ class TomaDePedidos(http.Controller):
             ("X-Content-Type-Options", "nosniff"),
         ])
 
-    def _renglones_validos(self, crudo):
+    def _renglones_validos(self, crudo, maximo=MAX_CANTIDAD):
         """The order lines posted by /pedido, checked (19.0.1.29.0): a JSON
         list of at most MAX_RENGLONES objects with a numeric product id and a
-        quantity between 0 and MAX_CANTIDAD. Quantities are whole units
-        (19.0.1.91.0): rounded, and a line that ends at 0 is dropped.
-        Returns (lines, error)."""
+        whole quantity from 1 to `maximo`. 19.0.1.96.0 (audit F1): a
+        fraction, zero or a negative is refused instead of rounded (the page
+        only sends whole units above zero). Returns (lines, error)."""
         if len(crudo or "") > MAX_RENGLONES_TEXTO:
             return None, "El pedido es demasiado grande."
         try:
@@ -1402,13 +1411,62 @@ class TomaDePedidos(http.Controller):
                 return None, "El pedido llegó incompleto."
             if not math.isfinite(cantidad) or cantidad < 0 or producto <= 0:
                 return None, "El pedido llegó incompleto."
-            if cantidad > MAX_CANTIDAD:
-                return None, "La cantidad de un producto es demasiado grande (máximo %s)." % (
-                    MAX_CANTIDAD)
-            unidades = unidades_enteras(cantidad)
-            if unidades > 0:
-                limpios.append(dict(renglon, id=producto, cantidad=unidades))
+            if cantidad > maximo:
+                return None, ("La cantidad de un producto es demasiado grande (máximo %s). Para "
+                              "más, escribinos por WhatsApp." % maximo)
+            if cantidad <= 0 or not cantidad.is_integer():
+                return None, ("La cantidad de cada producto tiene que ser un número entero, "
+                              "1 o más.")
+            limpios.append(dict(renglon, id=producto, cantidad=unidades_enteras(cantidad)))
         return limpios, None
+
+    def _tope(self, clave, defecto):
+        """A cap of the public page from ir.config_parameter: the default
+        when unset or unreadable, 0 (or less) = no cap."""
+        valor = request.env["ir.config_parameter"].sudo().get_param(clave)
+        try:
+            return float(valor) if valor not in (None, False, "") else defecto
+        except (TypeError, ValueError):
+            return defecto
+
+    def _maximo_unidades(self):
+        """Units per line: MAX_CANTIDAD for staff, the tighter public cap
+        for everyone else (never above MAX_CANTIDAD)."""
+        if self._personal():
+            return MAX_CANTIDAD
+        tope = self._tope(PARAM_MAX_UNIDADES, MAX_UNIDADES_PUBLICO)
+        return int(min(tope, MAX_CANTIDAD)) if tope > 0 else MAX_CANTIDAD
+
+    def _error_total_maximo(self, total):
+        """Above the public total cap (staff never): not created nor changed."""
+        if self._personal():
+            return None
+        tope = self._tope(PARAM_MAX_TOTAL, MAX_TOTAL_PUBLICO)
+        if tope <= 0 or total <= tope:
+            return None
+        return self._error_volver(
+            "El pedido suma $ %s y por la página se pueden enviar hasta $ %s. Escribinos por "
+            "WhatsApp y lo cargamos nosotros." % (self._plata(total), self._plata(tope)))
+
+    @staticmethod
+    def _datos_faltantes(nombre, telefono, domicilio, entrega, encomienda):
+        """The page's own required fields (templates.xml, submit of #frm),
+        now also checked on the server (19.0.1.96.0, audit F1): name and
+        phone always; the address for a home delivery that is not a parcel
+        (a parcel has its own fields, _datos_encomienda). Returns the
+        message, or "" when nothing is missing."""
+        faltan = []
+        if not nombre:
+            faltan.append("el nombre del comercio")
+        if not telefono:
+            faltan.append("un teléfono de contacto")
+        if (entrega == "domicilio" and not encomienda.get("distri_encomienda_pedida")
+                and not domicilio):
+            faltan.append("el domicilio de entrega")
+        if not faltan:
+            return ""
+        lista = faltan[0] if len(faltan) == 1 else "%s y %s" % (", ".join(faltan[:-1]), faltan[-1])
+        return "Faltan tus datos: poné %s." % lista
 
     def _plantillas_del_catalogo(self, ids):
         """The products /pedido/enviar accepts (19.0.1.91.0): only what the
@@ -1472,7 +1530,8 @@ class TomaDePedidos(http.Controller):
             return self._pantalla_pausada()
         if (request.httprequest.content_length or 0) > MAX_CUERPO:
             return self._error_simple("El pedido es demasiado grande.", status=413)
-        renglones, error = self._renglones_validos(post.get("renglones"))
+        renglones, error = self._renglones_validos(post.get("renglones"),
+                                                   self._maximo_unidades())
         if error:
             return self._error_simple(error, status=400)
         if not renglones:
@@ -1631,6 +1690,15 @@ class TomaDePedidos(http.Controller):
         total = sum(v["product_uom_qty"] * v["price_unit"] for _, _, v in lineas)
         if total < COMPRA_MINIMA:
             return self._error_compra_minima(total)
+        # 19.0.1.96.0 (audit F1): the page's own required fields, checked
+        # here too (a form posted outside the page skipped them), and a cap
+        # on the total of the public page
+        faltan = self._datos_faltantes(nombre, telefono, domicilio, entrega, encomienda)
+        if faltan:
+            return self._error_volver(faltan)
+        demasiado = self._error_total_maximo(total)
+        if demasiado:
+            return demasiado
 
         hay_mayorista = hay_distribuidoras
         original = json.dumps([
@@ -1710,6 +1778,11 @@ class TomaDePedidos(http.Controller):
                 # which then finds that order above
                 raise ConcurrencyError("/pedido/enviar: the same form is being saved")
             pedido._portal_ensure_token()
+            if not personal and request.env.user._is_public():
+                # 19.0.1.96.0 (audit F1): an anonymous order waits out of the
+                # packing until administración assigns the customer and
+                # releases it («Pedidos para revisar», models/revisar.py)
+                pedido._distri_retener_sin_cliente()
             if cliente:
                 # same repricing as when the administrator assigns the customer
                 pedido.with_context(distri_armado=True)._recompute_prices()

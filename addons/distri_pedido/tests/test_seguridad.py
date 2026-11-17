@@ -286,17 +286,20 @@ class TestPedidoEnviar(PedidoAbiertoMixin, HttpCase):
         self.assertEqual(self._orders(), 1)
 
     def test_quantities_are_whole_units(self):
-        """19.0.1.91.0 (E2E-A A3): a fraction is rounded to whole units and a
-        line that ends at 0 is dropped: an order of $0 is impossible."""
-        res = self._post(self._data([{"id": self.plantilla.id, "cantidad": 0.001}]))
-        self.assertTrue(res.url.endswith("/pedido"), res.url)
+        """19.0.1.91.0 (E2E-A A3): an order of $0 is impossible. 19.0.1.96.0
+        (audit F1): a fraction or zero is refused, no longer rounded; the
+        page only sends whole units above zero."""
+        for cantidad in (0.001, 1.6, 0):
+            res = self._post(self._data([{"id": self.plantilla.id, "cantidad": cantidad}]))
+            self.assertEqual(res.status_code, 400, cantidad)
+            self.assertIn("número entero", res.text)
         self.assertEqual(self._orders(), 0)
-        res = self._post(self._data([{"id": self.plantilla.id, "cantidad": 1.6},
-                                     {"id": self.barata.id, "cantidad": 0.4}]))
+        res = self._post(self._data([{"id": self.plantilla.id, "cantidad": 2},
+                                     {"id": self.barata.id, "cantidad": 1.0}]))
         self.assertEqual(res.status_code, 200)
         order = self._last_order()
-        self.assertEqual(order.order_line.mapped("product_uom_qty"), [2.0])
-        self.assertEqual(order.amount_untaxed, 140000.0)
+        self.assertEqual(sorted(order.order_line.mapped("product_uom_qty")), [1.0, 2.0])
+        self.assertEqual(order.amount_untaxed, 141000.0)
 
     def test_same_form_posted_twice_gives_one_order(self):
         """19.0.1.93.0 (E2E-C C8): a double tap or a browser retry of the same

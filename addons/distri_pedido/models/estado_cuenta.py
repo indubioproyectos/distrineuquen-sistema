@@ -27,7 +27,7 @@ an invoice number.
 from datetime import date, datetime, timezone
 
 from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 from odoo.tools import html_escape
 
 from .ajuste_cuenta import AJC_JOURNAL_CODE
@@ -447,10 +447,29 @@ class DistriEstadoCuenta(models.TransientModel):
         if not (self.env.su or any(user.has_group(g) for g in VE_SALDOS.split(","))):
             raise UserError("Solo vendedores, administración y gerencia ven el estado de cuenta.")
 
+    def _check_partner_visible(self):
+        """19.0.1.96.0 (audit F9): the statement is computed with sudo, so
+        the wizard itself checks that the user may see the customer: the
+        same record rules as the contacts (a seller, his portfolio). The
+        customer is the commercial partner; seeing one of its contacts is
+        enough (the tag may sit on the contact)."""
+        if self.env.su:
+            return
+        Partner = self.env["res.partner"]
+        for wizard in self:
+            partner = wizard.partner_id
+            if partner and not Partner.search_count([
+                    "|", ("id", "=", partner.id),
+                    ("commercial_partner_id", "=", partner.id)], limit=1):
+                raise AccessError("Ese cliente no está en tu cartera: no podés ver su estado "
+                                  "de cuenta.")
+
     @api.model_create_multi
     def create(self, vals_list):
         self._check_access_saldos()
-        return super().create(vals_list)
+        wizards = super().create(vals_list)
+        wizards._check_partner_visible()
+        return wizards
 
     @api.depends("partner_id", "date_from", "date_to")
     def _compute_statement(self):
@@ -479,6 +498,7 @@ class DistriEstadoCuenta(models.TransientModel):
     def _statement(self):
         self.ensure_one()
         self._check_access_saldos()
+        self._check_partner_visible()
         if self.date_from and self.date_to and self.date_from > self.date_to:
             raise UserError("La fecha «Desde» es posterior a «Hasta».")
         return self.partner_id.sudo()._distri_statement(self.date_from, self.date_to)

@@ -47,3 +47,4 @@ from . import test_respaldo
 from . import test_cobro_efectivo
 from . import test_armado_app
 from . import test_sin_historial
+from . import test_auditoria_f1_f2

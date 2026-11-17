@@ -81,4 +81,17 @@
     <field name="value">0</field>
   </record>
 
+  <!-- 19.0.1.96.0 (audit F1): caps of /pedido for visitors and logged-in
+       customers (staff are not capped). Units per product line and total
+       of the order in pesos; "0" turns the cap off. Real data in 2026-11:
+       biggest line 200 units, biggest invoice $ 24.4 M. -->
+  <record id="param_pedido_max_unidades" model="ir.config_parameter">
+    <field name="key">distri_pedido.pedido_max_unidades</field>
+    <field name="value">1000</field>
+  </record>
+  <record id="param_pedido_max_total" model="ir.config_parameter">
+    <field name="key">distri_pedido.pedido_max_total</field>
+    <field name="value">30000000</field>
+  </record>
+
 </odoo>
