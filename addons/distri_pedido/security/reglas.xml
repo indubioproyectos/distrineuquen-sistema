@@ -272,5 +272,45 @@
       <field name="domain_force">[(1, '=', 1)]</field>
     </record>
 
+    <!-- 19.0.1.97.0: a cashier sees only his own daily cash in the backend;
+         administración, gerencia and the system administrator see every
+         cashier's. The /caja screens work with sudo after their own checks. -->
+    <record id="regla_caja_cajero" model="ir.rule">
+      <field name="name">Caja del día: el cajero ve la suya</field>
+      <field name="model_id" ref="model_distri_caja"/>
+      <field name="groups" eval="[(4, ref('grupo_cajero'))]"/>
+      <field name="domain_force">[('user_id', '=', user.id)]</field>
+    </record>
+    <record id="regla_caja_todos" model="ir.rule">
+      <field name="name">Caja del día: administración ve todas</field>
+      <field name="model_id" ref="model_distri_caja"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion')), (4, ref('base.group_system'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+    <record id="regla_caja_mov_cajero" model="ir.rule">
+      <field name="name">Movimientos de caja: el cajero ve los suyos</field>
+      <field name="model_id" ref="model_distri_caja_movimiento"/>
+      <field name="groups" eval="[(4, ref('grupo_cajero'))]"/>
+      <field name="domain_force">[('caja_id.user_id', '=', user.id)]</field>
+    </record>
+    <record id="regla_caja_mov_todos" model="ir.rule">
+      <field name="name">Movimientos de caja: administración ve todos</field>
+      <field name="model_id" ref="model_distri_caja_movimiento"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion')), (4, ref('base.group_system'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+    <record id="regla_caja_conteo_cajero" model="ir.rule">
+      <field name="name">Conteo de caja: el cajero ve el suyo</field>
+      <field name="model_id" ref="model_distri_caja_conteo"/>
+      <field name="groups" eval="[(4, ref('grupo_cajero'))]"/>
+      <field name="domain_force">[('caja_id.user_id', '=', user.id)]</field>
+    </record>
+    <record id="regla_caja_conteo_todos" model="ir.rule">
+      <field name="name">Conteo de caja: administración ve todos</field>
+      <field name="model_id" ref="model_distri_caja_conteo"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion')), (4, ref('base.group_system'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
   </data>
 </odoo>

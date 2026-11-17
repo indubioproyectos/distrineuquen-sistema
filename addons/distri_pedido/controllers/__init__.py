@@ -13,3 +13,4 @@ from . import pedido_link
 from . import cobro
 from . import alta_revendedor
 from . import kit
+from . import caja

@@ -61,3 +61,5 @@ from . import cuenta_visible
 from . import cobro_efectivo
 from . import alta_revendedor
 from . import ir_http
+from . import caja
+from . import caja_contabilidad

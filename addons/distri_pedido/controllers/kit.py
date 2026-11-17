@@ -27,6 +27,9 @@ FILES = {
     "dn-icons.svg": ("kit/dn-icons.svg", "image/svg+xml; charset=utf-8"),
     "armado.css": ("armado/armado.css", "text/css; charset=utf-8"),
     "armado.js": ("armado/armado.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.97.0: «Caja del día» (controllers/caja.py)
+    "caja.css": ("caja/caja.css", "text/css; charset=utf-8"),
+    "caja.js": ("caja/caja.js", "text/javascript; charset=utf-8"),
     # 19.0.1.95.0: the legacy pages' history fix (models/ir_http.py)
     "sin_historial.js": ("js/sin_historial.js", "text/javascript; charset=utf-8"),
 }

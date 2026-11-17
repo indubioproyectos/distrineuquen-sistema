@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.97.0: the daily cash in the backend (models/caja.py): the
+       sessions to look up (read only; they are kept from /caja), the bills,
+       «Reabrir» for gerencia, the closing label and the one-off
+       «Conciliación inicial de efectivo» (models/caja_contabilidad.py). -->
+
+  <!-- ============================================================ sessions -->
+
+  <record id="view_caja_list" model="ir.ui.view">
+    <field name="name">distri.caja.list</field>
+    <field name="model">distri.caja</field>
+    <field name="arch" type="xml">
+      <list string="Cajas" create="0" delete="0" decoration-info="state == 'open'"
+            decoration-danger="difference &lt; 0">
+        <field name="date"/>
+        <field name="user_id"/>
+        <field name="opening_float" optional="hide"/>
+        <field name="expected" sum="Total"/>
+        <field name="counted" sum="Total"/>
+        <field name="difference" sum="Total"/>
+        <field name="withdrawn" optional="show"/>
+        <field name="left_for_tomorrow" optional="show"/>
+        <field name="state" widget="badge" decoration-info="state == 'open'"
+               decoration-success="state == 'closed'"/>
+        <field name="currency_id" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_caja_form" model="ir.ui.view">
+    <field name="name">distri.caja.form</field>
+    <field name="model">distri.caja</field>
+    <field name="arch" type="xml">
+      <form string="Caja" create="0" delete="0" edit="0">
+        <header>
+          <button name="action_print_label" type="object" string="Imprimir etiqueta"
+                  invisible="state != 'closed'"/>
+          <button name="action_open_reopen" type="object" string="Reabrir"
+                  invisible="state != 'closed'"
+                  groups="distri_pedido.grupo_gerencia,base.group_system"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="oe_title"><h1><field name="name"/></h1></div>
+          <group>
+            <group string="Apertura">
+              <field name="user_id"/>
+              <field name="date"/>
+              <field name="opened_at"/>
+              <field name="proposed_float"/>
+              <field name="opening_float"/>
+              <field name="opening_note" invisible="not opening_note"/>
+              <field name="journal_id"/>
+            </group>
+            <group string="Cierre">
+              <field name="expected"/>
+              <field name="counted"/>
+              <field name="difference"/>
+              <field name="reason" invisible="not reason"/>
+              <field name="left_for_tomorrow"/>
+              <field name="withdrawn"/>
+              <field name="closed_at"/>
+              <field name="closed_by_id"/>
+              <field name="statement_id"/>
+              <field name="case_id"/>
+              <field name="reopen_count" invisible="not reopen_count"/>
+              <field name="currency_id" invisible="1"/>
+            </group>
+          </group>
+          <group string="Resumen">
+            <group>
+              <field name="total_cobros"/>
+              <field name="total_rendiciones"/>
+              <field name="total_ajustes"/>
+            </group>
+            <group>
+              <field name="total_salidas"/>
+              <field name="total_retiros"/>
+            </group>
+          </group>
+          <notebook>
+            <page string="Movimientos">
+              <field name="movement_ids">
+                <list>
+                  <field name="moment"/>
+                  <field name="kind"/>
+                  <field name="label"/>
+                  <field name="amount" sum="Total"/>
+                  <field name="route_difference" optional="show"/>
+                  <field name="difference_mode" optional="show"/>
+                  <field name="payment_id" optional="hide"/>
+                  <field name="route_id" optional="hide"/>
+                  <field name="user_id" optional="hide"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+                <form>
+                  <group>
+                    <group>
+                      <field name="moment"/>
+                      <field name="kind"/>
+                      <field name="concept" invisible="kind != 'gasto'"/>
+                      <field name="amount"/>
+                      <field name="partner_id"/>
+                      <field name="who"/>
+                      <field name="note"/>
+                    </group>
+                    <group>
+                      <field name="payment_id"/>
+                      <field name="route_id"/>
+                      <field name="route_difference"/>
+                      <field name="difference_mode"/>
+                      <field name="case_id"/>
+                      <field name="statement_line_ids" widget="many2many_tags"/>
+                      <field name="currency_id" invisible="1"/>
+                    </group>
+                  </group>
+                  <field name="photo" widget="image" invisible="not photo"/>
+                </form>
+              </field>
+            </page>
+            <page string="Conteo de billetes">
+              <field name="count_ids">
+                <list>
+                  <field name="value"/>
+                  <field name="quantity"/>
+                  <field name="subtotal" sum="Total"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+              <group><field name="other_amount"/></group>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_caja_search" model="ir.ui.view">
+    <field name="name">distri.caja.search</field>
+    <field name="model">distri.caja</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="user_id"/>
+        <filter name="open" string="Abiertas" domain="[('state', '=', 'open')]"/>
+        <filter name="with_difference" string="Con diferencia" domain="[('difference', '!=', 0)]"/>
+        <group>
+          <filter name="by_user" string="Cajero" context="{'group_by': 'user_id'}"/>
+          <filter name="by_month" string="Mes" context="{'group_by': 'date:month'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_caja" model="ir.actions.act_window">
+    <field name="name">Cajas del día</field>
+    <field name="res_model">distri.caja</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p>Las cajas se abren y se cierran desde la pantalla «Caja del día» (/caja).</p>
+    </field>
+  </record>
+
+  <record id="view_caja_reabrir_form" model="ir.ui.view">
+    <field name="name">distri.caja.reabrir.form</field>
+    <field name="model">distri.caja.reabrir</field>
+    <field name="arch" type="xml">
+      <form string="Reabrir la caja">
+        <p>Se deshace el asiento del cierre (el extracto de caja) y el caso de la diferencia
+           queda cerrado. El cajero vuelve a contar y cierra de nuevo.</p>
+        <group>
+          <field name="caja_id" readonly="1"/>
+          <field name="reason" placeholder="Por qué se reabre"/>
+        </group>
+        <footer>
+          <button name="action_confirm" type="object" string="Reabrir" class="btn-primary"/>
+          <button special="cancel" string="Cancelar"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- ============================================================ bills -->
+
+  <record id="view_caja_denominacion_list" model="ir.ui.view">
+    <field name="name">distri.caja.denominacion.list</field>
+    <field name="model">distri.caja.denominacion</field>
+    <field name="arch" type="xml">
+      <list string="Billetes" editable="bottom">
+        <field name="value"/>
+        <field name="active" widget="boolean_toggle"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_caja_denominacion" model="ir.actions.act_window">
+    <field name="name">Billetes para contar</field>
+    <field name="res_model">distri.caja.denominacion</field>
+    <field name="view_mode">list</field>
+    <field name="context">{'active_test': False}</field>
+    <field name="help" type="html">
+      <p>Los billetes que aparecen al contar la caja. Uno que ya no circula se apaga: los
+         conteos viejos lo conservan.</p>
+    </field>
+  </record>
+
+  <!-- ============================================================ catch-up -->
+
+  <record id="view_caja_conciliacion_form" model="ir.ui.view">
+    <field name="name">distri.caja.conciliacion.inicial.form</field>
+    <field name="model">distri.caja.conciliacion.inicial</field>
+    <field name="arch" type="xml">
+      <form string="Conciliación inicial de efectivo">
+        <div invisible="done">
+          <p>Los cobros en efectivo de «Efectivo» (CSH1) y «Caja depósito» (CDEP) quedaron en
+             «Recibos pendientes» y nunca llegaron a la cuenta de caja. Esto los pasa de una sola
+             vez, con <b>un asiento por diario</b>. Se hace una sola vez, después de revisarlo con
+             el contador; si se vuelve a abrir, no queda nada para conciliar.</p>
+          <field name="summary" nolabel="1"/>
+          <group>
+            <field name="payment_count"/>
+            <field name="total"/>
+            <field name="currency_id" invisible="1"/>
+          </group>
+        </div>
+        <div invisible="not done">
+          <p><b>Listo.</b></p>
+          <field name="result" nolabel="1"/>
+        </div>
+        <footer>
+          <button name="action_apply" type="object" string="Conciliar" class="btn-primary"
+                  invisible="done or not payment_count"
+                  confirm="Se va a conciliar todo el efectivo pendiente con un asiento por diario. ¿Seguir?"/>
+          <button special="cancel" string="Cerrar"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_caja_conciliacion" model="ir.actions.act_window">
+    <field name="name">Conciliación inicial de efectivo</field>
+    <field name="res_model">distri.caja.conciliacion.inicial</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <!-- ============================================================ label -->
+
+  <!-- ONE Nexuspos 100 x 50 mm label (paperformat of views/etiquetas.xml):
+       only the date, the cashier and the bill count with the counted total.
+       Up to six rows in one column; seven to eleven (ten bills plus «monedas
+       / otros») in two columns of six, so it never overflows. Old QtWebKit
+       (wkhtmltopdf): absolute positions and tables, no flex. -->
+  <record id="report_caja_cierre" model="ir.actions.report">
+    <field name="name">Etiqueta del cierre de caja</field>
+    <field name="model">distri.caja</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.caja_cierre_documento</field>
+    <field name="report_file">distri_pedido.caja_cierre_documento</field>
+    <field name="paperformat_id" ref="paperformat_etiqueta_100x50"/>
+    <field name="print_report_name">'Cierre de caja %s' % object.date.strftime('%d-%m-%Y')</field>
+  </record>
+
+  <template id="caja_cierre_documento">
+    <t t-call="web.html_container">
+      <meta charset="utf-8"/>
+      <style>
+        html, body { margin: 0; padding: 0; }
+        /* same fix as the package labels: Bootstrap's body.container padding */
+        body.container { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100mm; }
+        .cc { width: 100mm; height: 50mm; box-sizing: border-box; overflow: hidden; position: relative;
+              font-family: "DejaVu Sans", Arial, sans-serif; color: #000; page-break-after: always; }
+        .cc:last-child { page-break-after: auto; }
+        .cc .cab { position: absolute; left: 3mm; right: 3mm; top: 2.5mm; height: 5mm; font-size: 9pt;
+                   font-weight: bold; white-space: nowrap; overflow: hidden; border-bottom: .3mm solid #000; }
+        .cc .cab .f { position: absolute; left: 0; top: 0; }
+        /* a long name is cut, never wrapped out of the label */
+        .cc .cab .c { position: absolute; right: 0; top: 0; max-width: 70mm; overflow: hidden;
+                      text-overflow: ellipsis; white-space: nowrap; }
+        .cc .col { position: absolute; top: 9mm; height: 30mm; overflow: hidden; }
+        .cc .col1 { left: 3mm; width: 94mm; }
+        .cc .col2a { left: 3mm; width: 45.5mm; }
+        .cc .col2b { left: 51.5mm; width: 45.5mm; }
+        .cc table { border-collapse: collapse; width: 100%; }
+        .cc td { padding: 0; height: 4.9mm; line-height: 4.9mm; white-space: nowrap; overflow: hidden;
+                 font-variant-numeric: tabular-nums; }
+        .cc .v { text-align: right; font-weight: bold; }
+        .cc .x { text-align: center; width: 5mm; }
+        .cc .q { text-align: left; }
+        .cc .s { text-align: right; }
+        .cc .uno td { font-size: 10pt; }
+        .cc .dos td { font-size: 8.5pt; }
+        .cc .tot { position: absolute; left: 3mm; right: 3mm; bottom: 2mm; height: 7mm;
+                   border-top: .4mm solid #000; font-weight: bold; white-space: nowrap; overflow: hidden; }
+        .cc .tot .l { position: absolute; left: 0; bottom: 0; font-size: 10pt; }
+        .cc .tot .n { position: absolute; right: 0; bottom: 0; font-size: 15pt; }
+      </style>
+      <t t-foreach="labels" t-as="e">
+        <t t-set="rows" t-value="e['rows'] + ([{'value': 'Monedas / otros', 'quantity': '', 'subtotal': e['other']}] if e['other'] else [])"/>
+        <div class="cc">
+          <div class="cab"><span class="f" t-esc="e['date']"/><span class="c">Cajero: <t t-esc="e['cashier']"/></span></div>
+          <t t-if="len(rows) &lt;= 6">
+            <div class="col col1 uno"><table>
+              <tr t-foreach="rows" t-as="r">
+                <td class="v" style="width:30mm" t-esc="r['value']"/>
+                <td class="x"><t t-if="r['quantity'] != ''">×</t></td>
+                <td class="q" style="width:18mm" t-esc="r['quantity']"/>
+                <td class="s" t-esc="r['subtotal']"/>
+              </tr>
+            </table></div>
+          </t>
+          <t t-else="">
+            <t t-foreach="(rows[:6], rows[6:])" t-as="part">
+              <div t-att-class="'col dos ' + ('col2a' if part_index == 0 else 'col2b')"><table>
+                <tr t-foreach="part" t-as="r">
+                  <t t-if="r['quantity'] == ''">
+                    <td class="v" colspan="3" style="text-align:left">Monedas/otros</td>
+                  </t>
+                  <t t-else="">
+                    <td class="v" style="width:13mm" t-esc="r['value']"/>
+                    <td class="x">×</td>
+                    <td class="q" style="width:9mm" t-esc="r['quantity']"/>
+                  </t>
+                  <td class="s" t-esc="r['subtotal']"/>
+                </tr>
+              </table></div>
+            </t>
+          </t>
+          <div class="tot"><span class="l">TOTAL CONTADO</span><span class="n" t-esc="e['total']"/></div>
+        </div>
+      </t>
+    </t>
+  </template>
+
+  <!-- ============================================================ menus -->
+
+  <record id="action_caja_pantalla" model="ir.actions.act_url">
+    <field name="name">Caja del día</field>
+    <field name="url">/caja</field>
+    <field name="target">self</field>
+  </record>
+
+  <menuitem id="menu_caja_root" name="Caja" sequence="43"
+            web_icon="distri_pedido,static/src/img/iconos/cobros.png"
+            groups="distri_pedido.grupo_cajero,distri_pedido.grupo_administracion,base.group_system"/>
+  <menuitem id="menu_caja_app" name="Caja del día" parent="menu_caja_root"
+            action="action_caja_pantalla" sequence="5" groups="distri_pedido.grupo_cajero"/>
+  <menuitem id="menu_caja_sesiones" name="Cajas" parent="menu_caja_root"
+            action="action_caja" sequence="10"/>
+  <menuitem id="menu_caja_billetes" name="Billetes" parent="menu_caja_root"
+            action="action_caja_denominacion" sequence="20"
+            groups="distri_pedido.grupo_gerencia,base.group_system"/>
+  <menuitem id="menu_caja_conciliacion" name="Conciliación inicial de efectivo"
+            parent="menu_caja_root" action="action_caja_conciliacion" sequence="90"
+            groups="distri_pedido.grupo_gerencia,base.group_system"/>
+</odoo>

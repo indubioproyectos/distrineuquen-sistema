@@ -75,5 +75,23 @@
       <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
     </record>
 
+    <!-- 19.0.1.97.0: «Cajero», the person who keeps the daily cash (/caja,
+         models/caja.py). A privilege of its own like «Cobros», so it adds
+         to the user's Distri role instead of replacing it; separate from
+         «Cobros: autorizar pagos» on purpose. -->
+    <record id="privilegio_caja" model="res.groups.privilege">
+      <field name="name">Caja</field>
+      <field name="category_id" ref="categoria_distri"/>
+      <field name="sequence">30</field>
+      <field name="description">Quién maneja la caja del día. Se suma al rol de Distri Neuquén, no lo reemplaza.</field>
+    </record>
+
+    <record id="grupo_cajero" model="res.groups">
+      <field name="name">Cajero</field>
+      <field name="privilege_id" ref="privilegio_caja"/>
+      <field name="sequence">10</field>
+      <field name="comment">Abre y cierra la caja del día, recibe las rendiciones y la plata de los demás, paga gastos y proveedores desde la caja y cuenta los billetes.</field>
+    </record>
+
   </data>
 </odoo>

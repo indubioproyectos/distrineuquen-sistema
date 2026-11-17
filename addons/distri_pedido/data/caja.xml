@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+  <!-- 19.0.1.97.0: the daily cash (models/caja.py). The bills to count
+       (gerencia adds or archives them in Caja > Billetes) and the accounts of
+       the closing (models/caja_contabilidad.py): each parameter is an
+       account code of the chart; the accountant changes it in Ajustes >
+       Técnico > Parámetros del sistema without touching code. -->
+
+  <record id="caja_billete_20000" model="distri.caja.denominacion">
+    <field name="value">20000</field>
+  </record>
+  <record id="caja_billete_10000" model="distri.caja.denominacion">
+    <field name="value">10000</field>
+  </record>
+  <record id="caja_billete_2000" model="distri.caja.denominacion">
+    <field name="value">2000</field>
+  </record>
+  <record id="caja_billete_1000" model="distri.caja.denominacion">
+    <field name="value">1000</field>
+  </record>
+  <record id="caja_billete_500" model="distri.caja.denominacion">
+    <field name="value">500</field>
+  </record>
+  <record id="caja_billete_200" model="distri.caja.denominacion">
+    <field name="value">200</field>
+  </record>
+  <record id="caja_billete_100" model="distri.caja.denominacion">
+    <field name="value">100</field>
+  </record>
+  <record id="caja_billete_50" model="distri.caja.denominacion">
+    <field name="value">50</field>
+  </record>
+  <record id="caja_billete_20" model="distri.caja.denominacion">
+    <field name="value">20</field>
+  </record>
+  <record id="caja_billete_10" model="distri.caja.denominacion">
+    <field name="value">10</field>
+  </record>
+
+  <!-- Diario de efectivo de la caja del día (código). -->
+  <record id="param_caja_diario" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_diario</field>
+    <field name="value">CSH1</field>
+  </record>
+  <!-- Faltantes y sobrantes de caja. Si no existe, se crea «Diferencias de caja» con este código. -->
+  <record id="param_caja_cuenta_diferencias" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_cuenta_diferencias</field>
+    <field name="value">5.3.1.01.150</field>
+  </record>
+  <!-- Pago a proveedor sin elegir el proveedor (con proveedor elegido va a su cuenta a pagar). -->
+  <record id="param_caja_cuenta_proveedor" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_cuenta_proveedor</field>
+    <field name="value">2.1.1.01.010</field>
+  </record>
+  <!-- Flete. -->
+  <record id="param_caja_cuenta_flete" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_cuenta_flete</field>
+    <field name="value">5.3.1.01.100</field>
+  </record>
+  <!-- Nafta. -->
+  <record id="param_caja_cuenta_nafta" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_cuenta_nafta</field>
+    <field name="value">5.2.1.01.050</field>
+  </record>
+  <!-- Librería. -->
+  <record id="param_caja_cuenta_libreria" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_cuenta_libreria</field>
+    <field name="value">5.3.1.01.120</field>
+  </record>
+  <!-- Sueldo o adelanto. -->
+  <record id="param_caja_cuenta_sueldo" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_cuenta_sueldo</field>
+    <field name="value">2.1.4.01.010</field>
+  </record>
+  <!-- Otro gasto. -->
+  <record id="param_caja_cuenta_otro" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_cuenta_otro</field>
+    <field name="value">5.2.1.01.030</field>
+  </record>
+  <!-- Retiro del dueño y lo que se retira al cerrar la caja. -->
+  <record id="param_caja_cuenta_retiro" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_cuenta_retiro</field>
+    <field name="value">2.1.5.01.010</field>
+  </record>
+  <!-- Depósito al banco (cuenta puente hasta que aparece en el extracto del banco). Vacío: la cuenta de transferencias de la empresa. -->
+  <record id="param_caja_cuenta_banco" model="ir.config_parameter">
+    <field name="key">distri_pedido.caja_cuenta_banco</field>
+    <field name="value">6.0.00.00.01</field>
+  </record>
+</odoo>

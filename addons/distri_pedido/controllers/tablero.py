@@ -30,6 +30,9 @@ TILES = [
     ("distri_pedido.menu_armado_app", "Armado", "Pantalla del armador", IMG + "armado.png", "/armado"),
     ("distri_pedido.menu_reparto_despacho", "Despacho", "Salida de los repartos", IMG + "despacho.png",
      "/despacho"),
+    # 19.0.1.97.0: controllers/caja.py, for the «Cajero» group
+    ("distri_pedido.menu_caja_app", "Caja del día", "Abrir, recibir rendiciones, pagar y cerrar",
+     IMG + "cobros.png", "/caja"),
     # 19.0.1.92.0: controllers/cobro.py, for every internal user
     (None, "Cobro en efectivo", "Registrar el efectivo que te dio un cliente", IMG + "cobros.png",
      "/cobro"),

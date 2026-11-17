@@ -1,0 +1,475 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Caja del día» (19.0.1.97.0, controllers/caja.py, models/caja.py): the
+       cashier's pages on the Distrineuquén kit (views/kit.xml, static/src/kit)
+       plus static/src/caja/caja.css and caja.js. Back goes UP one level:
+       receive one -> list -> caja -> staff home. Every form works without
+       JavaScript; caja.js sends it with fetch() and live-computes totals. -->
+
+  <!-- Top bar: back to the parent (or the DN mark), kicker, title, «Salir». -->
+  <template id="caja_top" name="Caja: barra">
+    <header class="dn-top">
+      <div class="dn-top__row">
+        <a t-if="volver" class="dn-icon-btn" t-att-href="volver" data-dn-back="" t-att-aria-label="volver_txt or 'Volver'">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t>
+        </a>
+        <img t-else="" class="dn-top__mark" src="/distri_pedido/static/src/img/iconos/dn-logo.svg?v=95"
+             alt="Distri Neuquén" width="36" height="36"/>
+        <div class="dn-top__txt">
+          <span class="dn-top__kicker" t-esc="kicker"/>
+          <h1 class="dn-top__title" t-esc="titulo"/>
+        </div>
+        <a class="caja-salir" href="/web/session/logout" aria-label="Salir (cerrar sesión)">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'logout'"/></t><span>Salir</span>
+        </a>
+      </div>
+    </header>
+  </template>
+
+  <template id="caja_avisos" name="Caja: avisos">
+    <div t-if="ok" class="dn-banner dn-banner--ok" role="status"><span t-esc="ok"/></div>
+    <div t-if="error" class="dn-banner dn-banner--err" role="alert" id="caja-error"><span t-esc="error"/></div>
+  </template>
+
+  <!-- The bill grid: one row per active bill with big - / + and the number
+       typed; `named` gives the inputs their form names (closing), without
+       it they only feed the «Contar» total (receiving a settlement). -->
+  <template id="caja_billetes" name="Caja: billetes">
+    <div class="caja-bill" data-caja-billetes="">
+      <div class="caja-bill__head" aria-hidden="true"><span>Billete</span><span>Cantidad</span><span>Total</span></div>
+      <t t-foreach="denominaciones" t-as="d">
+        <t t-set="fname" t-value="'cant_%s' % d.id"/>
+        <div class="caja-bill__row">
+          <label class="caja-bill__val dn-num" t-att-for="'%s-%s' % (prefijo, d.id)" t-esc="money(d.value)"/>
+          <span class="dn-step">
+            <button type="button" data-caja-step="-1" t-att-aria-label="'Un billete de %s menos' % money(d.value)">
+              <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'minus'"/></t></button>
+            <input class="dn-input dn-num" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                   t-att-id="'%s-%s' % (prefijo, d.id)" t-att-name="fname if named else None"
+                   t-att-data-valor="d.value" t-att-value="form.get(fname) or ''" placeholder="0"/>
+            <button type="button" data-caja-step="1" t-att-aria-label="'Un billete de %s más' % money(d.value)">
+              <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'plus'"/></t></button>
+          </span>
+          <b class="caja-bill__sub dn-num" data-caja-sub="">0</b>
+        </div>
+      </t>
+      <div class="caja-bill__row caja-bill__row--otros">
+        <label class="caja-bill__val" t-att-for="'%s-otros' % prefijo">Monedas / otros</label>
+        <input class="dn-input dn-num" type="text" inputmode="decimal" autocomplete="off" placeholder="$ 0"
+               t-att-id="'%s-otros' % prefijo" t-att-name="'otros' if named else None"
+               data-caja-otros="" t-att-value="form.get('otros') or ''"/>
+      </div>
+    </div>
+  </template>
+
+  <!-- ============================================================ home -->
+
+  <template id="caja_inicio" name="Caja del día">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Caja del día · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body t-att-class="'caja dn-has-foot' if caja else 'caja'" t-att-data-parent="inicio" data-page="caja">
+  <t t-call="distri_pedido.caja_top">
+    <t t-set="volver" t-value="inicio"/>
+    <t t-set="volver_txt" t-value="'Volver al inicio'"/>
+    <t t-set="kicker" t-value="'Caja · %s · %s' % (fecha, user.name)"/>
+    <t t-set="titulo" t-value="'Caja del día'"/>
+  </t>
+  <t t-call="distri_pedido.caja_avisos"/>
+  <main class="dn-main">
+    <t t-if="caja">
+      <div t-if="caja.date != hoy" class="dn-card dn-card--warn" role="alert">
+        Esta es la caja del <b t-esc="caja.date.strftime('%d/%m')"/>, que quedó abierta. Cerrala para
+        poder abrir la de hoy.
+      </div>
+      <section class="dn-card dn-card--strong caja-total">
+        <p class="caja-total__sub">Abierta <t t-if="caja.date != hoy">el <t t-esc="caja.date.strftime('%d/%m')"/> </t>a las <t t-esc="hora(caja.opened_at)"/>
+          · fondo <b class="dn-num" t-esc="money(caja.opening_float)"/></p>
+        <p class="dn-label">Tiene que haber</p>
+        <p class="caja-total__big dn-num" t-esc="money(caja.expected)"/>
+        <dl class="caja-res">
+          <div><dt>Fondo inicial</dt><dd class="dn-num" t-esc="money(caja.opening_float)"/></div>
+          <div><dt>+ Cobros en el local</dt><dd class="dn-num" t-esc="money(caja.total_cobros)"/></div>
+          <div><dt>+ Rendiciones y recepciones</dt><dd class="dn-num" t-esc="money(caja.total_rendiciones)"/></div>
+          <div t-if="caja.total_ajustes"><dt>± Ajustes</dt><dd class="dn-num" t-esc="money(caja.total_ajustes)"/></div>
+          <div><dt>− Gastos y proveedores</dt><dd class="dn-num" t-esc="money(-caja.total_salidas)"/></div>
+          <div><dt>− Retiros y banco</dt><dd class="dn-num" t-esc="money(-caja.total_retiros)"/></div>
+        </dl>
+      </section>
+      <div class="caja-acc">
+        <a class="dn-btn dn-btn--outline" href="/cobro" data-dn="down">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'plus'"/></t> Cobro</a>
+        <a class="dn-btn dn-btn--outline" href="/caja/rendicion" data-dn="down">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'plus'"/></t> Rendición
+          <span t-if="pendientes" class="caja-badge" t-esc="pendientes"
+                t-att-aria-label="'%s para recibir' % pendientes"/></a>
+        <a class="dn-btn dn-btn--outline" href="/caja/salida" data-dn="down">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'minus'"/></t> Gasto</a>
+        <a class="dn-btn dn-btn--outline" href="/caja/salida?tipo=retiro" data-dn="down">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'minus'"/></t> Retiro</a>
+      </div>
+      <h2 class="dn-label">Movimientos</h2>
+      <div class="dn-empty" t-if="not movimientos">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'cash'"/></t>
+        <p>Todavía no hay movimientos.</p>
+      </div>
+      <ul class="caja-movs" t-else="">
+        <li t-foreach="movimientos" t-as="m" t-att-class="'caja-mov caja-mov--%s' % ('in' if m.amount &gt;= 0 else 'out')">
+          <span class="caja-mov__hora dn-num" t-esc="hora(m.moment)"/>
+          <span class="caja-mov__txt"><t t-esc="m.label"/>
+            <small t-if="m.route_difference" class="dn-chip dn-chip--warn">
+              <t t-esc="'faltan' if m.route_difference &lt; 0 else 'sobran'"/> <t t-esc="money(abs(m.route_difference))"/></small></span>
+          <b class="caja-mov__imp dn-num"><t t-esc="'+' if m.amount &gt;= 0 else '−'"/> <t t-esc="money(abs(m.amount))"/></b>
+        </li>
+      </ul>
+    </t>
+    <t t-else="">
+      <section t-if="closed" class="dn-card dn-card--strong caja-cerrada">
+        <h2>Caja cerrada</h2>
+        <p>Se contó <b class="dn-num" t-esc="money(closed.counted)"/>
+          <t t-if="closed.difference"> (<t t-esc="'faltan' if closed.difference &lt; 0 else 'sobran'"/>
+            <b class="dn-num" t-esc="money(abs(closed.difference))"/>)</t>.
+          Queda para mañana <b class="dn-num" t-esc="money(closed.left_for_tomorrow)"/>,
+          se retira <b class="dn-num" t-esc="money(closed.withdrawn)"/>.</p>
+        <a class="dn-btn dn-btn--lg" target="_blank" rel="noopener" t-att-href="'/caja/%s/etiqueta' % closed.id">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Imprimir la etiqueta</a>
+      </section>
+      <section t-elif="today_closed" class="dn-card">
+        <h2 class="caja-h2">La caja de hoy ya está cerrada</h2>
+        <p>Si hace falta cambiar algo, gerencia la reabre.</p>
+        <a class="dn-btn dn-btn--ghost" target="_blank" rel="noopener" t-att-href="'/caja/%s/etiqueta' % today_closed.id">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Imprimir la etiqueta</a>
+      </section>
+      <form t-else="" class="dn-card caja-form" method="post" action="/caja/abrir" data-caja-form="" data-fetch="">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <h2 class="caja-h2">Abrir la caja</h2>
+        <p t-if="previous" class="caja-muted">En el cierre del <t t-esc="previous.date.strftime('%d/%m')"/>
+          quedaron <b class="dn-num" t-esc="money(proposed)"/> para hoy.</p>
+        <p t-else="" class="caja-muted">Es la primera caja: poné la plata que hay ahora para dar vuelto.</p>
+        <div class="dn-field">
+          <label for="fondo">Fondo inicial</label>
+          <input id="fondo" class="dn-input dn-input--big dn-num" type="text" inputmode="decimal" name="fondo"
+                 autocomplete="off" t-att-value="form.get('fondo') if form.get('fondo') is not None else (('%d' % proposed) if proposed == int(proposed) else proposed)"/>
+        </div>
+        <div class="dn-field" t-att-hidden="None if (field == 'motivo' or form.get('motivo')) else 'hidden'" data-caja-motivo="">
+          <label for="motivo-apertura">¿Por qué es distinto del cierre anterior?</label>
+          <input id="motivo-apertura" class="dn-input" type="text" name="motivo" maxlength="250"
+                 t-att-value="form.get('motivo')"/>
+        </div>
+        <button type="submit" class="dn-btn dn-btn--lg">Abrir la caja</button>
+      </form>
+    </t>
+  </main>
+  <div class="dn-bottom" t-if="caja">
+    <div class="dn-foot dn-foot--one">
+      <a class="dn-btn dn-btn--navy dn-btn--lg" href="/caja/cierre" data-dn="down">Cerrar la caja</a>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================================ receive: list -->
+
+  <template id="caja_rendiciones" name="Caja: rendiciones para recibir">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Recibir · Caja · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="caja" data-parent="/caja" data-page="rendiciones">
+  <t t-call="distri_pedido.caja_top">
+    <t t-set="volver" t-value="'/caja'"/>
+    <t t-set="volver_txt" t-value="'Volver a la caja'"/>
+    <t t-set="kicker" t-value="'Caja · %s' % fecha"/>
+    <t t-set="titulo" t-value="'Recibir plata'"/>
+  </t>
+  <t t-call="distri_pedido.caja_avisos"/>
+  <main class="dn-main">
+    <h2 class="dn-label">Rendiciones de los repartidores</h2>
+    <div class="dn-empty" t-if="not routes">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'truck'"/></t>
+      <p>No hay rutas cerradas para rendir. Aparecen cuando el repartidor cierra la ruta en el celular.</p>
+    </div>
+    <a t-foreach="routes" t-as="r" class="dn-card caja-item" t-att-href="'/caja/rendicion/%s' % r.id" data-dn="down">
+      <span class="caja-item__txt">
+        <b t-esc="r.driver_id.name"/>
+        <span><t t-esc="r.name"/> · cobró <b class="dn-num" t-esc="money(r.cash_collected)"/>
+          <t t-set="ng" t-value="len(r.expense_ids.filtered(lambda e: e.state != 'cancelled'))"/>
+          <t t-if="ng"> · <t t-esc="ng"/> <t t-esc="'gasto' if ng == 1 else 'gastos'"/></t></span>
+        <span>Tiene que entregar <b class="dn-num" t-esc="money(r.cash_expected)"/></span>
+      </span>
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
+    </a>
+    <h2 class="dn-label">Cobros de otros usuarios</h2>
+    <div class="dn-empty" t-if="not boxes">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>
+      <p>Nadie más tiene efectivo cobrado sin entregar.</p>
+    </div>
+    <a t-foreach="boxes" t-as="b" class="dn-card caja-item" t-att-href="'/caja/rendicion/%s' % b.id" data-dn="down">
+      <span class="caja-item__txt">
+        <b t-esc="b.driver_id.name"/>
+        <span>Cobró en el local el <t t-esc="b.date.strftime('%d/%m')"/>
+          <span t-if="b.depot_overdue" class="dn-chip dn-chip--warn">de un día anterior</span></span>
+        <span>Tiene que entregar <b class="dn-num" t-esc="money(b.cash_expected)"/></span>
+      </span>
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
+    </a>
+    <t t-if="shortages">
+      <h2 class="dn-label">Faltantes que dijeron que traen</h2>
+      <form t-foreach="shortages" t-as="s" class="dn-card caja-item" method="post"
+            t-att-action="'/caja/trajo/%s' % s.id" data-caja-form="" data-fetch="">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <span class="caja-item__txt">
+          <b t-esc="s.who"/>
+          <span><t t-esc="s.route_id.name"/> · faltan <b class="dn-num" t-esc="money(-s.route_difference)"/></span>
+        </span>
+        <button type="submit" class="dn-btn caja-btn-auto">Lo trajo</button>
+      </form>
+    </t>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================================ receive: one -->
+
+  <template id="caja_rendicion" name="Caja: recibir una rendición">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Rendición · Caja · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="caja dn-has-foot" data-parent="/caja/rendicion" data-page="rendicion">
+  <t t-set="es_ruta" t-value="route.kind == 'route'"/>
+  <t t-call="distri_pedido.caja_top">
+    <t t-set="volver" t-value="'/caja/rendicion'"/>
+    <t t-set="volver_txt" t-value="'Volver a la lista'"/>
+    <t t-set="kicker" t-value="'Rendición' if es_ruta else 'Cobros de otro usuario'"/>
+    <t t-set="titulo" t-value="route.name"/>
+  </t>
+  <t t-call="distri_pedido.caja_avisos"/>
+  <main class="dn-main">
+    <div t-if="not can_receive" class="dn-card dn-card--warn" role="alert">Esta rendición no se puede recibir
+      (todavía está en la calle o ya se recibió).</div>
+    <form id="caja-recibir" class="caja-form" method="post" t-att-action="'/caja/rendicion/%s' % route.id"
+          data-caja-form="" data-fetch="" data-caja-recibir="" t-att-data-esperado="route.cash_expected"
+          t-att-data-repartidor="route.driver_id.name">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input type="hidden" name="sin_papel_ok" t-att-value="form.get('sin_papel_ok') or ''"/>
+      <section class="dn-card">
+        <dl class="caja-res">
+          <div><dt>Cobró en efectivo</dt><dd class="dn-num" t-esc="money(route.cash_collected)"/></div>
+          <div t-if="expenses"><dt>Gastos con foto</dt><dd class="dn-num">− <t t-esc="money(sum(expenses.mapped('amount')))"/></dd></div>
+        </dl>
+        <ul class="caja-gastos" t-if="expenses">
+          <li t-foreach="expenses" t-as="e" class="caja-gasto">
+            <a t-if="e.photo" class="caja-gasto__foto" t-att-href="'/caja/gasto/%s/foto' % e.id" target="_blank" rel="noopener">
+              <img t-att-src="'/caja/gasto/%s/foto' % e.id" alt="Foto del comprobante" width="56" height="56" loading="lazy"/></a>
+            <span class="caja-gasto__txt">
+              <b><t t-esc="dict(e._fields['kind'].selection).get(e.kind)"/> <span class="dn-num" t-esc="money(e.amount)"/></b>
+              <small t-if="e.comment" t-esc="e.comment"/>
+              <small t-if="e.amount_review" class="dn-chip dn-chip--warn">La foto dice <t t-esc="money(e.ocr_amount)"/></small>
+              <small t-if="e.state == 'rejected'" class="dn-chip dn-chip--err">Rechazado</small>
+            </span>
+            <label t-if="e.state == 'reported'" class="caja-tick">
+              <input type="checkbox" name="papel" t-att-value="e.id" data-caja-papel="" t-att-data-monto="e.amount"
+                     t-att-checked="str(e.id) in (form.get('papel') or []) or None"/>
+              <span>Tengo el papel</span>
+            </label>
+          </li>
+        </ul>
+        <div class="dn-card dn-card--warn caja-sinpapel" data-caja-sinpapel="" hidden="hidden" role="status"></div>
+        <p class="dn-label">Tiene que entregar</p>
+        <p class="caja-total__big dn-num" t-esc="money(route.cash_expected)"/>
+      </section>
+
+      <section class="dn-card" t-if="undelivered">
+        <h2 class="caja-h2">Pedidos sin entregar</h2>
+        <label t-foreach="undelivered" t-as="s" class="caja-tick caja-tick--row">
+          <input type="checkbox" name="descargado" t-att-value="s.id"
+                 t-att-checked="str(s.id) in (form.get('descargado') or []) or None"/>
+          <span><t t-esc="s.partner_id.name"/> · <t t-esc="s.order_id.name"/>: volvió al depósito</span>
+        </label>
+      </section>
+
+      <section class="dn-card" t-if="returns">
+        <h2 class="caja-h2">Devoluciones</h2>
+        <fieldset t-foreach="returns" t-as="r" class="caja-dev">
+          <legend><t t-esc="'%g' % r.quantity"/> <t t-esc="r.product_id.display_name"/> · <t t-esc="r.partner_id.name"/></legend>
+          <label class="caja-radio"><input type="radio" t-att-name="'devolucion_%s' % r.id" value="received"
+                 t-att-checked="form.get('devolucion_%s' % r.id) == 'received' or None"/> Volvió</label>
+          <label class="caja-radio"><input type="radio" t-att-name="'devolucion_%s' % r.id" value="missing"
+                 t-att-checked="form.get('devolucion_%s' % r.id) == 'missing' or None"/> No volvió</label>
+        </fieldset>
+      </section>
+
+      <p t-if="es_ruta" class="caja-muted">Transferencias sin comprobante: <b t-esc="len(promises)"/></p>
+
+      <section class="dn-card">
+        <div class="dn-field">
+          <label for="entrego">Entregó</label>
+          <div class="dn-row">
+            <input id="entrego" class="dn-input dn-input--big dn-num" type="text" inputmode="decimal" name="entrego"
+                   autocomplete="off" required="required" placeholder="$ 0" t-att-value="form.get('entrego')"/>
+            <button type="button" class="dn-btn dn-btn--ghost" data-caja-contar="">Contar</button>
+          </div>
+        </div>
+        <p class="caja-dif" data-caja-dif="" aria-live="polite"></p>
+        <fieldset class="caja-modo" data-caja-modo=""
+                  t-att-hidden="None if (field == 'diferencia' or form.get('diferencia')) else 'hidden'">
+          <legend>Con la diferencia</legend>
+          <label t-foreach="modes" t-as="m" class="caja-radio">
+            <input type="radio" name="diferencia" t-att-value="m[0]" t-att-checked="form.get('diferencia') == m[0] or None"/>
+            <t t-if="m[0] == 'cargo'">Queda a cargo de <t t-esc="route.driver_id.name"/></t>
+            <t t-else="" t-esc="m[1]"/>
+          </label>
+        </fieldset>
+        <div class="dn-field">
+          <label for="nota-rend">Nota (opcional)</label>
+          <input id="nota-rend" class="dn-input" type="text" name="nota" maxlength="250" t-att-value="form.get('nota')"/>
+        </div>
+      </section>
+    </form>
+  </main>
+  <div class="dn-sheet" id="caja-contar" role="dialog" aria-labelledby="caja-contar-tit">
+    <h2 id="caja-contar-tit">Contar los billetes</h2>
+    <t t-call="distri_pedido.caja_billetes">
+      <t t-set="named" t-value="False"/>
+      <t t-set="prefijo" t-value="'contar'"/>
+      <t t-set="form" t-value="{}"/>
+    </t>
+    <p class="caja-contado">Contado <b class="dn-num" data-caja-contado="">$ 0</b></p>
+    <div class="dn-grid2">
+      <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</button>
+      <button type="button" class="dn-btn" data-caja-usar="">Usar este total</button>
+    </div>
+  </div>
+  <div class="dn-bottom">
+    <div class="dn-foot dn-foot--one">
+      <button type="submit" form="caja-recibir" class="dn-btn dn-btn--lg" t-att-disabled="None if can_receive else 'disabled'">
+        Recibir y pasar a la caja</button>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================================ outflow -->
+
+  <template id="caja_salida" name="Caja: salida de caja">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Salida de caja · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="caja dn-has-foot" data-parent="/caja" data-page="salida">
+  <t t-call="distri_pedido.caja_top">
+    <t t-set="volver" t-value="'/caja'"/>
+    <t t-set="volver_txt" t-value="'Volver a la caja'"/>
+    <t t-set="kicker" t-value="'Caja · en la caja hay %s' % money(caja.expected)"/>
+    <t t-set="titulo" t-value="'Salida de caja'"/>
+  </t>
+  <t t-call="distri_pedido.caja_avisos"/>
+  <main class="dn-main">
+    <form id="caja-salida" class="dn-card caja-form" method="post" action="/caja/salida" enctype="multipart/form-data"
+          data-caja-form="" data-fetch="">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <fieldset class="caja-chips">
+        <legend>Tipo</legend>
+        <t t-foreach="chips" t-as="c">
+          <label class="caja-chip"><input type="radio" name="tipo" t-att-value="c[0]" required="required"
+                 t-att-checked="form.get('tipo') == c[0] or None"/><span t-esc="c[1]"/></label>
+        </t>
+      </fieldset>
+      <div class="dn-field">
+        <label for="quien">A quién</label>
+        <input id="quien" class="dn-input" type="text" name="quien" list="caja-proveedores" maxlength="120"
+               autocomplete="off" t-att-value="form.get('quien')" placeholder="Proveedor o persona"/>
+        <datalist id="caja-proveedores"><option t-foreach="suppliers" t-as="p" t-att-value="p.name"/></datalist>
+      </div>
+      <div class="dn-field">
+        <label for="importe">Importe</label>
+        <input id="importe" class="dn-input dn-input--big dn-num" type="text" inputmode="decimal" name="importe"
+               autocomplete="off" required="required" placeholder="$ 0" t-att-value="form.get('importe')"/>
+      </div>
+      <div class="dn-field">
+        <label for="foto">Comprobante (opcional)</label>
+        <input id="foto" class="dn-input caja-file" type="file" name="foto" accept="image/*" capture="environment"/>
+      </div>
+      <div class="dn-field">
+        <label for="nota">Nota</label>
+        <input id="nota" class="dn-input" type="text" name="nota" maxlength="250" t-att-value="form.get('nota')"/>
+      </div>
+    </form>
+  </main>
+  <div class="dn-bottom">
+    <div class="dn-foot dn-foot--one">
+      <button type="submit" form="caja-salida" class="dn-btn dn-btn--lg">Guardar</button>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================================ closing -->
+
+  <template id="caja_cierre" name="Caja: cierre">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Cierre de caja · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="caja dn-has-foot" data-parent="/caja" data-page="cierre">
+  <t t-call="distri_pedido.caja_top">
+    <t t-set="volver" t-value="'/caja'"/>
+    <t t-set="volver_txt" t-value="'Volver a la caja'"/>
+    <t t-set="kicker" t-value="'Cierre de caja · %s' % caja.date.strftime('%d/%m')"/>
+    <t t-set="titulo" t-value="'Contar la plata'"/>
+  </t>
+  <t t-call="distri_pedido.caja_avisos"/>
+  <main class="dn-main">
+    <form id="caja-cierre" class="caja-form" method="post" action="/caja/cierre" data-caja-form="" data-fetch=""
+          data-caja-cierre="" t-att-data-esperado="caja.expected">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input type="hidden" name="esperado" t-att-value="caja.expected"/>
+      <section class="dn-card caja-esperado">
+        <span>Tiene que haber</span><b class="dn-num" t-esc="money(caja.expected)"/>
+      </section>
+      <section class="dn-card">
+        <t t-call="distri_pedido.caja_billetes">
+          <t t-set="named" t-value="True"/>
+          <t t-set="prefijo" t-value="'cierre'"/>
+        </t>
+      </section>
+      <section class="dn-card dn-card--strong caja-cuenta" aria-live="polite">
+        <div><span>Contado</span><b class="dn-num" data-caja-contado="">$ 0</b></div>
+        <div><span>Diferencia</span><b class="dn-num" data-caja-diferencia="">$ 0</b></div>
+      </section>
+      <section class="dn-card">
+        <div class="dn-field">
+          <label for="queda">¿Qué queda para mañana?</label>
+          <input id="queda" class="dn-input dn-input--big dn-num" type="text" inputmode="decimal" name="queda"
+                 autocomplete="off" t-att-value="form.get('queda') if form.get('queda') is not None else ('%d' % caja.opening_float if caja.opening_float == int(caja.opening_float) else caja.opening_float)"/>
+        </div>
+        <p class="caja-retira">Se retira <b class="dn-num" data-caja-retira="">$ 0</b></p>
+        <div class="dn-field" data-caja-motivo="">
+          <label for="motivo">Motivo de la diferencia</label>
+          <textarea id="motivo" class="dn-input" name="motivo" rows="2" maxlength="1000"
+                    placeholder="Obligatorio si falta o sobra plata" t-esc="form.get('motivo') or ''"/>
+        </div>
+      </section>
+    </form>
+  </main>
+  <div class="dn-bottom">
+    <div class="dn-foot dn-foot--one">
+      <button type="submit" form="caja-cierre" class="dn-btn dn-btn--navy dn-btn--lg">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Cerrar e imprimir</button>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+</odoo>

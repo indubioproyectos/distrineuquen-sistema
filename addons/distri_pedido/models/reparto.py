@@ -1181,11 +1181,15 @@ class DistriRouteCase(models.Model):
     _order = "id desc"
 
     name = fields.Char(compute="_compute_name", store=True, string="Caso")
-    route_id = fields.Many2one("distri.route", required=True, ondelete="cascade",
-                               string="Ruta", index=True)
-    driver_id = fields.Many2one(related="route_id.driver_id", store=True, string="Repartidor")
-    date = fields.Date(related="route_id.date", store=True, string="Fecha de la ruta")
-    currency_id = fields.Many2one(related="route_id.currency_id")
+    # 19.0.1.97.0: a case is against a route or against a cashier's daily
+    # cash session (models/caja.py: the difference at closing). One of both.
+    route_id = fields.Many2one("distri.route", ondelete="cascade", string="Ruta", index=True)
+    caja_id = fields.Many2one("distri.caja", ondelete="cascade", string="Caja", index=True,
+                              readonly=True)
+    driver_id = fields.Many2one("res.users", compute="_compute_person", store=True,
+                                string="Repartidor")
+    date = fields.Date(compute="_compute_person", store=True, string="Fecha de la ruta")
+    currency_id = fields.Many2one("res.currency", compute="_compute_currency")
     kind = fields.Selection([
         ("cash", "Diferencia de efectivo"),
         ("return", "Devolución que no volvió"),
@@ -1212,11 +1216,32 @@ class DistriRouteCase(models.Model):
     promise_id = fields.Many2one("distri.promised.transfer", string="Comprobante pendiente",
                                  readonly=True, ondelete="set null")
 
-    @api.depends("kind", "route_id.name")
+    @api.depends("kind", "route_id.name", "caja_id.name")
     def _compute_name(self):
         labels = dict(self._fields["kind"].selection)
         for case in self:
-            case.name = "%s · %s" % (labels.get(case.kind, ""), case.route_id.name or "")
+            case.name = "%s · %s" % (labels.get(case.kind, ""),
+                                     case.route_id.name or case.caja_id.name or "")
+
+    @api.depends("route_id.driver_id", "route_id.date", "caja_id.user_id", "caja_id.date")
+    def _compute_person(self):
+        """The driver and date of the route, or the cashier and day of the
+        cash session (the person the case is about)."""
+        for case in self:
+            case.driver_id = case.route_id.driver_id or case.caja_id.user_id
+            case.date = case.route_id.date or case.caja_id.date
+
+    @api.depends("route_id", "caja_id")
+    def _compute_currency(self):
+        for case in self:
+            case.currency_id = (case.route_id.currency_id or case.caja_id.currency_id
+                                or self.env.company.currency_id)
+
+    @api.constrains("route_id", "caja_id")
+    def _check_route_or_caja(self):
+        for case in self:
+            if not case.route_id and not case.caja_id:
+                raise ValidationError("El caso tiene que ser de una ruta o de una caja.")
 
     def action_close(self):
         for case in self:

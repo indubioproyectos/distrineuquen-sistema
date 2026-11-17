@@ -1,0 +1,364 @@
+"""«Caja del día» (19.0.1.97.0): the cashier's screens, /caja.
+
+On the Distrineuquén kit (controllers/kit.py, views/kit.xml) with its own
+static/src/caja/caja.css and caja.js. Phone first, and the same pages on the
+depot PC. Levels (back goes UP one level, dn.js):
+
+    /tablero  (staff home)
+      /caja                      Caja del día (or «Abrir la caja»)
+        /caja/rendicion          what can be received: routes, other boxes
+          /caja/rendicion/<id>   receive one settlement / box
+        /caja/salida             Salida de caja (gasto, proveedor, retiro, banco)
+        /caja/cierre             the bill count and the closing
+      /caja/<id>/etiqueta        the closing label (PDF, new tab)
+
+Every form posts plain HTML (works without JavaScript: the answer is a
+redirect or the page again with the error). caja.js sends the same forms
+with fetch() (X-Distri-Fetch: 1) and gets JSON: {ok, url} goes UP to the
+parent with a message, {ok: false, error} shows it, {ok, ask, question}
+asks first (an expense without paper) and sends again with the answer.
+The rules live in models/caja.py; this file only translates HTTP. Every
+route checks the «Cajero» group first and then works with sudo.
+"""
+import base64
+from urllib.parse import urlencode
+
+from werkzeug.exceptions import Forbidden, NotFound
+
+from odoo import http
+from odoo.exceptions import AccessError, UserError
+from odoo.http import request
+
+from ..models.caja import (CHIPS, DIFFERENCE_MODES, OUTFLOW_CHIPS, CajaQuestion, is_cashier)
+from ..models.gasto import decode_photo
+from ..models.reparto import _money
+from ..models.reparto_cliente import today_ar
+from .armado import DIAS, UTC
+from .main import HORA_ARGENTINA
+from .kit import kit_context
+from .tablero import wants_tablero
+
+
+def _hora(moment):
+    """A UTC datetime of Odoo as the Argentine hour (HH:MM)."""
+    if not moment:
+        return ""
+    return moment.replace(tzinfo=UTC).astimezone(HORA_ARGENTINA).strftime("%H:%M")
+
+
+def _error_text(exc):
+    return exc.args[0] if exc.args else str(exc)
+
+
+class Caja(http.Controller):
+
+    # ---------------------------------------------------------------- helpers
+
+    def _check(self):
+        user = request.env.user
+        if not is_cashier(user):
+            raise Forbidden()
+        return user
+
+    def _caja(self):
+        return request.env["distri.caja"].current_for()
+
+    def _by_fetch(self):
+        return request.httprequest.headers.get("X-Distri-Fetch") == "1"
+
+    def _json(self, data, status=200):
+        return request.make_json_response(data, status=status,
+                                          headers=[("Cache-Control", "no-store")])
+
+    def _render(self, template, values, status=200):
+        user = request.env.user
+        today = today_ar()
+        base = {
+            "dn": kit_context("caja.css", "caja.js"),
+            "user": user,
+            "money": _money,
+            "fecha": "%s %s/%s" % (DIAS[today.weekday()].lower(), today.day, today.month),
+            "hoy": today,
+            "hora": _hora,
+            "inicio": "/tablero" if wants_tablero(user) else "",
+            "csrf_token": request.csrf_token(),
+            "error": "",
+            "form": {},
+        }
+        base.update(values)
+        html = request.env["ir.qweb"]._render(template, base)
+        return request.make_response(html, status=status, headers=[
+            ("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")])
+
+    def _done(self, url, message=""):
+        """Success: up to the parent `url`, with a message for its banner."""
+        if message:
+            url += ("&" if "?" in url else "?") + urlencode({"ok": message})
+        if self._by_fetch():
+            return self._json({"ok": True, "url": url})
+        return request.redirect(url, 303)
+
+    def _refuse(self, exc, page, status=400):
+        """An error or a question: JSON for fetch(), else the page again."""
+        text = _error_text(exc)
+        if self._by_fetch():
+            if isinstance(exc, CajaQuestion) and exc.field == "sin_papel_ok":
+                return self._json({"ok": True, "ask": exc.field, "question": text})
+            return self._json({"ok": False, "error": text,
+                               "field": getattr(exc, "field", "")}, status=status)
+        return page(text, getattr(exc, "field", ""))
+
+    def _form(self):
+        form = request.httprequest.form
+        return {key: form.get(key) for key in form}
+
+    def _movements_view(self, caja):
+        return caja.movement_ids.sorted(lambda m: (m.moment, m.id), reverse=True)
+
+    # ---------------------------------------------------------------- home
+
+    @http.route("/caja", type="http", auth="user", methods=["GET"], sitemap=False)
+    def home(self, ok="", cerrada=None, **kw):
+        self._check()
+        Caja = request.env["distri.caja"]
+        caja = self._caja()
+        if caja:
+            caja._sync_own_collections()
+        closed = Caja.browse()
+        if cerrada:
+            try:
+                closed = Caja.sudo().browse(int(cerrada)).exists()
+            except (TypeError, ValueError):
+                closed = Caja.browse()
+            if closed and (closed.user_id != request.env.user or closed.state != "closed"):
+                closed = Caja.browse()
+        return self._home(caja, ok=ok, closed=closed)
+
+    def _home(self, caja, ok="", closed=None, error="", field="", form=None, status=200):
+        Caja = request.env["distri.caja"]
+        values = {"caja": caja, "ok": ok, "closed": closed, "error": error, "field": field,
+                  "form": form or {}}
+        if caja:
+            routes, boxes = Caja.pending_receptions()
+            values.update({
+                "movimientos": self._movements_view(caja),
+                "pendientes": len(routes) + len(boxes),
+            })
+        else:
+            previous = Caja.last_closed()
+            today = Caja.sudo().search([("user_id", "=", request.env.user.id),
+                                        ("date", "=", today_ar()),
+                                        ("company_id", "=", request.env.company.id)], limit=1)
+            values.update({"previous": previous, "today_closed": today,
+                           "proposed": previous.left_for_tomorrow if previous else 0.0})
+        return self._render("distri_pedido.caja_inicio", values, status=status)
+
+    @http.route("/caja/abrir", type="http", auth="user", methods=["POST"], sitemap=False)
+    def open(self, fondo="", motivo="", **kw):
+        self._check()
+        try:
+            request.env["distri.caja"].open_session(fondo, motivo)
+        except (UserError, AccessError) as exc:
+            return self._refuse(exc, lambda text, field: self._home(
+                self._caja(), error=text, field=field,
+                form={"fondo": fondo, "motivo": motivo}, status=400))
+        return self._done("/caja", "Caja abierta.")
+
+    # ---------------------------------------------------------------- receive
+
+    @http.route("/caja/rendicion", type="http", auth="user", methods=["GET"], sitemap=False)
+    def receptions(self, ok="", **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        return self._receptions(caja, ok=ok)
+
+    def _receptions(self, caja, ok="", error="", status=200):
+        Caja = request.env["distri.caja"]
+        routes, boxes = Caja.pending_receptions()
+        return self._render("distri_pedido.caja_rendiciones", {
+            "caja": caja, "routes": routes, "boxes": boxes, "ok": ok, "error": error,
+            "shortages": Caja.pending_shortages(),
+        }, status=status)
+
+    def _route(self, route_id):
+        route = request.env["distri.route"].sudo().browse(route_id).exists()
+        if not route:
+            raise NotFound()
+        return route
+
+    @http.route("/caja/rendicion/<int:route_id>", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def reception(self, route_id, **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        return self._reception(caja, self._route(route_id))
+
+    def _reception(self, caja, route, error="", field="", form=None, status=200):
+        expenses = route.expense_ids.filtered(lambda e: e.state != "cancelled") \
+            if route.kind == "route" else route.expense_ids.browse()
+        promises = route.promise_ids.filtered(lambda p: p.state == "open")
+        return self._render("distri_pedido.caja_rendicion", {
+            "caja": caja, "route": route, "expenses": expenses,
+            "returns": route.return_ids.filtered(lambda r: r.settlement_state == "pending"),
+            "undelivered": route.undelivered_stop_ids.filtered(lambda s: not s.unloaded),
+            "promises": promises, "modes": DIFFERENCE_MODES,
+            "denominaciones": self._denominations(),
+            "error": error, "field": field, "form": form or {},
+            "can_receive": (route.kind == "route" and route.state == "closed") or (
+                route.kind == "depot" and route.state != "settled"
+                and route.driver_id != caja.user_id),
+        }, status=status)
+
+    @http.route("/caja/rendicion/<int:route_id>", type="http", auth="user", methods=["POST"],
+                sitemap=False)
+    def receive(self, route_id, **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        route = self._route(route_id)
+        form = request.httprequest.form
+        returns = {key.split("_", 1)[1]: form.get(key) for key in form
+                   if key.startswith("devolucion_")}
+        try:
+            with request.env.cr.savepoint():
+                movement = caja.receive_route(
+                    route, form.get("entrego", ""), papers=form.getlist("papel"),
+                    no_paper_ok=form.get("sin_papel_ok") == "1",
+                    difference_mode=form.get("diferencia", ""),
+                    unloaded=form.getlist("descargado"), returns=returns,
+                    note=form.get("nota", ""))
+        except (UserError, AccessError) as exc:
+            values = self._form()
+            values["papel"] = form.getlist("papel")
+            values["descargado"] = form.getlist("descargado")
+            return self._refuse(exc, lambda text, field: self._reception(
+                caja, route, error=text, field=field, form=values, status=400))
+        return self._done("/caja", "%s: entraron %s a la caja." % (
+            movement.label, _money(movement.amount)))
+
+    @http.route("/caja/gasto/<int:expense_id>/foto", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def expense_photo(self, expense_id, **kw):
+        """The photo of a driver's expense, for the cashier (no ACL on it)."""
+        self._check()
+        expense = request.env["distri.route.expense"].sudo().browse(expense_id).exists()
+        if not expense or not expense.photo:
+            raise NotFound()
+        return request.make_response(base64.b64decode(expense.photo), headers=[
+            ("Content-Type", "image/jpeg"), ("Cache-Control", "private, max-age=3600")])
+
+    @http.route("/caja/trajo/<int:movement_id>", type="http", auth="user", methods=["POST"],
+                sitemap=False)
+    def brought(self, movement_id, **kw):
+        """«Lo trajo»: a driver's shortage that came back the next day."""
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        movement = request.env["distri.caja.movimiento"].sudo().browse(movement_id)
+        try:
+            with request.env.cr.savepoint():
+                added = caja.bring_shortage(movement)
+        except (UserError, AccessError) as exc:
+            return self._refuse(exc, lambda text, field: self._receptions(
+                caja, error=text, status=400))
+        return self._done("/caja", "%s: entraron %s." % (added.label, _money(added.amount)))
+
+    # ---------------------------------------------------------------- outflow
+
+    @http.route("/caja/salida", type="http", auth="user", methods=["GET"], sitemap=False)
+    def outflow_page(self, tipo="", **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        return self._outflow(caja, form={"tipo": tipo if tipo in CHIPS else ""})
+
+    def _outflow(self, caja, error="", form=None, status=200):
+        suppliers = request.env["res.partner"].sudo().search(
+            [("supplier_rank", ">", 0), ("parent_id", "=", False)], order="name", limit=300)
+        return self._render("distri_pedido.caja_salida", {
+            "caja": caja, "chips": OUTFLOW_CHIPS, "suppliers": suppliers,
+            "error": error, "form": form or {},
+        }, status=status)
+
+    @http.route("/caja/salida", type="http", auth="user", methods=["POST"], sitemap=False)
+    def outflow(self, tipo="", importe="", quien="", nota="", **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        try:
+            photo = False
+            upload = request.httprequest.files.get("foto")
+            if upload and upload.filename:
+                photo = decode_photo(base64.b64encode(upload.read()).decode())
+            partner = request.env["res.partner"].sudo().search(
+                [("supplier_rank", ">", 0), ("name", "=ilike", (quien or "").strip())],
+                limit=1) if quien else request.env["res.partner"]
+            with request.env.cr.savepoint():
+                movement = caja.add_outflow(tipo, importe, who=quien, partner_id=partner.id,
+                                            note=nota, photo=photo)
+        except (UserError, AccessError) as exc:
+            return self._refuse(exc, lambda text, field: self._outflow(
+                caja, error=text, form=self._form(), status=400))
+        return self._done("/caja", "%s: salieron %s." % (movement.label, _money(-movement.amount)))
+
+    # ---------------------------------------------------------------- closing
+
+    def _denominations(self):
+        return request.env["distri.caja.denominacion"].sudo().search([], order="value desc")
+
+    @http.route("/caja/cierre", type="http", auth="user", methods=["GET"], sitemap=False)
+    def closing_page(self, **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        caja._sync_own_collections()
+        return self._closing(caja)
+
+    def _closing(self, caja, error="", field="", form=None, status=200):
+        return self._render("distri_pedido.caja_cierre", {
+            "caja": caja, "denominaciones": self._denominations(), "error": error,
+            "field": field, "form": form or {},
+        }, status=status)
+
+    @http.route("/caja/cierre", type="http", auth="user", methods=["POST"], sitemap=False)
+    def close(self, otros="", queda="", motivo="", esperado="", **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        form = request.httprequest.form
+        quantities = {key[5:]: form.get(key) for key in form if key.startswith("cant_")}
+        try:
+            with request.env.cr.savepoint():
+                closed = caja.close_session(quantities, other=otros, left=queda, reason=motivo,
+                                            expected_seen=esperado)
+        except (UserError, AccessError) as exc:
+            return self._refuse(exc, lambda text, field: self._closing(
+                caja, error=text, field=field, form=self._form(), status=400))
+        return self._done("/caja?cerrada=%s" % closed.id, "Caja cerrada.")
+
+    @http.route("/caja/<int:caja_id>/etiqueta", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def label(self, caja_id, **kw):
+        user = self._check()
+        caja = request.env["distri.caja"].sudo().browse(caja_id).exists()
+        if not caja or caja.state != "closed" or (
+                caja.user_id != user and not user.has_group("distri_pedido.grupo_administracion")):
+            raise NotFound()
+        pdf, _type = request.env["ir.actions.report"].sudo()._render_qweb_pdf(
+            "distri_pedido.report_caja_cierre", caja.ids)
+        return request.make_response(pdf, headers=[
+            ("Content-Type", "application/pdf"),
+            ("Content-Disposition", 'inline; filename="Cierre de caja %s.pdf"'
+             % caja.date.strftime("%d-%m-%Y")),
+            ("Cache-Control", "no-store"),
+        ])

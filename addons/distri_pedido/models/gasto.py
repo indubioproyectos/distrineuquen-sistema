@@ -198,7 +198,11 @@ class DistriRouteExpense(models.Model):
                 expense.write({"state": "rejected",
                                "reject_reason": expense.reject_reason or "Sin comprobante en papel"})
             else:
-                expense._post(journal)
+                # 19.0.1.97.0: a settlement received in the cashier's daily
+                # cash (models/caja.py) posts the expense at the closing, as
+                # a line of the cash statement, instead of here
+                if not self.env.context.get("distri_caja_defer_post"):
+                    expense._post(journal)
                 expense.state = "approved"
 
     def _post(self, journal):

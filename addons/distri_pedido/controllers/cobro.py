@@ -12,6 +12,7 @@ from odoo import http
 from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
+from ..models.caja import is_cashier
 from ..models.cobro_efectivo import DuplicateCashError, RouteCashWarning
 from .main import FICHA
 from .reparto import SHARED_CSS
@@ -39,8 +40,9 @@ class CobroEfectivo(http.Controller):
             "empresa": FICHA["nombre"],
             "shared_css": SHARED_CSS,
             "user": request.env.user,
-            # back to the user's own screen (/reparto, /cuentas) or the tablero
-            "back": request.env.user._distri_landing() or "/tablero",
+            # back to the user's own screen (/reparto, /cuentas) or the tablero;
+            # 19.0.1.97.0: a cashier with his cash open comes from /caja
+            "back": self._back(),
             "csrf_token": request.csrf_token(),
             "money": _money,
             "query": "",
@@ -59,6 +61,12 @@ class CobroEfectivo(http.Controller):
         html = request.env["ir.qweb"]._render("distri_pedido.cobro_page", values)
         return request.make_response(html, status=status, headers=[
             ("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")])
+
+    def _back(self):
+        user = request.env.user
+        if is_cashier(user) and request.env["distri.caja"].current_for(user):
+            return "/caja"
+        return user._distri_landing() or "/tablero"
 
     def _account(self, partner_id):
         return request.env["distri.cash.collection"].cash_account(partner_id)

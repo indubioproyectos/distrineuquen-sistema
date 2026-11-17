@@ -1,0 +1,102 @@
+/* «Caja del día» (19.0.1.97.0): only what the kit (../kit/dn.css) does not
+   have. Phone first; the depot PC gets the same column, wider rows. */
+.caja-salir{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 10px;border-radius:var(--dn-r);
+  color:#fff;font-weight:700;text-decoration:none;flex:none}
+.caja-salir:active{background:var(--dn-navy-2)}
+.caja-salir .dn-i{width:22px;height:22px}
+.caja-h2{margin:0 0 8px;font-size:20px;font-weight:800}
+.caja-muted{margin:0;color:var(--dn-muted)}
+.caja-form{display:flex;flex-direction:column;gap:12px}
+
+/* the big total and its breakdown */
+.caja-total{display:flex;flex-direction:column;gap:4px}
+.caja-total__sub{margin:0;color:var(--dn-muted);font-size:15px}
+.caja-total__big{margin:0;font-size:40px;font-weight:900;line-height:1.1;color:var(--dn-navy)}
+.caja-res{margin:8px 0 0;display:flex;flex-direction:column}
+.caja-res>div{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--dn-line);font-size:16px}
+.caja-res>div:first-child{border-top:0}
+.caja-res dt{color:var(--dn-ink)}
+.caja-res dd{margin:0;font-weight:800}
+
+/* the four actions */
+.caja-acc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.caja-acc .dn-btn{position:relative;min-height:56px}
+.caja-badge{position:absolute;top:-8px;right:-6px;min-width:26px;height:26px;padding:0 6px;border-radius:13px;
+  background:var(--dn-turq);color:var(--dn-navy);font-size:14px;font-weight:900;display:inline-flex;align-items:center;justify-content:center}
+
+/* movements */
+.caja-movs{list-style:none;margin:0;padding:0;background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r)}
+.caja-mov{display:flex;align-items:baseline;gap:10px;padding:12px 14px;border-top:1px solid var(--dn-line)}
+.caja-mov:first-child{border-top:0}
+.caja-mov__hora{color:var(--dn-muted);font-size:14px;flex:none}
+.caja-mov__txt{flex:1;min-width:0;overflow-wrap:anywhere}
+.caja-mov__txt .dn-chip{margin-left:4px}
+.caja-mov__imp{flex:none;white-space:nowrap}
+.caja-mov--in .caja-mov__imp{color:var(--dn-green-text)}
+.caja-mov--out .caja-mov__imp{color:var(--dn-red-text)}
+
+/* lists of things to receive */
+.caja-item{justify-content:space-between}
+.caja-item__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.caja-item__txt>span{color:var(--dn-muted);font-size:15px}
+.caja-btn-auto{width:auto;flex:none}
+
+/* expenses of a settlement */
+.caja-gastos{list-style:none;margin:8px 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.caja-gasto{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px;border:1px solid var(--dn-line);border-radius:10px}
+.caja-gasto__foto img{display:block;width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--dn-line)}
+.caja-gasto__txt{flex:1 1 140px;display:flex;flex-direction:column;gap:2px}
+.caja-gasto__txt small{color:var(--dn-muted)}
+.caja-tick{display:inline-flex;align-items:center;gap:10px;min-height:48px;padding:0 12px;border:1px solid var(--dn-input);
+  border-radius:10px;background:#fff;font-weight:700;cursor:pointer}
+.caja-tick input,.caja-radio input,.caja-chip input{width:22px;height:22px;flex:none;accent-color:var(--dn-primary)}
+.caja-tick--row{display:flex;margin-top:8px}
+.caja-sinpapel{font-weight:600}
+.caja-dev,.caja-modo,.caja-chips{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.caja-dev legend,.caja-modo legend,.caja-chips legend{font-size:15px;font-weight:700;margin-bottom:6px;padding:0}
+.caja-dev+.caja-dev{margin-top:12px}
+.caja-radio{display:inline-flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;border:1px solid var(--dn-input);
+  border-radius:10px;background:#fff;cursor:pointer;font-weight:600}
+.caja-dif{margin:0;font-weight:800;font-size:18px}
+.caja-dif.falta{color:var(--dn-red-text)}
+.caja-dif.sobra{color:var(--dn-amber-text)}
+.caja-dif.ok{color:var(--dn-green-text)}
+
+/* outflow chips: radios that look like big chips */
+.caja-chip{position:relative;display:inline-flex}
+.caja-chip input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.caja-chip span{display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border-radius:24px;border:1px solid var(--dn-input);
+  background:#fff;font-weight:700;color:var(--dn-navy)}
+.caja-chip input:checked+span{background:var(--dn-navy);border-color:var(--dn-navy);color:#fff}
+.caja-chip input:focus-visible+span{outline:3px solid var(--dn-mint);outline-offset:2px}
+.caja-file{padding-top:12px}
+
+/* the bill grid */
+.caja-bill{display:flex;flex-direction:column}
+.caja-bill__head,.caja-bill__row{display:grid;grid-template-columns:76px auto minmax(0,1fr);align-items:center;gap:6px}
+.caja-bill__head{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--dn-muted);padding-bottom:4px}
+.caja-bill__head span:last-child,.caja-bill__sub{text-align:right}
+.caja-bill__row{padding:6px 0;border-top:1px solid var(--dn-line)}
+.caja-bill__val{font-weight:800;font-size:16px;white-space:nowrap}
+.caja-bill__sub{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.caja-bill .dn-step button{width:48px;height:48px;border-radius:24px}
+.caja-bill .dn-step{gap:2px}
+.caja-bill .dn-step input{width:56px;padding:8px 2px}
+.caja-bill__row--otros{grid-template-columns:76px minmax(0,1fr)}
+.caja-bill__row--otros .dn-input{text-align:right}
+.caja-esperado,.caja-cuenta>div{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:18px}
+.caja-esperado b{font-size:24px}
+.caja-cuenta{display:flex;flex-direction:column;gap:6px}
+.caja-cuenta b{font-size:26px;font-weight:900}
+.caja-cuenta b.falta{color:var(--dn-red-text)}
+.caja-cuenta b.sobra{color:var(--dn-amber-text)}
+.caja-cuenta b.ok{color:var(--dn-green-text)}
+.caja-retira{margin:4px 0 8px;font-size:17px}
+.caja-contado{margin:0;font-size:18px;text-align:right}
+.caja-contado b{font-size:24px}
+.caja-cerrada h2{margin:0;font-size:22px}
+.caja-cerrada{display:flex;flex-direction:column;gap:12px}
+@media (min-width:700px){
+  .caja-acc{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .caja-bill__head,.caja-bill__row{grid-template-columns:120px auto 1fr}
+}
