@@ -1,0 +1,60 @@
+// Brand touches for every screen size. Phone-only layout lives in movil.scss.
+
+// Status pills: Odoo's badges (list/kanban statuses, tags) become rounded
+// pills; colours keep Odoo's text-bg-* contrast.
+.o_web_client .badge {
+    border-radius: 999px;
+    padding: 0.3em 0.75em;
+    font-weight: 600;
+}
+
+// Warnings in the brand amber, with dark text (6.8:1) instead of the
+// low-contrast default yellow.
+.o_web_client .alert-warning {
+    --bs-alert-bg: #{$distri-amber-bg};
+    --bs-alert-color: #{$distri-amber-text};
+    --bs-alert-border-color: #{mix($distri-amber, $distri-amber-bg, 35%)};
+    --bs-alert-link-color: #{$distri-amber-text};
+    border-left: 4px solid $distri-amber;
+}
+
+// Primary actions: teal, bigger radius. Secondary buttons keep Odoo's grey.
+.o_web_client .btn {
+    border-radius: $distri-radius * 0.75;
+}
+
+// Top bar: active app section underlined with the mint detail.
+.o_main_navbar {
+    .o_menu_sections .o_nav_entry.active,
+    .o_menu_sections .dropdown-toggle.active {
+        box-shadow: inset 0 -3px 0 $distri-mint;
+    }
+}
+
+// Lists: calmer header, roomier rows, brand borders.
+.o_list_renderer .o_list_table {
+    thead th {
+        color: $distri-muted;
+        font-weight: 600;
+        text-transform: none;
+    }
+    > tbody > tr > td,
+    > thead > tr > th {
+        border-color: $distri-border;
+    }
+}
+
+// Kanban cards: rounded, with the brand border.
+.o_kanban_renderer .o_kanban_record:not(.o_kanban_ghost):not(.o-kanban-button-new) {
+    border-color: $distri-border;
+    border-radius: $distri-radius;
+}
+
+// The PWA status-bar area is painted with the page background on iOS
+// ("black-translucent"): keep the navy under it, never Odoo purple.
+html {
+    background-color: $distri-navy;
+}
+.o_web_client {
+    background-color: $distri-page;
+}

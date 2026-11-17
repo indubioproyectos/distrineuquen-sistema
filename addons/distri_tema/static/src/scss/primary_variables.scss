@@ -1,15 +1,38 @@
-// Paleta del proyecto (presentaciones y app de reparto).
-//   azul marino #10243f: barra superior
-//   verde azulado #0a6b5c: botones, links y acciones (6.4:1 sobre blanco)
-//   ámbar #b08900: no se usa en el backend. Sobre blanco da 3.3:1 (no sirve
-//   para texto) y como línea bajo la barra queda cortada por las entradas del
-//   menú. Queda para las piezas del proyecto (presentaciones, app).
+// Distri Neuquén brand tokens (same palette as the presentations, /tablero
+// and the delivery app). Contrast on white, checked for text use:
+//   navy  #10243f  bars                      15.6:1
+//   teal  #00806f  buttons                    4.9:1 (white text on it: same);
+//                  links use Odoo's darken(primary, 5%), 6:1 also on the page bg
+//   turquoise #00d1b2 accent only, never text (1.9:1)
+//   mint  #5fe0c9  details on navy            9.7:1 on navy
+//   amber #b08900 / bg #fff4d1 / text #6b5200 warnings (text 6.8:1 on its bg)
+//   red   #b42318  errors and debt            6.5:1
+//   text  #14233a, muted #5b6b80 (5.4:1, 5.0:1 on page), borders #dde3ec, page #f4f6f8
+// The amber itself (3.3:1) is never used for text.
 $distri-navy: #10243f;
-$distri-teal: #0a6b5c;
+$distri-teal: #00806f;
+$distri-turquoise: #00d1b2;
+$distri-mint: #5fe0c9;
+$distri-amber: #b08900;
+$distri-amber-bg: #fff4d1;
+$distri-amber-text: #6b5200;
+$distri-red: #b42318;
+$distri-page: #f4f6f8;
+$distri-border: #dde3ec;
+$distri-text: #14233a;
+$distri-muted: #5b6b80;
+$distri-radius: 12px;
 
 $o-community-color: $distri-navy;
 $o-brand-odoo: $distri-navy;
 $o-brand-primary: $distri-teal;
+$o-danger: $distri-red;
+$o-main-text-color: $distri-text;
+$o-webclient-background-color: $distri-page;
+
+$o-border-radius: 8px;
+$o-border-radius-sm: 6px;
+$o-border-radius-lg: $distri-radius;
 
 $o-navbar-border-bottom: 1px solid darken($distri-navy, 5%);
 

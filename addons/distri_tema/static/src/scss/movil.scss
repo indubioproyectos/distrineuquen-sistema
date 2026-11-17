@@ -1,0 +1,361 @@
+// Phone layout (< 768px, the same breakpoint where Odoo switches to its
+// "small" UI). CSS only: no core template is replaced, so Odoo updates keep
+// working. Goals from the audit (run/tema-movil/antes):
+//   - every tap target at least 44px
+//   - inputs at 16px so iOS Safari does not zoom in on focus
+//   - nothing cut at the right edge (chatter buttons, tabs, line buttons)
+//   - lists as cards, statuses as pills, a big round "+" to create
+//   - installed app (PWA): navy under the status bar, content clear of the
+//     notch and of the home indicator (env(safe-area-inset-*)).
+
+$distri-tap: 44px;
+
+// ---------------------------------------------------------------------------
+// Installed app: safe areas. env() is 0 in a normal browser tab, so this is a
+// no-op there. Needs viewport-fit=cover (views/webclient_templates.xml).
+.o_web_client {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+.o_navbar {
+    padding-top: env(safe-area-inset-top);
+    background-color: $distri-navy;
+}
+.o_app_menu_sidebar,
+.o_burger_menu {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+@include media-breakpoint-down(md) {
+    // -----------------------------------------------------------------------
+    // Top bar: a little taller and every icon a full-size target.
+    .o_main_navbar {
+        --o-navbar-height: 52px;
+
+        .o_menu_toggle,
+        .o_navbar_breadcrumbs .o_back_button,
+        .o_menu_systray > div > .o-dropdown,
+        .o_menu_systray > div > button,
+        .o_menu_systray .o-mail-DiscussSystray-class,
+        .o_mobile_menu_toggle {
+            min-width: $distri-tap;
+            min-height: $distri-tap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+    }
+
+    // App drawer and section menu (the "≡"): 48px rows.
+    .o_app_menu_sidebar,
+    .o_burger_menu {
+        .o_burger_menu_content li[data-menu-xmlid],
+        .o_burger_menu_content .dropdown-item {
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+        }
+        .o_sidebar_topbar .btn,
+        .o_sidebar_close {
+            min-height: $distri-tap;
+            min-width: $distri-tap;
+        }
+    }
+
+    // Body content keeps clear of the home indicator in the installed app.
+    .o_action_manager {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    // -----------------------------------------------------------------------
+    // Inputs: 16px stops iOS from zooming the page on focus.
+    .o_web_client {
+        input.o_input,
+        textarea.o_input,
+        select.o_input,
+        .o_input,
+        .o_field_widget input,
+        .o_field_widget textarea,
+        .o_searchview_input,
+        .o-mail-Composer-input,
+        .form-control,
+        .form-select {
+            font-size: 16px;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Control panel: 44px buttons, search and pager included.
+    .o_control_panel {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+
+        .btn,
+        .o_searchview,
+        .o_pager_previous,
+        .o_pager_next {
+            min-height: $distri-tap;
+        }
+        .btn {
+            min-width: $distri-tap;
+        }
+    }
+
+    // Big round "+" for list and kanban creation, bottom right, above the
+    // home indicator. The label stays in the DOM for screen readers.
+    .o_control_panel .o_control_panel_main_buttons > .o_list_button_add,
+    .o_control_panel .o_control_panel_main_buttons > .o-kanban-button-new {
+        position: fixed;
+        z-index: $zindex-fixed - 1;
+        right: calc(16px + env(safe-area-inset-right));
+        bottom: calc(20px + env(safe-area-inset-bottom));
+        width: 60px;
+        height: 60px;
+        min-width: 60px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0;
+        color: $white;
+        box-shadow: 0 6px 16px rgba($distri-navy, 0.35);
+
+        &::before {
+            content: "+";
+            font-size: 34px;
+            font-weight: 400;
+            line-height: 1;
+        }
+    }
+    // room under the last card so the "+" never hides it
+    .o_action:has(.o_control_panel_main_buttons > .o_list_button_add, .o_control_panel_main_buttons > .o-kanban-button-new) .o_content {
+        padding-bottom: 96px;
+    }
+
+    // -----------------------------------------------------------------------
+    // Kanban (Odoo's phone list): separated rounded cards on the grey page.
+    .o_kanban_renderer.o_kanban_ungrouped {
+        padding: 8px 12px 0;
+        gap: 8px;
+        background-color: $distri-page;
+
+        .o_kanban_record:not(.o_kanban_ghost) {
+            margin: 0 !important;
+            border: 1px solid $distri-border;
+            border-radius: $distri-radius;
+            background-color: $white;
+            padding: 12px;
+            min-height: 64px;
+            box-shadow: 0 1px 2px rgba($distri-navy, 0.06);
+        }
+        .o_kanban_record:active {
+            background-color: mix($distri-teal, $white, 6%);
+        }
+    }
+    // Contact cards: a 56px avatar instead of a 100px block.
+    .o_kanban_renderer .o_kanban_record > .o_kanban_aside_full {
+        flex: 0 0 56px;
+        width: 56px;
+        max-width: 56px;
+        align-self: flex-start;
+
+        img {
+            width: 56px;
+            height: 56px;
+            border-radius: $distri-radius * 0.75;
+            object-fit: cover;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Lists that have no kanban (e.g. product visibility): taller rows,
+    // wrapped text instead of "Actron 40..." and bigger toggles.
+    .o_list_renderer .o_list_table {
+        > tbody > tr.o_data_row > td {
+            height: 48px;
+            vertical-align: middle;
+        }
+        .o_data_cell.o_list_char,
+        .o_data_cell.o_many2one_avatar_user_cell,
+        .o_data_cell[name="name"] {
+            // Odoo forces nowrap on every cell with a more specific selector
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+            line-height: 1.25;
+        }
+        .o_boolean_toggle .form-check-input,
+        .form-switch .form-check-input {
+            width: 2.6em;
+            height: 1.5em;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Forms
+    .o_form_view {
+        // status bar: primary actions wrap instead of squeezing
+        .o_form_statusbar {
+            flex-wrap: wrap;
+            gap: 8px;
+
+            .btn {
+                min-height: $distri-tap;
+            }
+        }
+        // tabs wrap onto two rows instead of hiding "Otra información" off-screen
+        .o_notebook_headers .nav-tabs {
+            flex-wrap: wrap !important;
+            border-bottom: 0;
+            gap: 6px;
+
+            .nav-link {
+                min-height: $distri-tap;
+                display: flex;
+                align-items: center;
+                border: 1px solid $distri-border;
+                border-radius: 999px;
+                padding: 0 14px;
+                margin: 0;
+
+                &.active {
+                    background-color: $distri-navy;
+                    border-color: $distri-navy;
+                    color: $white;
+                }
+            }
+        }
+        // "Agregar producto / sección / nota / Catálogo": wrap, full targets
+        .o_x2m_control_panel .o_cp_buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+
+            .btn {
+                flex: 1 1 auto;
+                min-height: $distri-tap;
+            }
+        }
+        // phone field: Llamar / SMS links were 16px icons
+        .o_field_phone .o_phone_content > a {
+            margin-left: 4px !important;
+            min-width: $distri-tap;
+            min-height: $distri-tap;
+            justify-content: center;
+        }
+        // contact avatar: 72px instead of 130px, so the name gets the width
+        .o_field_contact_image img {
+            max-width: 72px !important;
+            max-height: 72px !important;
+        }
+        .o_field_contact_image .o_image_uploader_container {
+            max-width: 72px !important;
+            max-height: 72px !important;
+        }
+    }
+
+    // Contact hero (views/res_partner_views.xml): full name, balance pill and
+    // the three street actions.
+    .o_distri_contact_hero {
+        margin: 0 0 16px;
+        padding: 14px;
+        border-radius: $distri-radius;
+        background-color: $distri-navy;
+        color: $white;
+
+        .o_distri_contact_hero_name {
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+
+            .o_field_widget,
+            span {
+                color: $white;
+                white-space: normal;
+            }
+        }
+        .o_distri_contact_hero_balance {
+            margin-top: 8px;
+        }
+        .o_distri_quick_actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .o_distri_quick_action {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            min-height: 60px;
+            padding: 6px 4px;
+            border-radius: $distri-radius;
+            border: 1px solid rgba($distri-mint, 0.45);
+            background-color: rgba($white, 0.06);
+            color: $white;
+            font-size: 13px;
+            font-weight: 600;
+
+            .fa {
+                font-size: 20px;
+                color: $distri-mint;
+            }
+            &:active {
+                background-color: rgba($distri-mint, 0.2);
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Chatter: buttons wrap instead of "Activid|" cut at the edge.
+    .o-mail-Chatter-topbar {
+        flex-wrap: wrap;
+        overflow-x: visible !important;
+        gap: 6px;
+        padding-top: 8px;
+
+        > .btn {
+            flex: 1 1 auto;
+            margin: 0 !important;
+            min-height: $distri-tap;
+        }
+        .o-mail-Chatter-topbarGrow {
+            display: none;
+        }
+    }
+    .o-mail-Message-actions .btn,
+    .o-mail-Activity .btn-link {
+        min-height: 36px;
+    }
+
+    // Discuss: list rows as 56px+ targets.
+    .o-mail-DiscussSidebar-item,
+    .o-mail-NotificationItem {
+        min-height: 56px;
+    }
+}
+
+// Shared pills (contact hero balance and anything else that needs one).
+.o_distri_pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-weight: 700;
+    font-size: 14px;
+
+    .o_field_widget,
+    span {
+        color: inherit;
+    }
+}
+.o_distri_pill_danger {
+    background-color: #fde8e6;
+    color: $distri-red;
+}
+.o_distri_pill_ok {
+    background-color: #e3f5f1;
+    color: #006b5c;
+}
