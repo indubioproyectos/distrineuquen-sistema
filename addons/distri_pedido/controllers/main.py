@@ -4,11 +4,15 @@ import json
 import logging
 import math
 import re
+import secrets
 from datetime import date
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
+from psycopg2 import IntegrityError
+
 from odoo import http
+from odoo.exceptions import ConcurrencyError
 from odoo.http import request
 
 from .proyecto import project_strip
@@ -68,6 +72,8 @@ MAX_RENGLONES = 300
 MAX_CANTIDAD = 10000
 MAX_RENGLONES_TEXTO = 100000
 MAX_CUERPO = 256 * 1024
+# the values of sale.order distri_entrega the form may send
+ENTREGAS = ("domicilio", "retira")
 
 
 def unidades_enteras(cantidad):
@@ -700,8 +706,6 @@ class TomaDePedidos(http.Controller):
             "empresa_id": request.env.company.id,
             "lista_propia": self._lista_del_visitante().name or "" if cliente else "",
             "socio_logueado": socio,
-            # «Soy revendedor / Soy distribuidora» for anonymous visitors (19.0.1.92.0)
-            "revendedor": self._acceso_revendedor() if not pedido else False,
             # «Ver mi cuenta corriente» (19.0.1.92.0: only when it is shown to him)
             "mostrar_cuenta": bool(cliente) and self._cuenta_visible(cliente),
             "quien": cliente.name if cliente else "",
@@ -710,6 +714,8 @@ class TomaDePedidos(http.Controller):
             "vendedor": request.env.user.name if self._personal() else "",
             # every visitor: /pedido/enviar checks it (19.0.1.29.0)
             "csrf": request.csrf_token(),
+            # 19.0.1.93.0 (E2E-C C8): the id of this form, see _clave_envio
+            "envio": secrets.token_hex(12),
             "ficha": ficha(),
             "distribuidoras": DISTRIBUIDORAS,
             "destacados": self._destacados(),
@@ -720,15 +726,6 @@ class TomaDePedidos(http.Controller):
             # 19.0.1.92.0: before sending (models/sale_order.py STOCK_NOTICE)
             "leyenda_stock": request.env["sale.order"]._distri_stock_notice(),
         }
-
-    def _acceso_revendedor(self):
-        """«Soy revendedor / Soy distribuidora» for an anonymous visitor: the
-        self-signup page (controllers/alta_revendedor.py). A reseller sees
-        his own prices only once enabled (_calcular_autorizado). False for
-        anyone logged in."""
-        if not request.env.user._is_public():
-            return False
-        return {"url": "/revendedor"}
 
     def _localidades_encomienda(self):
         """Towns suggested for «Soy del interior»: the zones that ship by
@@ -1197,6 +1194,11 @@ class TomaDePedidos(http.Controller):
         datos["encomienda"] = self._encomienda_cliente(pedido)
         datos["espera"] = self._espera_whatsapp(pedido)
         datos["guardado"] = kw.get("guardado") == "1" and editable
+        # 19.0.1.93.0 (E2E-C C11): lines left out of the change just saved
+        try:
+            datos["descartados"] = int(kw.get("descartados") or 0) if datos["guardado"] else 0
+        except ValueError:
+            datos["descartados"] = 0
         datos["avisar_cambio"] = (
             self._url_avisar_cambio(pedido)
             if datos["guardado"] and not datos["espera"] else False)
@@ -1488,6 +1490,11 @@ class TomaDePedidos(http.Controller):
         telefono = (post.get("telefono") or "").strip()
         domicilio = (post.get("domicilio") or "").strip()
         entrega = (post.get("entrega") or "domicilio").strip()
+        # 19.0.1.93.0 (E2E-C C9): an unknown value was a 500
+        if entrega not in ENTREGAS:
+            return self._error_volver(
+                "No entendimos cómo querés recibir el pedido. Volvé y elegí envío a domicilio "
+                "o retiro en el depósito.")
 
         # Staff taking the order: the session user is the seller, and the
         # customer can be chosen (the token was checked above, for everyone).
@@ -1527,12 +1534,14 @@ class TomaDePedidos(http.Controller):
         hay_distribuidoras = False
         # only what the catalog on screen offers (19.0.1.91.0)
         permitidas = set(self._plantillas_del_catalogo(r["id"] for r in renglones).ids)
+        # 19.0.1.93.0 (E2E-C C11): what is no longer in the catalog is left
+        # out, and the customer is told so
+        descartados = []
         for renglon in renglones:
-            if renglon["id"] not in permitidas:
-                continue
             plantilla = Tmpl.browse(renglon["id"])
-            variante = plantilla.product_variant_id
+            variante = plantilla.product_variant_id if renglon["id"] in permitidas else None
             if not variante:
+                descartados.append(renglon["id"])
                 continue
             unidad = self._unidad_de_venta(plantilla)
             valores = {
@@ -1574,8 +1583,12 @@ class TomaDePedidos(http.Controller):
                     variante, factor
                 ) * factor
             lineas.append((0, 0, valores))
+        ids_descartados = descartados
+        descartados = self._nombres_descartados(ids_descartados)
         if not lineas:
-            return request.redirect("/pedido")
+            return self._error_volver(
+                "Los productos de tu pedido ya no están en el catálogo: %s. Volvé y elegí otros."
+                % descartados)
 
         nota = (
             "PEDIDO DESDE LA PAGINA - ASIGNAR CLIENTE\n"
@@ -1656,7 +1669,9 @@ class TomaDePedidos(http.Controller):
                 pedido._recompute_prices()
             # back to «Tu pedido» with «Listo, actualizamos tu pedido»; the
             # WhatsApp step, if still missing, is shown there
-            return request.redirect("/pedido/%s?guardado=1" % pedido.access_token)
+            return request.redirect("/pedido/%s?guardado=1%s" % (
+                pedido.access_token,
+                "&descartados=%d" % len(ids_descartados) if ids_descartados else ""))
         else:
             valores_pedido = {
                 "partner_id": self._socio_sin_asignar(hay_mayorista).id,
@@ -1678,17 +1693,65 @@ class TomaDePedidos(http.Controller):
             }
             if personal:
                 valores_pedido.update(self._valores_del_personal(cliente, nombre, telefono))
-            pedido = request.env["sale.order"].sudo().create(valores_pedido)
+            # 19.0.1.93.0 (E2E-C C8): the same form posted twice (double tap,
+            # a retry of the browser) returns the first order
+            clave = self._clave_envio(post, renglones)
+            previo = request.env["sale.order"].sudo().search(
+                [("distri_envio_clave", "=", clave)], limit=1) if clave else None
+            if previo:
+                return self._pagina_gracias(previo, nombre, telefono, domicilio, entrega,
+                                            hay_mayorista, descartados)
+            valores_pedido["distri_envio_clave"] = clave or False
+            try:
+                with request.env.cr.savepoint():
+                    pedido = request.env["sale.order"].sudo().create(valores_pedido)
+            except IntegrityError:
+                # the twin request committed first: Odoo retries this one,
+                # which then finds that order above
+                raise ConcurrencyError("/pedido/enviar: the same form is being saved")
             pedido._portal_ensure_token()
             if cliente:
                 # same repricing as when the administrator assigns the customer
                 pedido.with_context(distri_armado=True)._recompute_prices()
                 self._guardar_whatsapp_del_cliente(cliente, telefono)
             pedido._distri_wa_start(staff=personal)
+        return self._pagina_gracias(pedido, nombre, telefono, domicilio, entrega, hay_mayorista,
+                                    descartados)
 
+    def _clave_envio(self, post, renglones):
+        """C8: session, the form's id (`envio`, one per page shown) and the
+        cart: a second post of the same form gives the same key. A page
+        rendered before 19.0.1.93.0 has no id: no key, as before."""
+        envio = re.sub(r"[^0-9a-f]", "", (post.get("envio") or "").lower())[:64]
+        if len(envio) < 16:
+            return ""
+        partes = [request.session.sid or "", envio,
+                  json.dumps(sorted((r["id"], r["cantidad"], bool(r.get("may")))
+                                    for r in renglones)),
+                  post.get("entrega") or "", post.get("cliente_id") or "",
+                  str(request.env.uid or "")]
+        return hashlib.sha256("|".join(partes).encode()).hexdigest()
+
+    def _nombres_descartados(self, ids):
+        """C11: «Alcohol x 500 ml, 1 producto más» for the lines left out."""
+        if not ids:
+            return ""
+        plantillas = request.env["product.template"].sudo().with_context(
+            active_test=False).browse(ids).exists().filtered("sale_ok")
+        nombres = plantillas.mapped("name")
+        otros = len(ids) - len(nombres)
+        if otros:
+            nombres.append("%s %s" % (otros, "producto" if otros == 1 else "productos")
+                           if not nombres else
+                           "%s %s más" % (otros, "producto" if otros == 1 else "productos"))
+        return ", ".join(nombres)
+
+    def _pagina_gracias(self, pedido, nombre, telefono, domicilio, entrega, hay_mayorista,
+                        descartados=""):
         datos = {
             "pedido": pedido,
             "empresa_id": request.env.company.id,
+            "descartados": descartados,
             "link_edicion": self._link_edicion(pedido),
             "mp_habilitado": request.env["distri.mp.payment"].sudo()._mp_link_enabled(),
             "paga_por_transferencia": bool(self._alias_transferencia()),

@@ -8,7 +8,7 @@ from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.models import semaforo
 from odoo.addons.distri_pedido.models.revisar import PARAM_ALERTA_ROJOS, RESUMEN_ALERTA
 from odoo.addons.distri_pedido.models.sale_order import SOCIO_SIN_ASIGNAR
-from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
+from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin, _uuid
 
 
 @tagged("post_install", "-at_install", "distri_revisar")
@@ -317,6 +317,48 @@ class TestRevisar(RepartoMixin, AccountTestInvoicingCommon):
         self._retener(order)
         self.assertEqual(route.stop_ids.order_id, order, "una ruta en la calle no se toca")
         self.assertEqual(order.distri_retenido_rutas, route.name)
+
+    def test_retener_despues_de_controlado_lo_saca_de_la_ruta(self):
+        """19.0.1.93.0 (E2E-C C4): «Controlado» but still at the depot: it
+        leaves the route with a note, and the departure goes without it."""
+        order = self._order(self.habitual, self.product_a)
+        otro = self._order(self.habitual, self.product_a)
+        route = self._route(order | otro)
+        self._sync([self._event(route, "load", {"stop_id": s.id, "loaded": True})
+                    for s in route.stop_ids])
+        route.stop_ids.sudo().action_dispatch_check()
+        route.sudo().write({"departure_controlled_at": fields.Datetime.now()})
+        stop_ref = route.stop_ids.filtered(lambda s: s.order_id == order).id
+        self._retener(order, motivo="Cheque rebotado, no entregar")
+        self.assertEqual(route.stop_ids.order_id, otro)
+        self.assertEqual(route.left_order_ids.order_id, order)
+        self.assertIn("después de «Controlado»", route.message_ids[:1].body)
+        # a late load tick of the phone for it is not an error
+        res = self._sync([self._event(route, "load", {"stop_id": stop_ref, "loaded": True})])
+        self.assertEqual(res[0]["status"], "ok", res)
+        res = self._sync([self._event(route, "depart", {})])
+        self.assertEqual(res[0]["status"], "ok", res)
+        self.assertEqual(route.state, "on_route")
+
+    def test_retenido_en_la_calle_no_se_entrega_ni_se_cobra(self):
+        """19.0.1.93.0 (E2E-C C4): on a route already on the street the app
+        shows it held and the server refuses to deliver or collect it."""
+        order = self._order(self.habitual, self.product_a)
+        route = self._route(order)
+        self._on_road(route)
+        self._retener(order, motivo="Cheque rebotado")
+        stop = route.stop_ids
+        self.assertEqual(stop._app_payload()["retained"], "Cheque rebotado")
+        res = self._sync([self._event(route, "visit", self._visit(stop, cash=1000))])
+        self.assertEqual(res[0]["status"], "error")
+        self.assertIn("Pedido retenido por administración", res[0]["error"])
+        self.assertEqual(stop.state, "pending")
+        self.assertEqual(stop.cash_amount, 0)
+        res = self._sync([self._event(route, "visit", {
+            "visit_uuid": _uuid(), "stop_id": stop.id, "outcome": "not_delivered",
+            "reason": "Retenido"})])
+        self.assertEqual(res[0]["status"], "ok", res)
+        self.assertEqual(stop.state, "not_delivered")
 
     # ------------------------------------------------------------ access
 

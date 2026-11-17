@@ -12,7 +12,7 @@ import math
 import re
 from datetime import datetime, timedelta, timezone
 
-from psycopg2 import IntegrityError
+from psycopg2 import IntegrityError, errors as pg_errors
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -48,6 +48,22 @@ NOT_DEPARTED = ("La ruta todavía no salió a repartir: cargá los pedidos y toc
 UUID_RE = re.compile(r"^[0-9a-fA-F-]{16,64}$")
 MAX_EVENTS = 200
 MAX_CASH = 1e9
+
+# 19.0.1.93.0 (E2E-C C14): an edit older than the one the server has is not
+# applied, and the phone is told so (status «discarded»), not «ok»
+OLDER_EDIT = ("Esta edición es más vieja que la que ya tiene el servidor (otro celular o la hora "
+              "del celular atrasada): no se aplicó. Abrí la visita, revisala y guardala de nuevo.")
+# 19.0.1.93.0 (C15): concurrency errors go up to Odoo, which retries the
+# whole request (odoo.service.model.retrying) instead of answering «error»
+CONCURRENCY_ERRORS = (pg_errors.SerializationFailure, pg_errors.LockNotAvailable,
+                      pg_errors.DeadlockDetected)
+# 19.0.1.93.0 (C4)
+RETAINED = ("Pedido retenido por administración: no lo entregues ni lo cobres. Marcalo «No se "
+            "entregó» y volvelo al depósito. Motivo: %s")
+
+
+class DiscardedEvent(Exception):
+    """An event logged but not applied: the phone gets status «discarded»."""
 
 
 def parse_phone_time(value):
@@ -102,9 +118,12 @@ class DistriSyncEvent(models.Model):
     def process_batch(self, user, events):
         """Applies the events in order. Returns one result per event.
 
-        status: "ok" (applied now), "duplicate" (already had it) or
-        "error" with retry=False (the phone must drop it and show the error)
-        or retry=True (temporary: try again later).
+        status: "ok" (applied now), "duplicate" (already had it),
+        "discarded" (logged but not applied, with the reason in «error»: an
+        edit older than the one the server has, 19.0.1.93.0) or "error" with
+        retry=False (the phone must drop it and show the error) or retry=True
+        (temporary: try again later). A serialization failure is not caught:
+        Odoo retries the whole request.
         """
         results = []
         if not isinstance(events, list):
@@ -131,9 +150,13 @@ class DistriSyncEvent(models.Model):
                     "error": "Evento sin identificador."}
         if self.search_count([("uuid", "=", event_uuid)]):
             return {"uuid": event_uuid, "status": "duplicate"}
+        discarded = False
         try:
             with self.env.cr.savepoint():
-                note = self._apply(user, event)
+                try:
+                    note = self._apply(user, event)
+                except DiscardedEvent as exc:
+                    note, discarded = str(exc), True
                 self.create({
                     "uuid": event_uuid,
                     "event_type": event.get("type"),
@@ -142,9 +165,11 @@ class DistriSyncEvent(models.Model):
                     "payload": json.dumps(_without_photo(event.get("payload")),
                                           ensure_ascii=False)[:20000],
                     "captured_at": parse_phone_time(event.get("captured_at")),
-                    "note": note or False,
+                    "note": (note or "")[:250] or False,
                 })
                 self.env.flush_all()
+        except CONCURRENCY_ERRORS:
+            raise
         except IntegrityError:
             # the same uuid committed by a parallel request
             self.env.invalidate_all()
@@ -162,6 +187,8 @@ class DistriSyncEvent(models.Model):
             _logger.exception("reparto: could not apply event %s", event_uuid)
             return {"uuid": event_uuid, "status": "error", "retry": True,
                     "error": "Error del servidor. Se reintenta."}
+        if discarded:
+            return {"uuid": event_uuid, "status": "discarded", "error": OLDER_EDIT}
         return {"uuid": event_uuid, "status": "ok"}
 
     # ----------------------------------------------------------- apply
@@ -351,7 +378,9 @@ class DistriSyncEvent(models.Model):
         if other:
             raise UserError("Esa visita es de otro pedido.")
         if stop.visit_captured_at and captured < stop.visit_captured_at:
-            return "más vieja que la registrada: no se aplicó"
+            raise DiscardedEvent("más vieja que la registrada: no se aplicó")
+        if stop.order_id.distri_retenido and payload.get("outcome") != "not_delivered":
+            raise UserError(RETAINED % (stop.order_id.distri_retenido_motivo or "-"))
         common = {
             "visit_uuid": visit_uuid, "visit_captured_at": captured,
             "visit_received_at": fields.Datetime.now(),
@@ -408,7 +437,9 @@ class DistriSyncEvent(models.Model):
         if other:
             raise UserError("Esa visita es de otro pedido.")
         if stop.visit_captured_at and captured < stop.visit_captured_at:
-            return "más vieja que la registrada: no se aplicó"
+            raise DiscardedEvent("más vieja que la registrada: no se aplicó")
+        if stop.order_id.distri_retenido and payload.get("outcome") != "not_delivered":
+            raise UserError(RETAINED % (stop.order_id.distri_retenido_motivo or "-"))
         self._record_visit(stop, visit_uuid, payload, captured)
         return False
 

@@ -44,6 +44,13 @@ class SaleOrder(models.Model):
     distri_modificado = fields.Boolean(
         string="Modificado por el cliente", copy=False, readonly=True,
     )
+    # 19.0.1.93.0 (E2E-C C8): the fingerprint of the /pedido form that created
+    # the order (session, page token and cart). The same form posted twice
+    # returns the first order instead of creating another one.
+    distri_envio_clave = fields.Char(string="Clave del envío (web)", copy=False, readonly=True)
+
+    _distri_envio_clave_unique = models.Constraint(
+        "unique(distri_envio_clave)", "Ese pedido ya se recibió.")
     # The order is still under a generic "Pedidos web" contact.
     distri_partner_generic = fields.Boolean(
         string="Sin cliente asignado", related="partner_id.distri_generic_partner",

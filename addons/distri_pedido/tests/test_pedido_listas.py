@@ -19,6 +19,7 @@ from odoo.addons.distri_pedido.controllers.main import (
     CATEGORIAS_A_PRESUPUESTAR, DISTRIBUIDORAS, LISTA_GENERAL, LISTA_OCULTA,
     MENSAJE_DISTRIBUIDORA,
 )
+from odoo.addons.distri_pedido.models.alta_revendedor import invite_code
 from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
 
 PRECIO_GENERAL = 5123.0
@@ -172,35 +173,101 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         self._assert_publica(html)
         self.assertIn("Precios de la lista mayorista general", html)
 
-    def test_anonymous_sees_the_reseller_button(self):
-        """19.0.1.92.0: «Soy revendedor / Soy distribuidora» leads to the
-        self-signup page. Still the General list only: no hidden section and
-        no hidden price."""
+    def _invite(self):
+        return self.env["distri.reseller.invite"].with_user(self.gerencia).create({})
+
+    def _invite_url(self):
+        return "/revendedor?c=%s" % invite_code(self.env)
+
+    def test_reseller_signup_is_private(self):
+        """19.0.1.93.0: no public «Soy revendedor» on /pedido; /revendedor
+        only with the invitation link, a 404 otherwise; noindex."""
         html = self._pedido_html()
         self._assert_publica(html)
-        self.assertIn("Soy revendedor / Soy distribuidora", html)
-        self.assertIn('href="/revendedor"', html)
-        page = self._pedido_html("/revendedor")
+        self.assertNotIn("Soy revendedor", html)
+        self.assertNotIn('href="/revendedor', html)
+        login = self.url_open("/web/login?redirect=%2Fpedido")
+        self.assertEqual(login.status_code, 200)
+        self.assertNotIn("Revendedores y distribuidoras", login.text)
+        code = invite_code(self.env)
+        for url in ("/revendedor", "/revendedor?c=", "/revendedor?c=%s" % code[:-1] + "x",
+                    "/revendedor?c=%s" % code.upper()):
+            self.assertEqual(self.url_open(url).status_code, 404, url)
+        # no free signup without the invitation in the session
+        self.env["ir.config_parameter"].sudo().set_param("auth_signup.invitation_scope", "b2c")
+        self.assertEqual(self.url_open("/web/signup?redirect=%2Fmi-perfil").status_code, 404)
+        res = self.url_open("/web/signup", data={
+            "csrf_token": re.search(r'name="csrf_token" value="([^"]+)"', login.text).group(1),
+            "login": "sininvitacion@prueba.example", "name": "Sin Invitacion",
+            "password": "Clave-Segura-2026", "confirm_password": "Clave-Segura-2026"})
+        self.assertEqual(res.status_code, 404)
+        self.assertFalse(self.env["res.users"].search([("login", "=", "sininvitacion@prueba.example")]))
+
+        res = self.url_open(self._invite_url())
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers.get("X-Robots-Tag"), "noindex, nofollow")
+        page = res.text
+        self.assertIn('name="robots" content="noindex,nofollow"', page)
         self.assertIn("Crear cuenta con mi correo", page)
         self.assertIn('href="/web/signup?redirect=%2Fmi-perfil"', page)
         self.assertIn('href="/web/login?redirect=%2Fpedido"', page)
         number = self.env["distri.pedido.whatsapp.settings"].sudo().company_number()
         self.assertIn("https://wa.me/%s?text=" % number, page)
         self.assertNotIn("Entrar con Google", page, "the provider is disabled")
-        login = self.url_open("/web/login?redirect=%2Fpedido")
-        self.assertEqual(login.status_code, 200)
-        self.assertIn("Revendedores y distribuidoras", login.text)
+        self.assertEqual(self.url_open("/web/signup?redirect=%2Fmi-perfil").status_code, 200)
+
+    def test_invite_link_for_managers_and_regenerate(self):
+        """«Invitar revendedor»: the link and the WhatsApp message; a new code
+        makes the old link a 404."""
+        invite = self._invite()
+        old = invite_code(self.env)
+        self.assertTrue(invite.link.endswith("/revendedor?c=%s" % old), invite.link)
+        self.assertGreaterEqual(len(old), 16)
+        self.assertIn(invite.link, invite.message)
+        self.assertIn("no lo compartas", invite.message)
+        with self.assertRaises(AccessError):
+            self.env["distri.reseller.invite"].with_user(self.vendedor).create({})
+        with self.assertRaises(AccessError):
+            invite.with_user(self.vendedor).action_regenerate()
+        action = self.env["res.partner"].with_user(self.administracion) \
+            .action_distri_reseller_invite()
+        self.assertEqual(action["res_model"], "distri.reseller.invite")
+        invite.action_regenerate()
+        new = invite_code(self.env)
+        self.assertNotEqual(new, old)
+        self.assertEqual(self.url_open("/revendedor?c=%s" % old).status_code, 404)
+        self.assertEqual(self.url_open("/revendedor?c=%s" % new).status_code, 200)
+
+    def test_signup_needs_the_current_invitation(self):
+        """The code is kept in the session; a regenerated code closes the
+        signup of that session too (email and Google use the same check)."""
+        self.env["ir.config_parameter"].sudo().set_param("auth_signup.invitation_scope", "b2c")
+        self.url_open(self._invite_url())
+        page = self.url_open("/web/signup?redirect=%2Fmi-perfil")
+        self.assertEqual(page.status_code, 200)
+        self._invite().action_regenerate()
+        res = self.url_open("/web/signup", data={
+            "csrf_token": re.search(r'name="csrf_token" value="([^"]+)"', page.text).group(1),
+            "login": "vencida@prueba.example", "name": "Invitacion Vencida",
+            "password": "Clave-Segura-2026", "confirm_password": "Clave-Segura-2026"})
+        self.assertEqual(res.status_code, 404)
+        self.assertFalse(self.env["res.users"].search([("login", "=", "vencida@prueba.example")]))
+        # outside an HTTP request (shell, scripts) nothing changes
+        self.env["res.users"].sudo().signup({
+            "login": "desdeshell@prueba.example", "name": "Desde Shell",
+            "password": "Clave-Segura-2026"})
+        self.assertTrue(self.env["res.users"].search([("login", "=", "desdeshell@prueba.example")]))
 
     def test_google_button_only_while_the_provider_is_enabled(self):
         google = self.env.ref("auth_oauth.provider_google")
         google.write({"enabled": True, "client_id": "prueba-123.apps.googleusercontent.com"})
-        page = self._pedido_html("/revendedor")
+        page = self._pedido_html(self._invite_url())
         self.assertIn("Entrar con Google", page)
         self.assertIn("https://accounts.google.com/o/oauth2/auth?", page)
         self.assertIn("client_id=prueba-123.apps.googleusercontent.com", page)
         self.assertIn("auth_oauth%2Fsignin", page)
         google.client_id = False
-        self.assertNotIn("Entrar con Google", self._pedido_html("/revendedor"))
+        self.assertNotIn("Entrar con Google", self._pedido_html(self._invite_url()))
 
     # ------------------------------------------------ self-signup (19.0.1.92.0)
 
@@ -210,6 +277,8 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
 
     def _signup(self, email):
         self.env["ir.config_parameter"].sudo().set_param("auth_signup.invitation_scope", "b2c")
+        # 19.0.1.93.0: only after the invitation link
+        self.assertEqual(self.url_open(self._invite_url()).status_code, 200)
         page = self.url_open("/web/signup?redirect=%2Fmi-perfil")
         self.assertEqual(page.status_code, 200)
         res = self.url_open("/web/signup", data={
@@ -248,8 +317,17 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
                          ("Kiosco Autoalta", "Juan Autoalta", "20123456786", "Plottier"))
         self.assertEqual(partner.distri_whatsapp, "+5492994222444")
         self.assertFalse(partner.distri_lista_oculta)
-        activity = partner.activity_ids.filtered(lambda a: a.user_id == self.gerencia)
+        # 19.0.1.93.0: one activity for the partner, for a Gerencia user
+        activity = partner.activity_ids
+        self.assertEqual(len(activity), 1)
         self.assertEqual(activity.summary, "Alta de revendedor pendiente: Kiosco Autoalta")
+        self.assertTrue(activity.user_id.has_group("distri_pedido.grupo_gerencia"))
+        # still pending: he may correct his data, without a second activity
+        res = self._profile(self.url_open("/mi-perfil").text, direccion="Calle Falsa 744")
+        self.assertTrue(res.url.endswith("/mi-perfil?listo=1"), res.url)
+        partner.invalidate_recordset()
+        self.assertEqual(partner.street, "Calle Falsa 744")
+        self.assertEqual(len(partner.activity_ids), 1)
         self.assertIn(partner, self.env["res.partner"].search(
             [("distri_alta_estado", "=", "pendiente")]), "listed in «Revendedores pendientes»")
 
@@ -274,6 +352,9 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         self.assertIn("(lista Revendedor Pruebalistas)", self._pedido_html())
 
     def test_profile_validation_and_reject(self):
+        # many submissions in a row on purpose: not the rate limit under test
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.perfil_limite_sesion_10min", "100")
         user, html = self._signup("rechazo@prueba.example")
         for values, message in (({"cuit": "123"}, "11 números"),
                                 ({"cuit": "20123456780"}, "no es válido"),
@@ -295,6 +376,71 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         self.assertEqual(partner.distri_alta_estado, "rechazado")
         self.assertFalse(partner.distri_lista_oculta)
         self._assert_publica(self._pedido_html())
+        # 19.0.1.93.0 (E2E-C Q7): no self re-submit after a rejection
+        page = self.url_open("/mi-perfil")
+        self.assertIn("no fue aprobada", page.text)
+        self.assertNotIn("Guardar mis datos", page.text)
+        # the read-only page has no form: the token of any page will do
+        res = self._profile(self._pedido_html(), comercio="Kiosco Reintento")
+        self.assertEqual(res.status_code, 403)
+        partner.invalidate_recordset()
+        self.assertEqual(partner.distri_alta_estado, "rechazado")
+        self.assertEqual(partner.name, "Kiosco Autoalta")
+        # until gerencia re-opens it
+        with self.assertRaises(AccessError):
+            partner.with_user(self.vendedor).action_distri_reopen_reseller()
+        partner.with_user(self.gerencia).action_distri_reopen_reseller()
+        self.assertEqual(partner.distri_alta_estado, "perfil")
+        res = self._profile(self.url_open("/mi-perfil").text, comercio="Kiosco Reintento")
+        self.assertTrue(res.url.endswith("/mi-perfil?listo=1"), res.url)
+        partner.invalidate_recordset()
+        self.assertEqual(partner.distri_alta_estado, "pendiente")
+
+    def test_profile_locked_outside_the_signup_flow(self):
+        """19.0.1.93.0 (E2E-C C5/C6): an ordinary portal customer and an
+        enabled reseller see name and CUIT read-only and cannot change them."""
+        self.revendedora.write({"distri_alta_estado": "habilitado", "vat": "20123456786"})
+        for login, company in (("kiosco_listas", self.kiosco),
+                               ("revende_listas", self.revendedora)):
+            self.authenticate(login, login)
+            page = self.url_open("/mi-perfil")
+            self.assertEqual(page.status_code, 200)
+            self.assertIn("Para cambiar estos datos escribinos por WhatsApp", page.text)
+            self.assertNotIn("Guardar mis datos", page.text)
+            name = company.name
+            res = self._profile(self._pedido_html(), comercio="NOMBRE CAMBIADO",
+                                cuit="20-18304945-4")
+            self.assertEqual(res.status_code, 403, login)
+            company.invalidate_recordset()
+            self.assertEqual(company.name, name, login)
+            self.assertNotEqual(company.vat, "20183049454", login)
+            self.assertEqual(company.distri_alta_estado,
+                             "habilitado" if company == self.revendedora else False)
+
+    def test_profile_refuses_a_cuit_already_used(self):
+        """19.0.1.93.0 (E2E-C C7)."""
+        self.env["res.partner"].create({"name": "Cliente Con CUIT", "vat": "20-12345678-6"})
+        user, html = self._signup("cuitrepetido@prueba.example")
+        res = self._profile(html)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Ese CUIT ya está registrado", res.text)
+        user.partner_id.invalidate_recordset()
+        self.assertEqual(user.partner_id.distri_alta_estado, "perfil")
+        self.assertFalse(user.partner_id.activity_ids)
+
+    def test_profile_submissions_are_rate_limited(self):
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.perfil_limite_sesion_10min", "2")
+        user, html = self._signup("limite@prueba.example")
+        for _n in range(2):
+            res = self._profile(html, cuit="123")
+            self.assertEqual(res.status_code, 200)
+            html = res.text
+        res = self._profile(html)
+        self.assertEqual(res.status_code, 429)
+        self.assertIn("muchos envíos seguidos", res.text)
+        user.partner_id.invalidate_recordset()
+        self.assertEqual(user.partner_id.distri_alta_estado, "perfil")
 
     def test_crear_acceso_web_users_skip_the_profile(self):
         tienda = self.env["res.partner"].create({"name": "Almacen Acceso Web", "ref": "AW-1"})

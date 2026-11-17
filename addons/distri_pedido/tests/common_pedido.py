@@ -6,6 +6,7 @@ from odoo.addons.distri_pedido.controllers.main import PARAM_PAUSADO
 from odoo.addons.distri_pedido.models.agil_tienda import PARAM_CATALOGO_AGIL
 
 CSRF_RE = re.compile(r'name="csrf_token" value="([^"]+)"')
+ENVIO_RE = re.compile(r'name="envio" value="([^"]+)"')
 
 
 def page_token(case, page="/pedido"):
@@ -13,11 +14,19 @@ def page_token(case, page="/pedido"):
     return match.group(1) if match else ""
 
 
+def page_tokens(case, page="/pedido"):
+    """(csrf token, form id) of one page shown (19.0.1.93.0: `envio`)."""
+    html = case.url_open(page).text
+    csrf, envio = CSRF_RE.search(html), ENVIO_RE.search(html)
+    return (csrf.group(1) if csrf else ""), (envio.group(1) if envio else "")
+
+
 def post_pedido(case, data, page="/pedido"):
     """Like the browser: the page first (same session), then the form."""
     data = dict(data)
     if "csrf_token" not in data:
-        data["csrf_token"] = page_token(case, page)
+        data["csrf_token"], envio = page_tokens(case, page)
+        data.setdefault("envio", envio)
     return case.url_open("/pedido/enviar", data=data)
 
 

@@ -31,6 +31,7 @@
     .mov:first-of-type{border-top:0}
     .mov span{font-size:12px;color:var(--muted);display:block}
     .credit{color:var(--teal)}
+    .opt span.ruta{color:var(--red);font-weight:600}
     label.stack{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
     .row2{display:flex;gap:8px}
     .row2 .inp{flex:1}
@@ -80,6 +81,14 @@
             <div class="small" t-esc="duplicate"/>
             <input type="hidden" name="confirmado" value="1"/>
           </div>
+          <!-- 19.0.1.93.0 (C1): the order is on a route -->
+          <div t-if="route_warning" class="card warn" role="alert">
+            <b>Ojo: está en una ruta</b>
+            <div class="small" t-esc="route_warning"/>
+            <input type="hidden" t-att-name="route_field" value="1"/>
+          </div>
+          <input t-if="form.get('ruta_ok') and route_field != 'ruta_ok'" type="hidden" name="ruta_ok" value="1"/>
+          <input t-if="form.get('forzar') and route_field != 'forzar'" type="hidden" name="forzar" value="1"/>
           <label class="stack">Importe en efectivo
             <input class="inp" type="text" name="importe" inputmode="decimal" autocomplete="off"
                    required="required" placeholder="0" t-att-value="form.get('importe')"/>
@@ -96,20 +105,24 @@
                        t-att-checked="form.get('factura') == str(inv['id']) or None"/>
                 <div>Factura <t t-esc="inv['name']"/> · debe <b t-esc="money(inv['residual'])"/>
                   <span><t t-esc="inv['date']"/><t t-if="inv['remito']"> · remito <t t-esc="inv['remito']"/></t>
-                    · total <t t-esc="money(inv['total'])"/></span></div>
+                    · total <t t-esc="money(inv['total'])"/></span>
+                  <span t-if="inv['route_note']" class="ruta" t-esc="inv['route_note']"/></div>
               </label>
             </t>
             <div t-if="not account['invoices']" class="small muted">No tiene facturas impagas.</div>
+            <div class="small muted">«A cuenta» se aplica a las facturas más viejas primero.</div>
           </div>
           <label class="stack">Nota (opcional)
             <input class="inp" type="text" name="nota" maxlength="200" autocomplete="off"
                    placeholder="Ej.: pagó en el local" t-att-value="form.get('nota')"/>
           </label>
           <button type="submit" class="btn teal">
-            <t t-if="duplicate">Sí, es otro cobro: registrarlo</t>
+            <t t-if="route_warning and route_field == 'forzar'">Cobrar igual</t>
+            <t t-elif="route_warning">No le pagó al repartidor: registrarlo</t>
+            <t t-elif="duplicate">Sí, es otro cobro: registrarlo</t>
             <t t-else="">Registrar cobro en efectivo</t>
           </button>
-          <a t-if="duplicate" class="btn outline" href="/cobro">No, ya estaba registrado</a>
+          <a t-if="duplicate or route_warning" class="btn outline" href="/cobro">No, no lo registro</a>
         </form>
 
         <div class="card" t-if="account['rows']">

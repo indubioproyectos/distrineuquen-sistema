@@ -43,8 +43,11 @@ class DistriRateHit(models.Model):
         return "%s:%s" % (kind, digest[:32])
 
     @api.model
-    def _limit(self, name):
-        param, default, window = LIMITS[name]
+    def _limit(self, name, limits=None):
+        """(value, window) of one limit. `limits` (19.0.1.93.0) gives another
+        scope its own parameters and defaults; a None window is the usual one."""
+        param, default, window = (limits or LIMITS)[name]
+        window = window or LIMITS[name][2]
         try:
             value = int(self.env["ir.config_parameter"].sudo().get_param(param) or default)
         except ValueError:
@@ -52,7 +55,7 @@ class DistriRateHit(models.Model):
         return value, window
 
     @api.model
-    def _distri_check(self, scope, ip, session_id):
+    def _distri_check(self, scope, ip, session_id, limits=None):
         """Counts one use of `scope` by this IP and session. Returns the name
         of the limit it went over (and does not count it), or False."""
         Hit = self.sudo()
@@ -64,7 +67,7 @@ class DistriRateHit(models.Model):
             target = "session" if name.startswith("session") else "ip"
             if target not in keys:
                 continue
-            limit, window = self._limit(name)
+            limit, window = self._limit(name, limits)
             if Hit.search_count([("key", "=", keys[target]), ("at", ">", now - window)]) >= limit:
                 return name
         Hit.create([{"key": key, "at": now} for key in keys.values()])

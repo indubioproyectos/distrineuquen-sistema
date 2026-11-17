@@ -12,7 +12,7 @@ from odoo import http
 from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
-from ..models.cobro_efectivo import DuplicateCashError
+from ..models.cobro_efectivo import DuplicateCashError, RouteCashWarning
 from .main import FICHA
 from .reparto import SHARED_CSS
 
@@ -48,6 +48,9 @@ class CobroEfectivo(http.Controller):
             "account": None,
             "error": "",
             "duplicate": "",
+            # 19.0.1.93.0 (C1): the order is on a route, asked first
+            "route_warning": "",
+            "route_field": "",
             "done": None,
             "form": {},
             "today": today,
@@ -82,9 +85,11 @@ class CobroEfectivo(http.Controller):
         return self._render(values)
 
     @http.route("/cobro/registrar", type="http", auth="user", methods=["POST"], sitemap=False)
-    def register(self, cliente=None, importe="", factura="", nota="", confirmado="", **kw):
+    def register(self, cliente=None, importe="", factura="", nota="", confirmado="",
+                 ruta_ok="", forzar="", **kw):
         self._check()
-        form = {"importe": importe or "", "factura": factura or "", "nota": nota or ""}
+        form = {"importe": importe or "", "factura": factura or "", "nota": nota or "",
+                "ruta_ok": ruta_ok == "1", "forzar": forzar == "1"}
         try:
             account = self._account(cliente)
         except UserError as exc:
@@ -95,7 +100,11 @@ class CobroEfectivo(http.Controller):
             with request.env.cr.savepoint():
                 collection = request.env["distri.cash.collection"].cash_register(
                     cliente, importe, invoice_id=factura or False, note=nota,
-                    confirmed=confirmado == "1")
+                    confirmed=confirmado == "1", route_ok=ruta_ok == "1", force=forzar == "1")
+        except RouteCashWarning as exc:
+            return self._render({"account": account, "form": form,
+                                 "route_warning": exc.args[0], "route_field": exc.field},
+                                status=409)
         except DuplicateCashError as exc:
             return self._render({"account": account, "form": form,
                                  "duplicate": exc.args[0]}, status=409)

@@ -421,21 +421,25 @@ class TestManagersAsDrivers(RepartoMixin, HttpCase):
         cls.order = cls._order(partner, product, qty=2, price=100)
         cls.order2 = cls._order(partner, product, qty=1, price=100)
 
-    def test_depot_box_of_a_day_before_must_be_closed_first(self):
-        """19.0.1.37.0 (T6): never two depot boxes of the same user open."""
+    def test_depot_box_of_a_day_before_does_not_block_today(self):
+        """19.0.1.93.0 (E2E-C C16): after midnight, a box of the day before
+        still open no longer blocks the cash of today (19.0.1.37.0 refused
+        it): today's box opens next to it, and the old one stays open for
+        administración, highlighted in «Cierre de caja depósito»."""
         Route = self.env["distri.route"]
         user = self.admin_driver
         old = Route._depot_route_for(user)
         old.sudo().write({"date": old.date - timedelta(days=1)})
-        with self.assertRaisesRegex(UserError, "sigue abierta"):
-            Route._depot_route_for(user)
-        old.sudo().write({"state": "settled"})
+        self.assertTrue(old.depot_overdue)
         today = Route._depot_route_for(user)
         self.assertNotEqual(today, old)
         self.assertEqual(today.state, "on_route")
-        # other users are not blocked by it
-        old.sudo().write({"state": "on_route"})
-        self.assertTrue(Route._depot_route_for(self.manager_driver))
+        self.assertFalse(today.depot_overdue)
+        self.assertEqual(Route._depot_route_for(user), today, "one box per day")
+        self.assertEqual(old.state, "on_route", "the old one waits for administración")
+        old.sudo().write({"cash_counted": 0})
+        old.action_close_depot()
+        self.assertFalse(old.depot_overdue)
 
     def test_driver_domain_includes_admin_and_manager(self):
         Route = self.env["distri.route"]

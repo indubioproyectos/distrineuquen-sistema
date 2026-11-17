@@ -386,8 +386,19 @@
   // link. It comes with the route: a new one shows after «Actualizar la ruta».
   function noticeHtml(stop, extra) {
     var n = stop.notice;
-    if (!n || !n.text) return "";
-    return '<div class="notice' + (extra ? " " + extra : "") + '"><b>Aviso del cliente:</b> ' + h(n.text) +
+    var cls = '<div class="notice' + (extra ? " " + extra : "") + '">';
+    var out = "";
+    // 19.0.1.93.0: held by administración (C4) and cash already paid at the local (C1)
+    if (stop.retained) {
+      out += cls + "<b>Retenido:</b> no lo entregues ni lo cobres. Marcalo «No se entregó» y " +
+        "volvelo al depósito. Motivo: " + h(stop.retained) + "</div>";
+    }
+    if (stop.paid_elsewhere > 0) {
+      out += cls + "<b>Ya cobrado en el local: " + h(money(stop.paid_elsewhere)) + ".</b> " +
+        "El saldo de abajo ya lo descuenta: no lo cobres de nuevo.</div>";
+    }
+    if (!n || !n.text) return out;
+    return out + cls + "<b>Aviso del cliente:</b> " + h(n.text) +
       (n.date ? ' <span class="small">(' + h(shortDate(n.date)) + ")</span>" : "") + "</div>";
   }
 
@@ -484,10 +495,13 @@
       (data.results || []).forEach(function (r) {
         var ev = byUuid[r.uuid];
         if (!ev) return;
-        if (r.status === "ok" || r.status === "duplicate" || (r.status === "error" && !r.retry)) {
+        // «discarded» (19.0.1.93.0): an edit older than the server's one, not
+        // applied; the visit shows why and the driver saves it again
+        if (r.status === "ok" || r.status === "duplicate" || r.status === "discarded" ||
+            (r.status === "error" && !r.retry)) {
           S.outbox = S.outbox.filter(function (e) { return e.uuid !== r.uuid; });
           jobs.push(outboxDel(r.uuid));
-          markVisit(ev, r.status === "error" ? r.error : null);
+          markVisit(ev, r.status === "error" || r.status === "discarded" ? r.error : null);
           if (r.status === "error") {
             keepRejected(ev, r.error);
           } else if (ev.resends) {

@@ -132,13 +132,6 @@
     .tuslistas{background:#e6faf7;border:1px solid var(--acento);border-radius:4px;
                padding:.5rem .75rem;margin:0 1rem .8rem;font-size:.85rem;color:#00806f;
                text-align:center}
-    /* 19.0.1.92.0: revendedores y distribuidoras sin loguear */
-    .revendedor{margin:0 1rem .8rem;text-align:center;font-size:.85rem;color:var(--tenue)}
-    .revendedor .btn-rev{display:inline-block;border:2px solid var(--acento);border-radius:4px;
-                         padding:.45rem .9rem;color:#00806f;font-weight:700;text-decoration:none;
-                         background:#fff}
-    .revendedor p{margin:.4rem 0 0}
-    .revendedor p a{color:#00806f}
     /* destacados: siempre abiertos, sin cabecera de seccion */
     .bloque.siempre>.cuerpo{display:block}
     .bloque.siempre>.chip{display:none}
@@ -222,11 +215,6 @@
 
   <div class="marco">
     <p class="lista-general" t-if="not lista_propia">Precios de la lista mayorista general</p>
-    <!-- 19.0.1.92.0: anonymous visitors (controllers/main.py _acceso_revendedor) -->
-    <div class="revendedor" t-if="revendedor">
-      <a class="btn-rev" t-att-href="revendedor['url']">Soy revendedor / Soy distribuidora</a>
-      <p>Creá tu cuenta o entrá: cuando te habilitemos, vas a ver los precios de tu lista.</p>
-    </div>
     <div class="tuslistas" t-if="lista_propia">
       Estás viendo los precios de <b t-esc="quien"/> (lista <t t-esc="lista_propia"/>).
       <a t-if="socio_logueado and mostrar_cuenta" href="/mi-cuenta" class="micuenta">Ver mi cuenta corriente</a>
@@ -247,6 +235,8 @@
     <input type="hidden" name="entrega" id="entrega" value="domicilio"/>
     <!-- every visitor: /pedido/enviar checks it (19.0.1.29.0) -->
     <input type="hidden" name="csrf_token" t-att-value="csrf"/>
+    <!-- one per page shown: the same form posted twice gives one order (19.0.1.93.0) -->
+    <input type="hidden" name="envio" t-att-value="envio"/>
     <t t-if="personal">
       <input type="hidden" name="cliente_id" id="cliente_id" value=""/>
     </t>
@@ -907,6 +897,10 @@
   <div class="marco">
     <div class="aviso guardado" t-if="guardado" id="guardado">
       Listo, actualizamos tu pedido.
+      <t t-if="descartados">
+        <br/><t t-if="descartados == 1">Un producto ya no está en el catálogo y no se agregó.</t>
+        <t t-else=""><t t-esc="descartados"/> productos ya no están en el catálogo y no se agregaron.</t>
+      </t>
       <t t-if="avisar_cambio">
         <br/><a class="btn s" t-att-href="avisar_cambio" target="_blank" rel="noopener">Avisar el cambio por WhatsApp</a>
       </t>
@@ -1359,6 +1353,9 @@
       <svg viewBox="0 0 512 512" aria-hidden="true"><path d="M173.9 439.4l-166.4-166.4c-9.4-9.4-9.4-24.6 0-33.9l33.9-33.9c9.4-9.4 24.6-9.4 33.9 0L192 344.7 400.6 136.1c9.4-9.4 24.6-9.4 33.9 0l33.9 33.9c9.4 9.4 9.4 24.6 0 33.9L207.8 439.4c-9.4 9.4-24.6 9.4-33.9 0z"/></svg>
     </div>
 
+    <!-- 19.0.1.93.0 (E2E-C C11): lines no longer in the catalog -->
+    <p class="falta" t-if="descartados">No agregamos <t t-esc="descartados"/>: ya no está en el
+      catálogo.</p>
     <t t-if="personal">
       <h1>Pedido guardado</h1>
       <p class="nro">Quedó como <b t-esc="pedido.name"/><t t-if="cliente_nombre"> para <b t-esc="cliente_nombre"/></t></p>

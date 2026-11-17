@@ -15,7 +15,10 @@ A held order (`distri_retenido`):
 - is not routed: route assignment skips it, no route stop can be created
   for it (manual stops, «Deshacer» of the dispatch, depot delivery), and on
   hold it is taken off the routes that did not leave yet («Queda en el
-  depósito», models/despacho.py).
+  depósito», models/despacho.py), also after «Controlado» (19.0.1.93.0,
+  E2E-C C4: with a note on the route). On a route already on the street the
+  driver's app shows it held and refuses to deliver or collect it
+  (models/reparto_sync.py): he marks it «No se entregó».
 - cannot be confirmed (approved) until released.
 Cancelling works as usual. «Liberar» restores the flow and, when the order
 was packed meanwhile, the automatic invoice comes out then.
@@ -311,15 +314,24 @@ class SaleOrderRevisar(models.Model):
     def _distri_sacar_de_rutas(self, motivo):
         """Off the routes still at the depot, as «Queda en el depósito»
         (models/despacho.py). A route that already left keeps the stop: the
-        form's banner says so."""
+        form's banner says so, and the app refuses to deliver it."""
         self.ensure_one()
         usuario = self.env.user
         paradas = self.sudo().distri_stop_ids.filtered(
             lambda s: s.state == "pending" and s.route_id.kind == "route"
-            and s.route_id.state == "draft" and not s.route_id.departure_controlled_at
-            and s.route_id.driver_id != usuario)
-        if paradas:
-            paradas.action_leave_at_depot("Retenido: %s" % motivo)
+            and s.route_id.state == "draft")
+        controladas = paradas.filtered(lambda s: s.route_id.departure_controlled_at)
+        abiertas = (paradas - controladas).filtered(lambda s: s.route_id.driver_id != usuario)
+        if abiertas:
+            abiertas.action_leave_at_depot("Retenido: %s" % motivo)
+        # 19.0.1.93.0 (C4): «Controlado» but still at the depot: it comes off
+        # too, and the route says so (the load was checked with it)
+        for parada in controladas:
+            ruta = parada.route_id
+            parada._distri_leave_at_depot("Retenido: %s" % motivo)
+            ruta.message_post(body="%s retuvo %s después de «Controlado»: sale de la ruta y queda "
+                                   "en el depósito. Bajalo del vehículo antes de salir." % (
+                                       usuario.name, self.name))
 
     def action_distri_liberar(self):
         """«Liberar»: back to the normal flow. A packed order is invoiced now."""

@@ -132,8 +132,11 @@
     <field name="priority">30</field>
     <field name="arch" type="xml">
       <list string="Cierre de caja depósito" create="0" decoration-muted="state == 'settled'"
+            decoration-danger="depot_overdue"
             decoration-warning="cash_count_done and cash_difference != 0">
         <field name="date"/>
+        <!-- 19.0.1.93.0 (E2E-C C16): a box of a day before, still open -->
+        <field name="depot_overdue" optional="show"/>
         <field name="driver_id" string="Usuario"/>
         <field name="stop_count" string="Entregas" sum="Total"/>
         <field name="cash_expected" sum="Total"/>
@@ -162,6 +165,11 @@
           <field name="depot_status" widget="statusbar"/>
         </header>
         <sheet>
+          <div class="alert alert-danger" role="alert" invisible="not depot_overdue">
+            <b>Esta caja es de un día anterior y sigue abierta.</b> Contá el efectivo y cerrala: los
+            cobros de hoy ya entran en la caja nueva de este usuario.
+          </div>
+          <field name="depot_overdue" invisible="1"/>
           <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
           <group>
             <group>

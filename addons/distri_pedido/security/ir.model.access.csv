@@ -178,3 +178,5 @@ access_cash_collection_admin,distri.cash.collection admin,model_distri_cash_coll
 access_cash_collection_sistema,distri.cash.collection sistema,model_distri_cash_collection,base.group_system,1,1,1,1
 access_reseller_enable_admin,distri.reseller.enable admin,model_distri_reseller_enable,distri_pedido.grupo_administracion,1,1,1,1
 access_reseller_enable_gerencia,distri.reseller.enable gerencia,model_distri_reseller_enable,distri_pedido.grupo_gerencia,1,1,1,1
+access_reseller_invite_admin,distri.reseller.invite admin,model_distri_reseller_invite,distri_pedido.grupo_administracion,1,1,1,0
+access_reseller_invite_gerencia,distri.reseller.invite gerencia,model_distri_reseller_invite,distri_pedido.grupo_gerencia,1,1,1,0

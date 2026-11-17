@@ -52,6 +52,18 @@ def normalizar_ciudad(texto):
     return " ".join(texto.lower().split())
 
 
+def _por_unidades(env, unidad):
+    """True when the unit of measure is «Units» or a pack of units."""
+    unidades = env.ref("uom.product_uom_unit", raise_if_not_found=False)
+    actual, vistas = unidad, set()
+    while actual and actual.id not in vistas:
+        if actual == unidades:
+            return True
+        vistas.add(actual.id)
+        actual = actual.relative_uom_id
+    return False
+
+
 class DistriZona(models.Model):
     _name = "distri.zona"
     _description = "Zona de reparto"
@@ -453,6 +465,10 @@ class SaleOrder(models.Model):
         self._distri_exigir_en_armado()
         if not math.isfinite(cantidad) or cantidad <= 0:
             raise UserError("La cantidad tiene que ser mayor que cero.")
+        # 19.0.1.93.0 (E2E-C C10): a product sold by units takes whole units
+        # (like /pedido); a weight or a length may still be fractional
+        if _por_unidades(self.env, unidad) and not float(cantidad).is_integer():
+            raise UserError("Este producto se vende por unidad: poné una cantidad entera.")
         if clave:
             ya = self.order_line.filtered(lambda l: l.distri_clave == clave)
             if ya:

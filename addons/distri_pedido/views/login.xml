@@ -48,8 +48,8 @@
     <div class="brand">
       <img src="/distri_pedido/static/src/img/iconos/app-192.png" alt=""/>
       <b>Distri Neuquén</b>
-      <!-- 19.0.1.92.0: «Soy revendedor / Soy distribuidora» on /pedido -->
-      <span t-if="redirect == '/pedido'">Revendedores y distribuidoras: entrá para ver tu lista de precios</span>
+      <!-- 19.0.1.93.0: the reseller signup is private (invitation link only) -->
+      <span t-if="redirect == '/pedido'">Clientes: entrá con tu usuario</span>
       <span t-else="">Ingreso del equipo</span>
     </div>
     <form method="post" action="/web/login" onsubmit="this.querySelector('.go').disabled=true">

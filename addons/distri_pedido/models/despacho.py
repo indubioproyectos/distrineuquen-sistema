@@ -126,6 +126,12 @@ class DistriRouteStopDispatch(models.Model):
     def action_leave_at_depot(self, reason):
         """«Queda en el depósito»: off the route, free for another one."""
         self._check_dispatcher()
+        return self._distri_leave_at_depot(reason)
+
+    def _distri_leave_at_depot(self, reason):
+        """The move itself, without the dispatcher's checks: also used when a
+        held order leaves a route already «Controlado» that did not depart
+        (models/revisar.py, 19.0.1.93.0)."""
         reason = " ".join(str(reason or "").split())[:250]
         if not reason:
             raise UserError("Escribí por qué queda en el depósito.")

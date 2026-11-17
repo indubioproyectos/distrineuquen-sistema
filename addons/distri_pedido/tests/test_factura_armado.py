@@ -122,6 +122,23 @@ class TestFacturaArmado(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(order.distri_armador_id, otro)
         self.assertEqual(order.distri_armado, "en_armado")
 
+    def test_agregar_por_unidad_solo_enteras(self):
+        """19.0.1.93.0 (E2E-C C10): a product sold by units takes whole units,
+        like /pedido; a product by weight may be fractional."""
+        order = self._pedido()
+        pedido = order.with_user(self.armador).sudo()
+        self.assertEqual(pedido.distri_tomar(), "")
+        unidad = self.env.ref("uom.product_uom_unit")
+        with self.assertRaisesRegex(UserError, "se vende por unidad"):
+            pedido.distri_agregar(self.product_b, 0.5, unidad, clave="media")
+        docena = self.env.ref("uom.product_uom_dozen", raise_if_not_found=False)
+        if docena:
+            with self.assertRaisesRegex(UserError, "se vende por unidad"):
+                pedido.distri_agregar(self.product_b, 1.5, docena, clave="docena")
+        self.assertTrue(pedido.distri_agregar(self.product_b, 2.0, unidad, clave="dos"))
+        from odoo.addons.distri_pedido.models.armado import _por_unidades
+        self.assertFalse(_por_unidades(self.env, self.env.ref("uom.product_uom_kgm")))
+
     def test_dejar_para_mas_tarde_sin_faltantes(self):
         order = self._pedido()
         pedido = order.with_user(self.armador).sudo()

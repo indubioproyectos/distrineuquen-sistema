@@ -86,9 +86,10 @@
       <a t-if="estado == 'pendiente'" class="btn wa" t-att-href="whatsapp" target="_blank" rel="noopener">Avisar por WhatsApp</a>
       <a class="btn s" href="/pedido">Ir al catálogo</a>
     </t>
-    <p t-else="" class="sub">Para terminar el alta, completá los datos de tu comercio.</p>
+    <p t-elif="puede_editar" class="sub">Para terminar el alta, completá los datos de tu comercio.</p>
 
-    <form class="tarjeta" method="post" action="/mi-perfil"
+    <!-- 19.0.1.93.0: only the signup flow («perfil», «pendiente») edits -->
+    <form t-if="puede_editar" class="tarjeta" method="post" action="/mi-perfil"
           onsubmit="this.querySelector('button').disabled=true">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <div t-if="error" class="err" role="alert"><t t-esc="error"/></div>
@@ -107,6 +108,17 @@
       <input id="localidad" name="localidad" required="required" maxlength="120" t-att-value="form.get('localidad')"/>
       <button type="submit" class="btn">Guardar mis datos</button>
     </form>
+    <div t-else="" class="tarjeta">
+      <div t-if="error" class="err" role="alert"><t t-esc="error"/></div>
+      <div t-if="estado == 'rechazado' and not error" class="err" role="status">Tu alta de revendedor no fue aprobada.</div>
+      <label>Nombre del comercio</label>
+      <input readonly="readonly" t-att-value="form.get('comercio')"/>
+      <label>CUIT/CUIL</label>
+      <input readonly="readonly" t-att-value="form.get('cuit')"/>
+      <p class="nota">Para cambiar estos datos escribinos por WhatsApp.</p>
+      <a class="btn wa" t-att-href="whatsapp" target="_blank" rel="noopener">Escribinos por WhatsApp</a>
+      <a class="btn s" href="/pedido">Ir al catálogo</a>
+    </div>
   </div>
 </body>
 </html>
@@ -127,6 +139,10 @@
         <button name="action_distri_reject_reseller" type="object" string="Rechazar"
                 invisible="distri_alta_estado != 'pendiente'"
                 confirm="Se rechaza el alta: sigue viendo solo la lista general. ¿Seguir?"/>
+        <!-- 19.0.1.93.0: a rejected reseller cannot send his profile again alone -->
+        <button name="action_distri_reopen_reseller" type="object" string="Reabrir alta"
+                invisible="distri_alta_estado != 'rechazado'"
+                confirm="Puede volver a mandar su perfil desde la página. ¿Reabrir el alta?"/>
       </xpath>
       <xpath expr="//group[@name='distri_acceso']" position="before">
         <group string="Alta de revendedor (se registró solo)" name="distri_alta"
@@ -164,6 +180,11 @@
     <field name="priority">40</field>
     <field name="arch" type="xml">
       <list string="Revendedores pendientes de alta" create="0">
+        <!-- 19.0.1.93.0: the signup is private, by invitation link -->
+        <header>
+          <button name="action_distri_reseller_invite" type="object" string="Invitar revendedor"
+                  class="btn-primary" display="always"/>
+        </header>
         <field name="create_date" string="Registrado"/>
         <field name="name" string="Comercio"/>
         <field name="distri_alta_contacto"/>
@@ -187,10 +208,48 @@
         (0, 0, {'view_mode': 'form', 'view_id': ref('base.view_partner_form')})]"/>
     <field name="help" type="html">
       <p class="o_view_nocontent_smiling_face">No hay revendedores esperando el alta.</p>
-      <p>Los que se registran solos desde la página de pedidos y completan su perfil aparecen
-         acá. Abrí la ficha y tocá «Habilitar revendedor» (elegís la lista) o «Rechazar».</p>
+      <p>El alta es solo con invitación: tocá «Invitar revendedor», copiá el mensaje y mandáselo
+         por WhatsApp. Los que se registran con ese enlace y completan su perfil aparecen acá.
+         Abrí la ficha y tocá «Habilitar revendedor» (elegís la lista) o «Rechazar».</p>
     </field>
   </record>
+
+  <!-- «Invitar revendedor» (19.0.1.93.0, models/alta_revendedor.py) -->
+  <record id="view_reseller_invite_form" model="ir.ui.view">
+    <field name="name">distri.reseller.invite.form</field>
+    <field name="model">distri.reseller.invite</field>
+    <field name="arch" type="xml">
+      <form string="Invitar revendedor">
+        <p>El alta de revendedores y distribuidoras es privada: solo entra quien tiene este enlace.
+           Copiá el mensaje y mandáselo por WhatsApp. Sin el enlace, la página no existe.</p>
+        <group>
+          <field name="link" widget="CopyClipboardChar"/>
+          <field name="message" widget="CopyClipboardText" string="Copiar mensaje para WhatsApp"/>
+        </group>
+        <p class="text-muted">Si el enlace llegó a quien no debía, generá uno nuevo: el anterior
+           deja de funcionar (los que ya se registraron no pierden nada).</p>
+        <footer>
+          <button name="action_regenerate" type="object" string="Generar un enlace nuevo"
+                  confirm="El enlace que ya mandaste deja de funcionar. ¿Generar uno nuevo?"/>
+          <button special="cancel" string="Cerrar" class="btn-primary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_reseller_invite" model="ir.actions.act_window">
+    <field name="name">Invitar revendedor</field>
+    <field name="res_model">distri.reseller.invite</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+  <menuitem id="menu_reseller_invite"
+            name="Invitar revendedor"
+            parent="sale.sale_order_menu"
+            action="action_reseller_invite"
+            groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia"
+            sequence="5"/>
 
   <menuitem id="menu_revendedores_pendientes"
             name="Revendedores pendientes de alta"

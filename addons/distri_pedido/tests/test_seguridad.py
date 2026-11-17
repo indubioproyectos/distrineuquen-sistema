@@ -16,7 +16,9 @@ from odoo.addons.distri_pedido.models.mercado_pago import (
     PARAM_ENABLED, PARAM_TOKEN, PARAM_WEBHOOK_SECRET,
 )
 from odoo.addons.distri_pedido.models.agil_tienda import PARAM_CATALOGO_AGIL
-from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, page_token
+from odoo.addons.distri_pedido.tests.common_pedido import (
+    PedidoAbiertoMixin, page_token, page_tokens, post_pedido,
+)
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
 
@@ -265,18 +267,22 @@ class TestPedidoEnviar(PedidoAbiertoMixin, HttpCase):
         ])
         for tmpl in rejected:
             res = self._post(self._data([{"id": tmpl.id, "cantidad": 1}]))
-            self.assertTrue(res.url.endswith("/pedido"), (tmpl.name, res.url))
+            # 19.0.1.93.0 (C11): told, not a silent redirect
+            self.assertEqual(res.status_code, 400, tmpl.name)
+            self.assertIn("ya no están en el catálogo", res.text, tmpl.name)
         self.assertEqual(self._orders(), 0)
         # the valid lines go through, the others are left out
         res = self._post(self._data([{"id": self.plantilla.id, "cantidad": 1}]
                                     + [{"id": t.id, "cantidad": 1} for t in rejected]))
         self.assertEqual(res.status_code, 200)
+        self.assertIn("No agregamos", res.text)
+        self.assertIn("Archivado Prueba Seguridad", res.text)
         self.assertEqual(self._last_order().order_line.product_id.product_tmpl_id,
                          self.plantilla)
         # the other way round with the AgilPedido catalog on
         self.env["ir.config_parameter"].sudo().set_param(PARAM_CATALOGO_AGIL, "1")
         res = self._post(self._data([{"id": self.plantilla.id, "cantidad": 1}]))
-        self.assertTrue(res.url.endswith("/pedido"), res.url)
+        self.assertEqual(res.status_code, 400)
         self.assertEqual(self._orders(), 1)
 
     def test_quantities_are_whole_units(self):
@@ -291,6 +297,48 @@ class TestPedidoEnviar(PedidoAbiertoMixin, HttpCase):
         order = self._last_order()
         self.assertEqual(order.order_line.mapped("product_uom_qty"), [2.0])
         self.assertEqual(order.amount_untaxed, 140000.0)
+
+    def test_same_form_posted_twice_gives_one_order(self):
+        """19.0.1.93.0 (E2E-C C8): a double tap or a browser retry of the same
+        form returns the first order; a new page is a new order."""
+        csrf, envio = page_tokens(self)
+        self.assertTrue(envio)
+        data = dict(self._data([{"id": self.plantilla.id, "cantidad": 1}]),
+                    csrf_token=csrf, envio=envio)
+        first = self.url_open("/pedido/enviar", data=data)
+        second = self.url_open("/pedido/enviar", data=data)
+        self.assertEqual((first.status_code, second.status_code), (200, 200))
+        self.assertEqual(self._orders(), 1)
+        order = self._last_order()
+        self.assertIn(order.name, second.text)
+        self.assertTrue(order.distri_envio_clave)
+        res = post_pedido(self, self._data([{"id": self.plantilla.id, "cantidad": 1}]))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(self._orders(), 2)
+
+    def test_unknown_delivery_is_a_400(self):
+        """19.0.1.93.0 (E2E-C C9): it was a 500."""
+        res = self._post(dict(self._data([{"id": self.plantilla.id, "cantidad": 1}]),
+                              entrega="helicoptero"))
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("No entendimos cómo querés recibir el pedido", res.text)
+        self.assertEqual(self._orders(), 0)
+
+    def test_change_by_link_tells_the_dropped_products(self):
+        """19.0.1.93.0 (E2E-C C11): «Tu pedido» says how many lines were left out."""
+        self.assertEqual(self._post(self._data(
+            [{"id": self.plantilla.id, "cantidad": 1}])).status_code, 200)
+        order = self._last_order()
+        order._portal_ensure_token()
+        gone = self.env["product.template"].create({
+            "name": "Archivado Cambio Seguridad", "list_price": 5.0, "is_published": True,
+            "sale_ok": True, "type": "consu", "active": False})
+        res = self._post(dict(self._data([{"id": self.plantilla.id, "cantidad": 2},
+                                          {"id": gone.id, "cantidad": 1}]),
+                              token=order.access_token))
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("descartados=1", res.url)
+        self.assertIn("Un producto ya no está en el catálogo y no se agregó.", res.text)
 
     def test_rate_limit_per_session_and_ip(self):
         params = self.env["ir.config_parameter"].sudo()

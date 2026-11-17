@@ -48,6 +48,12 @@
             <button name="action_open_rejections" type="object" string="Ver los cambios rechazados"
                     class="btn-link"/>
           </div>
+          <!-- 19.0.1.93.0 (E2E-C C1): the customer also paid at the local -->
+          <div class="alert alert-warning" role="alert" invisible="not double_cash_note">
+            <b>Revisá si alguno pagó dos veces: también pagó en efectivo en el local (/cobro).</b>
+            <field name="double_cash_note" readonly="1" nolabel="1"/>
+            Si al rendir le queda saldo a favor, se abre un caso en esta ruta.
+          </div>
           <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
           <group>
             <group>

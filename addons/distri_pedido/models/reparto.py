@@ -8,7 +8,7 @@ cash expected vs counted, declared returns and undelivered orders.
 from urllib.parse import quote
 
 from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 from .ar_phone import wa_digits
 from .reparto_cliente import today_ar
@@ -159,6 +159,12 @@ class DistriRoute(models.Model):
     settled_by_id = fields.Many2one("res.users", string="Rindió", readonly=True, copy=False)
     depot_status = fields.Selection([("open", "Abierta"), ("closed", "Cerrada")],
                                     string="Caja", compute="_compute_depot_status")
+    # 19.0.1.93.0 (C16): a depot box of a day before still open
+    depot_overdue = fields.Boolean(string="De un día anterior, sin cerrar",
+                                   compute="_compute_depot_status")
+    # 19.0.1.93.0 (C1): customers who paid this route's cash and also at the
+    # local (/cobro) the same day
+    double_cash_note = fields.Text(string="Cobro doble", compute="_compute_double_cash_note")
 
     # ---- departure control ("Salida de viajes")
     loaded_stop_count = fields.Integer(string="Pedidos cargados", compute="_compute_loading",
@@ -200,10 +206,43 @@ class DistriRoute(models.Model):
             route.name = "%s · %s · Viaje %s" % (
                 route.driver_id.name or "Sin repartidor", day, route.trip or "")
 
-    @api.depends("state")
+    @api.depends("state", "date", "kind")
     def _compute_depot_status(self):
+        today = today_ar()
         for route in self:
             route.depot_status = "closed" if route.state == "settled" else "open"
+            route.depot_overdue = (route.kind == "depot" and route.state != "settled"
+                                   and bool(route.date) and route.date < today)
+
+    def _double_cash_stops(self):
+        """[(stop, collections)] of the stops with cash whose customer also
+        paid in cash at the local (/cobro) the day of the route, or against
+        the stop's own invoice since the stop exists (C1)."""
+        self.ensure_one()
+        Cash = self.env["distri.cash.collection"].sudo()
+        out = []
+        for stop in self.stop_ids.filtered(lambda s: s.cash_amount > 0):
+            partner = stop.partner_id.commercial_partner_id
+            same_day = Cash.search([("partner_id", "=", partner.id), "|",
+                                    ("route_id.date", "=", self.date),
+                                    ("create_date", ">=", stop.create_date)])
+            if same_day or stop.paid_elsewhere > 0:
+                out.append((stop, same_day))
+        return out
+
+    @api.depends("stop_ids.cash_amount", "date")
+    def _compute_double_cash_note(self):
+        for route in self:
+            lines = []
+            if route.kind == "route" and route.id:
+                for stop, collections in route._double_cash_stops():
+                    lines.append("%s (%s): cobró %s en la ruta y %s en el local%s." % (
+                        stop.partner_id._distri_app_name(), stop.order_id.name,
+                        _money(stop.cash_amount),
+                        _money(sum(collections.mapped("amount")) or stop.paid_elsewhere),
+                        " (%s)" % ", ".join(sorted(set(collections.user_id.mapped("name"))))
+                        if collections else ""))
+            route.double_cash_note = "\n".join(lines) or False
 
     @api.depends("stop_ids.loaded", "stop_ids.order_id.distri_bultos")
     def _compute_loading(self):
@@ -432,6 +471,7 @@ class DistriRoute(models.Model):
                 route.action_open_cash_case()
             route._credit_received_returns()
             route._register_cash_payments()
+            route._flag_double_cash()
             route.expense_ids._settle(route.journal_id)
             route.write({
                 "state": "settled",
@@ -444,6 +484,29 @@ class DistriRoute(models.Model):
             self.env["distri.promised.transfer"].sudo()._distri_expire_for_driver(
                 route.driver_id)
         return True
+
+    def _flag_double_cash(self):
+        """C1 (19.0.1.93.0): a customer paid in cash on the route and at the
+        local the same day and now has a credit: a case on the route, so
+        administración checks it with the driver and the customer."""
+        self.ensure_one()
+        Case = self.env["distri.route.case"].sudo()
+        for stop, collections in self._double_cash_stops():
+            partner = stop.partner_id.commercial_partner_id
+            balance = partner._distri_account_balance()
+            if balance >= -0.004:
+                continue
+            text = ("%s (%s) quedó con saldo a favor de %s: pagó %s en efectivo en la ruta y "
+                    "%s en el local%s. Revisá si pagó dos veces." % (
+                        partner.name, stop.order_id.name, _money(-balance),
+                        _money(stop.cash_amount),
+                        _money(sum(collections.mapped("amount")) or stop.paid_elsewhere),
+                        " (cobró %s)" % ", ".join(sorted(set(collections.user_id.mapped("name"))))
+                        if collections else ""))
+            Case.create({"route_id": self.id, "kind": "other", "amount": -balance,
+                         "stop_id": stop.id, "candidates": text})
+            self.message_post(body="Posible cobro doble: %s" % text)
+            partner.message_post(body="Posible cobro doble: %s" % text)
 
     def _register_cash_payments(self):
         """One inbound payment per stop with cash, applied oldest invoice first.
@@ -611,18 +674,11 @@ class DistriRoute(models.Model):
                   ("company_id", "=", company.id)]
         route = self.sudo().search(domain, order="id", limit=1)
         if not route:
-            # One cash box at a time (19.0.1.37.0): a box of a day before that
-            # was never closed would run in parallel with today's and its
-            # cash would never be counted. It is closed first.
-            old = self.sudo().search([
-                ("kind", "=", "depot"), ("driver_id", "=", user.id),
-                ("date", "<", today_ar()), ("state", "!=", "settled"),
-                ("company_id", "=", company.id)], order="date", limit=1)
-            if old:
-                raise UserError(
-                    "La caja depósito de %s del %s sigue abierta. Cerrala primero en Reparto › "
-                    "Cierre de caja depósito (efectivo contado y «Cerrar caja depósito»); "
-                    "después se abre la de hoy." % (user.name, old.date.strftime("%d/%m/%Y")))
+            # 19.0.1.93.0 (E2E-C C16): a box of a day before that was never
+            # closed no longer blocks today's (before, nobody could register
+            # cash after midnight until administración closed it). It stays
+            # open for administración, highlighted in «Cierre de caja
+            # depósito» (depot_overdue), and today's opens next to it.
             route = self.sudo().create({
                 "kind": "depot",
                 "driver_id": user.id,
@@ -828,8 +884,47 @@ class DistriRouteStop(models.Model):
     parcel_id = fields.Many2one("distri.parcel", string="Encomienda despachada",
                                 compute="_compute_parcel_id")
 
+    # 19.0.1.93.0 (C1): cash registered at the local (/cobro) against this
+    # order's invoices since the stop exists; the app shows «Ya cobrado en el
+    # local» and the amount to collect already counts it
+    paid_elsewhere = fields.Monetary(string="Ya cobrado en el local",
+                                     compute="_compute_paid_elsewhere")
+
     _order_once = models.Constraint(
         "unique(route_id, order_id)", "El pedido ya está en esta ruta.")
+
+    def _compute_paid_elsewhere(self):
+        Cash = self.env["distri.cash.collection"].sudo()
+        for stop in self:
+            total = 0.0
+            invoices = stop.order_id._distri_facturas_emitidas() if stop.order_id else ()
+            if invoices and stop.create_date:
+                collections = Cash.search([
+                    ("partner_id", "=", stop.partner_id.commercial_partner_id.id),
+                    ("create_date", ">=", stop.create_date), ("payment_id", "!=", False)])
+                receivable = collections.payment_id.move_id.line_ids.filtered(
+                    lambda l: l.account_id.account_type == "asset_receivable")
+                invoice_lines = invoices.line_ids.filtered(
+                    lambda l: l.account_id.account_type == "asset_receivable")
+                total = sum(receivable.matched_debit_ids.filtered(
+                    lambda p: p.debit_move_id in invoice_lines).mapped("amount"))
+            stop.paid_elsewhere = total
+
+    @api.constrains("order_id", "route_id")
+    def _check_one_active_route(self):
+        """C3 (19.0.1.93.0): an order is on one route at a time, also when a
+        stop is added by hand in the route form. A stop of a route not
+        settled counts unless it came back undelivered and unloaded (the
+        same rule as _order_is_free and «Deshacer»)."""
+        for stop in self:
+            busy = (stop.order_id.sudo().distri_stop_ids - stop).filtered(
+                lambda s: s.route_id.state != "settled"
+                and not (s.state == "not_delivered" and s.unloaded))
+            if busy:
+                raise ValidationError(
+                    "El pedido %s ya está en %s. Sacalo de esa ruta (o marcalo como "
+                    "descargado en la rendición) antes de sumarlo a otra." % (
+                        stop.order_id.name, busy[:1].route_id.name))
     _visit_uuid_unique = models.Constraint(
         "unique(visit_uuid)", "Esa visita ya está registrada.")
 
@@ -899,6 +994,11 @@ class DistriRouteStop(models.Model):
             } for line in lines],
             "order_amount": self.order_amount,
             "previous_debt": self.previous_debt,
+            # 19.0.1.93.0 (C1): «Ya cobrado en el local: $X»
+            "paid_elsewhere": self.paid_elsewhere,
+            # 19.0.1.93.0 (C4): held by administración, never delivered
+            "retained": (order.distri_retenido_motivo or "Retenido por administración")
+            if order.distri_retenido else "",
             "code_salt": order.distri_receipt_salt or "",
             "code_hash": order.distri_receipt_hash or "",
             "whatsapp": partner._distri_whatsapp_shown(),

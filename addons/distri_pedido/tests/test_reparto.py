@@ -2,7 +2,7 @@ import json
 import uuid
 
 from odoo import Command, fields
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tests import HttpCase, new_test_user, tagged
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
@@ -198,10 +198,19 @@ class TestReparto(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(len(stop.env["distri.promised.transfer"].sudo().search(
             [("stop_id", "=", stop.id)])), 1)
 
-        # an older edit arriving late does not overwrite the newer one
+        # an older edit arriving late does not overwrite the newer one, and
+        # the phone is told so (19.0.1.93.0, E2E-C C14): not «ok»
         old = dict(visit, cash=900)
-        self._sync([self._event(route, "visit", old, captured="2026-09-26T14:00:00Z")])
+        old_event = self._event(route, "visit", old, captured="2026-09-26T14:00:00Z")
+        res = self._sync([old_event])
+        self.assertEqual(res[0]["status"], "discarded", res)
+        self.assertIn("más vieja que la que ya tiene el servidor", res[0]["error"])
         self.assertEqual(stop.cash_amount, 0)
+        logged = self.env["distri.sync.event"].sudo().search([("uuid", "=", old_event["uuid"])])
+        self.assertIn("no se aplicó", logged.note)
+        self.assertFalse(self.env["distri.sync.rejection"].sudo().search(
+            [("route_id", "=", route.id)]), "not a rejection: nothing to resolve")
+        self.assertEqual(self._sync([old_event])[0]["status"], "duplicate")
 
         # a transfer needs the driver's answer about the receipt
         res = self._sync([self._event(route, "visit", dict(visit, transfer="yes",
@@ -209,6 +218,47 @@ class TestReparto(RepartoMixin, AccountTestInvoicingCommon):
                                       captured="2026-09-26T15:10:00Z")])
         self.assertEqual(res[0]["status"], "error")
         self.assertFalse(res[0]["retry"])
+
+    def test_serialization_failure_is_retried_by_odoo(self):
+        """19.0.1.93.0 (E2E-C C15): two visits of the same stop at the same
+        time. The concurrency error is not answered as «error»: it goes up
+        so Odoo retries the whole request (odoo.service.model.retrying)."""
+        from unittest.mock import patch
+
+        from psycopg2 import errors as pg_errors
+
+        route = self._route(self.order)
+        event = self._event(route, "visit", self._visit(route.stop_ids, cash=10))
+        Sync = type(self.env["distri.sync.event"])
+        with patch.object(Sync, "_apply", side_effect=pg_errors.SerializationFailure()):
+            with self.assertRaises(pg_errors.SerializationFailure):
+                self._sync([event])
+        self.assertEqual(self._sync([event])[0]["status"], "ok")
+
+    def test_an_order_on_one_active_route_only(self):
+        """19.0.1.93.0 (E2E-C C3): also a stop added by hand in the route form."""
+        route = self._route(self.order, on_road=False)
+        other = self._route(self.env["sale.order"], on_road=False)
+        with self.assertRaisesRegex(ValidationError, "ya está en %s" % route.name), \
+                self.env.cr.savepoint():
+            self.env["distri.route.stop"].create({"route_id": other.id,
+                                                  "order_id": self.order.id})
+        other.invalidate_recordset()
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            other.write({"stop_ids": [Command.create({"order_id": self.order.id})]})
+        other.invalidate_recordset()
+        # back undelivered and unloaded: free for another route
+        stop = route.stop_ids
+        self._on_road(route)
+        self._sync([self._event(route, "visit", {"visit_uuid": _uuid(), "stop_id": stop.id,
+                                                 "outcome": "not_delivered",
+                                                 "reason": "Cerrado"}),
+                    self._event(route, "close", {})])
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            other._add_orders(self.order)
+        other.invalidate_recordset()
+        stop.unloaded = True
+        self.assertTrue(other._add_orders(self.order))
 
     def test_route_written_only_by_its_driver(self):
         route = self._route(self.order)
