@@ -8,12 +8,14 @@ payment, card or adjustment action is reachable from it. The only write is
 a comment on an account or on one statement row (distri.account.comment).
 
 Who opens it (app_scope):
-- administración (gerencia implies it) and Settings: every customer;
-- vendedor: only the customers of his portfolio. The scope is the set of
-  partners the user can read under the record rules (security/reglas.xml,
-  «Vendedor: solo los clientes de su cartera»), searched as the user, never
-  with sudo. Only after a partner id is verified to be in that set are its
-  balance and statement computed with sudo;
+- administración (gerencia implies it) and Settings: every customer («all»);
+- vendedor and reparto (19.0.1.92.0, «staff»): every customer too, they
+  chase old missing receipts; but a seller without Administración never
+  reaches a distributor's account (distri_lista_oculta, the same policy as
+  models/lista_oculta.py), and the «incobrable» state stays hidden from
+  them. This is checked here, in the app layer: the partner record rules
+  (security/reglas.xml) are unchanged, and the app reads with sudo only
+  after `_app_partner` has accepted the id;
 - anyone else: refused.
 
 The debtor list and the statement reuse the logic of «Deudores» and of the
@@ -30,12 +32,14 @@ from odoo.exceptions import AccessError, UserError
 from .deudores import ADMIN_GROUP, SELLERS, debtor_entries, direct_customers, seller_of, \
     seller_tags
 from .estado_cuenta import PROVISIONAL_NOTE, SOURCE_LABELS
+from .lista_oculta import solo_vendedor
 from .reparto_cliente import AR_TZ, today_ar
 
 SELLER_GROUP = "distri_pedido.grupo_vendedor"
+DRIVER_GROUP = "distri_pedido.grupo_reparto"
 SYSTEM_GROUP = "base.group_system"
-APP_DENIED = "Esta pantalla es para administración, gerencia y vendedores."
-PARTNER_DENIED = "Ese cliente no está en tu cartera."
+APP_DENIED = "Esta pantalla es para administración, gerencia, vendedores y repartidores."
+PARTNER_DENIED = "No podés ver la cuenta de ese cliente."
 # a comment can be deleted by its author during this time
 COMMENT_DELETE_WINDOW = timedelta(hours=1)
 COMMENT_MAX_LENGTH = 2000
@@ -47,15 +51,15 @@ CARD_STATES = {"draft": "A revisar", "confirmed": "Confirmado", "ignored": "Desc
 
 
 def app_scope(env):
-    """'all' (administración, gerencia, Settings), 'portfolio' (vendedor) or
-    None (no access)."""
+    """'all' (administración, gerencia, Settings), 'staff' (vendedor or
+    reparto, 19.0.1.92.0) or None (no access)."""
     user = env.user
     if user.share:
         return None
     if user.has_group(ADMIN_GROUP) or user.has_group(SYSTEM_GROUP):
         return "all"
-    if user.has_group(SELLER_GROUP):
-        return "portfolio"
+    if user.has_group(SELLER_GROUP) or user.has_group(DRIVER_GROUP):
+        return "staff"
     return None
 
 
@@ -184,37 +188,43 @@ class DistriAccountApp(models.AbstractModel):
         return scope
 
     @api.model
+    def _app_hides_distributors(self):
+        """A seller without Administración never reaches a distributor."""
+        return self._app_check() != "all" and solo_vendedor(self.env.user)
+
+    @api.model
+    def _app_allowed(self, partner):
+        """Whether the user may see this commercial partner's account."""
+        return not partner.distri_generic_partner and not (
+            partner.distri_lista_oculta and self._app_hides_distributors())
+
+    @api.model
     def _app_customers(self):
-        """The direct customers the user may review: all of them for
-        administración, those the record rules let him read for a seller."""
-        scope = self._app_check()
+        """The direct customers the user may review (see the module
+        docstring)."""
+        self._app_check()
         customers = direct_customers(self.env)
-        if scope == "all":
-            return customers
-        visible = self.env["res.partner"].with_context(active_test=False).search(
-            [("id", "in", customers.ids)])
-        allowed = set(visible.ids)
-        return customers.filtered(lambda p: p.id in allowed)
+        if self._app_hides_distributors():
+            customers = customers.filtered(lambda p: not p.distri_lista_oculta)
+        return customers
 
     @api.model
     def _app_partner(self, partner_id):
-        """The commercial partner, with sudo, only when the user can read it
-        under the record rules; AccessError otherwise."""
+        """The commercial partner, with sudo, when the user may see it
+        (`_app_allowed`); AccessError otherwise."""
         self._app_check()
         try:
             wanted = int(partner_id or 0)
         except (TypeError, ValueError):
             wanted = 0
-        Partner = self.env["res.partner"].with_context(active_test=False)
-        partner = Partner.search([("id", "=", wanted)]) if wanted > 0 else Partner
+        Partner = self.env["res.partner"].sudo().with_context(active_test=False)
+        partner = Partner.browse(wanted).exists() if wanted > 0 else Partner
         if not partner:
             raise AccessError(PARTNER_DENIED)
-        commercial = partner.sudo().commercial_partner_id
-        if commercial != partner.sudo() and not Partner.search([("id", "=", commercial.id)]):
+        commercial = partner.commercial_partner_id
+        if not self._app_allowed(commercial):
             raise AccessError(PARTNER_DENIED)
-        if commercial.distri_generic_partner:
-            raise AccessError(PARTNER_DENIED)
-        return commercial.sudo()
+        return commercial
 
     def _app_comment_counts(self, partners):
         Comment = self.env["distri.account.comment"].sudo()
@@ -458,22 +468,19 @@ class DistriAccountApp(models.AbstractModel):
 
     @api.model
     def _app_visible_partner_ids(self, partners):
-        """The ids of `partners` the user may see: all of them for
-        administración, those the record rules let him read for a seller
-        (searched as the user, never with sudo)."""
+        """The ids of `partners` the user may see (`_app_allowed`)."""
         if self._app_check() == "all":
             return set(partners.ids)
-        return set(self.env["res.partner"].with_context(active_test=False).search(
-            [("id", "in", partners.ids)]).ids)
+        return {p.id for p in partners.sudo() if self._app_allowed(p.commercial_partner_id)}
 
     @api.model
     def _app_sheet_files(self, sheet, visible):
         """The originals of a sheet, only for a user who sees every row of it
         (a photo or an xlsx shows the whole sheet)."""
-        lines = sheet.line_ids
-        if not lines or any(not l.partner_id or l.partner_id.id not in visible for l in lines):
-            if self._app_check() != "all":
-                return []
+        # 19.0.1.92.0: only a row of a customer he may not see (a distributor
+        # for a plain seller) hides the originals
+        if any(l.partner_id and l.partner_id.id not in visible for l in sheet.line_ids):
+            return []
         files = []
         for attachment in sheet.attachment_ids.sorted(lambda a: (a.mimetype or "", a.id)):
             mimetype = attachment.mimetype or ""
@@ -491,20 +498,19 @@ class DistriAccountApp(models.AbstractModel):
     def _app_cash_sheet(self, move):
         """The cash sheet («planilla de rendición») a cash payment comes from
         (models/cash_sheet.py): collector, date, its rows with the paired one
-        marked, the total and its originals. A seller sees only the rows of
-        the customers of his portfolio; the others are only counted, with no
-        name or amount, and the originals are offered only when he sees every
-        row. None when the payment is on no sheet."""
+        marked, the total and its originals. 19.0.1.92.0: sellers and drivers
+        see the whole sheet, except the rows of customers they may not see
+        (`_app_allowed`), which are only counted, with no name or amount; the
+        originals are then not offered. None when the payment is on no sheet."""
         line = self.env["distri.cash.sheet.line"].sudo().search(
             [("payment_id.move_id", "=", move.id)], limit=1)
         if not line:
             return None
         sheet = line.sheet_id
-        full = self._app_check() == "all"
         visible = self._app_visible_partner_ids(sheet.line_ids.partner_id)
         rows, hidden = [], 0
         for item in sheet.line_ids:
-            if not full and (not item.partner_id or item.partner_id.id not in visible):
+            if item.partner_id and item.partner_id.id not in visible:
                 hidden += 1
                 continue
             rows.append({
@@ -533,7 +539,7 @@ class DistriAccountApp(models.AbstractModel):
             "rows": rows,
             "hidden_count": hidden,
             "total": round(sum(r["paid"] for r in counted), 2),
-            "total_label": "Total cobrado" if full else "Total de tus clientes",
+            "total_label": "Total cobrado" if not hidden else "Total de los clientes que ves",
             "files": self._app_sheet_files(sheet, visible),
             "note": sheet.note or "",
         }
@@ -604,13 +610,15 @@ class DistriAccountApp(models.AbstractModel):
 
     @api.model
     def app_add_comment(self, partner_id, body, line_key=""):
-        """The only write of the app. Created as the user, so the access
-        rights and the record rules of distri.account.comment apply."""
+        """The only write of the app. 19.0.1.92.0: with sudo once
+        `_app_partner` accepted the customer (sellers and drivers reach every
+        account, beyond the comment record rules); the author is still the
+        user (sudo keeps the uid)."""
         partner = self._app_partner(partner_id)
         label = ""
         if line_key:
             label = self._app_line_label(self._app_find_row(partner, line_key))
-        comment = self.env["distri.account.comment"].create({
+        comment = self.env["distri.account.comment"].sudo().create({
             "partner_id": partner.id,
             "line_key": line_key or False,
             "line_label": label,
@@ -621,9 +629,11 @@ class DistriAccountApp(models.AbstractModel):
     @api.model
     def app_delete_comment(self, comment_id):
         self._app_check()
-        comment = self.env["distri.account.comment"].search(
-            [("id", "=", int(comment_id or 0))])
-        if not comment:
+        comment = self.env["distri.account.comment"].sudo().browse(int(comment_id or 0)).exists()
+        if not comment or not self._app_allowed(comment.partner_id):
             raise AccessError("No se encontró el comentario.")
+        # only its author, during the first hour (same rule as unlink)
+        if not comment._can_delete():
+            raise AccessError("Solo el autor borra su comentario, durante la primera hora.")
         comment.unlink()
         return True

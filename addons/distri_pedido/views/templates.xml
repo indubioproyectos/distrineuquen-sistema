@@ -132,6 +132,13 @@
     .tuslistas{background:#e6faf7;border:1px solid var(--acento);border-radius:4px;
                padding:.5rem .75rem;margin:0 1rem .8rem;font-size:.85rem;color:#00806f;
                text-align:center}
+    /* 19.0.1.92.0: revendedores y distribuidoras sin loguear */
+    .revendedor{margin:0 1rem .8rem;text-align:center;font-size:.85rem;color:var(--tenue)}
+    .revendedor .btn-rev{display:inline-block;border:2px solid var(--acento);border-radius:4px;
+                         padding:.45rem .9rem;color:#00806f;font-weight:700;text-decoration:none;
+                         background:#fff}
+    .revendedor p{margin:.4rem 0 0}
+    .revendedor p a{color:#00806f}
     /* destacados: siempre abiertos, sin cabecera de seccion */
     .bloque.siempre>.cuerpo{display:block}
     .bloque.siempre>.chip{display:none}
@@ -215,9 +222,14 @@
 
   <div class="marco">
     <p class="lista-general" t-if="not lista_propia">Precios de la lista mayorista general</p>
+    <!-- 19.0.1.92.0: anonymous visitors (controllers/main.py _acceso_revendedor) -->
+    <div class="revendedor" t-if="revendedor">
+      <a class="btn-rev" t-att-href="revendedor['url']">Soy revendedor / Soy distribuidora</a>
+      <p>Creá tu cuenta o entrá: cuando te habilitemos, vas a ver los precios de tu lista.</p>
+    </div>
     <div class="tuslistas" t-if="lista_propia">
       Estás viendo los precios de <b t-esc="quien"/> (lista <t t-esc="lista_propia"/>).
-      <a t-if="socio_logueado" href="/mi-cuenta" class="micuenta">Ver mi cuenta corriente</a>
+      <a t-if="socio_logueado and mostrar_cuenta" href="/mi-cuenta" class="micuenta">Ver mi cuenta corriente</a>
     </div>
     <div class="caja-buscar">
       <input type="text" id="buscar" class="buscar"
@@ -409,6 +421,7 @@
       <div class="pc">
         <div id="detalle"></div>
         <div class="tot"><span>Total</span><span id="tot2">$ 0</span></div>
+        <t t-call="distri_pedido.leyenda_stock"/>
         <p class="minimo-aviso" id="minimo_p2" style="display:none"></p>
 
         <h3 style="font-size:1rem;margin:1.4rem 0 .3rem">¿Cómo lo recibís?</h3>
@@ -972,6 +985,7 @@
         </div>
       </t>
       <div class="tot"><span>Total</span><span>$ <t t-esc="total"/></span></div>
+      <t t-call="distri_pedido.leyenda_stock"/>
     </div>
 
     <div class="pagar-tr" t-if="deuda" id="deuda" style="border:2px solid #e3a597;background:#fdf3f0">
@@ -1045,7 +1059,7 @@
     </div>
 
     <div class="pie">
-      <t t-if="cliente">
+      <t t-if="cliente and mostrar_cuenta">
         <a class="btn" t-att-href="'/pedido/%s/cuenta' % token">Ver mi cuenta corriente</a>
         <p class="personal">
           Este link es personal. No lo compartas: da acceso a tu cuenta corriente.
@@ -1128,6 +1142,7 @@
     .saldo{background:var(--tarjeta);border-top:1px solid var(--borde);
            border-bottom:1px solid var(--borde);padding:1.2rem 1rem;text-align:center}
     .saldo .rotulo{font-size:.8rem;color:var(--tenue)}
+    .saldo.oculta .rotulo{font-size:1rem;color:var(--texto)}
     .saldo .monto{font-size:1.8rem;font-weight:700;margin-top:.2rem}
     .saldo.debe .monto{color:var(--alerta)}
     .saldo.favor .monto{color:var(--acento)}
@@ -1167,7 +1182,22 @@
     <p class="quien"><t t-esc="socio.name"/></p>
   </div>
 
-  <div class="marco">
+  <!-- 19.0.1.92.0: hidden from the customer until administración shows it
+       (models/cuenta_visible.py): no balance, no movements -->
+  <div class="marco" t-if="oculta">
+    <div class="saldo oculta">
+      <div class="rotulo">Esta sección está en construcción. Vas a poder ver tu cuenta corriente en las próximas actualizaciones de la app.</div>
+    </div>
+    <div class="pie">
+      <a class="btn" t-att-href="'https://wa.me/%s' % whatsapp" target="_blank" rel="noopener">
+        Consultar por WhatsApp
+      </a>
+      <a class="btn s" t-if="token" t-att-href="'/pedido/%s' % token">Volver a mi pedido</a>
+      <a class="btn s" t-if="not token" href="/pedido">Armar un pedido</a>
+    </div>
+  </div>
+
+  <div class="marco" t-else="">
     <div t-attf-class="saldo #{'aldia' if al_dia else ('favor' if a_favor else 'debe')}">
       <div class="rotulo">
         <t t-if="al_dia">Estás al día</t>
@@ -1593,6 +1623,22 @@
   </script>
 </body>
 </html>
+  </template>
+
+  <!-- 19.0.1.92.0: the stock legend (models/sale_order.py STOCK_NOTICE). The
+       caller sets `leyenda_stock`; the wording lives only in Python. -->
+  <template id="leyenda_stock" name="Leyenda de stock">
+    <p class="leyenda-stock" t-if="leyenda_stock"
+       style="flex-basis:100%;margin:.5rem 0;font-size:.85rem;color:#7a7a7a;text-align:center"
+       t-esc="leyenda_stock"/>
+  </template>
+
+  <!-- the quotation / order PDF the customer can receive (not the invoice) -->
+  <template id="report_saleorder_leyenda_stock" inherit_id="sale.report_saleorder_document">
+    <xpath expr="//div[hasclass('page')]" position="inside">
+      <t t-set="leyenda_stock" t-value="doc._distri_stock_notice(short=True)"/>
+      <t t-call="distri_pedido.leyenda_stock"/>
+    </xpath>
   </template>
 
 </odoo>

@@ -17,8 +17,10 @@ from odoo.tests import new_test_user, tagged
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.models.puesta_al_dia import minute_positions, parse_chat
+from odoo.addons.distri_pedido.models.reparto_cliente import AR_TZ
 from odoo.addons.distri_pedido.models.visor_chat import (
-    is_visible, parse_amount, receipt_is_far, receipt_moment, select_visible, snippet, to_utc)
+    PENDING_DAYS, is_visible, parse_amount, receipt_is_far, receipt_moment, select_visible,
+    snippet, to_utc)
 
 OWN_SINCE = date(2031, 5, 10)
 DAY_BEFORE = datetime(2031, 5, 9, 10, 5)     # Argentine local times
@@ -376,3 +378,59 @@ class TestVisorChat(AccountTestInvoicingCommon):
         system = new_test_user(self.env, login="sistema_visor", groups="base.group_system")
         self.assertTrue(self.Viewer.with_user(system).distri_chat_open(
             message_id=self.m_photo.id)["entries"])
+
+    # ------------------------------------------------------------ pending (19.0.1.92.0)
+
+    def test_pending_column_lists_the_open_cards_of_the_chat(self):
+        """«Pendientes de aprobar»: receipts of this chat whose card is still
+        «Pendiente» or «Autorizado para entregar», of the last PENDING_DAYS,
+        newest first; a resolved card, an old one or a card without a
+        receipt in the chat is not listed."""
+        now_local = datetime.now(AR_TZ).replace(tzinfo=None, microsecond=0)
+        partner = self.env["res.partner"].create({"name": "Kiosco Pendiente Prueba"})
+
+        def card_on(local, raw, state="draft", **vals):
+            msg = self._file(self.own, local, raw, sender="Pagador Pendiente")
+            card = self._card("97000001%04d" % self._next(), local, receipt=msg, **vals)
+            card.sudo().write(dict({"state": state}, **({"partner_id": partner.id}
+                                                       if state == "draft" else {})))
+            return card
+
+        draft = card_on(now_local - timedelta(hours=3), b"pend-draft", amount=4321)
+        authorized = card_on(now_local - timedelta(hours=1), b"pend-auth", state="authorized")
+        confirmed = card_on(now_local - timedelta(hours=2), b"pend-ok", state="confirmed")
+        ignored = card_on(now_local - timedelta(hours=2), b"pend-ignored", state="ignored")
+        old = card_on(now_local - timedelta(days=PENDING_DAYS + 5), b"pend-old")
+
+        data = self.Viewer.distri_chat_pending()
+        ids = [item["collection_id"] for item in data["items"]]
+        self.assertEqual(data["days"], PENDING_DAYS)
+        self.assertEqual(data["count"], len(ids))
+        self.assertIn(draft.id, ids)
+        self.assertIn(authorized.id, ids)
+        self.assertLess(ids.index(authorized.id), ids.index(draft.id), "newest first")
+        for card in (confirmed, ignored, old, self.card_none, self.card_denis):
+            self.assertNotIn(card.id, ids)
+        item = next(i for i in data["items"] if i["collection_id"] == draft.id)
+        self.assertEqual(item["key"], "m%d" % draft.receipt_id.id)
+        self.assertEqual(item["message_id"], draft.receipt_id.id)
+        self.assertEqual((item["sender"], item["amount"], item["partner"]),
+                         ("Pagador Pendiente", 4321, "Kiosco Pendiente Prueba"))
+        self.assertEqual(item["state_label"], "Pendiente")
+        # clicking it opens the chat centered on that receipt (the viewer's jump)
+        self.assertEqual(self.Viewer.distri_chat_open(message_id=item["message_id"])["anchor"],
+                         item["key"])
+        # after an action on the card: its state is read again
+        draft.sudo().write({"state": "confirmed"})
+        self.assertEqual(self.Viewer.distri_chat_card_states([draft.id, authorized.id]),
+                         {draft.id: "confirmed", authorized.id: "authorized"})
+        self.assertNotIn(draft.id, [i["collection_id"]
+                                    for i in self.Viewer.distri_chat_pending()["items"]])
+
+    def test_pending_column_is_for_the_chat_viewers_only(self):
+        seller = new_test_user(self.env, login="vendedor_pendientes",
+                               groups="base.group_user,distri_pedido.grupo_vendedor")
+        with self.assertRaises(AccessError):
+            self.Viewer.with_user(seller).distri_chat_pending()
+        with self.assertRaises(AccessError):
+            self.Viewer.with_user(seller).distri_chat_card_states([self.card_photo.id])

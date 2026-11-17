@@ -57,3 +57,6 @@ from . import comprobante_app
 from . import pedido_link
 from . import catalogo_agil
 from . import respaldo
+from . import cuenta_visible
+from . import cobro_efectivo
+from . import alta_revendedor

@@ -27,6 +27,11 @@
   var API_SYNC = "/reparto/api/sync";
   // both ticks of each order while loading (the dispatcher checks on /despacho)
   var API_LOAD = "/reparto/api/load";
+  // 19.0.1.92.0: «Ver cuenta» of a stop (online only) and the cash page
+  var API_ACCOUNT = "/reparto/api/account";
+  var CASH_PAGE = "/cobro";
+  // every customer's account, for drivers too (controllers/cuentas.py)
+  var ACCOUNTS_APP = "/cuentas";
   var SYNC_EVERY_MS = 30000;
   var LOAD_POLL_MS = 5000;
   // one POST stays under the server limit (controllers/reparto.py MAX_BODY)
@@ -646,6 +651,7 @@
     else if (parts[0] === "visita" && stopById(parts[1]) && stopById(parts[1]).parcel) html = viewParcel(stopById(parts[1]));
     else if (parts[0] === "visita" && stopById(parts[1])) html = viewVisit(stopById(parts[1]));
     else if (parts[0] === "cliente" && stopById(parts[1])) html = viewCustomer(stopById(parts[1]));
+    else if (parts[0] === "cuenta" && stopById(parts[1])) html = viewAccount(stopById(parts[1]));
     else if (parts[0] === "cierre") html = viewClose();
     else if (parts[0] === "rechazos") html = viewRejections();
     else if (parts[0] === "salida" && !S.local.departed) html = viewDepart();
@@ -675,7 +681,9 @@
       '<div id="status">' + statusBanner() + "</div>" +
       '<div class="body"><div class="card"><div>No tenés una ruta asignada. Cuando administración ' +
       "te asigne una, descargala antes de salir, con conexión.</div></div></div>" +
-      '<div class="foot"><button class="btn" data-a="download">Descargar la ruta</button></div>';
+      '<div class="foot"><button class="btn" data-a="download">Descargar la ruta</button>' +
+      '<a class="link cashlink" href="' + ACCOUNTS_APP + '">Cuentas de clientes ›</a>' +
+      '<a class="link cashlink" href="' + CASH_PAGE + '">Cobro en efectivo ›</a></div>';
   }
 
   // --- truck loading
@@ -957,7 +965,71 @@
       '<div id="status">' + statusBanner() + "</div>" + rejected +
       '<div class="body">' + cards + "</div>" +
       '<div class="foot"><div class="grid2"><a class="btn teal" href="#gasto">Cargar gasto</a>' +
-      '<a class="btn outline" href="#cierre">Cerrar la ruta</a></div></div>';
+      '<a class="btn outline" href="#cierre">Cerrar la ruta</a></div>' +
+      '<a class="link cashlink" href="' + CASH_PAGE + '">Cobro en efectivo a cualquier cliente ›</a>' +
+      '<a class="link cashlink" href="' + ACCOUNTS_APP + '">Cuentas de clientes (buscar cualquier cliente) ›</a></div>';
+  }
+
+  // --- «Ver cuenta» (19.0.1.92.0): the customer's balance and newest
+  // movements, read online; the server only answers for the driver's own stops
+
+  var acct = { stopId: null, data: null, error: "", loading: false };
+
+  function accountLink(stop) {
+    return '<a class="place" href="#cuenta/' + stop.id + '"><span class="txt"><b>Ver cuenta</b>' +
+      "<span>Saldo y últimos movimientos del cliente (necesita señal)</span></span>" +
+      '<span class="chev">›</span></a>';
+  }
+
+  function loadAccount(stop) {
+    acct = { stopId: stop.id, data: null, error: "", loading: true };
+    fetchWithTimeout(API_ACCOUNT + "?stop=" + stop.id, { credentials: "same-origin", cache: "no-store" }, 20000)
+      .then(function (res) {
+        if (isLoginPage(res)) throw new Error("Tu sesión venció: volvé a entrar con tu usuario.");
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || "No se pudo cargar la cuenta.");
+        acct.data = data.account;
+      })
+      .catch(function (err) {
+        acct.error = err && err.message && err.name !== "AbortError" && err.name !== "TypeError" ? err.message :
+          "Sin señal: la cuenta se consulta en línea. Probá de nuevo cuando tengas señal.";
+      })
+      .then(function () {
+        acct.loading = false;
+        if (location.hash === "#cuenta/" + stop.id) rerender();
+      });
+  }
+
+  function viewAccount(stop) {
+    if (acct.stopId !== stop.id) loadAccount(stop);
+    var out = '<div class="head"><a class="back" href="#visita/' + stop.id + '">‹ Visita</a><h1>Cuenta</h1>' +
+      '<div class="sub">' + h(stop.name) + "</div></div>" + '<div class="body">';
+    var a = acct.data;
+    if (acct.loading) {
+      out += '<div class="card muted">Cargando la cuenta…</div>';
+    } else if (acct.error) {
+      out += '<div class="banner err">' + h(acct.error) + "</div>";
+    } else if (a) {
+      out += '<div class="card"><div class="money-row"><span>' + (a.balance < -0.004 ? "Saldo a favor" : "Saldo") +
+        "</span><b>" + money(Math.abs(a.balance)) + "</b></div>" +
+        (a.provisional ? '<div class="small muted">Incluye devoluciones informadas a controlar por ' +
+          money(a.provisional) + "</div>" : "") + "</div>";
+      out += '<div class="label">Últimos movimientos' + (a.row_count > a.rows.length ? " (" + a.rows.length +
+        " de " + a.row_count + ")" : "") + "</div>";
+      out += a.rows.length ? a.rows.map(function (r) {
+        return '<div class="card acctrow"><div class="split"><span><b>' + h(r.type) + "</b> " + h(r.ref) +
+          '</span><span class="' + (r.credit ? "credit" : "") + '">' +
+          (r.debit ? money(r.debit) : "- " + money(r.credit)) + "</span></div>" +
+          '<div class="small muted">' + h([r.date.split("-").reverse().join("/"), r.concept, "Saldo " + money(r.balance),
+            r.provisional ? "a controlar" : ""].filter(Boolean).join(" · ")) + "</div></div>";
+      }).join("") : '<div class="card muted">Sin movimientos.</div>';
+      out += '<a class="link cashlink" href="' + ACCOUNTS_APP + '">Ver la cuenta completa en Cuentas ›</a>';
+    }
+    return out + "</div>" + '<div class="foot"><div class="grid2"><button class="btn outline" data-a="acct-reload"' +
+      (acct.loading ? " disabled" : "") + '>Actualizar</button><a class="btn teal" href="' + CASH_PAGE +
+      '">Cobro en efectivo</a></div></div>';
   }
 
   // "Encomienda · Terminal de ómnibus", the carrier and who pays, as the
@@ -1119,7 +1191,7 @@
       '<a class="place" href="#cliente/' + stop.id + '">' + ICON_PIN +
       '<span class="txt"><b>Ubicación y horarios</b><span>' +
       h([daysHoursText(c), (c.note || "").split("\n")[0]].filter(Boolean).join(" · ") || "Sin datos cargados") +
-      '</span></span><span class="chev">›</span></a>' + noticeHtml(stop, "place-notice") +
+      '</span></span><span class="chev">›</span></a>' + accountLink(stop) + noticeHtml(stop, "place-notice") +
       '<div class="intro"><h2>¿Ya estás en el cliente?</h2><p>Tocá «Llegué» al llegar: se registran la hora ' +
       "y tu ubicación. Después cargás la visita.</p></div>" +
       '<div class="foot"><button class="btn teal" data-a="arrive">Llegué</button></div>';
@@ -1160,7 +1232,8 @@
       '<a class="place" href="#cliente/' + stop.id + '">' + ICON_PIN +
       '<span class="txt"><b>Ubicación y horarios</b><span>' +
       h([daysHoursText(c), (c.note || "").split("\n")[0]].filter(Boolean).join(" · ") || "Sin datos cargados") +
-      '</span></span><span class="chev">›</span></a>' + noticeHtml(stop, "place-notice") + '<div class="body">';
+      '</span></span><span class="chev">›</span></a>' + accountLink(stop) + noticeHtml(stop, "place-notice") +
+      '<div class="body">';
 
     if (notDelivered) {
       out += '<div class="label">No se pudo entregar</div><div class="card">' +
@@ -1768,6 +1841,7 @@
 
   var ACTIONS = {
     download: function () { download(true); },
+    "acct-reload": function (el, stop) { if (stop) { loadAccount(stop); rerender(); } },
     // «Entendido» only hides the banner: the rejected changes stay in
     // «Cambios rechazados» until they are resent or resolved
     dismiss: function () {

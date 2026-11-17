@@ -27,6 +27,61 @@
             </div>
 
             <div class="o_distri_chat_cols">
+                <!-- 19.0.1.92.0: receipts whose card is still open -->
+                <aside t-att-class="'o_distri_chat_pending' + (state.pendingOpen ? '' : ' o_distri_chat_pending_closed')"
+                       aria-label="Pendientes de aprobar">
+                    <div class="o_distri_chat_pending_head">
+                        <button type="button" class="o_distri_chat_results_toggle" t-on-click="togglePending"
+                                t-att-aria-expanded="state.pendingOpen ? 'true' : 'false'">
+                            <i t-attf-class="fa {{ state.pendingOpen ? 'fa-chevron-up' : 'fa-chevron-down' }}" aria-hidden="true"/>
+                        </button>
+                        <span class="o_distri_chat_pending_title">Pendientes de aprobar</span>
+                        <span class="badge rounded-pill text-bg-warning o_distri_chat_pending_count"
+                              t-esc="state.pending.length" t-att-title="state.pending.length + ' sin aprobar ni descartar'"/>
+                        <button type="button" class="btn btn-link btn-sm p-0" title="Actualizar"
+                                aria-label="Actualizar los pendientes" t-on-click="() => this.refreshCards()">
+                            <i class="fa fa-refresh" aria-hidden="true"/>
+                        </button>
+                    </div>
+                    <div class="o_distri_chat_pending_list">
+                        <p t-if="state.pendingLoaded" class="o_distri_chat_results_hint">
+                            Comprobantes de los últimos <t t-esc="state.pendingDays"/> días con la tarjeta sin
+                            aprobar ni descartar. Tocá uno para verlo en el chat.
+                        </p>
+                        <p t-if="state.pendingLoaded and !state.pending.length" class="o_distri_chat_results_hint">
+                            No hay comprobantes pendientes.
+                        </p>
+                        <div t-foreach="state.pending" t-as="item" t-key="item.key"
+                             t-att-class="'o_distri_chat_pend' + (item.key === state.selected ? ' o_distri_chat_hit_selected' : '')">
+                            <button type="button" class="o_distri_chat_hit" t-on-click="() => this.goTo(item)"
+                                    t-att-aria-current="item.key === state.selected ? 'true' : 'false'">
+                                <span class="o_distri_chat_hit_media" aria-hidden="true">
+                                    <img t-if="item.kind === 'image' and item.attachment_id" t-att-src="hitThumbUrl(item)" alt="" loading="lazy"/>
+                                    <i t-else="" class="fa fa-file-pdf-o"/>
+                                </span>
+                                <span class="o_distri_chat_hit_main">
+                                    <span class="o_distri_chat_hit_top">
+                                        <span class="o_distri_chat_hit_when"><t t-esc="item.day_label"/> · <t t-esc="item.time"/></span>
+                                        <span t-if="item.amount" class="o_distri_chat_hit_amount" t-esc="money(item.amount)"/>
+                                    </span>
+                                    <span class="o_distri_chat_hit_who" t-att-style="senderStyle(item)" t-esc="item.sender or 'Sin nombre'"/>
+                                    <span class="o_distri_chat_hit_card">
+                                        <t t-if="item.partner">Cliente propuesto: <t t-esc="item.partner"/></t>
+                                        <t t-else="">Sin cliente propuesto</t>
+                                    </span>
+                                    <span t-if="item.state === 'authorized'" class="o_distri_chat_status o_distri_chat_status_auth">
+                                        <i class="fa fa-check" aria-hidden="true"/> <t t-esc="item.state_label"/>
+                                    </span>
+                                </span>
+                            </button>
+                            <button type="button" class="btn btn-link btn-sm o_distri_chat_pend_open"
+                                    t-on-click="() => this.openCard(item)">
+                                <i class="fa fa-credit-card" aria-hidden="true"/> Abrir tarjeta
+                            </button>
+                        </div>
+                    </div>
+                </aside>
+
                 <section class="o_distri_chat_main" aria-label="Chat">
                     <div t-if="state.currentDay" class="o_distri_chat_today" aria-hidden="true">
                         <span t-esc="state.currentDay"/>

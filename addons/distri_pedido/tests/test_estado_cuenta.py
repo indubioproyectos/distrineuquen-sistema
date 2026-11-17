@@ -23,6 +23,8 @@ class TestEstadoCuenta(HttpCase):
             cls.env, login="admin_estado", name="Admin Estado",
             groups="base.group_user,distri_pedido.grupo_administracion")
         cls.partner = cls.env["res.partner"].create({"name": "KIOSCO ESTADO"})
+        # 19.0.1.92.0: the customer sees his account only when shown to him
+        cls.partner.distri_cuenta_visible = True
         cls.product = cls.env["product.product"].create({
             "name": "Producto estado", "list_price": 100, "type": "consu",
             "taxes_id": [Command.clear()]})

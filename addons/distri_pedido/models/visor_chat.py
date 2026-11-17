@@ -49,12 +49,19 @@ A receipt more than a day away from its message is marked (`receipt_far`).
 
 Search (19.0.1.49.0): every visible match is counted; the viewer gets them a
 page at a time, newest first, with the snippet around the match.
+
+«Pendientes de aprobar» (19.0.1.92.0, `distri_chat_pending`): the left
+column lists the receipts of this chat (an imported message with a photo or
+PDF) whose card is still open («Pendiente» or «Autorizado para entregar»),
+sent in the last PENDING_DAYS days, newest first. Older open cards are the
+leftovers of the manager's history (2025) and stay on the collections board.
+Approving or discarding stays on the card itself (grupo_cobros).
 """
 import html
 import re
 from datetime import date, datetime, timedelta, timezone
 
-from odoo import api, models
+from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
 
 from .ocr_comprobante import _date as date_in_receipt_text
@@ -77,6 +84,10 @@ WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "do
 PAGE = 40
 SEARCH_PAGE = 30
 SNIPPET = 140
+# «Pendientes de aprobar»: open cards whose receipt came in this window
+PENDING_DAYS = 60
+PENDING_STATES = ("draft", "authorized")
+PENDING_STATE_LABELS = {"draft": "Pendiente", "authorized": "Autorizado para entregar"}
 RECEIPT_DATE_HELP = {
     "read": "Fecha leída del comprobante (la que usa el cruce con Mercado Pago)",
     "text": "Fecha leída en el texto del comprobante",
@@ -520,6 +531,43 @@ class DistriChatViewer(models.AbstractModel):
             hits.append(item)
         return {"jump": False, "hits": hits, "total": len(matches), "offset": offset,
                 "more": offset + limit < len(matches)}
+
+    @api.model
+    def distri_chat_pending(self):
+        """The left column: receipts of the chat whose card is not resolved
+        yet (see the module docstring), newest first."""
+        _check_chat_access(self.env)
+        since = fields.Datetime.now() - timedelta(days=PENDING_DAYS)
+        cards = self.env["distri.mp.collection"].sudo().search([
+            ("state", "in", PENDING_STATES),
+            ("receipt_id.distri_chat_import_id", "!=", False),
+            ("receipt_id.timestamp", ">=", since)])
+        items = []
+        for card in cards.sorted(lambda c: (c.receipt_id.timestamp, c.receipt_id.id), reverse=True):
+            msg = card.receipt_id
+            local = to_local(msg.timestamp)
+            items.append({
+                "key": "m%d" % msg.id, "message_id": msg.id, "collection_id": card.id,
+                "ts": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                "day_label": "%s %s" % (WEEKDAYS[local.weekday()], local.strftime("%d/%m/%Y")),
+                "time": local.strftime("%H:%M"),
+                "sender": msg.distri_chat_sender or msg.profile_name or "",
+                "amount": card.amount or msg.distri_amount or 0.0,
+                "partner": card.partner_id.name or msg.distri_partner_id.name or "",
+                "state": card.state, "state_label": PENDING_STATE_LABELS.get(card.state, ""),
+                "attachment_id": msg.attachment_id.id or False,
+                "kind": "pdf" if "pdf" in (msg.attachment_id.mimetype or "") else "image",
+            })
+        return {"items": items, "count": len(items), "days": PENDING_DAYS}
+
+    @api.model
+    def distri_chat_card_states(self, collection_ids):
+        """{card id: state} of the cards shown in the chat, read again after
+        the person acted on one (19.0.1.92.0)."""
+        _check_chat_access(self.env)
+        ids = [int(i) for i in (collection_ids or []) if i]
+        cards = self.env["distri.mp.collection"].sudo().browse(ids).exists()
+        return {card.id: card.state for card in cards}
 
     @api.model
     def distri_chat_create_card(self, message_id):

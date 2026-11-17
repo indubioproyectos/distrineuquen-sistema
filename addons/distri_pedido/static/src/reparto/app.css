@@ -188,3 +188,9 @@ a.opt{display:block;text-decoration:none}
 .owe{display:flex;flex-direction:column;gap:1px;font-size:14px;color:var(--amber-text);background:var(--amber-bg);
   border-radius:8px;padding:6px 10px;margin-top:6px}
 .owe b{font-size:12px;letter-spacing:.02em}
+
+/* 19.0.1.92.0: «Ver cuenta» and the link to /cobro */
+.cashlink{display:block;text-align:center;margin-top:10px;text-decoration:none}
+.acctrow{padding:10px 14px}
+.acctrow .split{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.acctrow .credit{color:var(--teal)}

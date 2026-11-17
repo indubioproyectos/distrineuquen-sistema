@@ -431,6 +431,11 @@
         <div t-if="distri_so.distri_encomienda_retira">Retira: <t t-esc="distri_so.distri_encomienda_retira"/></div>
         <div t-if="distri_so.distri_bultos">Bultos: <t t-esc="distri_so.distri_bultos"/></div>
       </div>
+      <!-- 19.0.1.92.0: the stock legend (models/sale_order.py STOCK_NOTICE) -->
+      <t t-if="distri_so">
+        <t t-set="leyenda_stock" t-value="distri_so._distri_stock_notice(short=True)"/>
+        <t t-call="distri_pedido.leyenda_stock"/>
+      </t>
     </xpath>
   </template>
 

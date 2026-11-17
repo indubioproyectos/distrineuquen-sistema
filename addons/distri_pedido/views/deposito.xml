@@ -174,7 +174,7 @@
               <field name="currency_id" invisible="1"/>
             </group>
             <group string="Efectivo">
-              <field name="cash_expected" help="La suma de los cobros en efectivo registrados en Caja depósito por este usuario en el día."/>
+              <field name="cash_expected" help="La suma de los cobros en efectivo registrados en Caja depósito por este usuario en el día: entregas en depósito y cobros en efectivo de la página /cobro."/>
               <field name="cash_counted" readonly="state == 'settled'"/>
               <field name="cash_count_done" invisible="1"/>
               <field name="cash_difference" invisible="not cash_count_done"
@@ -205,6 +205,21 @@
                   <field name="transfer" optional="show"/>
                   <field name="transfer_amount" optional="show"/>
                   <field name="comment" optional="hide"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+              </field>
+            </page>
+            <!-- 19.0.1.92.0: models/cobro_efectivo.py, page /cobro -->
+            <page string="Cobros en efectivo" name="cash_collections"
+                  invisible="not cash_collection_ids">
+              <field name="cash_collection_ids" readonly="1">
+                <list>
+                  <field name="create_date" string="Hora"/>
+                  <field name="partner_id"/>
+                  <field name="invoice_id"/>
+                  <field name="note" optional="show"/>
+                  <field name="payment_id" optional="hide"/>
+                  <field name="amount" sum="Total"/>
                   <field name="currency_id" column_invisible="1"/>
                 </list>
               </field>

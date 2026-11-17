@@ -497,3 +497,44 @@ class TestRepartoHttp(RepartoMixin, HttpCase):
         self.authenticate("vendedor_test_rep", "vendedor_test_rep")
         res = self.url_open("/reparto/api/route")
         self.assertEqual(res.status_code, 403)
+        self.assertEqual(self.url_open("/reparto/api/account?stop=1").status_code, 403)
+
+    def test_driver_sees_the_account_of_his_own_stops(self):
+        """19.0.1.92.0: «Ver cuenta» of a stop of any of the driver's own
+        routes; another driver's stop is refused (no IDOR). Any customer's
+        account is in /cuentas."""
+        route = self._route(self.order)
+        stop = route.stop_ids
+        partner = stop.partner_id.commercial_partner_id
+        self.env["distri.cuenta.movimiento"].sudo().create({
+            "partner_id": partner.id, "fecha": "2026-01-05", "comprobante": "0001/2026/77001",
+            "tipo": "factura", "debe": 1234.0})
+        other_partner = self.env["res.partner"].create({"name": "X - KIOSCO DE OTRO REPARTO"})
+        other_order = self._order(other_partner, self.order.order_line.product_id, qty=1)
+        other_route = self._route(other_order, driver=self.other_driver)
+
+        self.authenticate("repartidor_test", "repartidor_test")
+        data = self.url_open("/reparto/api/account?stop=%d" % stop.id).json()
+        self.assertTrue(data["ok"], data)
+        account = data["account"]
+        self.assertEqual(account["partner_id"], partner.id)
+        self.assertEqual(account["balance"], partner._distri_statement()["balance"])
+        self.assertEqual(account["rows"][0]["ref"], "0001/2026/77001")
+        self.assertEqual(account["rows"][0]["debit"], 1234.0)
+
+        for wanted in (other_route.stop_ids.id, "abc", 0, 999999999):
+            res = self.url_open("/reparto/api/account?stop=%s" % wanted)
+            self.assertEqual(res.status_code, 404, wanted)
+            self.assertFalse(res.json()["ok"])
+        # an old, settled route of his: still his stop
+        route.sudo().write({"state": "settled",
+                            "date": fields.Date.subtract(fields.Date.today(), days=90)})
+        self.assertEqual(self.url_open("/reparto/api/account?stop=%d" % stop.id).status_code, 200)
+        # and the driver opens /cuentas, linked from the app
+        self.assertEqual(self.url_open("/cuentas").status_code, 200)
+
+    def test_app_links_to_the_account_and_the_cash_page(self):
+        source = self.url_open("/distri_pedido/static/src/reparto/app.js").text
+        self.assertIn("/reparto/api/account", source)
+        self.assertIn('"/cobro"', source)
+        self.assertIn('"/cuentas"', source)

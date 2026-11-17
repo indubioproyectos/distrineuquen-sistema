@@ -210,44 +210,52 @@ class TestCashSheet(HttpCase):
             self.sheet.id, self.photo.id)
         self.assertEqual((data, mimetype, name), (PNG, "image/png", "foto.png"))
 
-    def test_seller_sees_only_his_customers_rows(self):
+    def test_seller_sees_the_sheet_but_not_a_distributors_row(self):
+        """19.0.1.92.0: sellers see the whole sheet (they chase old missing
+        receipts); only a row of a distributor stays hidden from a seller
+        without Administración, and then the originals are not offered."""
         self.line_a.payment_id = self.pay_a
         self.line_b.payment_id = self.pay_b
+        app = self.env["distri.account.app"].with_user(self.seller_a)
         sheet = self._sheet_of(self.seller_a, self.pa, self.pay_a)
-        self.assertEqual([r["client"] for r in sheet["rows"]], ["CLIENTE A"])
-        self.assertEqual(sheet["hidden_count"], 3, "the other customer, the fuel and the total")
+        self.assertEqual([r["client"] for r in sheet["rows"]], ["CLIENTE A", "CLIENTE B", "NAFTA", "TOTAL"])
+        self.assertEqual(sheet["hidden_count"], 0)
+        self.assertEqual(sheet["total"], 4000.0)
+        self.assertEqual({f["kind"] for f in sheet["files"]}, {"image", "xlsx"})
+        self.assertEqual(app.app_sheet_file(self.sheet.id, self.photo.id)[0], PNG)
+
+        self.pb.distri_lista_oculta = True
+        sheet = self._sheet_of(self.seller_a, self.pa, self.pay_a)
+        self.assertEqual([r["client"] for r in sheet["rows"]], ["CLIENTE A", "NAFTA", "TOTAL"])
+        self.assertEqual(sheet["hidden_count"], 1)
         self.assertEqual(sheet["total"], 1500.0)
-        self.assertEqual(sheet["total_label"], "Total de tus clientes")
+        self.assertEqual(sheet["total_label"], "Total de los clientes que ves")
         self.assertEqual(sheet["files"], [], "a photo shows every row")
         payload = str(sheet)
         self.assertNotIn("CLIENTE B", payload)
         self.assertNotIn("2500", payload)
-        app = self.env["distri.account.app"].with_user(self.seller_a)
         for attachment in (self.photo, self.xlsx):
             with self.assertRaises(AccessError):
                 app.app_sheet_file(self.sheet.id, attachment.id)
-        with self.assertRaises(AccessError):
-            self.env["distri.account.app"].with_user(self.seller_b).app_line(
-                self.pa.id, self._row_key(self.pa, self.pay_a))
-        # a sheet with only his customers: he gets its originals
-        own = self.env["distri.cash.sheet"].sudo().create({
-            "name": "propia", "collector": "ITALO", "date": DAY, "source_key": "xlsx:test:own",
-            "line_ids": [Command.create({"client_raw": "A2", "partner_id": self.pa2.id,
-                                         "amount_paid": 50.0})]})
-        photo = own._attach("propia.png", PNG, "image/png")
-        self.assertEqual(app.app_sheet_file(own.id, photo.id)[0], PNG)
         with self.assertRaises(AccessError):  # an attachment of another sheet
+            own = self.env["distri.cash.sheet"].sudo().create({
+                "name": "propia", "collector": "ITALO", "date": DAY, "source_key": "xlsx:test:own",
+                "line_ids": [Command.create({"client_raw": "A2", "partner_id": self.pa2.id,
+                                             "amount_paid": 50.0})]})
             app.app_sheet_file(own.id, self.photo.id)
 
     def test_http_routes(self):
         self.line_a.payment_id = self.pay_a
         url = "/cuentas/api/sheet_file?sheet=%d&file=%d" % (self.sheet.id, self.photo.id)
         self.authenticate(self.seller_a.login, self.seller_a.login)
-        self.assertEqual(self.url_open(url, allow_redirects=False).status_code, 403)
+        # 19.0.1.92.0: the seller sees the whole sheet and its originals
+        self.assertEqual(self.url_open(url, allow_redirects=False).status_code, 200)
         line = self.url_open("/cuentas/api/line?id=%d&key=%s" % (
             self.pa.id, self._row_key(self.pa, self.pay_a))).json()
         self.assertTrue(line["ok"])
-        self.assertEqual(line["data"]["cash"]["sheet"]["hidden_count"], 3)
+        self.assertEqual(line["data"]["cash"]["sheet"]["hidden_count"], 0)
+        self.pb.distri_lista_oculta = True
+        self.assertEqual(self.url_open(url, allow_redirects=False).status_code, 403)
         self.authenticate(self.admin_u.login, self.admin_u.login)
         res = self.url_open(url, allow_redirects=False)
         self.assertEqual(res.status_code, 200)

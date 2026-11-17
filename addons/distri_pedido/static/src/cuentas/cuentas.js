@@ -293,6 +293,8 @@
       '<span class="headbtns">' +
       (load ? '<button type="button" id="lastload" class="loadbtn' + (S.showLoad ? " on" : "") + '" aria-expanded="' +
         (S.showLoad ? "true" : "false") + '">Última carga</button>' : "") +
+      // 19.0.1.92.0: register a cash payment of any customer (controllers/cobro.py)
+      '<a class="loadbtn" href="/cobro">Cobro en efectivo</a>' +
       // the only way out for a seller locked to this app (distri_pedido.vendedor_solo_cuentas)
       '<a class="loadbtn logout" href="/web/session/logout?redirect=%2Fweb%2Flogin">Salir</a>' +
       "</span></div>";
@@ -304,7 +306,7 @@
     if (D) {
       head += '<div class="total num">' + money(D.total_debt) + "</div>" +
         '<div class="sub">' + plural(D.debtor_count, "cliente debe", "clientes deben") +
-        (D.scope === "portfolio" ? " · tu cartera" : "") + " · " + h(D.user) +
+        " · " + h(D.user) +
         (S.refreshing ? ' · <span class="upd">actualizando…</span>' : "") + "</div>";
     } else {
       head += "<h1>Deudores</h1>";

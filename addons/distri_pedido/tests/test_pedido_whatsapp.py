@@ -319,8 +319,10 @@ class TestPedidoWhatsappHttp(PedidoAbiertoMixin, PedidoWhatsappMixin, HttpCase):
         link = unquote(re.search(r'href="(https://wa\.me/5492994112233\?text=[^"]+)"',
                                  html).group(1).replace("&amp;", "&"))
         self.assertIn("Hola Kiosco Cartera WA, te dejo tu pedido: ", link)
-        self.assertIn("/pedido/%s. Desde ahí podés verlo, modificarlo, ver tu cuenta y pagar."
+        # 19.0.1.92.0: the account is hidden from the customer by default
+        self.assertIn("/pedido/%s. Desde ahí podés verlo, modificarlo y pagar."
                       % order.access_token, link)
+        self.assertNotIn("ver tu cuenta", link)
         self.assertNotIn("wa.me/15551833591", html)
         # without a valid token the form is refused (19.0.1.29.0: for everyone,
         # with the page shown again with the cart instead of an error page)

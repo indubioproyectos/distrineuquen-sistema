@@ -174,6 +174,20 @@ class Reparto(http.Controller):
             return self._json({"ok": False, "error": "Esa ruta no es tuya."}, 404)
         return self._json({"ok": True, "route": route._load_status_payload()})
 
+    @http.route("/reparto/api/account", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def account(self, stop=None, **kw):
+        """«Ver cuenta» of a stop (19.0.1.92.0): the customer's balance and
+        newest movements, read only, online. Only for a stop on one of the
+        driver's own routes (models/reparto.py _driver_stop)."""
+        if not self._is_driver():
+            return self._json({"ok": False, "error": "No tenés permiso de reparto."}, 403)
+        Route = request.env["distri.route"]
+        found = Route._driver_stop(request.env.user, stop)
+        if not found or found.partner_id.commercial_partner_id.distri_generic_partner:
+            return self._json({"ok": False, "error": "Ese cliente no está en tus repartos."}, 404)
+        return self._json({"ok": True, "account": Route._app_partner_statement(found.partner_id)})
+
     @http.route("/reparto/api/sync", type="http", auth="user", methods=["POST"],
                 csrf=False, sitemap=False)
     def sync(self, **kw):

@@ -11,6 +11,11 @@
 // arrow keys) centers the chat on it and keeps the list where it was. The day
 // being read stays at the top while scrolling; each photo or PDF shows the
 // date of the receipt itself.
+// 19.0.1.92.0: a third column on the left, «Pendientes de aprobar»: the
+// receipts whose card is still open (models/visor_chat.py
+// distri_chat_pending), newest first; clicking one centers the chat on it
+// like a search result, «Abrir tarjeta» opens its card. Read again after
+// every card action.
 import { Component, onMounted, onPatched, onWillStart, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
@@ -108,6 +113,8 @@ export function highlightParts(text, query) {
 export class ChatViewer extends Component {
     static template = "distri_pedido.ChatViewer";
     static props = { ...standardActionServiceProps };
+    // the card's own chat (card_chat.js) has no pending column
+    static withPending = true;
 
     setup() {
         this.orm = useService("orm");
@@ -122,10 +129,15 @@ export class ChatViewer extends Component {
             // the search shown in the right column
             searched: "", total: 0, moreHits: false, selected: null, resultsOpen: true,
             currentDay: "",
+            // «Pendientes de aprobar» (left column)
+            pending: [], pendingDays: 0, pendingLoaded: false, pendingOpen: true,
         });
         this.pendingScroll = null;
         this.pendingFocus = null;
-        onWillStart(() => this.open(this.initialAnchor()));
+        onWillStart(() => Promise.all([
+            this.open(this.initialAnchor()),
+            this.constructor.withPending ? this.loadPending() : null,
+        ]));
         // 19.0.1.52.0: the photos above the anchor load after the first
         // scroll and push it down; while the person has not moved the chat
         // (a few seconds at most), every photo that loads centers it again
@@ -180,6 +192,34 @@ export class ChatViewer extends Component {
             this.pendingScroll = { type: data.anchor ? "anchor" : (anchor.at ? "middle" : "bottom") };
         } finally {
             this.state.loading = false;
+        }
+    }
+
+    async loadPending() {
+        const data = await this.orm.call(MODEL, "distri_chat_pending", []);
+        Object.assign(this.state, {
+            pending: data.items, pendingDays: data.days, pendingLoaded: true,
+        });
+    }
+
+    togglePending() {
+        this.state.pendingOpen = !this.state.pendingOpen;
+    }
+
+    // after a card action: the pending list and the status on the bubbles
+    async refreshCards() {
+        if (!this.constructor.withPending) {
+            return;
+        }
+        const ids = [...new Set(this.state.entries.map((e) => e.collection_id).filter(Boolean))];
+        const [states] = await Promise.all([
+            ids.length ? this.orm.call(MODEL, "distri_chat_card_states", [ids]) : {},
+            this.loadPending(),
+        ]);
+        for (const entry of this.state.entries) {
+            if (entry.collection_id && states[entry.collection_id]) {
+                entry.card_state = states[entry.collection_id];
+            }
         }
     }
 
@@ -445,7 +485,7 @@ export class ChatViewer extends Component {
         await this.action.doAction({
             type: "ir.actions.act_window", res_model: "distri.mp.collection",
             res_id: entry.collection_id, views: [[false, "form"]], target: "new",
-        });
+        }, { onClose: () => this.refreshCards() });
     }
 }
 

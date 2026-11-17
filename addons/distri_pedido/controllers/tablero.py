@@ -18,7 +18,8 @@ from .reparto import SHARED_CSS
 
 IMG = "/distri_pedido/static/src/img/iconos/"
 
-# (menu xmlid, title, subtitle, icon, url or None = open the menu in the backend)
+# (menu xmlid or None = every internal user, title, subtitle, icon, url or
+# None = open the menu in the backend)
 TILES = [
     ("distri_pedido.menu_cuentas_root", "Estado de cuentas", "Deudores y cuentas, también en el celular",
      IMG + "cuentas.png", "/cuentas"),
@@ -28,6 +29,9 @@ TILES = [
     ("distri_pedido.menu_armado_app", "Armado", "Pantalla del armador", IMG + "armado.png", "/armado"),
     ("distri_pedido.menu_reparto_despacho", "Despacho", "Salida de los repartos", IMG + "despacho.png",
      "/despacho"),
+    # 19.0.1.92.0: controllers/cobro.py, for every internal user
+    (None, "Cobro en efectivo", "Registrar el efectivo que te dio un cliente", IMG + "cobros.png",
+     "/cobro"),
 ]
 
 
@@ -36,6 +40,10 @@ def staff_tiles(env):
     visible = env["ir.ui.menu"]._visible_menu_ids()
     tiles = []
     for xmlid, title, subtitle, icon, url in TILES:
+        if not xmlid:
+            tiles.append({"title": title, "subtitle": subtitle, "icon": icon, "menu_id": False,
+                          "url": url})
+            continue
         menu = env.ref(xmlid, raise_if_not_found=False)
         if not menu or menu.id not in visible:
             continue

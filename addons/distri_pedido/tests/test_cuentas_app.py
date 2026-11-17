@@ -136,9 +136,10 @@ class TestCuentasApp(HttpCase):
     def test_access_matrix(self):
         for user in (self.admin_u, self.manager_u, self.system_u):
             self.assertEqual(app_scope(self.env(user=user)), "all", user.login)
-        for user in (self.seller_a, self.seller_b):
-            self.assertEqual(app_scope(self.env(user=user)), "portfolio", user.login)
-        for user in (self.plain_u, self.packer_u, self.driver_u):
+        # 19.0.1.92.0: sellers and drivers review every customer
+        for user in (self.seller_a, self.seller_b, self.driver_u):
+            self.assertEqual(app_scope(self.env(user=user)), "staff", user.login)
+        for user in (self.plain_u, self.packer_u):
             self.assertIsNone(app_scope(self.env(user=user)), user.login)
             with self.assertRaises(AccessError):
                 self._app(user).app_debtors()
@@ -150,13 +151,13 @@ class TestCuentasApp(HttpCase):
         self.assertIn("/web/login", res.headers.get("Location", ""))
         self.assertNotEqual(self._get("/cuentas/api/debtors").status_code, 200)
 
-        for user in (self.admin_u, self.manager_u, self.system_u, self.seller_a):
+        for user in (self.admin_u, self.manager_u, self.system_u, self.seller_a, self.driver_u):
             self.authenticate(user.login, user.login)
             page = self._get("/cuentas")
             self.assertEqual(page.status_code, 200, user.login)
             self.assertIn("cuentas.js", page.text)
             self.assertTrue(self._get("/cuentas/api/debtors").json()["ok"], user.login)
-        for user in (self.plain_u, self.packer_u, self.driver_u):
+        for user in (self.plain_u, self.packer_u):
             self.authenticate(user.login, user.login)
             self.assertEqual(self._get("/cuentas").status_code, 403, user.login)
             self.assertEqual(self._get("/cuentas/api/debtors").status_code, 403, user.login)
@@ -194,7 +195,9 @@ class TestCuentasApp(HttpCase):
         res = self._get("/odoo/action-base.action_res_users")
         self.assertFalse(res.headers.get("Location", "").endswith("/cuentas"))
 
-    def test_seller_sees_only_his_portfolio(self):
+    def test_seller_and_driver_see_every_customer(self):
+        """19.0.1.92.0: sellers and drivers review any customer's account
+        (old missing receipts): list, account, lines, receipts, comments."""
         self.assertEqual(self._app(self.seller_a).app_debtors()["settled"], [],
                          "the settled customers come only when asked")
         data = self._app(self.seller_a).app_debtors(seller="italo", settled=True)
@@ -202,39 +205,52 @@ class TestCuentasApp(HttpCase):
         self.assertFalse(data["can_filter_seller"])
         self.assertEqual(data["seller"], "all", "a seller has no seller filter")
         ids = {d["id"] for d in data["debtors"] + data["settled"] + data["uncollectible"]}
-        visible = set(self.env["res.partner"].with_user(self.seller_a).with_context(
-            active_test=False).search([]).ids)
-        self.assertTrue(ids <= visible)
-        self.assertIn(self.pa.id, {d["id"] for d in data["debtors"]})
+        self.assertTrue({self.pa.id, self.pb.id} <= {d["id"] for d in data["debtors"]})
         self.assertIn(self.pa_zero.id, {d["id"] for d in data["settled"]})
-        self.assertNotIn(self.pb.id, ids)
         self.assertEqual(data["total_debt"], round(sum(d["balance"] for d in data["debtors"]), 2))
-
-        app = self._app(self.seller_a)
-        with self.assertRaises(AccessError):
-            app.app_account(self.pb.id)
         key = self._card_row(self.pb, self.card_b)["line_key"]
-        with self.assertRaises(AccessError):
-            app.app_line(self.pb.id, key)
-        with self.assertRaises(AccessError):
-            app.app_receipt(self.pb.id, self.card_b.id)
-        with self.assertRaises(AccessError):
-            app.app_add_comment(self.pb.id, "no es mío")
-        for bad in (0, -1, "x", None, 10 ** 9):
-            with self.assertRaises(AccessError):
-                app.app_account(bad)
+        for user in (self.seller_a, self.driver_u):
+            app = self._app(user)
+            self.assertEqual(app.app_account(self.pb.id)["partner"]["name"], "CUENTAS PRUEBA B")
+            self.assertEqual(app.app_line(self.pb.id, key)["card"]["id"], self.card_b.id)
+            self.assertEqual(app.app_receipt(self.pb.id, self.card_b.id)[0], PNG)
+            for bad in (0, -1, "x", None, 10 ** 9):
+                with self.assertRaises(AccessError):
+                    app.app_account(bad)
+        comment = self._app(self.driver_u).app_add_comment(self.pb.id, "falta el comprobante")
+        self.assertEqual(comment["author"], self.driver_u.name)
+        self.assertTrue(self._app(self.driver_u).app_delete_comment(comment["id"]))
+        # the partner record rule itself is not loosened
+        self.assertFalse(self.env["res.partner"].with_user(self.seller_a).search(
+            [("id", "=", self.pb.id)]))
 
         self.authenticate(self.seller_a.login, self.seller_a.login)
-        self.assertEqual(self._get("/cuentas/api/account?id=%d" % self.pb.id).status_code, 403)
+        res = self._get("/cuentas/api/account?id=%d" % self.pb.id).json()
+        self.assertTrue(res["ok"])
         self.assertEqual(self._get("/cuentas/api/line?id=%d&key=%s" % (self.pb.id, key)).status_code,
-                         403)
+                         200)
         self.assertEqual(self._get("/cuentas/api/receipt?id=%d&card=%d" % (
-            self.pb.id, self.card_b.id)).status_code, 403)
-        self.assertEqual(self._post("/cuentas/api/comment", {
-            "partner_id": self.pb.id, "body": "no"}).status_code, 403)
+            self.pb.id, self.card_b.id)).status_code, 200)
         own = self._get("/cuentas/api/account?id=%d" % self.pa.id).json()
-        self.assertTrue(own["ok"])
         self.assertEqual(own["data"]["partner"]["ref"], "ODOO-990001")
+
+    def test_plain_seller_never_reaches_a_distributor(self):
+        """The hidden-list policy (models/lista_oculta.py) still holds: a
+        seller without Administración does not see a distributor's account;
+        administración and a driver do."""
+        self.pb.distri_lista_oculta = True
+        with self.assertRaises(AccessError):
+            self._app(self.seller_a).app_account(self.pb.id)
+        with self.assertRaises(AccessError):
+            self._app(self.seller_a).app_receipt(self.pb.id, self.card_b.id)
+        with self.assertRaises(AccessError):
+            self._app(self.seller_a).app_add_comment(self.pb.id, "no")
+        self.assertNotIn(self.pb.id, {d["id"] for d in self._app(self.seller_a).app_debtors(
+            settled=True)["debtors"]})
+        self.assertTrue(self._app(self.admin_u).app_account(self.pb.id))
+        self.assertTrue(self._app(self.driver_u).app_account(self.pb.id))
+        self.authenticate(self.seller_a.login, self.seller_a.login)
+        self.assertEqual(self._get("/cuentas/api/account?id=%d" % self.pb.id).status_code, 403)
 
     def test_seller_reads_only_his_portfolio_payer_identities(self):
         """19.0.1.91.0 (E2E-B B4): CUITs and phones of the payers, only the

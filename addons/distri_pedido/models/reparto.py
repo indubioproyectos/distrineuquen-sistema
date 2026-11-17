@@ -74,6 +74,9 @@ ROUTE_KINDS = [
     ("depot", "Entregas en depósito"),
 ]
 
+# statement rows shown on the driver's «Ver cuenta» (19.0.1.92.0)
+ROUTE_ACCOUNT_ROWS = 15
+
 # «No volvió» at settlement: the driver reported the return, so the customer
 # handed the goods back. Decision of ale (27/09/2026): the customer keeps the
 # credit (posted credit note, no stock return) and the missing goods are the
@@ -123,6 +126,9 @@ class DistriRoute(models.Model):
     expense_ids = fields.One2many("distri.route.expense", "route_id", string="Gastos",
                                   domain=[("state", "!=", "cancelled")])
     parcel_ids = fields.One2many("distri.parcel", "route_id", string="Encomiendas")
+    # 19.0.1.92.0: «Cobro en efectivo» (/cobro) on the user's depot box
+    cash_collection_ids = fields.One2many("distri.cash.collection", "route_id",
+                                          string="Cobros en efectivo")
     stop_count = fields.Integer(string="Pedidos", compute="_compute_totals", store=True)
     parcel_count = fields.Integer(string="Bultos", compute="_compute_totals", store=True)
     departed_at = fields.Datetime(string="Salió a repartir", readonly=True, copy=False)
@@ -230,12 +236,14 @@ class DistriRoute(models.Model):
                 for s in route.stop_ids)
 
     @api.depends("stop_ids.cash_amount", "stop_ids.order_id.distri_bultos",
-                 "expense_ids.amount", "expense_ids.state")
+                 "expense_ids.amount", "expense_ids.state", "cash_collection_ids.amount")
     def _compute_totals(self):
         for route in self:
             route.stop_count = len(route.stop_ids)
             route.parcel_count = sum(route.stop_ids.mapped("parcels"))
-            route.cash_collected = sum(route.stop_ids.mapped("cash_amount"))
+            # the stops' cash plus what was collected from /cobro (19.0.1.92.0)
+            route.cash_collected = (sum(route.stop_ids.mapped("cash_amount"))
+                                    + sum(route.cash_collection_ids.mapped("amount")))
             route.expense_total = sum(route.expense_ids.filtered(
                 lambda e: e.state != "cancelled").mapped("amount"))
             route.cash_expected = route.cash_collected - route.expense_total
@@ -624,6 +632,48 @@ class DistriRoute(models.Model):
                 "journal_id": self._depot_journal(company).id,
             })
         return route.sudo(False)
+
+    # -------------------------------------------------------- «Ver cuenta»
+
+    @api.model
+    def _driver_stop(self, user, stop_id):
+        """The stop when it is on one of the user's own delivery routes, else
+        an empty recordset: the driver's «Ver cuenta» (19.0.1.92.0) never
+        opens another driver's stop. Any customer's account is in /cuentas."""
+        try:
+            wanted = int(stop_id or 0)
+        except (TypeError, ValueError):
+            wanted = 0
+        Stop = self.env["distri.route.stop"].sudo()
+        stop = Stop.browse(wanted).exists() if wanted > 0 else Stop
+        if not stop or stop.route_id.driver_id != user or stop.route_id.kind != "route":
+            return Stop
+        return stop
+
+    @api.model
+    def _app_partner_statement(self, partner, limit=ROUTE_ACCOUNT_ROWS):
+        """Read-only account of one customer for the driver's app: balance and
+        the newest statement rows (models/estado_cuenta.py)."""
+        partner = partner.sudo().commercial_partner_id
+        data = partner._distri_statement()
+        rows = list(reversed(data["rows"]))[:limit]
+        return {
+            "partner_id": partner.id,
+            "name": partner.name or "",
+            "balance": data["balance"],
+            "provisional": data["provisional"],
+            "row_count": len(data["rows"]),
+            "rows": [{
+                "date": row["date"].isoformat() if row["date"] else "",
+                "type": row["doc_type"] or "",
+                "ref": row["remito"] or row["number"] or "",
+                "concept": row["concept"] or "",
+                "debit": row["debit"] or 0.0,
+                "credit": row["credit"] or 0.0,
+                "balance": row["balance"],
+                "provisional": bool(row["provisional"]),
+            } for row in rows],
+        }
 
     def action_close_depot(self):
         """«Cerrar caja depósito»: counted vs expected, like the settlement.

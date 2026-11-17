@@ -13,6 +13,7 @@ import { ChatViewer } from "./chat_viewer";
 export class CardChat extends ChatViewer {
     static template = "distri_pedido.CardChat";
     static props = { ...standardWidgetProps };
+    static withPending = false;
 
     setup() {
         super.setup();

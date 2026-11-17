@@ -120,9 +120,26 @@
 .o_distri_chat_preview_bar{color:#fff;font-size:.85rem;text-align:center}
 .o_distri_chat_preview_bar a{color:#fff;text-decoration:underline}
 
+/* 19.0.1.92.0: «Pendientes de aprobar» on the left */
+.o_distri_chat_pending{flex:0 0 300px;max-width:30%;display:flex;flex-direction:column;min-height:0;
+  background:#fff;border-right:1px solid var(--chat-line)}
+.o_distri_chat_pending_head{display:flex;align-items:center;gap:8px;padding:8px 12px;
+  border-bottom:1px solid var(--chat-line);font-weight:600}
+.o_distri_chat_pending_title{flex:1 1 auto;min-width:0}
+.o_distri_chat_pending_list{flex:1 1 auto;min-height:0;overflow-y:auto}
+.o_distri_chat_pend{border-bottom:1px solid var(--chat-line)}
+.o_distri_chat_pend .o_distri_chat_hit{border-bottom:0}
+.o_distri_chat_pend_open{display:block;margin:-4px 0 4px 70px;padding:0 0 4px}
+
 @media (max-width:768px){
-  /* phone: the results above the chat, folded with the arrow */
-  .o_distri_chat_cols{flex-direction:column-reverse}
+  /* phone: the results, then the pending receipts, above the chat, each
+     folded with its arrow */
+  .o_distri_chat_cols{flex-direction:column}
+  .o_distri_chat_results{order:1}
+  .o_distri_chat_pending{order:2;flex:none;max-width:none;max-height:35vh;border-right:0;
+    border-bottom:1px solid var(--chat-line)}
+  .o_distri_chat_main{order:3}
+  .o_distri_chat_pending_closed .o_distri_chat_pending_list{display:none}
   .o_distri_chat_results{flex:none;max-width:none;max-height:45vh;border-left:0;border-bottom:1px solid var(--chat-line)}
   .o_distri_chat_results_toggle{display:inline-block}
   .o_distri_chat_results_closed .o_distri_chat_results_list{display:none}

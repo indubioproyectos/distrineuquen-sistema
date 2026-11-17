@@ -48,7 +48,9 @@
     <div class="brand">
       <img src="/distri_pedido/static/src/img/iconos/app-192.png" alt=""/>
       <b>Distri Neuquén</b>
-      <span>Ingreso del equipo</span>
+      <!-- 19.0.1.92.0: «Soy revendedor / Soy distribuidora» on /pedido -->
+      <span t-if="redirect == '/pedido'">Revendedores y distribuidoras: entrá para ver tu lista de precios</span>
+      <span t-else="">Ingreso del equipo</span>
     </div>
     <form method="post" action="/web/login" onsubmit="this.querySelector('.go').disabled=true">
       <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>

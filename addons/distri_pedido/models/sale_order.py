@@ -9,9 +9,21 @@ from .res_partner import GENERIC_NAMES, GENERIC_RETAIL, GENERIC_WHOLESALE
 SOCIO_SIN_ASIGNAR = GENERIC_NAMES[GENERIC_RETAIL]
 SOCIO_MAYORISTA = GENERIC_NAMES[GENERIC_WHOLESALE]
 
+# 19.0.1.92.0: the stock legend of every order, in one place. Shown on
+# /pedido before sending, on the order page, in the order WhatsApp texts
+# (controllers/main.py) and, its first sentence only, on the quotation/order
+# PDF and the remito (views/templates.xml leyenda_stock). Never on invoices.
+STOCK_NOTICE = ("Pedido sujeto a disponibilidad de stock. Una vez armado, vas a poder ver "
+                "cómo quedó tu pedido.")
+STOCK_NOTICE_SHORT = STOCK_NOTICE.split(". ")[0] + "."
+
 
 class SaleOrder(models.Model):
     _inherit = "sale.order"
+
+    def _distri_stock_notice(self, short=False):
+        """The stock legend (STOCK_NOTICE); `short`: the printed documents."""
+        return STOCK_NOTICE_SHORT if short else STOCK_NOTICE
 
     # Lo que el cliente pidio desde la pagina, tal cual lo mando. El deposito
     # despues saca faltantes o cambia marcas, y con esto el cliente puede ver

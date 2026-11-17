@@ -172,6 +172,158 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         self._assert_publica(html)
         self.assertIn("Precios de la lista mayorista general", html)
 
+    def test_anonymous_sees_the_reseller_button(self):
+        """19.0.1.92.0: «Soy revendedor / Soy distribuidora» leads to the
+        self-signup page. Still the General list only: no hidden section and
+        no hidden price."""
+        html = self._pedido_html()
+        self._assert_publica(html)
+        self.assertIn("Soy revendedor / Soy distribuidora", html)
+        self.assertIn('href="/revendedor"', html)
+        page = self._pedido_html("/revendedor")
+        self.assertIn("Crear cuenta con mi correo", page)
+        self.assertIn('href="/web/signup?redirect=%2Fmi-perfil"', page)
+        self.assertIn('href="/web/login?redirect=%2Fpedido"', page)
+        number = self.env["distri.pedido.whatsapp.settings"].sudo().company_number()
+        self.assertIn("https://wa.me/%s?text=" % number, page)
+        self.assertNotIn("Entrar con Google", page, "the provider is disabled")
+        login = self.url_open("/web/login?redirect=%2Fpedido")
+        self.assertEqual(login.status_code, 200)
+        self.assertIn("Revendedores y distribuidoras", login.text)
+
+    def test_google_button_only_while_the_provider_is_enabled(self):
+        google = self.env.ref("auth_oauth.provider_google")
+        google.write({"enabled": True, "client_id": "prueba-123.apps.googleusercontent.com"})
+        page = self._pedido_html("/revendedor")
+        self.assertIn("Entrar con Google", page)
+        self.assertIn("https://accounts.google.com/o/oauth2/auth?", page)
+        self.assertIn("client_id=prueba-123.apps.googleusercontent.com", page)
+        self.assertIn("auth_oauth%2Fsignin", page)
+        google.client_id = False
+        self.assertNotIn("Entrar con Google", self._pedido_html("/revendedor"))
+
+    # ------------------------------------------------ self-signup (19.0.1.92.0)
+
+    PROFILE = {"comercio": "Kiosco Autoalta", "contacto": "Juan Autoalta",
+               "cuit": "20-12345678-6", "telefono": "299 4222444",
+               "direccion": "Calle Falsa 742", "localidad": "Plottier"}
+
+    def _signup(self, email):
+        self.env["ir.config_parameter"].sudo().set_param("auth_signup.invitation_scope", "b2c")
+        page = self.url_open("/web/signup?redirect=%2Fmi-perfil")
+        self.assertEqual(page.status_code, 200)
+        res = self.url_open("/web/signup", data={
+            "csrf_token": re.search(r'name="csrf_token" value="([^"]+)"', page.text).group(1),
+            "login": email, "name": "Juan Autoalta", "password": "Clave-Segura-2026",
+            "confirm_password": "Clave-Segura-2026", "redirect": "/mi-perfil"})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(res.url.endswith("/mi-perfil"), res.url)
+        user = self.env["res.users"].search([("login", "=", email)])
+        self.assertTrue(user.share)
+        return user, res.text
+
+    def _profile(self, html, **values):
+        data = dict(self.PROFILE, **values)
+        data["csrf_token"] = re.search(r'name="csrf_token" value="([^"]+)"', html).group(1)
+        return self.url_open("/mi-perfil", data=data)
+
+    def test_signup_profile_pending_then_enabled(self):
+        user, html = self._signup("autoalta@prueba.example")
+        partner = user.partner_id
+        self.assertEqual(partner.distri_alta_estado, "perfil")
+        self.assertIn("Mi perfil de revendedor", html)
+        # /pedido sends him to the profile until it is complete
+        res = self.url_open("/pedido", allow_redirects=False)
+        self.assertIn(res.status_code, (302, 303))
+        self.assertTrue(res.headers["Location"].endswith("/mi-perfil"))
+
+        res = self._profile(html)
+        self.assertTrue(res.url.endswith("/mi-perfil?listo=1"), res.url)
+        self.assertIn("Recibimos tus datos", res.text)
+        self.assertIn("Avisar por WhatsApp", res.text)
+        self.assertIn("CUIT%3A%2020123456786", res.text)
+        partner.invalidate_recordset()
+        self.assertEqual(partner.distri_alta_estado, "pendiente")
+        self.assertEqual((partner.name, partner.distri_alta_contacto, partner.vat, partner.city),
+                         ("Kiosco Autoalta", "Juan Autoalta", "20123456786", "Plottier"))
+        self.assertEqual(partner.distri_whatsapp, "+5492994222444")
+        self.assertFalse(partner.distri_lista_oculta)
+        activity = partner.activity_ids.filtered(lambda a: a.user_id == self.gerencia)
+        self.assertEqual(activity.summary, "Alta de revendedor pendiente: Kiosco Autoalta")
+        self.assertIn(partner, self.env["res.partner"].search(
+            [("distri_alta_estado", "=", "pendiente")]), "listed in «Revendedores pendientes»")
+
+        # pending: the catalog, with the General list only (no hidden price)
+        html = self._pedido_html()
+        self._assert_publica(html)
+        self.assertNotIn("Soy revendedor / Soy distribuidora", html)
+
+        # Gerencia enables him with his list
+        action = partner.with_user(self.administracion).action_distri_enable_reseller()
+        wizard = self.env[action["res_model"]].with_user(self.administracion).with_context(
+            action["context"]).create({"pricelist_id": self.revendedor.id})
+        wizard.action_confirm()
+        self.assertEqual(partner.distri_alta_estado, "habilitado")
+        self.assertTrue(partner.distri_lista_oculta)
+        self.assertEqual(partner.property_product_pricelist, self.revendedor)
+        self.assertFalse(partner.activity_ids.filtered(
+            lambda a: (a.summary or "").startswith("Alta de revendedor")))
+        self.assertIn("habilitado", partner.message_ids[:1].body)
+        self.assertNotIn(partner, self.env["res.partner"].search(
+            [("distri_alta_estado", "=", "pendiente")]))
+        self.assertIn("(lista Revendedor Pruebalistas)", self._pedido_html())
+
+    def test_profile_validation_and_reject(self):
+        user, html = self._signup("rechazo@prueba.example")
+        for values, message in (({"cuit": "123"}, "11 números"),
+                                ({"cuit": "20123456780"}, "no es válido"),
+                                ({"comercio": "  "}, "Completá todos los datos"),
+                                ({"telefono": "12"}, "no se puede leer")):
+            res = self._profile(html, **values)
+            self.assertEqual(res.status_code, 200)
+            self.assertIn(message, res.text, values)
+            user.partner_id.invalidate_recordset()
+            self.assertEqual(user.partner_id.distri_alta_estado, "perfil", values)
+            html = res.text
+        self._profile(html)
+        partner = user.partner_id
+        partner.invalidate_recordset()
+        self.assertEqual(partner.distri_alta_estado, "pendiente")
+        with self.assertRaises(AccessError):
+            partner.with_user(self.vendedor).action_distri_reject_reseller()
+        partner.with_user(self.gerencia).action_distri_reject_reseller()
+        self.assertEqual(partner.distri_alta_estado, "rechazado")
+        self.assertFalse(partner.distri_lista_oculta)
+        self._assert_publica(self._pedido_html())
+
+    def test_crear_acceso_web_users_skip_the_profile(self):
+        tienda = self.env["res.partner"].create({"name": "Almacen Acceso Web", "ref": "AW-1"})
+        tienda.with_user(self.administracion).action_crear_acceso_web()
+        self.assertTrue(tienda.distri_usuario_id)
+        self.assertFalse(tienda.distri_alta_estado)
+
+    def test_logged_in_visitors_do_not_get_the_reseller_button(self):
+        for login in ("kiosco_listas", "distri_listas", "vendedor_listas", "admin_listas"):
+            self.authenticate(login, login)
+            self.assertNotIn("Soy revendedor / Soy distribuidora", self._pedido_html(), login)
+
+    def test_reseller_logs_in_and_lands_back_on_its_prices(self):
+        res = self.url_open("/web/login", data={
+            "login": "revende_listas", "password": "revende_listas", "redirect": "/pedido",
+            "type": "password",
+            "csrf_token": re.search(r'name="csrf_token" value="([^"]+)"', self.url_open(
+                "/web/login?redirect=%2Fpedido").text).group(1)})
+        self.assertTrue(res.url.endswith("/pedido"), res.url)
+        self.assertIn("(lista Revendedor Pruebalistas)", res.text)
+
+    def test_account_link_follows_the_customer_flag(self):
+        """19.0.1.92.0: «Ver mi cuenta corriente» on the catalog only when the
+        account is shown to the customer (models/cuenta_visible.py)."""
+        self.authenticate("kiosco_listas", "kiosco_listas")
+        self.assertNotIn("Ver mi cuenta corriente", self._pedido_html())
+        self.kiosco.distri_cuenta_visible = True
+        self.assertIn('href="/mi-cuenta"', self._pedido_html())
+
     def test_anonymous_home_page_does_not_announce_the_hidden_list(self):
         html = self._pedido_html("/")
         self.assertNotIn("inorista", html.lower())

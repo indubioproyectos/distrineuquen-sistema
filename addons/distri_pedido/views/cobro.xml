@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- «Cobro en efectivo» (19.0.1.92.0, controllers/cobro.py,
+       models/cobro_efectivo.py): any internal user registers the cash a
+       customer gave him; it enters his cash box of the day (Caja depósito). -->
+  <template id="cobro_page" name="Cobro en efectivo">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#10243f"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>Cobro en efectivo · <t t-esc="empresa"/></title>
+  <link rel="icon" href="/distri_pedido/static/src/img/iconos/app-192.png"/>
+  <link rel="stylesheet" t-att-href="shared_css"/>
+  <style>
+    #cobro{max-width:640px;margin:0 auto;min-height:100vh;background:var(--bg)}
+    .body{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+    .res{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--text)}
+    .res b{display:block}
+    .res span{font-size:13px;color:var(--muted)}
+    .big{font-size:26px;font-weight:800}
+    .big.debe{color:var(--red)}
+    .big.favor{color:var(--teal)}
+    .opt{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line-2);font-size:15px}
+    .opt:first-of-type{border-top:0}
+    .opt input{margin-top:3px;width:20px;height:20px;flex:none}
+    .opt span{font-size:13px;color:var(--muted);display:block}
+    .mov{display:flex;justify-content:space-between;gap:8px;font-size:14px;padding:6px 0;border-top:1px solid var(--line-2)}
+    .mov:first-of-type{border-top:0}
+    .mov span{font-size:12px;color:var(--muted);display:block}
+    .credit{color:var(--teal)}
+    label.stack{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
+    .row2{display:flex;gap:8px}
+    .row2 .inp{flex:1}
+    .row2 .btn{width:auto;padding:10px 16px;font-size:16px}
+  </style>
+</head>
+<body>
+  <div id="cobro">
+    <div class="head">
+      <a class="back" t-att-href="back">‹ Volver</a>
+      <div class="kicker"><t t-esc="empresa"/> · <t t-esc="user.name"/></div>
+      <h1>Cobro en efectivo</h1>
+      <div class="sub">Lo que registrás entra en tu caja del día (Caja depósito) y se cierra en el
+        «Cierre de caja depósito».</div>
+    </div>
+
+    <div t-if="done" class="banner ok" role="status">
+      Cobro registrado: <t t-esc="money(done.amount)"/> de <t t-esc="done.partner_id.name"/>
+      (<t t-esc="done.memo"/>).
+    </div>
+    <div t-if="error" class="banner err" role="alert"><t t-esc="error"/></div>
+
+    <div class="body">
+      <t t-if="account">
+        <t t-set="socio" t-value="account['partner']"/>
+        <div class="card">
+          <div class="split">
+            <div><b t-esc="socio.name"/><div class="small muted" t-if="socio.ref">Ref. <t t-esc="socio.ref"/></div></div>
+            <a class="link" href="/cobro">Otro cliente</a>
+          </div>
+          <div>
+            <div class="small muted">
+              <t t-if="account['balance'] &lt; -0.004">Saldo a favor</t>
+              <t t-else="">Saldo de la cuenta</t>
+            </div>
+            <div t-attf-class="big #{'favor' if account['balance'] &lt; -0.004 else ('debe' if account['balance'] &gt; 0.004 else '')}"
+                 t-esc="money(abs(account['balance']))"/>
+          </div>
+        </div>
+
+        <form class="card" method="post" action="/cobro/registrar"
+              onsubmit="this.querySelectorAll('button[type=submit]').forEach(function(b){b.disabled=true})">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="cliente" t-att-value="socio.id"/>
+          <div t-if="duplicate" class="card warn" role="alert">
+            <b>¿Es otro cobro?</b>
+            <div class="small" t-esc="duplicate"/>
+            <input type="hidden" name="confirmado" value="1"/>
+          </div>
+          <label class="stack">Importe en efectivo
+            <input class="inp" type="text" name="importe" inputmode="decimal" autocomplete="off"
+                   required="required" placeholder="0" t-att-value="form.get('importe')"/>
+          </label>
+          <div>
+            <div class="label">¿A qué lo aplicás?</div>
+            <label class="opt">
+              <input type="radio" name="factura" value="" t-att-checked="not form.get('factura') or None"/>
+              <div>A cuenta<span>Queda como pago a cuenta del cliente.</span></div>
+            </label>
+            <t t-foreach="account['invoices']" t-as="inv">
+              <label class="opt">
+                <input type="radio" name="factura" t-att-value="inv['id']"
+                       t-att-checked="form.get('factura') == str(inv['id']) or None"/>
+                <div>Factura <t t-esc="inv['name']"/> · debe <b t-esc="money(inv['residual'])"/>
+                  <span><t t-esc="inv['date']"/><t t-if="inv['remito']"> · remito <t t-esc="inv['remito']"/></t>
+                    · total <t t-esc="money(inv['total'])"/></span></div>
+              </label>
+            </t>
+            <div t-if="not account['invoices']" class="small muted">No tiene facturas impagas.</div>
+          </div>
+          <label class="stack">Nota (opcional)
+            <input class="inp" type="text" name="nota" maxlength="200" autocomplete="off"
+                   placeholder="Ej.: pagó en el local" t-att-value="form.get('nota')"/>
+          </label>
+          <button type="submit" class="btn teal">
+            <t t-if="duplicate">Sí, es otro cobro: registrarlo</t>
+            <t t-else="">Registrar cobro en efectivo</t>
+          </button>
+          <a t-if="duplicate" class="btn outline" href="/cobro">No, ya estaba registrado</a>
+        </form>
+
+        <div class="card" t-if="account['rows']">
+          <div class="label">Últimos movimientos</div>
+          <t t-foreach="account['rows']" t-as="r">
+            <div class="mov">
+              <div><t t-esc="r['type']"/> <t t-esc="r['ref']"/><span><t t-esc="r['date']"/> · saldo <t t-esc="money(r['balance'])"/></span></div>
+              <b t-if="r['debit']" t-esc="money(r['debit'])"/>
+              <b t-else="" class="credit">- <t t-esc="money(r['credit'])"/></b>
+            </div>
+          </t>
+        </div>
+      </t>
+
+      <t t-else="">
+        <form class="card" method="get" action="/cobro" role="search">
+          <label class="stack">Buscá el cliente
+            <div class="row2">
+              <input class="inp" type="search" name="q" t-att-value="query" autocomplete="off"
+                     placeholder="Nombre, referencia o teléfono" autofocus="autofocus"/>
+              <button type="submit" class="btn">Buscar</button>
+            </div>
+          </label>
+        </form>
+        <t t-if="results is not None">
+          <div class="label"><t t-esc="len(results)"/> <t t-esc="'cliente' if len(results) == 1 else 'clientes'"/></div>
+          <a t-foreach="results" t-as="c" class="card res" t-att-href="'/cobro?cliente=%s' % c['id']">
+            <div><b t-esc="c['name']"/>
+              <span><t t-esc="' · '.join(x for x in (c['ref'], c['town'], c['phone']) if x)"/></span></div>
+            <span>›</span>
+          </a>
+          <div t-if="not results" class="card muted">Ningún cliente coincide. Probá con otra parte del nombre.</div>
+        </t>
+      </t>
+
+      <div class="card" t-if="today">
+        <div class="split"><div class="label">Tus cobros en la caja abierta</div><b t-esc="money(today_total)"/></div>
+        <t t-foreach="today" t-as="c">
+          <div class="mov">
+            <div><t t-esc="c.partner_id.name"/><span t-esc="c.memo"/></div>
+            <b t-esc="money(c.amount)"/>
+          </div>
+        </t>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+
+</odoo>

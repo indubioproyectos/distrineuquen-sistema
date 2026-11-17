@@ -576,6 +576,17 @@ class TomaDePedidos(http.Controller):
             return False
         return socio
 
+    def _cuenta_visible(self, socio):
+        """Whether the account of `socio` is shown on this page (19.0.1.92.0,
+        models/cuenta_visible.py). The customer sees it only when
+        administración turned it on; staff (internal users) always do."""
+        if not socio:
+            return False
+        usuario = request.env.user
+        if not usuario._is_public() and not usuario.share:
+            return True
+        return socio._distri_account_visible()
+
     def _cuenta_de(self, socio, pagina=1):
         """La cuenta corriente completa del comercio, paginada.
 
@@ -689,6 +700,10 @@ class TomaDePedidos(http.Controller):
             "empresa_id": request.env.company.id,
             "lista_propia": self._lista_del_visitante().name or "" if cliente else "",
             "socio_logueado": socio,
+            # «Soy revendedor / Soy distribuidora» for anonymous visitors (19.0.1.92.0)
+            "revendedor": self._acceso_revendedor() if not pedido else False,
+            # «Ver mi cuenta corriente» (19.0.1.92.0: only when it is shown to him)
+            "mostrar_cuenta": bool(cliente) and self._cuenta_visible(cliente),
             "quien": cliente.name if cliente else "",
             # el personal elige el cliente del pedido (solo en pedidos nuevos)
             "personal": self._personal(),
@@ -702,7 +717,18 @@ class TomaDePedidos(http.Controller):
             # the DISTRIBUIDORAS section only when there is something in it
             "mayoristas": self._productos_lista_oculta(),
             "presupuestar": self._cigarrillos_a_presupuestar(),
+            # 19.0.1.92.0: before sending (models/sale_order.py STOCK_NOTICE)
+            "leyenda_stock": request.env["sale.order"]._distri_stock_notice(),
         }
+
+    def _acceso_revendedor(self):
+        """«Soy revendedor / Soy distribuidora» for an anonymous visitor: the
+        self-signup page (controllers/alta_revendedor.py). A reseller sees
+        his own prices only once enabled (_calcular_autorizado). False for
+        anyone logged in."""
+        if not request.env.user._is_public():
+            return False
+        return {"url": "/revendedor"}
 
     def _localidades_encomienda(self):
         """Towns suggested for «Soy del interior»: the zones that ship by
@@ -802,9 +828,17 @@ class TomaDePedidos(http.Controller):
             mayorista=bool(pedido.partner_id.distri_generic_kind == "wholesale"))
         return {"url": self._url_whatsapp_empresa(texto), "codigo": pedido.distri_wa_code}
 
+    def _cuenta_visible_al_cliente(self, pedido):
+        """The order's customer sees his account (19.0.1.92.0): the WhatsApp
+        texts promise it only then. Never for the generic contact."""
+        socio = pedido.sudo().partner_id
+        return bool(socio) and socio._distri_account_visible()
+
     def _texto_enviar_al_cliente(self, pedido, nombre):
-        return ("Hola %s, te dejo tu pedido: %s. Desde ahí podés verlo, modificarlo, ver tu "
-                "cuenta y pagar." % (nombre or "", self._link_edicion(pedido)))
+        que = ("verlo, modificarlo, ver tu cuenta y pagar"
+               if self._cuenta_visible_al_cliente(pedido) else "verlo, modificarlo y pagar")
+        return "Hola %s, te dejo tu pedido: %s. Desde ahí podés %s. %s" % (
+            nombre or "", self._link_edicion(pedido), que, pedido._distri_stock_notice())
 
     def _url_enviar_al_cliente(self, pedido, nombre, numero):
         """«Enviar al cliente»: el WhatsApp del vendedor, con el chat del
@@ -856,6 +890,7 @@ class TomaDePedidos(http.Controller):
         lineas += ["", total]
         if hay_sin_precio:
             lineas.append("(los renglones a confirmar se valorizan con tu lista y te confirmamos el total)")
+        lineas.append(pedido._distri_stock_notice())
         lineas += [
             "",
             "Comercio: %s" % (nombre or "-"),
@@ -875,7 +910,8 @@ class TomaDePedidos(http.Controller):
             self._link_edicion(pedido),
             "",
             "\u26a0\ufe0f *Este link es personal, no lo compartas.* Con el se ve tu "
-            "pedido y, cuando te asignemos la cuenta, tambien tu cuenta corriente.",
+            + ("pedido y tu cuenta corriente." if self._cuenta_visible_al_cliente(pedido)
+               else "pedido."),
         ]
         return "\n".join(lineas)
 
@@ -967,7 +1003,16 @@ class TomaDePedidos(http.Controller):
             return self._pantalla_pausada()
         if self._debe_cambiar_clave():
             return request.redirect("/mi-clave")
+        if self._falta_perfil_revendedor():
+            return request.redirect("/mi-perfil")
         return request.render("distri_pedido.pantalla", self._contexto_pantalla())
+
+    def _falta_perfil_revendedor(self):
+        """A reseller who signed up alone and has not completed «Mi perfil de
+        revendedor» yet (19.0.1.92.0, models/alta_revendedor.py)."""
+        usuario = request.env.user
+        return (usuario.share and not usuario._is_public()
+                and usuario.partner_id.sudo().commercial_partner_id.distri_alta_estado == "perfil")
 
     @http.route("/presentacion", type="http", auth="public", website=True, sitemap=False)
     def presentacion(self, **kw):
@@ -1063,8 +1108,16 @@ class TomaDePedidos(http.Controller):
             "whatsapp": self._whatsapp_empresa(),
             "token": "",
         }
-        datos.update(self._cuenta_de(socio, kw.get("pagina")))
-        datos["url_cuenta"] = "/mi-cuenta"
+        return self._pagina_cuenta(socio, datos, "/mi-cuenta", kw.get("pagina"))
+
+    def _pagina_cuenta(self, socio, datos, url_cuenta, pagina):
+        """The account page, or the neutral notice while it is hidden from
+        the customer (19.0.1.92.0): no balance and no movements."""
+        if self._cuenta_visible(socio):
+            datos.update(self._cuenta_de(socio, pagina))
+            datos.update({"oculta": False, "url_cuenta": url_cuenta})
+        else:
+            datos.update({"socio": socio, "oculta": True})
         return request.render("distri_pedido.cuenta_corriente", datos)
 
     @http.route("/pedido/<string:token>/cuenta", type="http", auth="public",
@@ -1090,9 +1143,8 @@ class TomaDePedidos(http.Controller):
             "whatsapp": self._whatsapp_empresa(),
             "token": token,
         }
-        datos.update(self._cuenta_de(cliente, kw.get("pagina")))
-        datos["url_cuenta"] = "/pedido/%s/cuenta" % token
-        return request.render("distri_pedido.cuenta_corriente", datos)
+        return self._pagina_cuenta(cliente, datos, "/pedido/%s/cuenta" % token,
+                                   kw.get("pagina"))
 
     @http.route("/pedido/<string:token>", type="http", auth="public",
                 website=True, sitemap=False)
@@ -1125,6 +1177,9 @@ class TomaDePedidos(http.Controller):
             "cancelado": pedido.state == "cancel",
             "cliente": self._cliente_asignado(pedido),
             "token": pedido.access_token,
+            "leyenda_stock": pedido._distri_stock_notice(),
+            # «Ver mi cuenta corriente» and the amounts owed (19.0.1.92.0)
+            "mostrar_cuenta": self._cuenta_visible(self._cliente_asignado(pedido)),
             # not "editable": website's render context already uses that name
             # (the page editor flag) and overrides it
             "puede_modificar": editable,
@@ -1149,9 +1204,11 @@ class TomaDePedidos(http.Controller):
         datos["comprobante"] = self._url_whatsapp_empresa(
             "Comprobante del pedido %s" % pedido.name)
         # «Cliente en rojo» (models/comprobante_pendiente.py): only with the
-        # setting on, and only for the customer himself (not the generic one)
+        # setting on, and only for the customer himself (not the generic one).
+        # 19.0.1.92.0: nothing while his account is hidden from him
         datos["deuda"] = (pedido._distri_red_notice()
-                          if datos["cliente"] and not datos["cancelado"] else False)
+                          if datos["cliente"] and datos["mostrar_cuenta"]
+                          and not datos["cancelado"] else False)
         return request.render("distri_pedido.seguimiento", datos)
 
     def _url_avisar_cambio(self, pedido):
