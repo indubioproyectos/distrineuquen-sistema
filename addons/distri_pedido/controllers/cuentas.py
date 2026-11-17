@@ -18,6 +18,7 @@ from odoo.http import request
 
 from ..models.cuentas_app import app_scope
 from .main import FICHA
+from .kit import LOGO_V
 from .reparto import SHARED_CSS, _disk
 
 STATIC = "/distri_pedido/static/src/cuentas/"
@@ -110,8 +111,8 @@ class Cuentas(http.Controller):
             "background_color": "#f7f8f7",
             "theme_color": "#10243f",
             "icons": [
-                {"src": ICONS + "app-192.png", "sizes": "192x192", "type": "image/png"},
-                {"src": ICONS + "app-512.png", "sizes": "512x512", "type": "image/png"},
+                {"src": ICONS + "app-192.png" + LOGO_V, "sizes": "192x192", "type": "image/png"},
+                {"src": ICONS + "app-512.png" + LOGO_V, "sizes": "512x512", "type": "image/png"},
             ],
         }
         return request.make_response(json.dumps(data, ensure_ascii=False), headers=[

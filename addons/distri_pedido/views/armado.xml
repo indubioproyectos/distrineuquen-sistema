@@ -16,7 +16,10 @@
         <a t-if="volver" class="dn-icon-btn" t-att-href="volver" data-dn-back="" t-att-aria-label="volver_txt or 'Volver'">
           <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t>
         </a>
-        <div class="dn-top__txt" t-att-style="None if volver else 'padding-left:12px'">
+        <!-- 19.0.1.95.0: the DN mark where there is no back button -->
+        <img t-else="" class="dn-top__mark" src="/distri_pedido/static/src/img/iconos/dn-logo.svg?v=95"
+             alt="Distri Neuquén" width="36" height="36"/>
+        <div class="dn-top__txt">
           <span class="dn-top__kicker" t-if="kicker" t-esc="kicker"/>
           <h1 class="dn-top__title" t-esc="titulo"/>
         </div>

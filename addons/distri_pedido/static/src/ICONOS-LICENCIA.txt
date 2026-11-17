@@ -22,3 +22,11 @@ Sprite del kit (static/src/kit/dn-icons.svg, 19.0.1.94.0)
 Trazos simples de 24 px dibujados para este modulo, al estilo de Lucide
 (https://lucide.dev, licencia ISC). No copia archivos de terceros; si se
 suma un icono de Lucide tal cual, conservar el aviso de la licencia ISC.
+
+Marca DN (img/iconos/dn-logo.svg, app*.svg/png, 19.0.1.95.0)
+=============================================================
+
+Las letras «DN» son los contornos de Figtree ExtraBold (peso 800), de
+Erik Kennedy, licencia SIL Open Font License 1.1 (el texto de la licencia
+está en distri_tema/static/src/fonts/OFL.txt). Se guardan como trazos, sin
+depender de la fuente; los PNG salen de esos SVG.

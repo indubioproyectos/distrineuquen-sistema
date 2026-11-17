@@ -14,6 +14,7 @@ from odoo import http
 from odoo.http import request
 
 from .main import FICHA
+from .kit import LOGO_V
 from .reparto import SHARED_CSS
 
 IMG = "/distri_pedido/static/src/img/iconos/"
@@ -121,9 +122,9 @@ class Tablero(http.Controller):
             "background_color": "#f7f8f7",
             "theme_color": "#10243f",
             "icons": [
-                {"src": IMG + "app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-                {"src": IMG + "app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-                {"src": IMG + "app-maskable-512.png", "sizes": "512x512", "type": "image/png",
+                {"src": IMG + "app-192.png" + LOGO_V, "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                {"src": IMG + "app-512.png" + LOGO_V, "sizes": "512x512", "type": "image/png", "purpose": "any"},
+                {"src": IMG + "app-maskable-512.png" + LOGO_V, "sizes": "512x512", "type": "image/png",
                  "purpose": "maskable"},
             ],
         }

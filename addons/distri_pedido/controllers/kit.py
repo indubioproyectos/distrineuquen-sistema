@@ -27,8 +27,17 @@ FILES = {
     "dn-icons.svg": ("kit/dn-icons.svg", "image/svg+xml; charset=utf-8"),
     "armado.css": ("armado/armado.css", "text/css; charset=utf-8"),
     "armado.js": ("armado/armado.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.95.0: the legacy pages' history fix (models/ir_http.py)
+    "sin_historial.js": ("js/sin_historial.js", "text/javascript; charset=utf-8"),
 }
+# served without comments and indentation (budget: < 3 KB gzip); the file
+# on disk keeps its documentation
+COMPACT = {"sin_historial.js"}
 IMMUTABLE = "public, max-age=31536000, immutable"
+# 19.0.1.95.0: query of the DN app icons (static/src/img/iconos/app*.png,
+# dn-logo.svg); bump it when they change so phones and manifests pick them
+# up. The QWeb pages write the same "?v=95" by hand.
+LOGO_V = "?v=95"
 
 
 def _path(name):
@@ -43,6 +52,15 @@ def kit_version():
         stat = os.stat(path)
         digest.update(("%s:%s:%s;" % (path, stat.st_mtime_ns, stat.st_size)).encode())
     return digest.hexdigest()[:12]
+
+
+def compact_js(source):
+    """Drop the leading /* */ header, whole-line // comments and indentation.
+    Only for files written for it (no multi-line strings or templates)."""
+    if source.lstrip().startswith("/*"):
+        source = source[source.index("*/") + 2:]
+    lines = (line.strip() for line in source.splitlines())
+    return "\n".join(line for line in lines if line and not line.startswith("//")) + "\n"
 
 
 def kit_url(name, version=None):
@@ -105,6 +123,8 @@ class Kit(http.Controller):
             raise NotFound()
         with open(_path(name), "rb") as handle:
             body = handle.read()
+        if name in COMPACT:
+            body = compact_js(body.decode("utf-8")).encode("utf-8")
         # only the current version is immutable: an old ?v= gets today's
         # file, and the next page view asks for the new URL anyway
         cache = IMMUTABLE if v == kit_version() else "no-cache"

@@ -46,3 +46,4 @@ from . import test_catalogo_agil
 from . import test_respaldo
 from . import test_cobro_efectivo
 from . import test_armado_app
+from . import test_sin_historial

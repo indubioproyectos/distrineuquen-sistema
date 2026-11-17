@@ -171,6 +171,7 @@
     .elegido button{border:1px solid var(--linea);background:#fff;border-radius:4px;
                     padding:.35rem .7rem;font:inherit;font-size:.85rem;cursor:pointer}
   </style>
+  <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
 
@@ -192,7 +193,7 @@
   <div class="editando" t-if="pedido" id="editando">
     <div class="marco">
       <p>Estás modificando tu pedido <b t-esc="pedido.name"/></p>
-      <a t-att-href="url_volver or '/pedido/%s' % token">Volver sin cambios</a>
+      <a t-att-href="url_volver or '/pedido/%s' % token" data-up="">Volver sin cambios</a>
     </div>
   </div>
 
@@ -872,6 +873,7 @@
     .aviso.guardado{background:#d3f9d8;color:#2b8a3e;font-size:1rem;font-weight:700}
     .aviso.guardado .btn{font-size:.9rem;font-weight:600}
   </style>
+  <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
   <div class="cab marco">
@@ -1045,7 +1047,8 @@
           $ <t t-esc="pago['monto']"/> el <t t-esc="pago['fecha']"/> · operación <t t-esc="pago['id']"/>
         </p>
       </t>
-      <form t-if="mp['boton']" method="post" t-att-action="'/pedido/%s/pagar' % token">
+      <!-- data-native: leaves for Mercado Pago (models/ir_http.py) -->
+      <form t-if="mp['boton']" method="post" t-att-action="'/pedido/%s/pagar' % token" data-native="">
         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
         <button type="submit" class="pagar">Pagar con Mercado Pago</button>
         <p class="nota">Pagás $ <t t-esc="total"/> con tarjeta, débito o dinero en cuenta, en el sitio de Mercado Pago.</p>
@@ -1065,7 +1068,7 @@
       <a class="btn" t-att-href="'https://wa.me/%s' % whatsapp" target="_blank" rel="noopener">
         Consultar por WhatsApp
       </a>
-      <a class="btn s" href="/pedido">Armar otro pedido</a>
+      <a class="btn s" href="/pedido" data-side="">Armar otro pedido</a>
     </div>
   </div>
   <script>
@@ -1167,6 +1170,7 @@
          padding:.7rem 1.2rem;font-weight:600;text-decoration:none;margin:.3rem}
     .btn.s{background:var(--tarjeta);color:var(--texto);border:1px solid var(--linea)}
   </style>
+  <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
   <div class="cab marco">
@@ -1186,7 +1190,7 @@
       <a class="btn" t-att-href="'https://wa.me/%s' % whatsapp" target="_blank" rel="noopener">
         Consultar por WhatsApp
       </a>
-      <a class="btn s" t-if="token" t-att-href="'/pedido/%s' % token">Volver a mi pedido</a>
+      <a class="btn s" t-if="token" t-att-href="'/pedido/%s' % token" data-up="">Volver a mi pedido</a>
       <a class="btn s" t-if="not token" href="/pedido">Armar un pedido</a>
     </div>
   </div>
@@ -1224,10 +1228,10 @@
     <div class="paginas" t-if="paginas &gt; 1">
       <t t-foreach="range(1, paginas + 1)" t-as="n">
         <span class="act" t-if="n == pagina"><t t-esc="n"/></span>
-        <a t-else="" t-att-href="'%s?pagina=%s' % (url_cuenta, n)"><t t-esc="n"/></a>
+        <a t-else="" t-att-href="'%s?pagina=%s' % (url_cuenta, n)" data-side=""><t t-esc="n"/></a>
       </t>
       <span class="act" t-if="not pagina">Todo</span>
-      <a t-else="" t-att-href="'%s?pagina=todo' % url_cuenta">Ver todo</a>
+      <a t-else="" t-att-href="'%s?pagina=todo' % url_cuenta" data-side="">Ver todo</a>
     </div>
 
     <div class="pie">
@@ -1241,7 +1245,7 @@
       <a class="btn" t-att-href="'https://wa.me/%s' % whatsapp" target="_blank" rel="noopener">
         Consultar por WhatsApp
       </a>
-      <a class="btn s" t-if="token" t-att-href="'/pedido/%s' % token">Volver a mi pedido</a>
+      <a class="btn s" t-if="token" t-att-href="'/pedido/%s' % token" data-up="">Volver a mi pedido</a>
       <a class="btn s" t-if="not token" href="/pedido">Armar un pedido</a>
     </div>
   </div>
@@ -1281,6 +1285,7 @@
             padding:.6rem .8rem;font-size:.85rem;margin-bottom:1rem}
     .pista{font-size:.78rem;color:var(--tenue);margin-top:.3rem}
   </style>
+  <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
   <div class="marco">
@@ -1346,6 +1351,7 @@
     .volver{display:inline-block;margin-top:1.4rem;font-size:.95rem;color:var(--texto);
             text-decoration:none;border-bottom:1px solid var(--linea);padding-bottom:.15rem}
   </style>
+  <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
   <div class="caja">
@@ -1401,7 +1407,7 @@
       Cuando tu pedido esté preparado, con ese mismo enlace vas a poder pagarlo con Mercado Pago.
     </p>
 
-    <a class="volver" href="/pedido">Volver al catálogo</a>
+    <a class="volver" href="/pedido" data-side="">Volver al catálogo</a>
   </div>
 </body>
 </html>
@@ -1474,6 +1480,7 @@
     .pie{padding:.6rem 1rem 2rem;text-align:center;font-size:.85rem;color:var(--tenue)}
     .pie a{color:#00806f}
   </style>
+  <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
   <div class="cab marco">
@@ -1485,7 +1492,7 @@
   </div>
 
   <div class="marco">
-    <a class="volver" t-att-href="'/pedido/%s' % token">‹ Volver a tu pedido</a>
+    <a class="volver" t-att-href="'/pedido/%s' % token" data-up="">‹ Volver a tu pedido</a>
 
     <div class="tarjeta" id="aviso" t-if="puede_avisar">
       <h2>Aviso para esta entrega</h2>

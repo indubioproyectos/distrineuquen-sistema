@@ -13,16 +13,18 @@
   <meta name="robots" content="noindex"/>
   <title>Ingresar · Distri Neuquén</title>
   <link rel="manifest" href="/tablero/manifest.webmanifest"/>
-  <link rel="icon" href="/distri_pedido/static/src/img/iconos/app-192.png"/>
-  <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/iconos/app-192.png"/>
+  <link rel="icon" href="/distri_pedido/static/src/img/iconos/app-192.png?v=95"/>
+  <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/iconos/app-192.png?v=95"/>
   <link rel="stylesheet" href="/distri_pedido/static/src/css/distri_ui.css"/>
+  <t t-call="distri_pedido.sin_historial"/>
   <style>
     html,body{height:100%}
-    body{margin:0;background:linear-gradient(160deg,#1b5fc4 0%,#10243f 55%,#0b1a2e 100%);display:flex;
+    /* 19.0.1.95.0: the navy of the DN mark, lighter at the top */
+    body{margin:0;background:#10243f;background:radial-gradient(130% 75% at 50% 0%,#24466f 0%,#10243f 58%,#0a1828 100%);display:flex;
          align-items:center;justify-content:center;padding:24px 16px;box-sizing:border-box}
     .box{width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center;gap:18px}
     .brand{display:flex;flex-direction:column;align-items:center;gap:10px;color:#fff;text-align:center}
-    .brand img{width:76px;height:76px;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+    .brand img{width:76px;height:76px;border-radius:18px;box-shadow:0 0 0 1px rgba(255,255,255,.16),0 8px 24px rgba(0,0,0,.35)}
     .brand b{font-size:22px;font-weight:800;letter-spacing:.3px}
     .brand span{font-size:13px;color:#b9c7d6}
     form{width:100%;background:#fff;border-radius:18px;padding:20px 18px;display:flex;flex-direction:column;gap:12px;
@@ -30,23 +32,25 @@
     label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:700;color:var(--soft)}
     input.f{font:inherit;font-size:16px;padding:12px 12px;border:1px solid var(--input);border-radius:12px;
             background:#fff;color:var(--text);outline:none}
-    input.f:focus{border-color:#1b5fc4;box-shadow:0 0 0 3px rgba(27,95,196,.18)}
+    input.f:focus{border-color:#10243f;box-shadow:0 0 0 3px rgba(16,36,63,.18)}
     .pw{position:relative;display:flex}
     .pw input{flex-grow:1;padding-right:76px}
     .pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;
-               color:#1b5fc4;font-weight:700;font-size:13px;padding:8px;cursor:pointer}
+               color:#00806f;font-weight:700;font-size:13px;padding:8px;cursor:pointer}
     .go{margin-top:4px;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:800;color:#fff;cursor:pointer;
-        background:linear-gradient(135deg,#1b5fc4,#10243f)}
+        background:#10243f}
     .go:active{opacity:.9}
     .err{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);border-radius:10px;
          padding:9px 11px;font-size:13px;font-weight:600}
-    .foot{font-size:11px;color:#8ea3bb}
+    /* distri_ui.css also has a .foot (white bottom bar): not here */
+    .foot{font-size:11px;color:#8ea3bb;background:none;border:0;padding:0}
   </style>
 </head>
 <body>
   <div class="box">
     <div class="brand">
-      <img src="/distri_pedido/static/src/img/iconos/app-192.png" alt=""/>
+      <!-- the name is written right below: the mark is decorative -->
+      <img src="/distri_pedido/static/src/img/iconos/dn-logo.svg?v=95" alt="" width="76" height="76"/>
       <b>Distri Neuquén</b>
       <!-- 19.0.1.93.0: the reseller signup is private (invitation link only) -->
       <span t-if="redirect == '/pedido'">Clientes: entrá con tu usuario</span>

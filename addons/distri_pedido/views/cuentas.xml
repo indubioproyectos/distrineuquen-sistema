@@ -12,8 +12,8 @@
   <meta name="theme-color" content="#10243f"/>
   <title>Cuentas · <t t-esc="empresa"/></title>
   <link rel="manifest" href="/cuentas/manifest.webmanifest"/>
-  <link rel="icon" t-att-href="icons + 'app-192.png'"/>
-  <link rel="apple-touch-icon" t-att-href="icons + 'app-192.png'"/>
+  <link rel="icon" t-att-href="icons + 'app-192.png?v=95'"/>
+  <link rel="apple-touch-icon" t-att-href="icons + 'app-192.png?v=95'"/>
   <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
   <link rel="stylesheet" t-att-href="static + 'cuentas.css?v=' + version"/>
 </head>

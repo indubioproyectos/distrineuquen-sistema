@@ -15,7 +15,8 @@
     <link rel="stylesheet" t-att-href="dn['css']"/>
     <t t-foreach="dn['page_css']" t-as="href"><link rel="stylesheet" t-att-href="href"/></t>
     <link t-if="manifest" rel="manifest" t-att-href="manifest"/>
-    <link t-if="icon" rel="icon" t-att-href="icon"/>
+    <link rel="icon" t-att-href="icon or '/distri_pedido/static/src/img/iconos/app-192.png?v=95'"/>
+    <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/iconos/app-192.png?v=95"/>
     <script defer="defer" t-att-src="dn['js']"/>
     <t t-foreach="dn['page_js']" t-as="src"><script defer="defer" t-att-src="src"/></t>
   </template>
@@ -32,6 +33,13 @@
         </a>
       </t>
     </nav>
+  </template>
+
+  <!-- 19.0.1.95.0: the legacy pages (css/distri_ui.css and the customer
+       pages) save without stacking history: static/src/js/sin_historial.js,
+       see models/ir_http.py. Inside <head> of every such page. -->
+  <template id="sin_historial" name="Legacy pages: navigation without extra history">
+    <script defer="defer" t-att-src="request.env['ir.http'].distri_nav_script() if request else '/dn/sin_historial.js'"/>
   </template>
 
   <!-- One icon of the sprite: t-call with i = the symbol id. -->

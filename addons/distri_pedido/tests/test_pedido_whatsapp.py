@@ -432,7 +432,8 @@ class TestLinkDelPedido(PedidoAbiertoMixin, PedidoWhatsappMixin, HttpCase):
         self.assertIn(self.CATALOGO, html)
         self.assertIn('id="editando"', html)
         self.assertRegex(html, r"Estás modificando tu pedido <b>%s</b>" % order.name)
-        self.assertIn('<a href="/pedido/%s">Volver sin cambios</a>' % order.access_token, html)
+        # 19.0.1.95.0: data-up, back to «Tu pedido» without a new history entry
+        self.assertIn('<a data-up="" href="/pedido/%s">Volver sin cambios</a>' % order.access_token, html)
         self.assertIn('name="token" value="%s"' % order.access_token, html)
         # the WhatsApp step lives in «Tu pedido», not next to the banner
         self.assertEqual(order.distri_wa_state, "waiting")
@@ -448,7 +449,7 @@ class TestLinkDelPedido(PedidoAbiertoMixin, PedidoWhatsappMixin, HttpCase):
         before = (order.order_line.mapped(lambda l: (l.product_id.id, l.product_uom_qty)),
                   order.amount_total, order.distri_original, order.write_date)
         catalog = self.url_open("/pedido/%s/modificar" % order.access_token).text
-        volver = re.search(r'<a href="([^"]+)">Volver sin cambios</a>', catalog).group(1)
+        volver = re.search(r'<a data-up="" href="([^"]+)">Volver sin cambios</a>', catalog).group(1)
         res = self.url_open(volver)
         self.assertIn("Tu pedido %s" % order.name, res.text)
         self.assertIn(self._modificar(order), res.text)
