@@ -23,6 +23,7 @@ ODOO_CONTAINER=odoo-lab-odoo-1
 LOCK=$LAB/run/mantenimiento.lock
 LOG=$LAB/logs/respaldo.log
 HERE=$(cd "$(dirname "$0")" && pwd)
+. "$HERE/respaldo-prueba-comun.sh"   # drop_copy, restore_dump, copy_figures, ...
 
 mkdir -p "$LAB/run" "$LAB/logs"
 touch "$LOG" && chmod 600 "$LOG"
@@ -37,10 +38,6 @@ RESULT=$SRC/prueba-restauracion.txt
 FAILS=0
 fail() { echo "FALLA: $*"; FAILS=$((FAILS + 1)); }
 
-drop_copy() {
-  docker exec "$DB_CONTAINER" dropdb -U odoo --if-exists "$COPY" >/dev/null 2>&1 || true
-  docker exec "$ODOO_CONTAINER" rm -rf "/var/lib/odoo/filestore/$COPY" || true
-}
 finish() {
   local rc=$?
   drop_copy
@@ -62,11 +59,8 @@ while read -r _ name size sum; do
 done < <(grep '^archivo: ' "$SRC/manifiesto.txt")
 
 # 2. database
-docker exec "$DB_CONTAINER" createdb -U odoo "$COPY"
-docker exec -i "$DB_CONTAINER" pg_restore -U odoo -d "$COPY" --no-owner --role=odoo --exit-on-error \
-  < "$SRC/$DB.dump"
-docker exec -i "$DB_CONTAINER" psql -U odoo -d "$COPY" -qAtX -v ON_ERROR_STOP=1 \
-  < "$HERE/respaldo-cifras.sql" > "$SRC/.cifras-restauradas.txt"
+restore_dump "$SRC/$DB.dump"
+copy_figures > "$SRC/.cifras-restauradas.txt"
 if diff -q "$SRC/cifras.txt" "$SRC/.cifras-restauradas.txt" >/dev/null; then
   tables=$(grep -c '^tabla:' "$SRC/cifras.txt")
   echo "cifras y filas de $tables tablas: idénticas"
@@ -77,12 +71,8 @@ fi
 rm -f "$SRC/.cifras-restauradas.txt"
 
 # 3. filestore
-docker exec -i "$ODOO_CONTAINER" bash -c "
-  set -e; mkdir -p /tmp/resp-prueba && tar xzf - -C /tmp/resp-prueba &&
-  mv /tmp/resp-prueba/$DB /var/lib/odoo/filestore/$COPY && rmdir /tmp/resp-prueba" \
-  < "$SRC/filestore-$DB.tgz"
-read -r n bytes < <(docker exec "$ODOO_CONTAINER" bash -c \
-  "find /var/lib/odoo/filestore/$COPY -type f -printf '%s\n' | awk '{n++; s+=\$1} END {print n+0, s+0}'")
+load_filestore xzf < "$SRC/filestore-$DB.tgz"
+read -r n bytes < <(filestore_count)
 want_n=$(grep '^filestore_archivos: ' "$SRC/manifiesto.txt" | cut -d' ' -f2)
 want_b=$(grep '^filestore_bytes: ' "$SRC/manifiesto.txt" | cut -d' ' -f2)
 if [ "$n" = "$want_n" ] && [ "$bytes" = "$want_b" ]; then
@@ -93,12 +83,10 @@ fi
 
 # 4. Odoo opens the copy (read only)
 if [ "${SIN_ODOO:-0}" != 1 ]; then
-  out=$(NAME=resp-prueba-snap SNAP_TAG=prueba-restauracion "$LAB/scripts/l10n_ar/lab.sh" \
-    odoo shell -d "$COPY" --no-http --log-level=warn < "$LAB/scripts/l10n_ar/snap.py" 2>&1 |
-    grep '^SNAP ' || true)
-  rm -f "$LAB/scripts/l10n_ar/out/snap_prueba-restauracion.json" 2>/dev/null || true
-  if [ -n "$out" ]; then
-    echo "Odoo abre la copia: $(echo "$out" | grep -oP 'PARTNERS \d+ TOTAL \S+')"
+  copy_addons
+  [ -z "$ADDONS_WARN" ] || echo "AVISO: $ADDONS_WARN"
+  if out=$(odoo_opens prueba-restauracion); then
+    echo "Odoo abre la copia ($ADDONS_NOTE): $out"
   else
     fail "Odoo no pudo abrir la copia (snap.py)"
   fi
@@ -107,6 +95,7 @@ fi
 {
   echo "fecha: $(date '+%F %T %Z')"
   echo "respaldo: $SRC"
+  [ -z "$ADDONS_WARN" ] || echo "aviso: $ADDONS_WARN"
   echo "resultado: $([ $FAILS -eq 0 ] && echo OK || echo "FALLÓ ($FAILS)")"
 } > "$RESULT"
 chmod 600 "$RESULT"
