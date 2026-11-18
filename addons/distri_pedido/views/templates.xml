@@ -113,9 +113,12 @@
     .opt b{display:block;color:var(--texto)}
     .opt span{font-size:.85rem;color:var(--tenue)}
     label.campo{display:block;margin:.8rem 0 0;font-size:.88rem;font-weight:600;color:var(--texto)}
-    input.dato{width:100%;border:1px solid var(--linea);border-radius:4px;padding:.65rem;
-               font-size:1rem;margin-top:.25rem;color:var(--texto)}
-    input.dato:focus{outline:0;border-color:var(--acento)}
+    input.dato,textarea.dato,select.dato{width:100%;border:1px solid var(--linea);border-radius:4px;padding:.65rem;
+               font-size:1rem;margin-top:.25rem;color:var(--texto);font-family:inherit;background:#fff}
+    select.dato{min-height:2.9rem}
+    textarea.dato{resize:vertical;min-height:3.2rem}
+    .opcional{font-weight:400;color:var(--tenue,#777)}
+    input.dato:focus,textarea.dato:focus,select.dato:focus{outline:0;border-color:var(--acento)}
     input.dato.mal{border-color:var(--alerta);background:#fff5f5}
     .err{color:var(--alerta);font-size:.8rem;display:none;margin-top:.2rem}
     .interior{display:flex;gap:.7rem;align-items:flex-start;margin:1.1rem 0 0;padding:.85rem;
@@ -174,6 +177,8 @@
   <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
+  <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
 
   <!-- Iconos de Font Awesome Free 5.13 (CC BY 4.0, fontawesome.com), embebidos
        para no depender de un CDN en una pantalla de cara al cliente. Son los
@@ -498,6 +503,26 @@
           <p class="ayuda">Sale desde la terminal de ómnibus de Neuquén. Te avisamos por
             WhatsApp el número de guía cuando lo despachamos.</p>
         </div>
+        <!-- 19.0.1.98.0: optional comment (the hours they receive...), shown
+             to the packer, on the order and to the driver -->
+        <label class="campo">Comentario para el pedido <span class="opcional">(opcional)</span>
+          <textarea name="comentario" id="f_comentario" class="dato" rows="2" maxlength="500"
+                    placeholder="Ej.: recibimos de 9 a 13 h" t-esc="datos['comentario']"/>
+        </label>
+        <!-- 19.0.1.98.0 «Mi vendedor es» (customers; staff are the seller) -->
+        <label class="campo" t-if="not personal and vendedores">Mi vendedor es:
+          <select name="vendedor_web_id" id="f_vendedor" class="dato">
+            <t t-foreach="vendedores" t-as="v">
+              <option t-att-value="v.id" t-att-selected="'selected' if v.id == datos['vendedor_web_id'] else None" t-esc="v.name"/>
+            </t>
+            <option value="" t-att-selected="'selected' if not datos['vendedor_web_id'] else None">No sé / ninguno</option>
+          </select>
+        </label>
+        <!-- staff only: a note for the depot («PARA MAÑANA», «aguardar el pago») -->
+        <label class="campo" t-if="personal">Nota para el depósito <span class="opcional">(opcional, no la ve el cliente)</span>
+          <textarea name="nota_deposito" id="f_nota_deposito" class="dato" rows="2" maxlength="500"
+                    placeholder="Ej.: PARA MAÑANA" t-esc="datos['nota_deposito']"/>
+        </label>
       </div>
       <div class="barra">
         <div class="marco">
@@ -876,6 +901,8 @@
   <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
+  <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div class="cab marco">
     <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id"
          t-att-alt="ficha['nombre']"/>
@@ -906,6 +933,10 @@
       <t t-if="avisar_cambio">
         <br/><a class="btn s" t-att-href="avisar_cambio" target="_blank" rel="noopener">Avisar el cambio por WhatsApp</a>
       </t>
+    </div>
+    <!-- 19.0.1.98.0: the comment the customer left with the order -->
+    <div class="aviso cliente" t-if="pedido.distri_comentario">
+      <b>Tu comentario:</b> <t t-esc="pedido.distri_comentario"/>
     </div>
     <div class="tarjeta encomienda" t-if="encomienda and not cancelado">
       <t t-if="encomienda['despachada']">
@@ -1173,6 +1204,8 @@
   <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
+  <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div class="cab marco">
     <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id"
          t-att-alt="ficha['nombre']"/>
@@ -1288,6 +1321,8 @@
   <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
+  <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div class="marco">
     <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id"
          t-att-alt="ficha['nombre']"/>
@@ -1354,6 +1389,8 @@
   <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
+  <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div class="caja">
     <div class="tilde" t-if="not espera">
       <svg viewBox="0 0 512 512" aria-hidden="true"><path d="M173.9 439.4l-166.4-166.4c-9.4-9.4-9.4-24.6 0-33.9l33.9-33.9c9.4-9.4 24.6-9.4 33.9 0L192 344.7 400.6 136.1c9.4-9.4 24.6-9.4 33.9 0l33.9 33.9c9.4 9.4 9.4 24.6 0 33.9L207.8 439.4c-9.4 9.4-24.6 9.4-33.9 0z"/></svg>
@@ -1483,6 +1520,8 @@
   <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
+  <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div class="cab marco">
     <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id"
          t-att-alt="ficha['nombre']"/>

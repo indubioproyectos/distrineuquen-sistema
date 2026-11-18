@@ -1,4 +1,5 @@
 import math
+import re
 import unicodedata
 
 from psycopg2 import errors as pg_errors
@@ -50,6 +51,15 @@ def normalizar_ciudad(texto):
     texto = unicodedata.normalize("NFKD", texto or "")
     texto = "".join(c for c in texto if not unicodedata.combining(c))
     return " ".join(texto.lower().split())
+
+
+def clave_natural(texto):
+    """Sort key: accents and case ignored, numbers by value («Golden 10»
+    before «Golden 20», «Golden 9» before both)."""
+    texto = unicodedata.normalize("NFKD", texto or "")
+    texto = "".join(c for c in texto if not unicodedata.combining(c)).casefold()
+    return [(0, int(trozo), "") if trozo.isdigit() else (1, 0, trozo.strip())
+            for trozo in re.split(r"(\d+)", texto) if trozo.strip()]
 
 
 def _por_unidades(env, unidad):
@@ -371,9 +381,11 @@ class SaleOrder(models.Model):
 
         Lo puede soltar el que lo tomo o administracion (un pedido que quedo
         trabado). Queda libre para cualquier armador y el cliente lo puede
-        volver a cambiar (_distri_editable). Los faltantes que se marcaron se
-        deshacen: el que lo tome despues vuelve a mirar el deposito. Lo
-        agregado por telefono queda, porque lo pidio el cliente.
+        volver a cambiar (_distri_editable).
+        19.0.1.98.0 (audit 3b): what was marked stays (ticks, shortages and
+        what was added by phone): whoever takes it next goes on from there.
+        A line the customer or a seller changes afterwards loses its marks
+        (SaleOrderLine.write), so it is checked again.
         """
         self.ensure_one()
         self._distri_bloquear()
@@ -388,26 +400,22 @@ class SaleOrder(models.Model):
                 or self.env.user.has_group("distri_pedido.grupo_administracion")):
             return ("Este pedido lo está armando %s: solo esa persona o administración "
                     "lo pueden dejar para más tarde." % (self.distri_armador_id.name or "otro armador"))
-        con_faltante = self.order_line.filtered(
-            lambda l: not l.display_type and l.distri_faltante > 0
-        )
-        # 19.0.1.94.0: the «Listo» ticks go too, for the same reason
-        self.order_line.filtered("distri_listo").write({"distri_listo": False})
-        for linea in con_faltante:
-            # lo mismo que "No falta nada" en distri_marcar
-            linea.with_context(distri_armado=True).write({
-                "product_uom_qty": linea.distri_pedida,
-                "distri_faltante": 0.0,
-            })
+        lineas = self.order_line.filtered(lambda l: not l.display_type)
+        tildados = len(lineas.filtered("distri_listo"))
+        con_faltante = len(lineas.filtered(lambda l: l.distri_faltante > 0))
         self.write({
             "distri_armado": "pendiente",
             "distri_armador_id": False,
             "distri_armado_inicio": False,
         })
         nota = "%s dejó el pedido para más tarde; vuelve a pendiente." % self.env.user.name
+        partes = []
+        if tildados:
+            partes.append("%s %s" % (tildados, "revisado" if tildados == 1 else "revisados"))
         if con_faltante:
-            nota += (" Se deshizo 1 faltante." if len(con_faltante) == 1
-                     else " Se deshicieron %s faltantes." % len(con_faltante))
+            partes.append("%s con faltante" % con_faltante)
+        if partes:
+            nota += " Queda lo marcado: %s." % " y ".join(partes)
         self.message_post(body=nota)
         return ""
 
@@ -519,6 +527,30 @@ class SaleOrder(models.Model):
             lambda l: not l.display_type and (l.product_uom_qty or l.distri_faltante)
         )
 
+    def _distri_renglones_ordenados(self, orden="alfabetico"):
+        """19.0.1.98.0: the lines to pack in the packer's order, as sections
+        [{"nombre", "renglones"}]. «alfabetico»: one section without a name,
+        natural sort. «secciones»: by product category in the depot walking
+        order (product.category.distri_recorrido, then the name), each one
+        sorted the same way inside."""
+        renglones = self._distri_renglones_a_armar()
+
+        def por_nombre(linea):
+            return clave_natural(linea.product_id.name or linea.name)
+
+        if orden != "secciones":
+            return [{"nombre": "", "renglones": renglones.sorted(por_nombre)}]
+        grupos = {}
+        for linea in renglones:
+            grupos.setdefault(linea.product_id.categ_id, []).append(linea)
+        secciones = []
+        for categoria in sorted(grupos, key=lambda c: (
+                c.distri_recorrido if c else 10 ** 6, clave_natural(c.name if c else ""))):
+            lineas = self.env["sale.order.line"].concat(*grupos[categoria])
+            secciones.append({"nombre": categoria.name if categoria else "Sin sección",
+                              "renglones": lineas.sorted(por_nombre)})
+        return secciones
+
     def distri_terminar(self, bultos):
         """Devuelve un texto de error o "". Exige los bultos (1 o más).
 
@@ -613,6 +645,14 @@ class SaleOrderLine(models.Model):
     def write(self, vals):
         if any(campo in vals for campo in CAMPOS_DEL_PEDIDO):
             self._distri_revisar_backend(self.order_id)
+        if ("product_uom_qty" in vals or "product_id" in vals) \
+                and not self.env.context.get("distri_armado"):
+            # 19.0.1.98.0: marks kept by «Más tarde» belong to the old line:
+            # the customer or a seller changed it, so it is checked again
+            marcadas = self.filtered(lambda l: (l.distri_faltante or l.distri_listo)
+                                     and l.order_id.distri_armado == "pendiente")
+            if marcadas:
+                super(SaleOrderLine, marcadas).write({"distri_faltante": 0.0, "distri_listo": False})
         return super().write(vals)
 
     def unlink(self):

@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.98.0: «Mi vendedor es» (models/vendedor_web.py), the order's
+       customer comment and depot note, and the depot walking order of the
+       sections for /armado «Por secciones». -->
+
+  <!-- ===================================== «Mi vendedor es»: the list -->
+  <record id="view_vendedor_web_list" model="ir.ui.view">
+    <field name="name">distri.vendedor.web.list</field>
+    <field name="model">distri.vendedor.web</field>
+    <field name="arch" type="xml">
+      <list string="Vendedores de la página" editable="bottom">
+        <field name="sequence" widget="handle"/>
+        <field name="name"/>
+        <field name="user_id" options="{'no_create': True}"/>
+        <field name="order_count"/>
+        <field name="active" widget="boolean_toggle"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_vendedor_web" model="ir.actions.act_window">
+    <field name="name">Vendedores de la página («Mi vendedor es»)</field>
+    <field name="res_model">distri.vendedor.web</field>
+    <field name="view_mode">list</field>
+    <field name="context">{'active_test': False}</field>
+    <field name="help" type="html">
+      <p>La lista que ve el cliente en «Mi vendedor es:» al mandar el pedido desde la página.
+        Arrastrá para cambiar el orden; destildá «Activo» para sacar uno sin perder sus pedidos.
+        Siempre aparece además «No sé / ninguno».</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_vendedor_web" name="Vendedores de la página" parent="sale.sale_order_menu"
+            action="action_vendedor_web" sequence="46"
+            groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager,base.group_system"/>
+
+  <!-- ============================== statistics: «Pedidos por vendedor» -->
+  <record id="view_order_pivot_vendedor_web" model="ir.ui.view">
+    <field name="name">sale.order.pivot.vendedor.web</field>
+    <field name="model">sale.order</field>
+    <field name="priority">40</field>
+    <field name="arch" type="xml">
+      <pivot string="Pedidos por vendedor" sample="1">
+        <field name="distri_vendedor_web_id" type="row"/>
+        <field name="date_order" interval="month" type="col"/>
+        <field name="amount_total" type="measure"/>
+      </pivot>
+    </field>
+  </record>
+
+  <record id="view_order_graph_vendedor_web" model="ir.ui.view">
+    <field name="name">sale.order.graph.vendedor.web</field>
+    <field name="model">sale.order</field>
+    <field name="priority">40</field>
+    <field name="arch" type="xml">
+      <graph string="Pedidos por vendedor" type="bar" sample="1">
+        <field name="distri_vendedor_web_id"/>
+      </graph>
+    </field>
+  </record>
+
+  <record id="action_pedidos_por_vendedor" model="ir.actions.act_window">
+    <field name="name">Pedidos por vendedor</field>
+    <field name="res_model">sale.order</field>
+    <field name="view_mode">graph,pivot,list,form</field>
+    <field name="domain">[('state', '!=', 'cancel')]</field>
+    <field name="context">{'search_default_distri_con_vendedor_web': 1}</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'graph', 'view_id': ref('view_order_graph_vendedor_web')}),
+        (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_order_pivot_vendedor_web')})]"/>
+    <field name="help" type="html">
+      <p>Cuántos pedidos de la página trae cada vendedor, según lo que eligió el cliente en
+        «Mi vendedor es».</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_pedidos_por_vendedor" name="Pedidos por vendedor" parent="sale.sale_order_menu"
+            action="action_pedidos_por_vendedor" sequence="47"
+            groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,sales_team.group_sale_manager,base.group_system"/>
+
+  <!-- ============================================= sale order: fields -->
+  <record id="view_order_form_comentario" model="ir.ui.view">
+    <field name="name">sale.order.form.comentario</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='partner_shipping_id']" position="after">
+        <field name="distri_vendedor_web_id" options="{'no_create': True}"/>
+        <field name="distri_comentario" placeholder="Lo que escribió el cliente en la página"/>
+        <field name="distri_nota_deposito" placeholder="Ej.: PARA MAÑANA · aguardar el pago"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_order_list_vendedor_web" model="ir.ui.view">
+    <field name="name">sale.order.list.vendedor.web</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_quotation_tree"/>
+    <field name="arch" type="xml">
+      <field name="state" position="before">
+        <field name="distri_vendedor_web_id" optional="hide"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_order_search_vendedor_web" model="ir.ui.view">
+    <field name="name">sale.order.search.vendedor.web</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <field name="distri_vendedor_web_id"/>
+        <separator/>
+        <filter name="distri_con_vendedor_web" string="Con vendedor elegido por el cliente"
+                domain="[('distri_vendedor_web_id', '!=', False)]"/>
+        <filter name="distri_con_comentario" string="Con comentario o nota"
+                domain="['|', ('distri_comentario', '!=', False), ('distri_nota_deposito', '!=', False)]"/>
+        <filter name="distri_group_vendedor_web" string="Vendedor (según el cliente)"
+                context="{'group_by': 'distri_vendedor_web_id'}"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- «Pedidos para revisar» cards: comment and note at a glance -->
+  <record id="view_order_kanban_revisar_comentario" model="ir.ui.view">
+    <field name="name">sale.order.kanban.revisar.comentario</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="distri_pedido.view_order_kanban_revisar"/>
+    <field name="arch" type="xml">
+      <field name="distri_semaforo_motivos" position="after">
+        <div t-if="record.distri_nota_deposito.raw_value" class="small mt-1 px-2 py-1 rounded text-bg-warning">
+          <b>Nota:</b> <field name="distri_nota_deposito"/>
+        </div>
+        <div t-if="record.distri_comentario.raw_value" class="small mt-1">
+          <b>Cliente:</b> <field name="distri_comentario"/>
+        </div>
+        <div t-if="record.distri_vendedor_web_id.raw_value" class="small text-muted">
+          Vendedor: <field name="distri_vendedor_web_id"/>
+        </div>
+      </field>
+    </field>
+  </record>
+
+  <!-- ================================================ customer: field -->
+  <record id="view_partner_form_vendedor_web" model="ir.ui.view">
+    <field name="name">res.partner.form.vendedor.web</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='category_id']" position="after">
+        <field name="distri_vendedor_web_id" options="{'no_create': True}"
+               invisible="not is_company and parent_id"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_partner_search_vendedor_web" model="ir.ui.view">
+    <field name="name">res.partner.search.vendedor.web</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_res_partner_filter"/>
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <field name="distri_vendedor_web_id"/>
+        <filter name="distri_group_vendedor_web" string="Vendedor (según el cliente)"
+                context="{'group_by': 'distri_vendedor_web_id'}"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ===================== depot walking order of the sections (armado) -->
+  <record id="view_categoria_recorrido_list" model="ir.ui.view">
+    <field name="name">product.category.list.recorrido</field>
+    <field name="model">product.category</field>
+    <field name="priority">40</field>
+    <field name="arch" type="xml">
+      <list string="Orden de recorrido del depósito" default_order="distri_recorrido, name" create="0">
+        <field name="distri_recorrido" widget="handle"/>
+        <field name="complete_name" string="Sección"/>
+        <field name="product_count" string="Productos"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_categoria_recorrido" model="ir.actions.act_window">
+    <field name="name">Orden de recorrido del depósito</field>
+    <field name="res_model">product.category</field>
+    <field name="view_mode">list</field>
+    <field name="view_id" ref="view_categoria_recorrido_list"/>
+    <field name="help" type="html">
+      <p>El armador que elige «Por secciones» ve el pedido agrupado por sección, en este orden
+        (el del recorrido del depósito). Arrastrá las secciones con el ícono de la izquierda.
+        Si nunca se ordenaron, van en orden alfabético.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_categoria_recorrido" name="Orden de recorrido del depósito"
+            parent="sale.sale_order_menu" action="action_categoria_recorrido" sequence="48"
+            groups="distri_pedido.grupo_administracion,sales_team.group_sale_manager,base.group_system"/>
+</odoo>

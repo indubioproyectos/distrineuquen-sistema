@@ -18,6 +18,8 @@
   <link rel="stylesheet" t-att-href="static + 'cuentas.css?v=' + version"/>
 </head>
 <body>
+  <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div id="app" t-att-data-uid="uid"><div class="cargando">Cargando…</div></div>
   <div id="sheet-root"></div>
   <div id="toast" hidden="hidden"></div>

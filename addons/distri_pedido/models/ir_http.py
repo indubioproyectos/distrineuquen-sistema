@@ -63,3 +63,17 @@ class IrHttp(models.AbstractModel):
         """URL of sin_historial.js for the distri_pedido.sin_historial macro."""
         from ..controllers.kit import kit_url
         return kit_url("sin_historial.js")
+
+    @api.model
+    def distri_ajustes_urls(self):
+        """19.0.1.98.0: files of the «Ajustes» gear (views/kit.xml
+        distri_pedido.dn_ajustes) and the manifest «Instalar la app» uses
+        when the page has none: staff get the lab app, customers /pedido."""
+        from ..controllers.kit import kit_url
+        user = self.env.user
+        staff = not user._is_public() and not user.share
+        return {
+            "css": kit_url("ajustes.css"),
+            "js": kit_url("ajustes.js"),
+            "manifest": "/tablero/manifest.webmanifest" if staff else "/dn/cliente.webmanifest",
+        }

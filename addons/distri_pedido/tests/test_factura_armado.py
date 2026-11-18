@@ -102,15 +102,15 @@ class TestFacturaArmado(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(order.distri_armado, "pendiente")
         self.assertFalse(order.distri_armador_id)
         self.assertFalse(order.distri_armado_inicio)
-        # los faltantes se deshacen, lo agregado por telefono queda
-        self.assertEqual((linea_a.distri_faltante, linea_a.product_uom_qty), (0, 10))
-        self.assertEqual((linea_b.distri_faltante, linea_b.product_uom_qty), (0, 5))
+        # 19.0.1.98.0: lo marcado queda (faltantes y lo agregado por telefono)
+        self.assertEqual((linea_a.distri_faltante, linea_a.product_uom_qty), (3, 7))
+        self.assertEqual((linea_b.distri_faltante, linea_b.product_uom_qty), (5, 0))
         self.assertTrue(telefono.exists())
         self.assertEqual((telefono.product_uom_qty, telefono.distri_por_telefono), (2, True))
         # el cliente lo puede volver a cambiar
         self.assertTrue(order._distri_editable())
         self.assertIn("Armador Factura dejó el pedido para más tarde; vuelve a pendiente. "
-                      "Se deshicieron 2 faltantes.", " ".join(self._notas(order)))
+                      "Queda lo marcado: 2 con faltante.", " ".join(self._notas(order)))
 
         # doble toque: el primero ya lo solto
         self.assertEqual(pedido.distri_dejar_para_mas_tarde(), "")
@@ -158,9 +158,10 @@ class TestFacturaArmado(RepartoMixin, AccountTestInvoicingCommon):
         self.assertTrue(order.action_distri_dejar_para_mas_tarde())
         self.assertEqual(order.distri_armado, "pendiente")
         self.assertFalse(order.distri_armador_id)
-        self.assertEqual((linea_a.distri_faltante, linea_a.product_uom_qty), (0, 10))
+        # 19.0.1.98.0: the shortage stays
+        self.assertEqual((linea_a.distri_faltante, linea_a.product_uom_qty), (4, 6))
         self.assertIn("%s dejó el pedido para más tarde; vuelve a pendiente. "
-                      "Se deshizo 1 faltante." % self.env.user.name,
+                      "Queda lo marcado: 1 con faltante." % self.env.user.name,
                       " ".join(self._notas(order)))
         # doble toque en el backend tampoco es un error
         self.assertTrue(order.action_distri_dejar_para_mas_tarde())

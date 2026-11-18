@@ -8,6 +8,17 @@ from odoo import api, fields, models
 DEFAULT_TZ = "America/Argentina/Buenos_Aires"
 # Settings > Technical > System Parameters: "1" locks sellers to /cuentas
 PARAM_SELLER_ONLY_ACCOUNTS = "distri_pedido.vendedor_solo_cuentas"
+ARMADO_VISTAS = [("tradicional", "Tradicional"), ("tarjetas", "Tarjetas")]
+ARMADO_ORDENES = [("alfabetico", "Alfabético"), ("secciones", "Por secciones")]
+# the roles named on the «Ajustes» sheet, in this order
+ROLES = [
+    ("distri_pedido.grupo_gerencia", "Gerencia"),
+    ("distri_pedido.grupo_administracion", "Administración"),
+    ("distri_pedido.grupo_cajero", "Cajero"),
+    ("distri_pedido.grupo_vendedor", "Vendedor"),
+    ("distri_pedido.grupo_armador", "Armador"),
+    ("distri_pedido.grupo_reparto", "Reparto"),
+]
 
 
 class ResUsers(models.Model):
@@ -19,9 +30,64 @@ class ResUsers(models.Model):
         help="El vendedor ve unicamente los clientes que tengan esta etiqueta.",
     )
 
+    # 19.0.1.98.0: how /armado shows an order, chosen by the packer (screen
+    # toggle and the «Ajustes» sheet). Independent: any view with any order.
+    distri_armado_vista = fields.Selection(
+        ARMADO_VISTAS, string="Armado: vista", default="tradicional", required=True,
+        help="Tradicional: el pedido entero como el mensaje de WhatsApp. Tarjetas: un "
+             "producto por vez, con foto.")
+    distri_armado_orden = fields.Selection(
+        ARMADO_ORDENES, string="Armado: orden", default="alfabetico", required=True,
+        help="Por secciones sigue el orden de recorrido del depósito (Inventario > "
+             "Categorías de productos).")
+
     @property
     def SELF_READABLE_FIELDS(self):
-        return super().SELF_READABLE_FIELDS + ["etiqueta_cartera_id"]
+        return super().SELF_READABLE_FIELDS + [
+            "etiqueta_cartera_id", "distri_armado_vista", "distri_armado_orden"]
+
+    @property
+    def SELF_WRITEABLE_FIELDS(self):
+        return super().SELF_WRITEABLE_FIELDS + ["distri_armado_vista", "distri_armado_orden"]
+
+    def _distri_rol_texto(self):
+        """«Armador», «Administración · Cajero»... for the «Ajustes» sheet."""
+        self.ensure_one()
+        user = self.sudo()
+        if user._is_public():
+            return ""
+        if user.share:
+            return "Cliente"
+        roles = [nombre for xmlid, nombre in ROLES if user.has_group(xmlid)]
+        # gerencia and administración imply the other roles: name only the top
+        # one (and the cash box, which is separate)
+        for top in ("Gerencia", "Administración"):
+            if top in roles:
+                roles = [top] + (["Cajero"] if "Cajero" in roles else [])
+                break
+        if not roles and user.has_group("base.group_system"):
+            roles = ["Administrador del sistema"]
+        return " · ".join(roles) or "Equipo"
+
+    def _distri_ajustes(self):
+        """What the «Ajustes» sheet of every custom page shows for this user
+        (views/kit.xml distri_pedido.dn_ajustes)."""
+        self.ensure_one()
+        user = self.sudo()
+        if user._is_public():
+            return {"publico": True}
+        socio = user.partner_id
+        return {
+            "publico": False,
+            "nombre": user.name,
+            "rol": user._distri_rol_texto(),
+            "armador": user.has_group("distri_pedido.grupo_armador"),
+            "vista": user.distri_armado_vista,
+            "orden": user.distri_armado_orden,
+            "perfil": bool(user.share and socio.distri_alta_estado),
+            "cuenta": bool(user.share),
+            "clave": True,
+        }
 
     @api.model_create_multi
     def create(self, vals_list):

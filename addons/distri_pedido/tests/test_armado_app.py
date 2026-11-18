@@ -23,6 +23,8 @@ class TestArmadoApp(HttpCase):
                                    company_id=company.id, company_ids=[Command.set(company.ids)])
         cls.other = new_test_user(cls.env, login="armador_kit_2", name="Otro Kit", groups=groups,
                                   company_id=company.id, company_ids=[Command.set(company.ids)])
+        # 19.0.1.98.0: these tests cover the card view («Tarjetas»)
+        (cls.packer | cls.other).write({"distri_armado_vista": "tarjetas"})
         cls.partner = cls.env["res.partner"].create({"name": "X - KIOSCO KIT PRUEBA", "city": "Centenario"})
         cls.product_a = cls.env["product.product"].create({
             "name": "Producto kit A", "list_price": 10, "type": "consu", "taxes_id": [Command.clear()]})
@@ -82,7 +84,9 @@ class TestArmadoApp(HttpCase):
         self.assertIn("/dn/dn.css?v=%s" % kit_version(), page.text)
         self.assertIn("/dn/armado.js?v=", page.text)
         self.assertIn('data-parent="/armado"', page.text)
-        self.assertIn("Tomar pedido", page.text)
+        # 19.0.1.98.0: opening an untaken order takes it
+        self.assertEqual(self.order.distri_armado, "en_armado")
+        self.assertIn("Terminar y facturar", page.text)
         self.assertEqual(page.headers["Cache-Control"], "no-store")
         lista = self.url_open("/armado")
         self.assertEqual(lista.status_code, 200)
@@ -150,7 +154,8 @@ class TestArmadoApp(HttpCase):
         res = self._post("terminar", fetch=False, bultos="1")
         self.assertTrue(res.headers["Location"].endswith("/armado?terminado=%s" % self.order.id))
 
-    def test_mas_tarde_clears_ticks_and_shortages(self):
+    def test_mas_tarde_keeps_ticks_and_shortages(self):
+        """19.0.1.98.0 (audit 3b): «Más tarde» keeps what was marked."""
         self._login()
         self._post("tomar")
         self._post("listo", linea_id=self.line_a.id)
@@ -158,8 +163,8 @@ class TestArmadoApp(HttpCase):
         res = self._post("mas-tarde")
         self.assertEqual(res.json(), {"ok": True, "url": "/armado?dejado=%s" % self.order.id})
         self.assertEqual(self.order.distri_armado, "pendiente")
-        self.assertFalse(self.line_a.distri_listo)
-        self.assertEqual((self.line_b.distri_faltante, self.line_b.product_uom_qty), (0, 2))
+        self.assertTrue(self.line_a.distri_listo)
+        self.assertEqual((self.line_b.distri_faltante, self.line_b.product_uom_qty), (1, 1))
 
     def test_another_packer_cannot_touch_it(self):
         self.order.with_user(self.packer).sudo().distri_tomar()

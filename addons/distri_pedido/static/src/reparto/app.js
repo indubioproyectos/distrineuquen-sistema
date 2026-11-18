@@ -397,6 +397,9 @@
       out += cls + "<b>Ya cobrado en el local: " + h(money(stop.paid_elsewhere)) + ".</b> " +
         "El saldo de abajo ya lo descuenta: no lo cobres de nuevo.</div>";
     }
+    // 19.0.1.98.0: the order's depot note and the customer's comment
+    if (stop.depot_note) out += cls + "<b>Nota del pedido:</b> " + h(stop.depot_note) + "</div>";
+    if (stop.comment) out += cls + "<b>Comentario del cliente:</b> " + h(stop.comment) + "</div>";
     if (!n || !n.text) return out;
     return out + cls + "<b>Aviso del cliente:</b> " + h(n.text) +
       (n.date ? ' <span class="small">(' + h(shortDate(n.date)) + ")</span>" : "") + "</div>";

@@ -79,3 +79,73 @@ label.dn-btn{user-select:none}
   .arm-lista{grid-template-columns:repeat(2,minmax(0,1fr))}
   .arm-cols{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px;align-items:start}
 }
+
+/* 19.0.1.98.0: order list extras (without opening the order) */
+.arm-ped__nota{align-self:flex-start;margin-top:2px;padding:2px 8px;border-radius:6px;background:var(--dn-amber-bg);
+  color:var(--dn-amber-text);font-size:14px;font-weight:800;text-transform:uppercase;overflow-wrap:anywhere}
+.arm-ped__com{font-size:14px;color:var(--dn-ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.arm-ped__mini{display:flex;flex-direction:column;font-size:15px;margin-top:2px}
+.arm-ped__mini b{display:inline-block;min-width:2.2em;text-align:right;margin-right:6px}
+
+/* pinned customer comment and depot note (both views) */
+.arm-top-notas{padding-bottom:10px}
+.arm-notas{display:flex;flex-direction:column;gap:6px}
+.arm-nota{margin:0;padding:8px 10px;border-radius:10px;background:var(--dn-navy-2);color:#fff;font-size:15px;
+  overflow-wrap:anywhere;max-height:4.4em;overflow:auto}
+.arm-nota--dep{background:var(--dn-amber-bg);color:var(--dn-amber-text)}
+.arm-nota b{font-weight:800}
+
+/* view / order toggles */
+.arm-pref{display:flex;flex-wrap:wrap;gap:8px;max-width:760px;margin:12px auto 0;padding:0 16px}
+.arm-seg{display:flex;flex:1 1 150px;margin:0;border:1px solid var(--dn-input);border-radius:10px;overflow:hidden;background:#fff}
+.arm-seg button{flex:1;min-height:44px;padding:0 6px;border:0;border-left:1px solid var(--dn-input);background:#fff;
+  color:var(--dn-navy);font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap}
+.arm-seg button:first-of-type{border-left:0}
+.arm-seg button[aria-pressed=true]{background:var(--dn-navy);color:#fff}
+.arm-sec{margin-top:8px}
+
+/* «Tradicional»: the order as a message, quantity first */
+.trad{background:#fff;border:1px solid var(--dn-line);border-radius:var(--dn-r);padding:4px 0 8px}
+.trad__sec{margin:12px 12px 2px;padding-bottom:4px;border-bottom:2px solid var(--dn-line);font-size:13px;font-weight:800;
+  letter-spacing:1px;text-transform:uppercase;color:var(--dn-muted)}
+.trad__lista{list-style:none;margin:0;padding:0}
+.tl{position:relative;border-bottom:1px solid var(--dn-tint);touch-action:pan-y;user-select:none;-webkit-user-select:none;
+  -webkit-touch-callout:none;transition:transform .12s}
+.tl__f{margin:0}
+.tl__b{display:flex;align-items:baseline;gap:12px;width:100%;min-height:48px;padding:10px 12px;border:0;background:none;
+  text-align:left;font:inherit;color:inherit;cursor:pointer}
+.tl__b:disabled{cursor:default;color:inherit}
+.tl__cant{flex:none;min-width:3.2ch;text-align:right;font-size:22px;font-weight:800;line-height:1.15;color:var(--dn-navy)}
+.tl__nom{flex:1;min-width:0;font-size:18px;line-height:1.4;overflow-wrap:anywhere}
+.tl__uni{display:inline-block;margin-left:6px;padding:0 6px;border-radius:6px;background:var(--dn-navy);color:#fff;
+  font-size:13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;vertical-align:2px}
+.tl__tel{display:inline-block;margin-left:6px;font-size:13px;color:var(--dn-muted)}
+.tl__falta{display:inline-block;margin-left:6px;padding:0 6px;border-radius:6px;background:var(--dn-amber);color:#fff;
+  font-size:13px;font-weight:800;vertical-align:2px}
+.tl__tick{flex:none;align-self:center;width:28px;height:28px;border-radius:14px;color:#fff;display:flex;
+  align-items:center;justify-content:center;visibility:hidden}
+.tl__tick .dn-i{width:18px;height:18px}
+.tl--listo .tl__tick{visibility:visible;background:var(--dn-primary)}
+.tl--listo .tl__nom,.tl--listo .tl__cant{text-decoration:line-through;text-decoration-thickness:2px;color:var(--dn-muted)}
+.tl--falta{background:var(--dn-amber-bg)}
+.tl--falta .tl__cant{color:var(--dn-amber-text)}
+.tl:active{background:var(--dn-tint)}
+.trad__tot{margin:10px 12px 0;font-size:15px;font-weight:700;color:var(--dn-muted)}
+.arm-agregar-d{padding:0}
+.arm-agregar-d>summary{min-height:52px;display:flex;align-items:center;padding:0 16px;font-weight:700;color:var(--dn-primary);cursor:pointer}
+.arm-agregar-d>form{padding:0 12px 12px}
+.arm-fin .trad{opacity:.6;pointer-events:none}
+
+/* «¿Cuántas hay?» and «Todo listo» */
+.hay__cab{display:flex;gap:12px;align-items:center}
+.hay__foto{width:96px;height:96px;flex:none;border-radius:12px;background:var(--dn-tint);object-fit:contain}
+.hay__nom{font-size:18px!important;overflow-wrap:anywhere}
+.hay__pidio{color:var(--dn-muted);font-weight:700}
+.hay__preg{font-size:17px;font-weight:800}
+.hay__nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.hay__n{min-height:52px;font-size:20px;background:#fff;color:var(--dn-navy);border:2px solid var(--dn-navy)}
+.hay__n:active{background:var(--dn-tint)}
+.hay__n--todas{grid-column:span 2;background:var(--dn-primary);color:#fff;border-color:var(--dn-primary);font-size:17px}
+.bul{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.bul__n{font-size:24px}
+.bul__mas{font-size:26px}

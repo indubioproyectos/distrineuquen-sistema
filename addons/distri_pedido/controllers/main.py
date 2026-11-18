@@ -704,7 +704,15 @@ class TomaDePedidos(http.Controller):
                 "enc_nombre": pedido.distri_encomienda_nombre or "" if pedido else "",
                 "enc_dni": pedido.distri_encomienda_dni or "" if pedido else "",
                 "enc_localidad": pedido.distri_encomienda_localidad or "" if pedido else "",
+                # 19.0.1.98.0: comment, depot note and «Mi vendedor es» (the
+                # order's, else the logged-in customer's default)
+                "comentario": pedido.distri_comentario or "" if pedido else "",
+                "nota_deposito": pedido.distri_nota_deposito or "" if pedido else "",
+                "vendedor_web_id": (pedido.distri_vendedor_web_id.id if pedido else 0) or (
+                    socio.commercial_partner_id.sudo().distri_vendedor_web_id.id
+                    if socio and not self._personal() else 0) or 0,
             },
+            "vendedores": request.env["distri.vendedor.web"]._distri_para_pagina(),
             "localidades_encomienda": self._localidades_encomienda(),
             "secciones": self._catalogo(),
             "compra_minima": COMPRA_MINIMA,
@@ -1096,7 +1104,8 @@ class TomaDePedidos(http.Controller):
                     datos["error"] = "La contraseña actual no es correcta."
                 else:
                     usuario.sudo().distri_debe_cambiar_clave = False
-                    return request.redirect("/mi-cuenta")
+                    # 19.0.1.98.0: staff reach it from «Ajustes»: back home
+                    return request.redirect("/mi-cuenta" if usuario.share else "/tablero")
         return request.render("distri_pedido.mi_clave", datos)
 
     @http.route("/mi-cuenta", type="http", auth="user", website=True, sitemap=False)
@@ -1549,6 +1558,8 @@ class TomaDePedidos(http.Controller):
         telefono = (post.get("telefono") or "").strip()
         domicilio = (post.get("domicilio") or "").strip()
         entrega = (post.get("entrega") or "domicilio").strip()
+        # 19.0.1.98.0: optional comment, «Mi vendedor es», staff depot note
+        extra = self._datos_extra(post)
         # 19.0.1.93.0 (E2E-C C9): an unknown value was a 500
         if entrega not in ENTREGAS:
             return self._error_volver(
@@ -1721,6 +1732,7 @@ class TomaDePedidos(http.Controller):
                 "distri_modificado": True,
             }
             cambios.update(encomienda)
+            cambios.update(extra)
             # si todavia nadie le asigno el cliente, el socio generico sigue
             # el contenido del pedido; si ya lo asignaron, no se pisa
             socio_correcto = self._socio_sin_asignar(hay_mayorista)
@@ -1751,6 +1763,7 @@ class TomaDePedidos(http.Controller):
                 "distri_domicilio": domicilio,
                 "distri_entrega": entrega,
                 **encomienda,
+                **extra,
                 # si trae renglones de la seccion DISTRIBUIDORAS la cotizacion queda
                 # en esa lista: si no, el gerente ve "General" y al tocar
                 # una cantidad Odoo le recalcula el precio con la lista equivocada
@@ -1790,6 +1803,32 @@ class TomaDePedidos(http.Controller):
             pedido._distri_wa_start(staff=personal)
         return self._pagina_gracias(pedido, nombre, telefono, domicilio, entrega, hay_mayorista,
                                     descartados)
+
+    def _datos_extra(self, post):
+        """19.0.1.98.0: the order's comment, «Mi vendedor es» and, for staff,
+        the note for the depot. Unknown or inactive sellers are ignored;
+        staff orders take the seller linked to the staff user."""
+        def texto(campo):
+            return " ".join((post.get(campo) or "").replace("\r", "").split(" "))[:500].strip()
+
+        valores = {"distri_comentario": texto("comentario") or False}
+        Vendedor = request.env["distri.vendedor.web"].sudo()
+        if self._personal():
+            valores["distri_nota_deposito"] = texto("nota_deposito") or False
+            vendedor = Vendedor._distri_del_usuario(request.env.user)
+            if vendedor:
+                valores["distri_vendedor_web_id"] = vendedor.id
+            return valores
+        try:
+            vendedor = Vendedor.browse(int(post.get("vendedor_web_id") or 0)).exists()
+        except (TypeError, ValueError):
+            vendedor = Vendedor
+        valores["distri_vendedor_web_id"] = vendedor.id if vendedor and vendedor.active else False
+        socio = self._socio_del_usuario()
+        if socio and valores["distri_vendedor_web_id"]:
+            # a logged-in customer: pre-selected next time
+            socio.commercial_partner_id.sudo().distri_vendedor_web_id = vendedor
+        return valores
 
     def _clave_envio(self, post, renglones):
         """C8: session, the form's id (`envio`, one per page shown) and the

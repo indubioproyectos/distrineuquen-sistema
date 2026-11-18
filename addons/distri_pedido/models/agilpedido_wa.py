@@ -367,6 +367,8 @@ class SaleOrderAgilpedido(models.Model):
             "distri_telefono": telefono,
             "distri_domicilio": datos["domicilio"],
             "distri_entrega": datos["entrega"],
+            # 19.0.1.98.0: the message's «Comentario:» is the customer comment
+            "distri_comentario": datos["comentario"] or False,
             # a logged-out order never gets a salesperson (same as the page)
             "user_id": False,
         }

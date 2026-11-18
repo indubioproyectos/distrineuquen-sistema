@@ -274,6 +274,8 @@
           doc.body.appendChild(scrim);
         }
         scrim.hidden = false;
+        // 19.0.1.98.0 (audit F13): a toast never covers a sheet's fields
+        if (toastEl) { clearTimeout(toastTimer); toastEl.hidden = true; }
         el.classList.add('open');
         DN.push({sheet: el.id});
         var f = $('input:not([type=hidden]),button', el);

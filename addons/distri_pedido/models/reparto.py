@@ -1027,6 +1027,9 @@ class DistriRouteStop(models.Model):
                 if ship.distri_customer_location_date else "",
             },
             "notice": order._distri_notice_payload(),
+            # 19.0.1.98.0: the customer's comment and the depot note of the order
+            "comment": order.distri_comentario or "",
+            "depot_note": order.distri_nota_deposito or "",
             # «Cliente en rojo»: what the customer owes from the days before
             "red": self._distri_red_payload(),
             "visit": self._app_visit() if self.state != "pending" else None,

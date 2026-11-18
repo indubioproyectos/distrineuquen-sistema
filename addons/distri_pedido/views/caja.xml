@@ -19,9 +19,8 @@
           <span class="dn-top__kicker" t-esc="kicker"/>
           <h1 class="dn-top__title" t-esc="titulo"/>
         </div>
-        <a class="caja-salir" href="/web/session/logout" aria-label="Salir (cerrar sesión)">
-          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'logout'"/></t><span>Salir</span>
-        </a>
+        <!-- 19.0.1.98.0: «Salir» lives in «Ajustes», like every page -->
+        <t t-call="distri_pedido.dn_ajustes"/>
       </div>
     </header>
   </template>

@@ -43,7 +43,8 @@
   <div id="tab">
     <div class="bar">
       <div><b><t t-esc="empresa"/></b> <span>· <t t-esc="user.name"/></span></div>
-      <a href="/web/session/logout" data-side="">Salir</a>
+      <!-- 19.0.1.98.0: «Salir» lives in «Ajustes», like every page -->
+      <t t-call="distri_pedido.dn_ajustes"/>
     </div>
     <div class="tiles">
       <t t-foreach="tiles" t-as="tile">

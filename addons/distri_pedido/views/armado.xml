@@ -23,6 +23,8 @@
           <span class="dn-top__kicker" t-if="kicker" t-esc="kicker"/>
           <h1 class="dn-top__title" t-esc="titulo"/>
         </div>
+        <!-- 19.0.1.98.0: «Ajustes» (name, role, Salir, letter size, view) -->
+        <t t-call="distri_pedido.dn_ajustes"/>
       </div>
       <t t-out="0"/>
     </header>
@@ -39,16 +41,23 @@
         <h2 class="dn-label arm-zona__tit"><span t-esc="g['nombre']"/><small t-esc="g['detalle']"/></h2>
         <div class="arm-lista">
           <t t-foreach="g['pedidos']" t-as="p">
-            <t t-set="n" t-value="len(p._distri_renglones_a_armar())"/>
+            <t t-set="res" t-value="resumen(p)"/>
+            <t t-set="n" t-value="res['n']"/>
             <a t-att-class="'dn-card arm-ped arm-ped--%s' % p.distri_armado" t-att-href="'/armado/pedido/%s' % p.id" data-dn="down">
               <span class="arm-ped__txt">
                 <span class="arm-ped__nom"><t t-esc="p._distri_nombre_cliente()"/></span>
                 <span class="arm-ped__det">
                   <t t-esc="p.name"/> · <t t-esc="n"/> <t t-esc="'producto' if n == 1 else 'productos'"/>
+                  · <span class="dn-num" t-esc="res['importe']"/>
                   <t t-if="p.distri_armado != 'pendiente' and p.distri_armador_id"> · <t t-esc="p.distri_armador_id.name"/></t>
                   <t t-if="p.distri_armado == 'armado' and p.distri_bultos">
                     · <b><t t-esc="p.distri_bultos"/> <t t-esc="'bulto' if p.distri_bultos == 1 else 'bultos'"/></b>
                   </t>
+                </span>
+                <span t-if="res['nota']" class="arm-ped__nota"><t t-esc="res['nota']"/></span>
+                <span t-if="res['comentario']" class="arm-ped__com">Cliente: <t t-esc="res['comentario']"/></span>
+                <span t-if="res['renglones']" class="arm-ped__mini">
+                  <t t-foreach="res['renglones']" t-as="l"><span><b class="dn-num" t-esc="cant(l.distri_pedida)"/> <t t-esc="l.product_id.name"/></span></t>
                 </span>
                 <span class="arm-chips">
                   <span t-att-class="'dn-chip dn-chip--%s' % {'pendiente': 'warn', 'en_armado': 'info'}.get(p.distri_armado, 'ok')">
@@ -200,34 +209,17 @@
     </t>
   </template>
 
-  <template id="armado_pedido" name="Armado: un pedido">&lt;!DOCTYPE html&gt;
-<html lang="es">
-<head>
-  <title><t t-esc="pedido.name"/> · Armado</title>
-  <t t-call="distri_pedido.dn_head"/>
-</head>
-<t t-set="csrf_token" t-value="request.csrf_token()"/>
-<t t-set="total" t-value="len(renglones)"/>
-<t t-set="con_foot" t-value="pedido.distri_armado == 'pendiente' or puede_tocar or puede_corregir"/>
-<body t-att-class="'arm dn-has-foot' if con_foot else 'arm dn-has-nav'" data-parent="/armado"
-      data-page="pedido" t-att-data-pedido="pedido.id">
-  <t t-call="distri_pedido.armado_top">
-    <t t-set="volver" t-value="'/armado'"/>
-    <t t-set="volver_txt" t-value="'Volver a los pedidos'"/>
-    <t t-set="kicker" t-value="pedido.name + (' · %s' % pedido.distri_zona_id.name if pedido.distri_zona_id else '')"/>
-    <t t-set="titulo" t-value="pedido._distri_nombre_cliente()"/>
-    <div class="dn-top__extra" id="progreso" t-att-data-total="total" t-if="total">
-      <div class="dn-progress__txt">
-        <span><span class="js-hechos dn-num" t-esc="hechos"/> de <t t-esc="total"/> <t t-esc="'producto' if total == 1 else 'productos'"/></span>
-        <b class="js-faltan" t-att-hidden="None if con_faltante else 'hidden'">
-          <t t-esc="con_faltante"/> <t t-esc="'faltante' if con_faltante == 1 else 'faltantes'"/></b>
-      </div>
-      <div class="dn-progress" role="progressbar" aria-label="Productos revisados" aria-valuemin="0"
-           t-att-aria-valuemax="total" t-att-aria-valuenow="hechos">
-        <i t-attf-style="width:{{ int(round(100.0 * hechos / total)) }}%"/>
-      </div>
+  <!-- 19.0.1.98.0: the customer comment and the depot note, pinned under
+       the top bar in both views (audit 3b, F6: 47 % / 11 % of the orders). -->
+  <template id="armado_notas" name="Armado: comentario y nota">
+    <div class="arm-notas" t-if="pedido.distri_comentario or pedido.distri_nota_deposito">
+      <p t-if="pedido.distri_nota_deposito" class="arm-nota arm-nota--dep"><b>Nota:</b> <t t-esc="pedido.distri_nota_deposito"/></p>
+      <p t-if="pedido.distri_comentario" class="arm-nota"><b>Cliente:</b> <t t-esc="pedido.distri_comentario"/></p>
     </div>
-  </t>
+  </template>
+
+  <!-- The status banners of an order (both views). -->
+  <template id="armado_avisos" name="Armado: avisos del pedido">
   <div class="dn-banner dn-banner--err" t-if="error" role="alert"><t t-esc="error"/></div>
   <div class="dn-banner dn-banner--err" t-if="pedido.state == 'cancel'">Este pedido se canceló.</div>
   <div class="dn-banner" t-if="(pedido._distri_sin_cliente() and pedido.distri_domicilio) or pedido.distri_entrega == 'retira'">
@@ -261,10 +253,67 @@
     Tocá «Tomar pedido» para empezar a armarlo.
   </div>
 
+  </template>
+
+  <!-- 19.0.1.98.0: the packer's view and order, two small toggles (also in
+       «Ajustes»). Plain forms; armado.js / ajustes.js post them with fetch. -->
+  <template id="armado_pref" name="Armado: vista y orden">
+    <div class="arm-pref">
+      <form method="post" action="/armado/preferencias" class="arm-seg" data-aj-pref="" aria-label="Vista">
+        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+        <input type="hidden" name="volver" t-att-value="'/armado/pedido/%s' % pedido.id"/>
+        <t t-foreach="vistas" t-as="v">
+          <button type="submit" name="vista" t-att-value="v[0]" t-att-aria-pressed="'true' if vista == v[0] else 'false'" t-esc="v[1]"/>
+        </t>
+      </form>
+      <form method="post" action="/armado/preferencias" class="arm-seg" data-aj-pref="" aria-label="Orden">
+        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+        <input type="hidden" name="volver" t-att-value="'/armado/pedido/%s' % pedido.id"/>
+        <button type="submit" name="orden" value="alfabetico" t-att-aria-pressed="'true' if orden == 'alfabetico' else 'false'">A–Z</button>
+        <button type="submit" name="orden" value="secciones" t-att-aria-pressed="'true' if orden == 'secciones' else 'false'">Secciones</button>
+      </form>
+    </div>
+  </template>
+
+  <template id="armado_pedido" name="Armado: un pedido">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title><t t-esc="pedido.name"/> · Armado</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<t t-set="csrf_token" t-value="request.csrf_token()"/>
+<t t-set="total" t-value="len(renglones)"/>
+<t t-set="con_foot" t-value="pedido.distri_armado == 'pendiente' or puede_tocar or puede_corregir"/>
+<body t-att-class="'arm dn-has-foot' if con_foot else 'arm dn-has-nav'" data-parent="/armado"
+      data-page="pedido" t-att-data-pedido="pedido.id">
+  <t t-call="distri_pedido.armado_top">
+    <t t-set="volver" t-value="'/armado'"/>
+    <t t-set="volver_txt" t-value="'Volver a los pedidos'"/>
+    <t t-set="kicker" t-value="pedido.name + (' · %s' % pedido.distri_zona_id.name if pedido.distri_zona_id else '')"/>
+    <t t-set="titulo" t-value="pedido._distri_nombre_cliente()"/>
+    <div class="dn-top__extra" id="progreso" t-att-data-total="total" t-if="total">
+      <div class="dn-progress__txt">
+        <span><span class="js-hechos dn-num" t-esc="hechos"/> de <t t-esc="total"/> <t t-esc="'producto' if total == 1 else 'productos'"/></span>
+        <b class="js-faltan" t-att-hidden="None if con_faltante else 'hidden'">
+          <t t-esc="con_faltante"/> <t t-esc="'faltante' if con_faltante == 1 else 'faltantes'"/></b>
+      </div>
+      <div class="dn-progress" role="progressbar" aria-label="Productos revisados" aria-valuemin="0"
+           t-att-aria-valuemax="total" t-att-aria-valuenow="hechos">
+        <i t-attf-style="width:{{ int(round(100.0 * hechos / total)) }}%"/>
+      </div>
+    </div>
+    <div class="dn-top__extra arm-top-notas" t-if="pedido.distri_comentario or pedido.distri_nota_deposito"><t t-call="distri_pedido.armado_notas"/></div>
+  </t>
+  <t t-call="distri_pedido.armado_avisos"/>
+  <t t-call="distri_pedido.armado_pref"/>
+
   <main class="dn-main arm-main arm-cols">
     <div class="arm-ren" id="renglones">
-      <t t-foreach="renglones" t-as="l">
-        <t t-call="distri_pedido.armado_renglon"/>
+      <t t-foreach="secciones" t-as="sec">
+        <h2 t-if="sec['nombre']" class="dn-label arm-sec" t-esc="sec['nombre']"/>
+        <t t-foreach="sec['renglones']" t-as="l">
+          <t t-call="distri_pedido.armado_renglon"/>
+        </t>
       </t>
       <div class="dn-empty" t-if="not renglones"><p>El pedido no tiene productos.</p></div>
     </div>
@@ -310,12 +359,8 @@
 
       <section t-if="puede_tocar" class="dn-sheet" id="mas-tarde" role="dialog" aria-labelledby="mas-tarde-t">
         <h2 id="mas-tarde-t">¿Lo dejás para más tarde?</h2>
-        <p class="arm-borra" t-att-hidden="None if con_faltante else 'hidden'">
-          <t t-if="con_faltante == 1">Se va a borrar el faltante que marcaste.</t>
-          <t t-else="">Se van a borrar los <t t-esc="con_faltante"/> faltantes que marcaste.</t>
-        </p>
-        <p>El pedido vuelve a la lista como para armar: lo puede tomar cualquiera y
-          el cliente lo puede volver a cambiar.</p>
+        <p>Lo que marcaste queda guardado. El pedido vuelve a la lista como para armar:
+          lo puede tomar cualquiera y sigue desde ahí.</p>
         <form method="post" data-fetch="mas-tarde" class="dn-grid2"
               t-att-action="'/armado/pedido/%s/mas-tarde' % pedido.id">
           <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
@@ -352,6 +397,172 @@
         <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'clock'"/></t> Más tarde</a>
       <a href="#terminar" class="dn-btn dn-btn--lg" data-sheet="terminar">
         <t t-if="pedido._distri_sin_cliente()">Terminar armado</t><t t-else="">Terminar y facturar</t></a>
+    </div>
+    <div t-elif="puede_corregir" class="dn-foot">
+      <a href="#corregir" class="dn-btn dn-btn--lg dn-btn--ghost" data-sheet="corregir">Corregir bultos</a>
+      <a t-if="pedido.distri_bultos" class="dn-btn dn-btn--lg" target="_blank" rel="noopener"
+         t-att-href="'/armado/pedido/%s/etiquetas' % pedido.id">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Imprimir etiquetas</a>
+    </div>
+    <t t-call="distri_pedido.dn_nav"/>
+  </div>
+</body>
+</html>
+  </template>
+
+  <!-- 19.0.1.98.0 «Tradicional» (audit 3b), the default view: the whole
+       order at a glance like the WhatsApp message the packers know.
+       Quantity first, one line per product, no photos. Tap = struck through
+       (optional tick; untouched lines are delivered whole). Long-press or
+       swipe left = «¿Cuántas hay?» (with the photo). «Todo listo» asks the
+       packages. Everything is saved on the phone first and sent in order
+       (armado.js, /sync): it works without signal. Without JavaScript each
+       line is a small form (tick) and the finish is a plain form. -->
+  <template id="armado_linea_trad" name="Armado: renglón tradicional">
+    <t t-set="faltante" t-value="l.distri_faltante"/>
+    <t t-set="estado" t-value="'falta' if faltante else ('listo' if l.distri_listo else 'pend')"/>
+    <t t-set="rara" t-value="unidad_rara(l)"/>
+    <li t-att-id="'t%s' % l.id" t-att-class="'tl tl--%s' % estado" t-att-data-id="l.id" t-att-data-estado="estado"
+        t-att-data-pedida="cant(l.distri_pedida)" t-att-data-hay="cant(l.product_uom_qty)"
+        t-att-data-nombre="l.product_id.name" t-att-data-foto="foto(l.product_id)">
+      <form method="post" t-att-action="'/armado/pedido/%s/listo' % pedido.id" class="tl__f">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <input type="hidden" name="linea_id" t-att-value="l.id"/>
+        <button type="submit" name="accion" t-att-value="'deshacer' if estado == 'listo' else 'listo'" class="tl__b"
+                t-att-disabled="None if puede_tocar and estado != 'falta' else 'disabled'">
+          <span class="tl__cant dn-num"><t t-if="faltante"><t t-esc="cant(l.product_uom_qty)"/>/<t t-esc="cant(l.distri_pedida)"/></t><t t-else="" t-esc="cant(l.distri_pedida)"/></span>
+          <span class="tl__nom"><t t-esc="l.product_id.name"/>
+            <span t-if="rara" class="tl__uni" t-esc="rara"/>
+            <span t-if="l.distri_por_telefono" class="tl__tel">por teléfono</span>
+            <span t-if="faltante" class="tl__falta">FALTAN <t t-esc="cant(faltante)"/></span>
+          </span>
+          <span class="tl__tick" aria-hidden="true"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t></span>
+          <span class="dn-sr"><t t-if="estado == 'listo'">Tildado.</t><t t-elif="estado == 'falta'">Con faltante.</t></span>
+        </button>
+      </form>
+    </li>
+  </template>
+
+  <template id="armado_pedido_trad" name="Armado: un pedido (tradicional)">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title><t t-esc="pedido.name"/> · Armado</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<t t-set="csrf_token" t-value="request.csrf_token()"/>
+<t t-set="total" t-value="len(renglones)"/>
+<t t-set="con_foot" t-value="pedido.distri_armado == 'pendiente' or puede_tocar or puede_corregir"/>
+<body t-att-class="'arm arm-trad dn-has-foot' if con_foot else 'arm arm-trad dn-has-nav'" data-parent="/armado"
+      data-page="trad" t-att-data-pedido="pedido.id" t-att-data-uid="usuario.id"
+      t-att-data-sync="'/armado/pedido/%s/sync' % pedido.id"
+      t-att-data-puede="'1' if puede_tocar else '0'" t-att-data-tope="tope_hay">
+  <t t-call="distri_pedido.armado_top">
+    <t t-set="volver" t-value="'/armado'"/>
+    <t t-set="volver_txt" t-value="'Volver a los pedidos'"/>
+    <t t-set="kicker" t-value="pedido.name + (' · %s' % pedido.distri_zona_id.name if pedido.distri_zona_id else '')"/>
+    <t t-set="titulo" t-value="pedido._distri_nombre_cliente()"/>
+    <div class="dn-top__extra arm-top-notas" t-if="pedido.distri_comentario or pedido.distri_nota_deposito"><t t-call="distri_pedido.armado_notas"/></div>
+  </t>
+  <t t-call="distri_pedido.armado_avisos"/>
+  <div class="dn-banner dn-banner--ok" t-if="tomado" role="status">Lo tomaste: es tuyo hasta que lo termines o lo dejes para más tarde.</div>
+  <t t-call="distri_pedido.armado_pref"/>
+
+  <main class="dn-main arm-main">
+    <div class="trad" id="trad">
+      <t t-foreach="secciones" t-as="sec">
+        <h2 t-if="sec['nombre']" class="trad__sec" t-esc="sec['nombre']"/>
+        <ol class="trad__lista">
+          <t t-foreach="sec['renglones']" t-as="l"><t t-call="distri_pedido.armado_linea_trad"/></t>
+        </ol>
+      </t>
+      <div class="dn-empty" t-if="not renglones"><p>El pedido no tiene productos.</p></div>
+      <p class="trad__tot" t-if="renglones"><span class="dn-num" t-esc="total"/> <t t-esc="'producto' if total == 1 else 'productos'"/>
+        · <span class="dn-num" t-esc="cant(unidades)"/> unidades<span class="js-progreso"/></p>
+      <p class="arm-hint" t-if="puede_tocar">Tocá un renglón para tacharlo. Mantenelo apretado (o deslizalo
+        a la izquierda) si falta algo. Lo que no tocás se entrega completo.</p>
+    </div>
+
+    <details class="dn-card arm-agregar-d" t-if="puede_tocar" t-att-open="'open' if q else None">
+      <summary>Agregar un producto pedido por teléfono</summary>
+      <form class="dn-row" method="get" t-att-action="'/armado/pedido/%s' % pedido.id" role="search"
+            t-att-data-buscar="'/armado/pedido/%s/buscar' % pedido.id">
+        <input class="dn-input" type="search" name="q" t-att-value="q" placeholder="Buscar en el catálogo"
+               autocomplete="off" aria-label="Buscar en el catálogo"/>
+        <button type="submit" class="dn-btn dn-btn--navy" aria-label="Buscar">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t></button>
+      </form>
+      <div id="resultados"><t t-call="distri_pedido.armado_resultados"/></div>
+    </details>
+
+    <!-- «¿Cuántas hay?»: filled by armado.js for the pressed line -->
+    <section t-if="puede_tocar" class="dn-sheet" id="hay" role="dialog" aria-labelledby="hay-t">
+      <div class="hay__cab">
+        <img class="hay__foto" alt="" width="96" height="96"/>
+        <div><h2 id="hay-t" class="hay__nom"/><p class="hay__pidio"/></div>
+      </div>
+      <p class="hay__preg">¿Cuántas hay?</p>
+      <div class="hay__nums"/>
+      <form class="hay__otra dn-row" hidden="hidden">
+        <input class="dn-input dn-input--big dn-num" type="number" min="0" step="1" inputmode="numeric" aria-label="Cuántas hay"/>
+        <button type="submit" class="dn-btn dn-btn--navy">Guardar</button>
+      </form>
+      <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</button>
+    </section>
+
+    <section t-if="puede_tocar" class="dn-sheet" id="todo-listo" role="dialog" aria-labelledby="todo-listo-t">
+      <h2 id="todo-listo-t">¿En cuántos bultos quedó?</h2>
+      <p class="tl-quedan dn-card dn-card--warn" hidden="hidden"/>
+      <form method="post" data-trad="terminar" t-att-action="'/armado/pedido/%s/terminar' % pedido.id" class="arm-form">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <div class="bul">
+          <t t-foreach="range(1, 6)" t-as="b"><button type="submit" name="bultos" t-att-value="b" class="dn-btn dn-btn--lg bul__n" t-esc="b"/></t>
+          <button type="button" class="dn-btn dn-btn--lg dn-btn--ghost bul__mas" aria-label="Más bultos">+</button>
+        </div>
+        <div class="bul__otro dn-row" hidden="hidden">
+          <input class="dn-input dn-input--big dn-num" type="number" name="bultos_otro" min="1" max="999" step="1"
+                 inputmode="numeric" aria-label="Bultos" placeholder="6"/>
+          <button type="submit" class="dn-btn" name="otro" value="1">Terminar</button>
+        </div>
+      </form>
+      <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Seguir armando</button>
+    </section>
+
+    <section t-if="puede_tocar" class="dn-sheet" id="mas-tarde" role="dialog" aria-labelledby="mas-tarde-t">
+      <h2 id="mas-tarde-t">¿Lo dejás para más tarde?</h2>
+      <p>Lo que marcaste queda guardado. El pedido vuelve a la lista como para armar:
+        lo puede tomar cualquiera y sigue desde ahí.</p>
+      <form method="post" data-trad="mas-tarde" class="dn-grid2" t-att-action="'/armado/pedido/%s/mas-tarde' % pedido.id">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <a t-att-href="'/armado/pedido/%s' % pedido.id" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</a>
+        <button type="submit" class="dn-btn dn-btn--navy">Sí, dejarlo</button>
+      </form>
+    </section>
+
+    <section t-if="puede_corregir" class="dn-sheet" id="corregir" role="dialog" aria-labelledby="corregir-t">
+      <h2 id="corregir-t">Corregir bultos</h2>
+      <form method="post" data-fetch="bultos" class="arm-form" t-att-action="'/armado/pedido/%s/bultos' % pedido.id">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <div class="dn-field">
+          <label for="bultos-c">¿En cuántos bultos quedó?</label>
+          <input class="dn-input dn-input--big dn-num" type="number" id="bultos-c" name="bultos" min="1" max="999"
+                 step="1" inputmode="numeric" required="required" t-att-value="pedido.distri_bultos or ''"/>
+        </div>
+        <button type="submit" class="dn-btn dn-btn--lg">Guardar bultos</button>
+      </form>
+    </section>
+  </main>
+
+  <div class="dn-bottom">
+    <div t-if="pedido.distri_armado == 'pendiente' and pedido.state != 'cancel'" class="dn-foot dn-foot--one">
+      <form method="post" data-fetch="tomar" t-att-action="'/armado/pedido/%s/tomar' % pedido.id">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <button type="submit" class="dn-btn dn-btn--lg">Tomar pedido</button>
+      </form>
+    </div>
+    <div t-elif="puede_tocar" class="dn-foot">
+      <a href="#mas-tarde" class="dn-btn dn-btn--lg dn-btn--ghost" data-sheet="mas-tarde">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'clock'"/></t> Más tarde</a>
+      <a href="#todo-listo" class="dn-btn dn-btn--lg" data-sheet="todo-listo">Todo listo</a>
     </div>
     <div t-elif="puede_corregir" class="dn-foot">
       <a href="#corregir" class="dn-btn dn-btn--lg dn-btn--ghost" data-sheet="corregir">Corregir bultos</a>
@@ -504,7 +715,7 @@
         <button name="action_distri_dejar_para_mas_tarde" type="object" string="Dejar para más tarde"
                 groups="distri_pedido.grupo_administracion"
                 invisible="state == 'cancel' or distri_armado != 'en_armado'"
-                confirm="El pedido vuelve a pendiente: lo puede tomar cualquier armador y el cliente lo puede volver a cambiar. Se borran los faltantes que marcó el armador; lo agregado por teléfono queda. ¿Seguimos?"/>
+                confirm="El pedido vuelve a pendiente: lo puede tomar cualquier armador y el cliente lo puede volver a cambiar. Lo que marcó el armador (revisados, faltantes y lo agregado por teléfono) queda. ¿Seguimos?"/>
       </xpath>
       <xpath expr="//page[@name='other_information']" position="before">
         <page string="Armado" name="distri_armado">

@@ -63,3 +63,5 @@ from . import alta_revendedor
 from . import ir_http
 from . import caja
 from . import caja_contabilidad
+from . import vendedor_web
+from . import armado_offline

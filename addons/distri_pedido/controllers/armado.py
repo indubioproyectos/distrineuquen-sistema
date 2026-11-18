@@ -1,3 +1,4 @@
+import json
 import math
 import uuid
 from datetime import datetime, time, timedelta
@@ -11,6 +12,7 @@ from odoo.exceptions import UserError
 from odoo.http import request
 
 from ..models.armado import MAX_BULTOS
+from ..models.res_users import ARMADO_ORDENES, ARMADO_VISTAS
 from .kit import kit_context, staff_nav
 from .main import HORA_ARGENTINA, ficha
 from .tablero import wants_tablero
@@ -22,6 +24,15 @@ TOPE_BUSQUEDA = 30
 
 # Antiguedad maxima de un presupuesto de la pagina sin tomar en la lista del armador
 DIAS_PRESUPUESTO = 7
+
+# 19.0.1.98.0: the order list shows these small orders whole (audit 3b: 15 %
+# of the orders have 3 lines or fewer)
+RENGLONES_A_LA_VISTA = 3
+# «¿Cuántas hay?» offers one button per unit up to this quantity, then a
+# number field
+TOPE_BOTONES_HAY = 12
+# body of /sync: a whole order offline is a few KB
+MAX_SYNC = 256 * 1024
 
 UTC = ZoneInfo("UTC")
 
@@ -103,9 +114,36 @@ class Armado(http.Controller):
             "cant": self._cant,
             "hora": self._hora,
             "foto": self._foto,
+            "vista": request.env.user.distri_armado_vista or "tradicional",
+            "orden": request.env.user.distri_armado_orden or "alfabetico",
+            "vistas": ARMADO_VISTAS,
+            "ordenes": ARMADO_ORDENES,
+            "plata": self._plata,
+            "resumen": self._resumen,
         }
         datos.update(extra)
         return datos
+
+    def _plata(self, importe):
+        return "$ {:,.0f}".format(importe or 0).replace(",", ".")
+
+    def _resumen(self, pedido):
+        """What the order list shows without opening the order (19.0.1.98.0)."""
+        renglones = pedido._distri_renglones_a_armar()
+        return {
+            "n": len(renglones),
+            "importe": self._plata(pedido.amount_total),
+            "nota": (pedido.distri_nota_deposito or "").strip(),
+            "comentario": (pedido.distri_comentario or "").strip(),
+            "renglones": (pedido._distri_renglones_ordenados()[0]["renglones"]
+                          if len(renglones) <= RENGLONES_A_LA_VISTA else []),
+        }
+
+    def _unidad_rara(self, linea):
+        """The line's unit when it is not the usual sale unit of the product
+        (e.g. BULTO), shown highlighted in «Tradicional»; else ''."""
+        usual = self._unidad_de_venta(linea.product_id.product_tmpl_id)
+        return linea.product_uom_id.name if linea.product_uom_id != usual else ""
 
     def _foto(self, producto):
         """Thumbnail URL; «unique» makes Odoo send it with a long cache."""
@@ -247,11 +285,22 @@ class Armado(http.Controller):
     def pedido(self, pedido_id, q="", error="", **kw):
         self._exigir_armador()
         pedido = self._pedido(pedido_id)
+        tomado = self._tomar_al_abrir(pedido)
         q = (q or "").strip()
-        renglones = pedido._distri_renglones_a_armar()
+        orden = request.env.user.distri_armado_orden or "alfabetico"
+        secciones = pedido._distri_renglones_ordenados(orden)
+        renglones = request.env["sale.order.line"].concat(*[s["renglones"] for s in secciones])
         puede_tocar = self._puede_tocar(pedido)
-        return self._render("distri_pedido.armado_pedido", self._base(
+        vista = request.env.user.distri_armado_vista or "tradicional"
+        template = ("distri_pedido.armado_pedido_trad" if vista == "tradicional"
+                    else "distri_pedido.armado_pedido")
+        return self._render(template, self._base(
             pedido=pedido,
+            tomado=tomado,
+            secciones=secciones,
+            unidades=sum(renglones.mapped("distri_pedida")),
+            unidad_rara=self._unidad_rara,
+            tope_hay=TOPE_BOTONES_HAY,
             renglones=renglones,
             actual=self._actual(renglones) if puede_tocar else None,
             hechos=len(renglones.filtered(lambda l: l.distri_listo or l.distri_faltante)),
@@ -264,6 +313,17 @@ class Armado(http.Controller):
             nueva_clave=self._nueva_clave,
             error=error,
         ))
+
+    def _tomar_al_abrir(self, pedido):
+        """19.0.1.98.0 (audit 3b): opening an order nobody has takes it, one
+        tap less. Silent when it cannot (someone is saving it, it cannot be
+        packed): the page keeps its «Tomar pedido» button."""
+        if pedido.distri_armado != "pendiente" or pedido.state == "cancel":
+            return False
+        try:
+            return not pedido.distri_tomar()
+        except UserError:
+            return False
 
     def _actual(self, renglones):
         """The line to pack now: the first one not ticked nor short."""
@@ -498,7 +558,7 @@ class Armado(http.Controller):
 
     @http.route("/armado/pedido/<int:pedido_id>/terminar", type="http", auth="user",
                 methods=["POST"], website=True, sitemap=False)
-    def terminar(self, pedido_id, bultos="", **post):
+    def terminar(self, pedido_id, bultos="", bultos_otro="", **post):
         pedido, rechazo = self._pedido_para_tocar(pedido_id, tocar=False)
         if rechazo:
             return rechazo
@@ -507,7 +567,8 @@ class Armado(http.Controller):
             return self._ir("/armado")
         if not self._puede_tocar(pedido):
             return self._rechazo(pedido, self._por_que_no(pedido))
-        cuantos = self._bultos(bultos)
+        # «Tradicional» without JavaScript: the 1-5 buttons or the «+» field
+        cuantos = self._bultos(bultos or bultos_otro)
         if not 1 <= cuantos <= MAX_BULTOS:
             # a typing mistake: the page stays as it is (422, no reload)
             return self._rechazo(pedido, "Poné en cuántos bultos quedó el pedido.", 422,
@@ -550,6 +611,51 @@ class Armado(http.Controller):
         if error:
             return self._json({"ok": False, "error": error}, status=422)
         return self._json({"ok": True, "bultos": pedido.distri_bultos})
+
+    @http.route("/armado/preferencias", type="http", auth="user", methods=["POST"],
+                sitemap=False)
+    def preferencias(self, vista="", orden="", volver="", **post):
+        """The packer's view and order (screen toggle and «Ajustes»)."""
+        self._exigir_armador()
+        valores = {}
+        if vista in dict(ARMADO_VISTAS):
+            valores["distri_armado_vista"] = vista
+        if orden in dict(ARMADO_ORDENES):
+            valores["distri_armado_orden"] = orden
+        if valores:
+            request.env.user.sudo().write(valores)
+        volver = volver if (volver or "").startswith("/") and not volver.startswith("//") else "/armado"
+        if self._por_fetch():
+            return self._json({"ok": True, "vista": request.env.user.distri_armado_vista,
+                               "orden": request.env.user.distri_armado_orden})
+        return request.redirect(volver)
+
+    @http.route("/armado/pedido/<int:pedido_id>/sync", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def sync(self, pedido_id, eventos="[]", **post):
+        """«Tradicional» without signal (19.0.1.98.0, audit F6): the ticks,
+        «¿Cuántas hay?» and the finish saved on the phone, in order. Every
+        event has its UUID: a replay answers «duplicate» and changes nothing
+        (models/armado_offline.py)."""
+        pedido, rechazo = self._pedido_para_tocar(pedido_id, tocar=False)
+        if rechazo:
+            return rechazo
+        if len(eventos or "") > MAX_SYNC:
+            return self._json({"ok": False, "error": "Demasiados cambios juntos."}, 413)
+        try:
+            lista = json.loads(eventos or "[]")
+        except ValueError:
+            lista = None
+        if not isinstance(lista, list):
+            return self._json({"ok": False, "error": "No entendimos lo guardado en el celular."}, 422)
+        resultados = pedido.distri_sync_eventos(lista, self._puede_tocar)
+        terminado = pedido.distri_armado == "armado"
+        return self._json({
+            "ok": True,
+            "resultados": resultados,
+            "armado": pedido.distri_armado,
+            "url": "/armado?" + urlencode({"terminado": pedido.id}) if terminado else "",
+        })
 
     @http.route("/armado/faltantes", type="http", auth="user", website=True, sitemap=False)
     def faltantes(self, **kw):

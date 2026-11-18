@@ -42,6 +42,73 @@
     <script defer="defer" t-att-src="request.env['ir.http'].distri_nav_script() if request else '/dn/sin_historial.js'"/>
   </template>
 
+  <!-- 19.0.1.98.0: the «Ajustes» gear of EVERY custom page (kit and legacy,
+       staff and customers). One self-contained macro: the gear button where
+       it is called (inside the top bar), the sheet, and its own small
+       static/src/kit/ajustes.css + ajustes.js (served by /dn/, they need
+       neither dn.css nor dn.js). Values: gear_float = fixed top-right
+       button (single-page apps whose header is drawn by JavaScript),
+       gear_volver = where the armado preferences go back to.
+       Without JavaScript the sheet opens as a #dn-aj anchor target.
+       The letter size is a per-device zoom (localStorage «dn:letra»),
+       applied here before the page paints. -->
+  <template id="dn_ajustes" name="Ajustes: botón y hoja">
+    <t t-set="aj" t-value="request.env.user._distri_ajustes() if request else {'publico': True}"/>
+    <t t-set="aj_urls" t-value="request.env['ir.http'].distri_ajustes_urls() if request else {}"/>
+    <script>try{var z=localStorage.getItem('dn:letra');if(z&amp;&amp;z.length&lt;5&amp;&amp;+z&gt;0.5&amp;&amp;+z&lt;2){document.documentElement.style.setProperty('--dn-scale',z)}}catch(e){}</script>
+    <link rel="stylesheet" t-att-href="aj_urls.get('css')"/>
+    <a href="#dn-aj" id="dn-gear" t-att-class="'dn-gear dn-gear--float' if gear_float else 'dn-gear'"
+       aria-label="Ajustes" title="Ajustes" aria-controls="dn-aj" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </a>
+    <div id="dn-aj" class="dn-aj" role="dialog" aria-modal="true" aria-labelledby="dn-aj-t"
+         t-att-data-manifest="aj_urls.get('manifest')" t-att-data-publico="'1' if aj['publico'] else None">
+      <div class="dn-aj__in">
+        <div class="dn-aj__head">
+          <h2 id="dn-aj-t">Ajustes</h2>
+          <a href="#" class="dn-aj__x" data-aj-close="" aria-label="Cerrar">×</a>
+        </div>
+        <p t-if="not aj['publico']" class="dn-aj__quien"><b t-esc="aj['nombre']"/><span t-esc="aj['rol']"/></p>
+        <section class="dn-aj__sec">
+          <h3>Tamaño de letra</h3>
+          <div class="dn-aj__seg" role="group" aria-label="Tamaño de letra">
+            <button type="button" data-letra="0.9" aria-label="Letra más chica">A−</button>
+            <button type="button" data-letra="1" aria-label="Letra normal" aria-pressed="true">A</button>
+            <button type="button" data-letra="1.15" aria-label="Letra más grande">A+</button>
+            <button type="button" data-letra="1.3" aria-label="Letra muy grande">A++</button>
+          </div>
+        </section>
+        <section t-if="aj.get('armador')" class="dn-aj__sec">
+          <h3>Armado</h3>
+          <form method="post" action="/armado/preferencias" class="dn-aj__seg" data-aj-pref="">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <input type="hidden" name="volver" t-att-value="gear_volver or (request.httprequest.path if request else '/armado')"/>
+            <button type="submit" name="vista" value="tradicional" t-att-aria-pressed="'true' if aj['vista'] == 'tradicional' else 'false'">Tradicional</button>
+            <button type="submit" name="vista" value="tarjetas" t-att-aria-pressed="'true' if aj['vista'] == 'tarjetas' else 'false'">Tarjetas</button>
+          </form>
+          <form method="post" action="/armado/preferencias" class="dn-aj__seg" data-aj-pref="">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <input type="hidden" name="volver" t-att-value="gear_volver or (request.httprequest.path if request else '/armado')"/>
+            <button type="submit" name="orden" value="alfabetico" t-att-aria-pressed="'true' if aj['orden'] == 'alfabetico' else 'false'">Alfabético</button>
+            <button type="submit" name="orden" value="secciones" t-att-aria-pressed="'true' if aj['orden'] == 'secciones' else 'false'">Por secciones</button>
+          </form>
+        </section>
+        <section class="dn-aj__sec dn-aj__inst" hidden="hidden">
+          <button type="button" class="dn-aj__btn" data-aj-instalar="">Instalar la app</button>
+          <p class="dn-aj__ios" hidden="hidden">En el iPhone, desde Safari: tocá <b>Compartir</b>
+            y después <b>Agregar a inicio</b>.</p>
+        </section>
+        <nav t-if="not aj['publico']" class="dn-aj__links">
+          <a t-if="aj.get('perfil')" href="/mi-perfil">Mi perfil</a>
+          <a t-if="aj.get('cuenta')" href="/mi-cuenta">Mi cuenta corriente</a>
+          <a t-if="aj.get('clave')" href="/mi-clave">Cambiar clave</a>
+        </nav>
+        <a t-if="not aj['publico']" class="dn-aj__btn dn-aj__salir" href="/web/session/logout">Salir</a>
+      </div>
+    </div>
+    <script defer="defer" t-att-src="aj_urls.get('js')"/>
+  </template>
+
   <!-- One icon of the sprite: t-call with i = the symbol id. -->
   <template id="dn_icon" name="Kit: icon">
     <svg class="dn-i" aria-hidden="true"><use t-att-href="'%s#%s' % (dn['icons'], i)"/></svg>

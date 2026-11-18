@@ -49,3 +49,4 @@ from . import test_armado_app
 from . import test_sin_historial
 from . import test_auditoria_f1_f2
 from . import test_caja
+from . import test_armado_v98

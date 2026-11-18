@@ -19,3 +19,10 @@ class ProductCategory(models.Model):
         max_width=512, max_height=512,
         help="Solo si querés una imagen propia, distinta de la de un producto. Si la cargás, gana sobre el producto elegido.",
     )
+
+    # 19.0.1.98.0: /armado «Por secciones» follows the depot walking order.
+    # Administración drags the categories in «Orden de recorrido del
+    # depósito»; with every value equal (default) the order is alphabetical.
+    distri_recorrido = fields.Integer(
+        string="Orden de recorrido", default=0,
+        help="El armador ve las secciones en este orden. Arrastrá para cambiarlo.")

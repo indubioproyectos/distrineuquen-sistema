@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.98.0: the starting list of «Mi vendedor es» (/pedido).
+       noupdate: administración edits it from Ventas > Vendedores de la página.
+       Each one is linked to the internal user with the same name, when
+       there is exactly one (distri.vendedor.web._distri_vincular_usuarios). -->
+  <data noupdate="1">
+    <record id="vendedor_web_italo" model="distri.vendedor.web"><field name="name">Italo</field><field name="sequence">10</field></record>
+    <record id="vendedor_web_gonzalo" model="distri.vendedor.web"><field name="name">Gonzalo</field><field name="sequence">20</field></record>
+    <record id="vendedor_web_sebastian" model="distri.vendedor.web"><field name="name">Sebastián</field><field name="sequence">30</field></record>
+    <record id="vendedor_web_denis" model="distri.vendedor.web"><field name="name">Denis</field><field name="sequence">40</field></record>
+    <record id="vendedor_web_simon" model="distri.vendedor.web"><field name="name">Simón</field><field name="sequence">50</field></record>
+    <record id="vendedor_web_mario" model="distri.vendedor.web"><field name="name">Mario</field><field name="sequence">60</field></record>
+    <record id="vendedor_web_facundo" model="distri.vendedor.web"><field name="name">Facundo</field><field name="sequence">70</field></record>
+    <record id="vendedor_web_mariana" model="distri.vendedor.web"><field name="name">Mariana</field><field name="sequence">80</field></record>
+  </data>
+  <function model="distri.vendedor.web" name="_distri_vincular_usuarios"/>
+</odoo>
