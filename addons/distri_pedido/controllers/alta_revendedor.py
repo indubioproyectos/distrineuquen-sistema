@@ -80,7 +80,8 @@ class AltaRevendedor(http.Controller):
     @http.route("/revendedor", type="http", auth="public", website=True, sitemap=True)
     def revendedor(self, c="", **kw):
         if not invite_code_ok(request.env, c):
-            # 19.0.1.104.0: «Quiero ser revendedor» of the public site. Without
+            # 19.0.1.104.0: the public page of the site («¿Sos distribuidora?»
+            # since 19.0.1.106.0, only for other distributors). Without
             # the current code it is the public page that explains how to
             # ask for the invitation (WhatsApp); it offers no signup and puts
             # nothing in the session, so the signup stays private.
@@ -102,9 +103,9 @@ class AltaRevendedor(http.Controller):
     def _quiero_ser_revendedor(self):
         from .sitio import contexto_sitio
         values = contexto_sitio(
-            "Quiero ser revendedor · Distri Neuquén",
-            "Revendedores y distribuidoras de Neuquén y la región: comunicate con nosotros "
-            "y te contamos cómo trabajamos. Pedí tu alta por WhatsApp.",
+            "¿Sos distribuidora? · Distri Neuquén",
+            "Si sos una distribuidora y querés trabajar con Distri Neuquén, comunicate y te "
+            "contamos cómo. Los kioscos y almacenes piden directo en la página de pedidos.",
             "/revendedor")
         return request.render("distri_pedido.sitio_revendedor", values)
 

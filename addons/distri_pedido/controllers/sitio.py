@@ -1,10 +1,10 @@
 """The public website of Distri Neuquén (19.0.1.104.0, owner decisions of 17/11/2026).
 
 «/» is the home page: the DN brand header, the cover, who we are, product
-categories and brands of the catalog (Red Point, Master and Kiel first), how to order («Hacé tu pedido» -> /pedido, «Quiero ser revendedor»
--> /revendedor), delivery zones (distri.zona), contact and the tobacco legal
+categories and brands of the catalog (Red Point, Master and Kiel first), how to order («Hacé tu pedido» -> /pedido, «Soy distribuidora» ->
+/revendedor, only for other distributors), delivery zones (distri.zona), contact and the tobacco legal
 notice in the footer. /revendedor without an invitation code shows the
-public «Quiero ser revendedor» page of controllers/alta_revendedor.py with
+public «¿Sos distribuidora?» page of controllers/alta_revendedor.py with
 the same layout.
 
 Everything lives in distri_pedido, next to the data it shows (the WhatsApp
@@ -33,7 +33,7 @@ from .reparto import fonts
 
 # query of the site's images: bump it when static/src/sitio/img changes
 # (Odoo serves static files with a one-week cache, Cloudflare too)
-SITIO_V = "?v=104.2"
+SITIO_V = "?v=106"
 IMG = "/distri_pedido/static/src/sitio/img/"
 LOGO = "/distri_pedido/static/src/img/iconos/"
 LOGO_V = "?v=95"
@@ -81,7 +81,7 @@ OTRAS_MARCAS = ["Bonafide", "Terrabusi", "Oreo", "Bagley", "Billiken", "Duracell
                 "Bayaspirina", "Tafirol"]
 
 TEXTO_CONSULTA = "Hola! Quiero hacer una consulta."
-TEXTO_REVENDEDOR = "Hola! Quiero ser revendedor de Distri Neuquén. Mi comercio es: "
+TEXTO_REVENDEDOR = "Hola! Soy de una distribuidora y quiero trabajar con Distri Neuquén. Mi empresa es: "
 
 
 def foto(name, widths, ext="jpg"):
@@ -150,7 +150,7 @@ def contexto_sitio(page_title, description, path):
         "v": SITIO_V,
         "logo": LOGO,
         "logo_v": LOGO_V,
-        "og_image": "%s%sog-distri-neuquen.jpg%s" % (base, IMG, SITIO_V),
+        "og_image": "%s%sog-distri-neuquen-2.jpg%s" % (base, IMG, SITIO_V),
         "empresa": datos["nombre"],
         "ficha": datos,
         "whatsapp": whatsapp,
@@ -204,7 +204,7 @@ class SitioPublico(http.Controller):
             "almacenes de Neuquén y la región. Hacé tu pedido online.",
             "/")
         values.update({
-            "portada": foto("portada", (640, 960, 1280)),
+            "portada": foto("portada2", (640, 960, 1280)),
             "comercio": foto("comercio", (480, 800)),
             "reparto_foto": foto("reparto", (480, 800)),
             "categorias": [dict(imagen("cat-" + key, "jpg"), titulo=titulo, ejemplos=ejemplos)

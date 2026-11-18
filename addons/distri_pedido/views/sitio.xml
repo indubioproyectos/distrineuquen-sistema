@@ -52,7 +52,7 @@
   <meta property="og:image" t-att-content="og_image"/>
   <meta property="og:image:width" content="1200"/>
   <meta property="og:image:height" content="630"/>
-  <meta property="og:image:alt" content="Carga de cajas en una camioneta de reparto, con el logo de Distri Neuquén"/>
+  <meta property="og:image:alt" content="Pilas de cajas en un depósito, con el logo de Distri Neuquén"/>
   <meta name="twitter:card" content="summary_large_image"/>
   <link rel="icon" type="image/svg+xml" t-att-href="logo + 'dn-logo.svg' + logo_v"/>
   <link rel="icon" type="image/png" sizes="192x192" t-att-href="logo + 'app-192.png' + logo_v"/>
@@ -117,7 +117,7 @@
           <h2 class="pie__tit">Comprar</h2>
           <ul class="pie__lista">
             <li><a href="/pedido">Hacé tu pedido</a></li>
-            <li><a href="/revendedor">Quiero ser revendedor</a></li>
+            <li><a href="/revendedor">Soy distribuidora</a></li>
             <li><a href="/#zonas">Zonas de reparto</a></li>
           </ul>
         </div>
@@ -149,7 +149,7 @@
         <t t-call="distri_pedido.sitio_foto">
           <t t-set="f" t-value="portada"/><t t-set="alt" t-value="''"/>
           <t t-set="sizes" t-value="'100vw'"/><t t-set="cls" t-value="'portada__foto'"/>
-          <t t-set="w" t-value="1280"/><t t-set="h" t-value="837"/><t t-set="eager" t-value="True"/>
+          <t t-set="w" t-value="1280"/><t t-set="h" t-value="960"/><t t-set="eager" t-value="True"/>
         </t>
         <div class="marco portada__in">
           <p class="volanta volanta--claro">Mayorista · Kioscos y almacenes</p>
@@ -159,7 +159,7 @@
             reparto de tu zona.</p>
           <div class="acciones">
             <a class="btn btn--turq btn--grande" href="/pedido">Hacé tu pedido</a>
-            <a class="btn btn--borde btn--grande" href="/revendedor">Quiero ser revendedor</a>
+            <a class="btn btn--borde btn--grande" href="/revendedor">Soy distribuidora</a>
           </div>
           <p t-if="whatsapp_texto" class="portada__wa">
             <t t-call="distri_pedido.sitio_wa_icono"/>
@@ -271,11 +271,11 @@
           </div>
           <div class="revende">
             <div>
-              <h3>¿Sos revendedor o distribuidora?</h3>
-              <p>Comunicate con nosotros y te contamos cómo trabajamos con revendedores y
-                distribuidoras.</p>
+              <h3>¿Sos distribuidora?</h3>
+              <p>Si sos una distribuidora y querés trabajar con nosotros, comunicate y te contamos
+                cómo. Los kioscos y almacenes piden directo con «Hacé tu pedido».</p>
             </div>
-            <a class="btn btn--primario" href="/revendedor">Quiero ser revendedor</a>
+            <a class="btn btn--primario" href="/revendedor">Soy distribuidora</a>
           </div>
         </div>
       </section>
@@ -302,27 +302,30 @@
     </t>
   </template>
 
-  <!-- /revendedor without an invitation code (controllers/alta_revendedor.py). -->
-  <template id="sitio_revendedor" name="Sitio: quiero ser revendedor">
+  <!-- /revendedor without an invitation code (controllers/alta_revendedor.py).
+       Owner, v106: only for other distributors; stores order on /pedido. -->
+  <template id="sitio_revendedor" name="Sitio: soy distribuidora">
     <t t-call="distri_pedido.sitio_layout">
       <t t-set="sin_flota" t-value="True"/>
       <section class="bloque">
         <div class="marco angosto">
-          <p class="volanta">Revendedores y distribuidoras</p>
-          <h1 class="tit-pagina">Quiero ser revendedor</h1>
-          <p class="bajada">Si tenés un comercio, sos revendedor o distribuidora, comunicate con
-            nosotros y te contamos cómo trabajamos.</p>
+          <p class="volanta">Distribuidoras</p>
+          <h1 class="tit-pagina">¿Sos distribuidora?</h1>
+          <p class="bajada">Si sos una distribuidora y querés trabajar con nosotros, comunicate y
+            te contamos cómo.</p>
+          <p class="nota nota--kiosco">¿Tenés un kiosco o almacén? No hace falta registrarte:
+            pedí directo con <a href="/pedido">Hacé tu pedido</a>.</p>
           <ol class="pasos">
-            <li><b>Escribinos por WhatsApp</b><span>Contanos el nombre de tu comercio y tu
-              localidad.</span></li>
+            <li><b>Escribinos por WhatsApp</b><span>Contanos el nombre de tu distribuidora y
+              tu localidad.</span></li>
             <li><b>Te mandamos tu enlace</b><span>Con ese enlace creás tu cuenta con tu correo y
-              completás los datos de tu comercio.</span></li>
+              completás los datos de tu empresa.</span></li>
             <li><b>Te habilitamos</b><span>Revisamos tus datos y te avisamos cuando tu cuenta
               está lista para pedir.</span></li>
           </ol>
           <div class="acciones acciones--pagina">
             <a t-if="whatsapp_revendedor" class="btn btn--wa btn--grande" t-att-href="whatsapp_revendedor"
-               target="_blank" rel="noopener"><t t-call="distri_pedido.sitio_wa_icono"/>Pedir el alta por WhatsApp</a>
+               target="_blank" rel="noopener"><t t-call="distri_pedido.sitio_wa_icono"/>Escribinos por WhatsApp</a>
             <a class="btn btn--primario btn--grande" href="/pedido">Ver el catálogo</a>
           </div>
           <p class="nota">¿Ya tenés usuario? <a href="/web/login?redirect=%2Fpedido">Entrá con tu usuario</a>.</p>

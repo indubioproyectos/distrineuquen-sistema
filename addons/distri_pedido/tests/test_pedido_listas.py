@@ -182,7 +182,7 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
     def test_reseller_signup_is_private(self):
         """19.0.1.93.0: no public «Soy revendedor» on /pedido; the signup
         only with the invitation link; noindex. 19.0.1.104.0: without the
-        code /revendedor is the public «Quiero ser revendedor» page of the
+        code /revendedor is the public «¿Sos distribuidora?» page of the
         website, with no signup link and nothing in the session."""
         html = self._pedido_html()
         self._assert_publica(html)
@@ -196,7 +196,7 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
                     "/revendedor?c=%s" % code.upper()):
             res = self.url_open(url)
             self.assertEqual(res.status_code, 200, url)
-            self.assertIn("Quiero ser revendedor", res.text, url)
+            self.assertIn("¿Sos distribuidora?", res.text, url)
             self.assertNotIn("/web/signup", res.text, url)
             self.assertNotIn("Crear cuenta con mi correo", res.text, url)
         # no free signup without the invitation in the session

@@ -3,7 +3,7 @@
 Sources (owner's folder /srv/odoo-lab/run/sitio-online-fotos, not in git):
   catalogo/         images extracted from the Dec 2024 catalog PDF
   pexels/           Pexels originals (free licence, no attribution needed):
-                    6169670 loading a van at a depot (cover, owner's pick 18/11/2026),
+                    10834810 stacks of boxes in a warehouse (cover, owner's pick, v106),
                     6545444 store counter, 5025669 delivery van,
                     6696896 unlabelled soda bottles (Gaseosas tile)
 Run with the lab image (Pillow with WebP):
@@ -44,13 +44,13 @@ def save(im, name, webp_q=74, jpg_q=80, png=False):
                 progressive=True)
 
 
-def widths(path, base, ws, crop=None):
+def widths(path, base, ws, crop=None, jpg_q=80):
     im = flat(Image.open(path))
     if crop:
         im = ImageOps.fit(im, crop, Image.LANCZOS, centering=(0.4, 0.5))
     for w in ws:
         h = round(im.height * w / im.width)
-        save(im.resize((w, h), Image.LANCZOS), "%s-%d" % (base, w))
+        save(im.resize((w, h), Image.LANCZOS), "%s-%d" % (base, w), jpg_q=jpg_q)
     return im
 
 
@@ -83,8 +83,11 @@ def logo(path, name, box=(232, 112), size=(264, 136)):
     return bg
 
 
-# cover: Pexels 6169670 (workers loading boxes into a van at a depot)
-hero = widths(DL + "/p-6169670.jpg", "portada", (640, 960, 1280))
+# cover: Pexels 10834810 (high stacks of boxes under a metal roof in a warehouse)
+# New file names («portada2», «og-distri-neuquen-2»): production serves
+# static files live, so the cover of the installed version keeps its files
+# until the upgrade.
+hero = widths(DL + "/p-10834810.jpg", "portada2", (640, 960, 1280), jpg_q=72)
 # about us: Pexels 6545444 (store counter); delivery: Pexels 5025669 (van)
 widths(DL + "/p-6545444.jpg", "comercio", (480, 800))
 widths(DL + "/p-5025669.jpg", "reparto", (480, 800))
@@ -94,7 +97,7 @@ og = ImageOps.fit(hero, (1200, 630), Image.LANCZOS, centering=(0.45, 0.5))
 icon = Image.open(ICON).convert("RGBA").resize((168, 168), Image.LANCZOS)
 og = og.convert("RGBA")
 og.alpha_composite(icon, (64, 630 - 64 - 168))
-og.convert("RGB").save(os.path.join(OUT, "og-distri-neuquen.jpg"), "JPEG", quality=82,
+og.convert("RGB").save(os.path.join(OUT, "og-distri-neuquen-2.jpg"), "JPEG", quality=82,
                        optimize=True, progressive=True)
 
 C = SRC + "/catalogo/"

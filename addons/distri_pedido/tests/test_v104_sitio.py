@@ -87,7 +87,8 @@ class TestSitioPublico(HttpCase):
     def test_calls_to_action(self):
         html = self._home()
         self.assertRegex(html, r'href="/pedido"[^>]*>Hacé tu pedido<')
-        self.assertRegex(html, r'href="/revendedor"[^>]*>Quiero ser revendedor<')
+        self.assertRegex(html, r'href="/revendedor"[^>]*>Soy distribuidora<')
+        self.assertNotIn("Quiero ser revendedor", html)
         self.assertIn("https://wa.me/5492990000104?text=", html)
         self.assertIn("299 000-0104", texto(html), "the WhatsApp number as text")
         self.assertIn('href="tel:+542990000105"', html)
@@ -120,7 +121,8 @@ class TestSitioPublico(HttpCase):
         self.assertRegex(html, r'<meta name="description" content="[^"]{60,}"')
         self.assertIn('<meta name="robots" content="index,follow"', html)
         self.assertIn('property="og:image" content="', html)
-        self.assertIn("og-distri-neuquen.jpg", html)
+        self.assertIn("og-distri-neuquen-2.jpg", html)
+        self.assertIn("portada2-1280.webp", html)
         self.assertIn('property="og:locale" content="es_AR"', html)
         self.assertIn('rel="canonical"', html)
         self.assertIn('"@type": "WholesaleStore"', html)
@@ -167,9 +169,14 @@ class TestSitioPublico(HttpCase):
         res = self.url_open("/revendedor")
         self.assertEqual(res.status_code, 200)
         page = texto(res.text)
-        self.assertIn("Quiero ser revendedor", page)
-        self.assertIn("Pedir el alta por WhatsApp", page)
-        self.assertIn("https://wa.me/5492990000104?text=", res.text)
+        # v106: only for other distributors; stores order on /pedido
+        self.assertIn("¿Sos distribuidora?", page)
+        self.assertIn("Si sos una distribuidora y querés trabajar con nosotros", page)
+        self.assertIn("kiosco o almacén", page)
+        self.assertIn('href="/pedido">Hacé tu pedido<', res.text)
+        self.assertNotIn("revendedor", page.lower().replace("/revendedor", ""))
+        self.assertIn("https://wa.me/5492990000104?text=Hola%21%20Soy%20de%20una%20distribuidora",
+                      res.text)
         self.assertNotIn("/web/signup", res.text)
         self.assertIn('class="cab"', res.text)
         for frase in ("listas de precios", "tu lista", "lista mayorista general"):
