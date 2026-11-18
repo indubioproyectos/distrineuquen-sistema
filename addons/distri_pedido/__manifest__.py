@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.107.0",
+    "version": "19.0.1.108.0",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -107,13 +107,22 @@
     # photo behind the text); desktop keeps the card right of the text.
     # The v105 cover files are deleted; portada2-* stays until this version
     # is installed (static files are served live). No migration.
+    # 19.0.1.108.0 (batch 1 of the staff screens moving to the kit, owner-
+    # approved mockups): «Pedidos para revisar» on the phone (/revisar,
+    # controllers/revisar.py, views/revisar_app.xml, static/src/revisar/:
+    # semaphore cards, Retener with its reason, Liberar, Copiar código,
+    # Abrir chat, Pegar número with the server's reading, Asignar cliente
+    # through the backend wizard for now) and the new «Inicio» (/tablero on
+    # the kit: glyph tiles with cheap count badges, the «pedidos en rojo»
+    # banner, «Tomar un pedido» and «Pedidos para revisar»). New static
+    # files and sprite symbols only; no new fields, no migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml",
              "views/vendedor_web.xml", "data/vendedores_web.xml",
              "views/comprobantes.xml", "views/errores.xml",
              "views/pegar_numero.xml", "views/comprobante_cliente.xml",
-             "views/cliente_provisorio.xml"],
+             "views/cliente_provisorio.xml", "views/revisar_app.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare

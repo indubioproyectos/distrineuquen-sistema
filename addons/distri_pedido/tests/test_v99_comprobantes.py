@@ -167,8 +167,8 @@ class TestSubirComprobante(HttpCase):
         self.authenticate("vendedor_comp_v99", "vendedor_comp_v99")
         from odoo.addons.distri_pedido.controllers.tablero import staff_tiles
         titles = [t["title"] for t in staff_tiles(self.env(user=self.seller))]
-        self.assertIn("Subir comprobante", titles)
-        self.assertNotIn("Subir comprobante",
+        self.assertIn("Comprobantes", titles)
+        self.assertNotIn("Comprobantes",
                          [t["title"] for t in staff_tiles(self.env(user=self.packer))])
 
     def test_kinds(self):

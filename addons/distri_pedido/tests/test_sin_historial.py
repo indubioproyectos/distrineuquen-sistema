@@ -17,7 +17,7 @@ NAV = {"X-Distri-Nav": "1"}
 MACRO = 't-call="distri_pedido.sin_historial"'
 # the legacy pages with forms or same-page links; alta_revendedor_head is
 # the <head> of «Soy revendedor» and «Mi perfil»
-LEGACY = ("login_page", "tablero_page", "cobro_page", "pantalla", "seguimiento",
+LEGACY = ("login_page", "cobro_page", "pantalla", "seguimiento",
           "cuenta_corriente", "mi_clave", "gracias", "datos_entrega", "alta_revendedor_head")
 # distri_ui.css single-page apps: no forms, hash routes, nothing to fix
 SPA = {"reparto_app", "despacho_app", "cuentas_app"}

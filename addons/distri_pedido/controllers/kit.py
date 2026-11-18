@@ -33,6 +33,10 @@ FILES = {
     # 19.0.1.99.0: «Subir comprobante» (controllers/comprobantes.py)
     "comprobantes.css": ("comprobantes/comprobantes.css", "text/css; charset=utf-8"),
     "comprobantes.js": ("comprobantes/comprobantes.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.108.0: «Pedidos para revisar» (controllers/revisar.py) and «Inicio»
+    "revisar.css": ("revisar/revisar.css", "text/css; charset=utf-8"),
+    "revisar.js": ("revisar/revisar.js", "text/javascript; charset=utf-8"),
+    "tablero.css": ("tablero/tablero.css", "text/css; charset=utf-8"),
     # 19.0.1.98.0: the «Ajustes» gear of every page (views/kit.xml dn_ajustes)
     "ajustes.css": ("kit/ajustes.css", "text/css; charset=utf-8"),
     "ajustes.js": ("kit/ajustes.js", "text/javascript; charset=utf-8"),

@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Pedidos para revisar» on the phone (19.0.1.108.0, controllers/revisar.py,
+       static/src/revisar/): the owner-approved mockups «01 Pedidos para
+       revisar» and «Pegar número», on the kit. The backend action
+       (views/revisar.xml) stays for the PC. -->
+
+  <!-- «Asignar cliente» from the phone: /odoo/sale.order/<id>/action-...
+       opens the order with the wizard the page prepared on top (the
+       wizard's own buttons only work in a dialog; a server action opened
+       by URL gets no active record, so it reopens the user's latest
+       wizard). Batch 3 moves it to the kit. -->
+  <record id="action_revisar_asignar_cliente" model="ir.actions.server">
+    <field name="name">Asignar cliente</field>
+    <field name="model_id" ref="sale.model_sale_order"/>
+    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion'))]"/>
+    <field name="state">code</field>
+    <field name="code">action = model.action_distri_revisar_asignar()</field>
+  </record>
+
+  <!-- One card; `c` is controllers/revisar.py card(). Also rendered alone
+       for the JSON answer of every action (the page swaps it). -->
+  <template id="revisar_card" name="Pedidos para revisar: tarjeta">
+    <article t-att-class="'rv-card rv-card--%s%s' % (c['color'], ' rv-card--compact' if c['compact'] else '')"
+             t-att-id="'rv-%s' % c['id']" t-att-data-id="c['id']" t-att-data-color="c['color']"
+             t-att-data-ret="'1' if c['retenido'] else None" t-att-data-name="c['name']"
+             t-att-data-cliente="c['cliente']" t-att-data-generic="'1' if c['generic'] else None"
+             t-att-hidden="'hidden' if oculto else None">
+      <div class="rv-head">
+        <span t-att-class="'dn-chip rv-sem rv-sem--%s' % c['color']"><span class="rv-dot" aria-hidden="true"/><t t-esc="c['color_label']"/></span>
+        <a class="rv-name" t-att-href="c['odoo_url']" t-esc="c['name']"/>
+        <span t-if="c['retenido']" class="dn-chip dn-chip--warn">Retenido</span>
+        <span t-if="c['estado']" class="dn-chip dn-chip--neutral" t-esc="c['estado']"/>
+        <b class="rv-amount dn-num" t-esc="c['amount']"/>
+      </div>
+      <t t-if="c['compact']">
+        <div class="rv-who rv-who--row">
+          <span class="rv-who__txt">
+            <b t-esc="c['cliente']"/>
+            <span class="rv-meta" t-esc="c['meta']"/>
+          </span>
+          <a class="dn-btn dn-btn--warn rv-btn-sm" t-att-href="'/revisar?retener=%s#rv-retener' % c['id']"
+             t-att-data-rv-retener="c['id']">Retener</a>
+        </div>
+      </t>
+      <t t-else="">
+        <div class="rv-who">
+          <b t-esc="c['cliente']"/>
+          <span class="rv-meta" t-esc="c['meta']"/>
+          <span t-if="c['generic'] and c['typed']" class="rv-meta">Escribió: <t t-esc="c['typed']"/></span>
+        </div>
+        <span t-if="c['motivos']" t-att-class="'rv-why' + (' rv-why--y' if c['color'] != 'rojo' else '')" t-esc="c['motivos']"/>
+        <span t-if="c['wa_label']" t-att-class="'dn-chip rv-wa dn-chip--%s' % c['wa_kind']"><t t-esc="c['wa_label']"/></span>
+        <div t-if="c['retenido']" class="rv-held">
+          <b>Pedido retenido.</b> <t t-esc="c['ret_quien']"/><t t-if="c['ret_cuando']"> · <t t-esc="c['ret_cuando']"/></t>
+          · Motivo: <t t-esc="c['ret_motivo']"/>
+          <span t-if="c['ret_nota']" class="rv-held__more" t-esc="c['ret_nota']"/>
+          <span t-if="c['ret_rutas']" class="rv-held__more">Sigue en la ruta <t t-esc="c['ret_rutas']"/>, que ya salió o
+            ya se controló: avisale al repartidor.</span>
+        </div>
+        <div t-if="c['code_line'] and not c['retenido']" class="rv-code">
+          <span class="rv-code__txt" t-esc="c['code_line']"/>
+          <button type="button" class="dn-btn dn-btn--ghost rv-btn-sm" t-att-data-rv-copiar="c['code_line']">
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'copy'"/></t><span>Copiar código</span></button>
+        </div>
+        <div class="dn-grid2 rv-acts" t-if="c['can_pegar'] or c['wa_url'] or (c['retenido'] and c['code_line'])">
+          <button t-if="c['can_pegar']" type="button" class="dn-btn dn-btn--ghost" t-att-data-rv-pegar="c['id']">
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'paste'"/></t>Pegar número</button>
+          <a t-if="c['wa_url']" class="dn-btn rv-btn-wa" t-att-href="c['wa_url']" target="_blank" rel="noopener">
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'chat'"/></t>Abrir chat</a>
+          <button t-if="c['retenido'] and c['code_line']" type="button" class="dn-btn dn-btn--ghost"
+                  t-att-data-rv-copiar="c['code_line']">
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'copy'"/></t><span>Copiar código</span></button>
+        </div>
+        <form t-if="c['can_asignar']" method="post" t-att-action="'/revisar/%s/asignar' % c['id']" data-fetch=""
+              data-rv-asignar="">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <button type="submit" class="dn-btn dn-btn--outline">
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>Asignar cliente</button>
+        </form>
+        <a t-if="c['can_retener']" class="dn-btn dn-btn--warn" t-att-href="'/revisar?retener=%s#rv-retener' % c['id']"
+           t-att-data-rv-retener="c['id']">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'pause'"/></t>Retener</a>
+        <form t-if="c['retenido']" method="post" t-att-action="'/revisar/%s/liberar' % c['id']" data-fetch=""
+              data-rv-liberar="">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <button type="submit" class="dn-btn">
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'play'"/></t>Liberar</button>
+        </form>
+        <a class="dn-link rv-odoo" t-att-href="c['odoo_url']">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en Odoo</a>
+      </t>
+    </article>
+  </template>
+
+  <template id="revisar_page" name="Pedidos para revisar">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Pedidos para revisar · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="rv" t-att-data-parent="inicio" data-page="revisar" t-att-data-liberar="liberar_texto">
+  <header class="dn-top rv-top">
+    <div class="dn-top__row rv-top__row">
+      <a class="rv-back" t-att-href="inicio" data-dn-back="">‹ Volver</a>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+    <div class="rv-top__txt">
+      <span class="dn-top__kicker">Distri Neuquén · Administración</span>
+      <h1 class="rv-title">Pedidos para revisar</h1>
+      <p class="rv-sub">Hoy y ayer, más los retenidos. Primero los rojos.</p>
+    </div>
+  </header>
+  <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
+  <div t-if="ok" class="dn-banner dn-banner--ok" role="status"><span t-esc="ok"/></div>
+
+  <nav class="rv-tabs" aria-label="Filtrar">
+    <a t-foreach="tabs" t-as="tab" t-att-href="'/revisar?ver=%s' % tab[0]"
+       t-att-class="'rv-tab' + (' on' if tab[0] == ver else '')" t-att-data-ver="tab[0]"
+       t-att-aria-current="'true' if tab[0] == ver else None">
+      <span t-if="tab[0] == 'rojos'" class="rv-dot rv-dot--rojo" aria-hidden="true"/>
+      <span t-if="tab[0] == 'amarillos'" class="rv-dot rv-dot--amarillo" aria-hidden="true"/>
+      <span><t t-esc="tab[1]"/> · <span class="dn-num" t-att-data-count="tab[0]" t-esc="counts[tab[0]]"/></span>
+    </a>
+  </nav>
+
+  <main class="dn-main rv-main" t-att-data-ver="ver">
+    <div class="dn-empty" data-rv-empty="" t-att-hidden="None if not cards else 'hidden'">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
+      <p>No hay pedidos para revisar.</p>
+    </div>
+    <t t-foreach="cards" t-as="c">
+      <t t-set="oculto" t-value="not (ver == 'todos' or (ver == 'rojos' and c['color'] == 'rojo') or (ver == 'amarillos' and c['color'] == 'amarillo') or (ver == 'retenidos' and c['retenido']))"/>
+      <t t-call="distri_pedido.revisar_card"/>
+    </t>
+    <p t-if="full" class="rv-legend">Se muestran los primeros pedidos: el resto, en «Abrir en Odoo».</p>
+    <p class="rv-legend">Rojo: sin cliente, cliente nuevo o sin compras. Amarillo: sin WhatsApp o importe alto.</p>
+  </main>
+
+  <!-- «Retener»: the reason (distri.retener.wizard's text). Without
+       JavaScript it is a card reached with ?retener=<id>#rv-retener. -->
+  <form id="rv-retener" class="dn-sheet rv-sheet" method="post" role="dialog" aria-labelledby="rv-retener-t"
+        t-att-action="'/revisar/%s/retener' % hold['id'] if hold else '/revisar/0/retener'"
+        t-att-hidden="None if hold else 'hidden'" data-fetch="">
+    <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+    <div class="rv-sheet__head">
+      <div class="rv-sheet__txt">
+        <h2 id="rv-retener-t">Retener el pedido</h2>
+        <span class="rv-meta" data-rv-quien=""><t t-if="hold"><t t-esc="hold['name']"/> · <t t-esc="hold['cliente']"/></t></span>
+      </div>
+      <a href="/revisar" class="dn-icon-btn" data-dn-close="" aria-label="Cerrar">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'close'"/></t></a>
+    </div>
+    <p>El pedido no se arma, no se factura y no sale en una ruta hasta que lo liberes. El motivo queda
+      en el historial del pedido.</p>
+    <div class="dn-field">
+      <label for="rv-motivo">Motivo</label>
+      <textarea id="rv-motivo" name="motivo" class="dn-input rv-motivo" rows="3" required="required"
+                t-att-maxlength="motivo_max"
+                placeholder="Ej.: cliente nuevo, pedido muy grande, confirmar por teléfono"/>
+    </div>
+    <button type="submit" class="dn-btn dn-btn--warn rv-strong">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'pause'"/></t>Retener</button>
+    <a href="/revisar" class="dn-link rv-center" data-dn-close="">Volver</a>
+  </form>
+
+  <!-- «Pegar número» (WhatsApp del cliente): needs JavaScript -->
+  <div id="rv-pegar" class="dn-sheet rv-sheet" role="dialog" aria-labelledby="rv-pegar-t" hidden="hidden">
+    <div class="rv-sheet__head">
+      <div class="rv-sheet__txt">
+        <h2 id="rv-pegar-t">WhatsApp del cliente</h2>
+        <span class="rv-meta" data-rv-quien=""/>
+      </div>
+      <button type="button" class="dn-icon-btn" data-dn-close="" aria-label="Cerrar">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'close'"/></t></button>
+    </div>
+    <p>Pegá el número que copiaste de «Info. del contacto» en WhatsApp: queda como WhatsApp verificado
+      del cliente.</p>
+    <div class="dn-field">
+      <label for="rv-pn">Pegar número</label>
+      <input id="rv-pn" class="dn-input dn-input--big rv-pn" type="text" inputmode="tel" autocomplete="off"
+             maxlength="200" placeholder="+54 9 299 555-1234" data-rv-pn=""/>
+      <span class="rv-hint">El área y el número se completan solos. También podés escribirlos abajo.</span>
+    </div>
+    <div class="rv-pn-grid">
+      <div class="dn-field"><label for="rv-ar">Área</label>
+        <input id="rv-ar" class="dn-input dn-num" type="text" inputmode="numeric" autocomplete="off"
+               maxlength="6" placeholder="299" data-rv-area=""/></div>
+      <div class="dn-field"><label for="rv-nu">Número</label>
+        <input id="rv-nu" class="dn-input dn-num" type="text" inputmode="numeric" autocomplete="off"
+               maxlength="12" placeholder="512-0447" data-rv-numero=""/></div>
+    </div>
+    <p class="rv-err" data-rv-error="" role="alert" hidden="hidden"/>
+    <div class="rv-read" data-rv-read="" hidden="hidden">
+      <span class="rv-read__k">Número leído</span>
+      <b>Queda así: <span data-rv-preview=""/></b>
+    </div>
+    <div class="rv-warn" data-rv-aviso="" hidden="hidden">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'alert'"/></t><span data-rv-aviso-txt=""/>
+    </div>
+    <div class="rv-ya" data-rv-ya="" hidden="hidden">
+      <span class="dn-label">Ya tienen este número</span>
+      <div data-rv-ya-list=""/>
+    </div>
+    <div class="rv-sheet__acts">
+      <button type="button" class="dn-btn" data-rv-guardar="">Guardar el WhatsApp verificado</button>
+      <button type="button" class="dn-btn dn-btn--outline" data-rv-pegar-asignar="" hidden="hidden">Asignar cliente</button>
+      <button type="button" class="dn-link rv-center" data-dn-close="">Volver</button>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+</odoo>

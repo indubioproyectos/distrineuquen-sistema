@@ -52,7 +52,7 @@ class TestLoginLanding(HttpCase):
         self.assertNotIn("Location", self.url_open("/odoo?apps=1", allow_redirects=False).headers)
         page = self.url_open("/tablero")
         self.assertEqual(page.status_code, 200)
-        self.assertIn("Estado de cuentas", page.text)
+        self.assertIn("Deudores y estado de cuenta", page.text)
         self.assertIn("Cobros", page.text)
         self.assertIn('href="/cuentas"', page.text)
         self.assertIn("Todas las aplicaciones", page.text)
