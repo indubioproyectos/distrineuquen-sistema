@@ -131,7 +131,9 @@ def is_visible(entry, own_since):
 
 def _dedup_key(entry):
     if entry["kind"] != "text":
-        return "f:" + (entry.get("checksum") or entry["key"])
+        # a photo turned after it arrived (models/comprobante_subir.py) is
+        # the same file as its original bytes
+        return "f:" + (entry.get("original_checksum") or entry.get("checksum") or entry["key"])
     return "t:%s|%s" % (floor_minute(entry["local"]).isoformat(),
                         " ".join((entry.get("body") or "").lower().split()))
 
@@ -249,6 +251,7 @@ class DistriChatViewer(models.AbstractModel):
                 "body": msg.body or "", "pos": msg.distri_chat_minute_pos,
                 "attachment_id": msg.attachment_id.id or False,
                 "checksum": msg.attachment_id.checksum or "",
+                "original_checksum": msg.distri_original_checksum or "",
                 "file_name": msg.media_filename or msg.attachment_id.name or "",
                 "amount": msg.distri_amount or 0.0,
                 "collection_id": msg.distri_collection_id.id or False,
@@ -272,6 +275,8 @@ class DistriChatViewer(models.AbstractModel):
                AND NOT EXISTS (SELECT 1 FROM ir_attachment w
                                 WHERE w.res_model = 'distri.whatsapp.message'
                                   AND w.checksum = a.checksum)
+               AND NOT EXISTS (SELECT 1 FROM distri_whatsapp_message t
+                                WHERE t.distri_original_checksum = a.checksum)
              ORDER BY a.id""")
         out = []
         for card_id, body, att_id, name, mimetype, checksum in self.env.cr.fetchall():

@@ -1,5 +1,7 @@
 /* «Subir comprobante» (19.0.1.99.0): only what the kit (../kit/dn.css) does
-   not have. Phone first. */
+   not have. Phone first. 19.0.1.100.0: rows with «Importe» and «Girar»
+   (.comp-thumbs--rows, only on the 19.0.1.100.0 page), clickable rows of
+   «Subidos hoy por vos», «Ver comprobante» and «Mis comprobantes». */
 .comp-form{display:flex;flex-direction:column;gap:14px}
 .comp-muted{margin:0;color:var(--dn-muted);font-size:15px}
 .comp-pick{display:flex;flex-direction:column;gap:10px}
@@ -16,6 +18,18 @@
   font-weight:900;color:var(--dn-navy)}
 .comp-thumb__pdf .dn-i{width:32px;height:32px}
 .comp-thumb__name{font-size:12px;color:var(--dn-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comp-thumb img{transition:transform .15s ease}
+.comp-thumbs--rows{grid-template-columns:1fr}
+.comp-thumbs--rows .comp-thumb{display:grid;grid-template-columns:88px minmax(0,1fr);
+  grid-template-areas:"img name" "img turn" "amt amt";gap:6px 12px;align-items:center;padding:8px}
+.comp-thumbs--rows .comp-thumb img,.comp-thumbs--rows .comp-thumb__pdf{grid-area:img;width:88px;height:88px;
+  aspect-ratio:auto;object-fit:contain}
+.comp-thumbs--rows .comp-thumb__name{grid-area:name;font-size:14px;padding-right:28px}
+.comp-thumb__turn{grid-area:turn;justify-self:start;width:auto;min-height:44px;padding:0 14px;font-size:16px}
+.comp-thumb__amt{grid-area:amt;display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--dn-muted)}
+.comp-thumb__amt .dn-input{font-size:18px}
+.comp-thumb__amt .dn-input[aria-invalid=true]{border-color:var(--dn-red-text);outline-color:var(--dn-red-text)}
+.comp-thumb__err{color:var(--dn-red-text);font-size:13px}
 .comp-thumb__x{position:absolute;top:-8px;right:-8px;width:32px;height:32px;border-radius:16px;border:0;
   background:var(--dn-navy);color:#fff;font-size:20px;line-height:1;cursor:pointer}
 
@@ -35,11 +49,36 @@
 
 .comp-list{list-style:none;margin:0;padding:0;background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r)}
 .comp-list:empty{display:none}
-.comp-item{display:grid;grid-template-columns:28px auto 1fr;grid-template-areas:"st amt who" "st state state";
-  column-gap:10px;padding:12px 14px;border-top:1px solid var(--dn-line);align-items:baseline}
-.comp-item:first-child{border-top:0}
+.comp-list>li+li{border-top:1px solid var(--dn-line)}
+.comp-item{display:grid;grid-template-columns:28px auto 1fr;grid-template-areas:"st amt who" "st state state" "st note note";
+  column-gap:10px;padding:12px 14px;align-items:baseline;color:inherit;text-decoration:none}
+.comp-item--link{min-height:56px;cursor:pointer}
+.comp-item--link:active{background:var(--dn-tint)}
+.comp-item__note{grid-area:note;color:var(--dn-muted)}
+.comp-item__note--warn{color:var(--dn-amber-text);font-weight:700}
+.comp-item__st--aprobado{color:var(--dn-green-text);font-weight:900}
+.comp-item__st--rechazado{color:var(--dn-red-text);font-weight:900}
+.comp-more{margin:8px 0 0;text-align:center}
+.comp-more a{display:inline-block;padding:12px 4px}
 .comp-item__st{grid-area:st;font-size:18px}
 .comp-item__st--matched,.comp-item__st--registered{color:var(--dn-green-text);font-weight:900}
 .comp-item__amt{grid-area:amt;font-weight:800;white-space:nowrap}
 .comp-item__who{grid-area:who;min-width:0;overflow-wrap:anywhere}
 .comp-item__state{grid-area:state;color:var(--dn-muted)}
+
+/* «Mis comprobantes» */
+.comp-filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.comp-filters a{text-decoration:none;min-height:40px;padding:0 14px}
+.comp-filters a[aria-current]{font-weight:800}
+
+/* «Ver comprobante» */
+.comp-ver{display:flex;flex-direction:column;gap:12px}
+.comp-ver__state{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
+.comp-ver__note{margin:0}
+.comp-ver__facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:0;
+  background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r);padding:12px 14px}
+.comp-ver__facts dt{color:var(--dn-muted)}
+.comp-ver__facts dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+.comp-ver__file{font-weight:400!important;font-size:14px}
+.comp-ver__photo{display:block;background:var(--dn-line);border-radius:var(--dn-r);overflow:hidden}
+.comp-ver__photo img{display:block;width:100%;max-height:75vh;object-fit:contain}

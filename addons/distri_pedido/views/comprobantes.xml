@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
   <!-- «Subir comprobante» (19.0.1.99.0, audit 3a): controllers/comprobantes.py,
-       models/comprobante_subir.py, static/src/comprobantes/. On the kit. -->
+       models/comprobante_subir.py, static/src/comprobantes/. On the kit.
+       19.0.1.100.0: «Importe» and «Girar» per file, «Ver comprobante» and
+       «Mis comprobantes». data-comp-api="100" on the form tells
+       comprobantes.js that this server takes them (the static files are
+       served before the module is updated). -->
 
   <template id="comprobantes_page" name="Subir comprobante">&lt;!DOCTYPE html&gt;
 <html lang="es">
@@ -26,7 +30,7 @@
   <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
   <main class="dn-main">
     <form id="comp-form" class="comp-form" method="post" action="/comprobantes/subir"
-          enctype="multipart/form-data" data-comp-form="">
+          enctype="multipart/form-data" data-comp-form="" data-comp-api="100">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <input t-if="stage" type="hidden" name="compartido" t-att-value="stage.token"/>
 
@@ -46,14 +50,25 @@
 
       <section class="comp-sel" data-comp-sel="" t-att-hidden="None if preview else 'hidden'">
         <h2 class="dn-label">Para subir</h2>
-        <ul class="comp-thumbs" data-comp-thumbs="">
+        <ul class="comp-thumbs comp-thumbs--rows" data-comp-thumbs="">
           <li t-foreach="preview" t-as="f" class="comp-thumb">
             <img t-if="not f['pdf']" t-att-src="f['src']" alt="Comprobante compartido"/>
             <span t-else="" class="comp-thumb__pdf"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'doc'"/></t>PDF</span>
             <span class="comp-thumb__name" t-esc="f['name']"/>
+            <input type="hidden" name="giro_compartido" value="0" data-comp-turn=""/>
+            <button t-if="not f['pdf']" type="button" class="dn-btn dn-btn--outline comp-thumb__turn"
+                    data-comp-rot="" aria-label="Girar la foto">↻ Girar</button>
+            <label class="comp-thumb__amt">
+              <span>Importe (opcional)</span>
+              <input class="dn-input dn-num" type="text" name="importe_compartido" inputmode="decimal"
+                     autocomplete="off" maxlength="20" placeholder="Ej.: 150.000" enterkeyhint="done"
+                     data-comp-amt=""/>
+            </label>
           </li>
         </ul>
         <p t-if="preview" class="comp-muted">Llegaron con «Compartir con Distri».</p>
+        <p class="comp-muted">Si sabés el importe, escribilo: administración lo compara con lo que lea
+          del comprobante.</p>
       </section>
 
       <div class="dn-field comp-cliente">
@@ -79,20 +94,126 @@
       <p>Todavía no subiste comprobantes hoy.</p>
     </div>
     <ul class="comp-list" data-comp-list="">
-      <li t-foreach="uploads" t-as="u" class="comp-item">
+      <li t-foreach="uploads" t-as="u"><a class="comp-item comp-item--link" t-att-href="u['url']" data-dn="down">
         <span t-att-class="'comp-item__st comp-item__st--%s' % ('reading' if u['reading'] else (u['state'] or 'pending'))"
               t-esc="'⏳' if u['reading'] or u['state'] in ('pending', 'no_money') else ('✓' if u['state'] in ('matched', 'registered') else '•')"/>
-        <span class="comp-item__amt dn-num" t-esc="money(u['amount']) if u['amount'] else ('leyendo…' if u['reading'] else 'sin importe')"/>
+        <span class="comp-item__amt dn-num" t-esc="money(u['amount'] or u['amount_typed']) if (u['amount'] or u['amount_typed']) else ('leyendo…' if u['reading'] else 'sin importe')"/>
         <span class="comp-item__who" t-esc="u['partner'] or 'sin cliente'"/>
         <small class="comp-item__state" t-esc="u['state_label']"/>
-      </li>
+        <small t-if="u['amount_differs']" class="comp-item__note comp-item__note--warn"
+               t-esc="'Cargaste %s y el comprobante dice %s: lo revisa administración.' % (money(u['amount_typed']), money(u['amount']))"/>
+        <small t-elif="u['amount_typed'] and u['reading']" class="comp-item__note">Importe cargado por vos · leyendo el comprobante…</small>
+      </a></li>
     </ul>
+    <p class="comp-more"><a class="dn-link" href="/comprobantes/mios" data-dn="down">Ver mis comprobantes de los
+      últimos 30 días</a></p>
   </main>
   <div class="dn-bottom">
     <div class="dn-foot dn-foot--one">
       <button type="submit" form="comp-form" class="dn-btn dn-btn--lg" data-comp-send="">Subir</button>
     </div>
   </div>
+</body>
+</html>
+  </template>
+
+  <!-- «Ver comprobante» (19.0.1.100.0): read only, for whoever uploaded it
+       and for administración / gerencia (controllers/comprobantes.py view) -->
+  <template id="comprobante_ver_page" name="Ver comprobante">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Comprobante · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="comp" t-att-data-parent="parent" data-page="comprobante">
+  <header class="dn-top">
+    <div class="dn-top__row">
+      <a class="dn-icon-btn" t-att-href="parent" data-dn-back="" aria-label="Volver">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t>
+      </a>
+      <div class="dn-top__txt">
+        <span class="dn-top__kicker">Comprobante subido</span>
+        <h1 class="dn-top__title dn-num" t-esc="money(r['amount'] or r['amount_typed']) if (r['amount'] or r['amount_typed']) else 'Sin importe'"/>
+      </div>
+    </div>
+  </header>
+  <main class="dn-main comp-ver">
+    <t t-set="chip" t-value="{'pendiente': 'warn', 'aprobado': 'ok', 'rechazado': 'err'}.get(r['bucket'], 'neutral')"/>
+    <p class="comp-ver__state">
+      <span t-att-class="'dn-chip dn-chip--%s' % chip" t-esc="r['bucket_label']"/>
+      <small class="comp-muted" t-if="r['state_label'] and r['state_label'] != r['bucket_label']" t-esc="r['state_label']"/>
+    </p>
+    <div t-if="r['note']" class="dn-card dn-card--warn comp-ver__note">
+      <b>Aclaración de administración:</b> <span t-esc="r['note']"/>
+    </div>
+    <div t-if="r['typed_note']" class="dn-card dn-card--warn comp-ver__note">
+      <b>Importe distinto.</b> <span t-esc="r['typed_note']"/>. Lo revisa administración.
+    </div>
+    <dl class="comp-ver__facts">
+      <dt>Importe</dt>
+      <dd class="dn-num" t-esc="money(r['amount']) if r['amount'] else ('leyendo el comprobante…' if r['reading'] else 'sin importe leído')"/>
+      <t t-if="r['amount_typed']"><dt>Importe que cargaste</dt><dd class="dn-num" t-esc="money(r['amount_typed'])"/></t>
+      <dt>Cliente</dt><dd t-esc="r['partner'] or 'sin cliente (lo propone el sistema o administración)'"/>
+      <dt>Subido</dt><dd><t t-esc="r['when']"/> · <t t-esc="r['uploader']"/></dd>
+      <dt>Archivo</dt><dd class="comp-ver__file" t-esc="r['name']"/>
+    </dl>
+    <t t-if="r['file_url']">
+      <a t-if="r['image']" class="comp-ver__photo" t-att-href="r['file_url']" target="_blank" rel="noopener">
+        <img t-att-src="r['file_url']" alt="Foto del comprobante"/>
+      </a>
+      <a class="dn-btn dn-btn--outline dn-btn--lg" t-att-href="r['file_url']" target="_blank" rel="noopener">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'image' if r['image'] else 'doc'"/></t>
+        <t t-esc="'Ver la foto en pantalla completa' if r['image'] else 'Abrir el PDF'"/>
+      </a>
+    </t>
+    <p class="comp-muted">Lo aprueba o lo descarta administración en Cobros.</p>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- «Mis comprobantes» (19.0.1.100.0): the user's uploads of the last
+       days, by state -->
+  <template id="comprobantes_mios_page" name="Mis comprobantes">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Mis comprobantes · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="comp" data-parent="/comprobantes" data-page="comprobantes-mios">
+  <header class="dn-top">
+    <div class="dn-top__row">
+      <a class="dn-icon-btn" href="/comprobantes" data-dn-back="" aria-label="Volver a Subir comprobante">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t>
+      </a>
+      <div class="dn-top__txt">
+        <span class="dn-top__kicker">Últimos <t t-esc="days"/> días</span>
+        <h1 class="dn-top__title">Mis comprobantes</h1>
+      </div>
+    </div>
+  </header>
+  <main class="dn-main">
+    <nav class="comp-filters" aria-label="Filtrar por estado">
+      <a t-foreach="filters" t-as="f" t-att-href="'/comprobantes/mios' + ('?estado=%s' % f[0] if f[0] else '')"
+         t-att-class="'dn-chip ' + ('dn-chip--ok' if f[0] == estado else 'dn-chip--neutral')"
+         t-att-aria-current="'page' if f[0] == estado else None" data-dn="side" t-esc="f[1]"/>
+    </nav>
+    <div class="dn-empty" t-if="not rows">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
+      <p>No hay comprobantes<t t-if="estado"> en este estado</t>.</p>
+    </div>
+    <ul class="comp-list" t-if="rows">
+      <li t-foreach="rows" t-as="u"><a class="comp-item comp-item--link" t-att-href="u['url'] + '?desde=mios'" data-dn="down">
+        <span t-att-class="'comp-item__st comp-item__st--%s' % u['bucket']"
+              t-esc="{'aprobado': '✓', 'rechazado': '✕', 'pendiente': '⏳'}.get(u['bucket'], '•')"/>
+        <span class="comp-item__amt dn-num" t-esc="money(u['amount'] or u['amount_typed']) if (u['amount'] or u['amount_typed']) else 'sin importe'"/>
+        <span class="comp-item__who" t-esc="u['partner'] or 'sin cliente'"/>
+        <small class="comp-item__state"><t t-esc="u['bucket_label']"/> · <t t-esc="u['date']"/></small>
+      </a></li>
+    </ul>
+  </main>
 </body>
 </html>
   </template>

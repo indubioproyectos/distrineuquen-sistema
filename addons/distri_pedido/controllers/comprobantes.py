@@ -6,6 +6,16 @@
     /comprobantes/compartir      Web Share Target of the staff app (manifest
                                  of /tablero): stages the shared files and
                                  opens /comprobantes with them
+    /comprobantes/<id>           «Ver comprobante» (19.0.1.100.0): the file,
+                                 amount, customer, state; read only
+    /comprobantes/<id>/archivo   the stored file, for that page
+    /comprobantes/mios           «Mis comprobantes»: last 30 days, by state
+
+19.0.1.100.0: an optional «Importe» and a «Girar» per file. comprobantes.js
+sends one «importes» and one «giros» value per «archivos» file, in the same
+order, and one «importe_compartido» / «giro_compartido» per shared file (the
+page renders those inputs); the model parses and checks them. An older
+server ignores these fields.
 
 Plain HTML forms that also work without JavaScript; comprobantes.js sends
 them with fetch() (X-Distri-Fetch: 1) and gets JSON. The rules live in
@@ -14,13 +24,13 @@ models/comprobante_subir.py; every route checks the groups first
 """
 from urllib.parse import quote
 
-from werkzeug.exceptions import Forbidden
+from werkzeug.exceptions import Forbidden, NotFound
 
 from odoo import http
 from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
-from ..models.comprobante_subir import MAX_FILE_BYTES, MAX_FILES, can_upload
+from ..models.comprobante_subir import BUCKETS, LIST_DAYS, MAX_FILE_BYTES, MAX_FILES, can_upload
 from ..models.reparto import _money
 from .kit import kit_context
 from .tablero import wants_tablero
@@ -71,12 +81,20 @@ class Comprobantes(http.Controller):
 
     def _files(self):
         """[(filename, bytes)] of the request's «archivos» inputs."""
+        return [(name, raw) for name, raw, _amount, _turn in self._files_with_amounts()]
+
+    def _files_with_amounts(self):
+        """[(filename, bytes, typed amount text, «Girar» value)]: the n-th
+        «importes» and «giros» values belong to the n-th «archivos» file."""
+        form = request.httprequest.form
+        amounts, turns = form.getlist("importes"), form.getlist("giros")
         out = []
-        for storage in request.httprequest.files.getlist("archivos"):
+        for n, storage in enumerate(request.httprequest.files.getlist("archivos")):
             if not storage or not storage.filename:
                 continue
             raw = storage.read(MAX_FILE_BYTES + 1)
-            out.append((storage.filename, raw))
+            out.append((storage.filename, raw, amounts[n] if n < len(amounts) else "",
+                        turns[n] if n < len(turns) else ""))
         return out
 
     def _partner(self, value):
@@ -123,17 +141,29 @@ class Comprobantes(http.Controller):
         self._check()
         if (request.httprequest.content_length or 0) > MAX_BODY:
             return self._refuse("Son demasiados archivos juntos: subilos de a menos.", status=413)
-        files = self._files()
+        chosen = self._files_with_amounts()
+        files = [(name, raw) for name, raw, _amount, _turn in chosen]
+        amounts = [amount for _name, _raw, amount, _turn in chosen]
+        turns = [turn for _name, _raw, _amount, turn in chosen]
         stage = request.env["distri.receipt.share"]
         if compartido:
             stage = stage._distri_claim(compartido)
             if stage:
-                files = stage._distri_files() + files
+                shared = stage._distri_files()
+                form = request.httprequest.form
+                shared_amounts = form.getlist("importe_compartido")
+                shared_turns = form.getlist("giro_compartido")
+                files = shared + files
+                amounts = [shared_amounts[n] if n < len(shared_amounts) else ""
+                           for n in range(len(shared))] + amounts
+                turns = [shared_turns[n] if n < len(shared_turns) else ""
+                         for n in range(len(shared))] + turns
         partner = self._partner(cliente_id)
         try:
             with request.env.cr.savepoint():
                 results = request.env["distri.whatsapp.message"]._distri_upload_receipts(
-                    files, partner=partner, via="compartido" if stage else "pantalla")
+                    files, partner=partner, via="compartido" if stage else "pantalla",
+                    amounts=amounts, rotations=turns)
         except (UserError, AccessError) as exc:
             return self._refuse(_error_text(exc))
         if stage:
@@ -148,6 +178,64 @@ class Comprobantes(http.Controller):
         if self._by_fetch():
             return self._json({"ok": False, "error": text}, status=status)
         return self._render({"error": text}, status=status)
+
+    # ---------------------------------------------------------------- «Ver comprobante»
+
+    def _receipt(self, msg_id):
+        """The uploaded receipt the user may see, else 404 (whether it exists
+        is not told)."""
+        user = self._check()
+        msg = request.env["distri.whatsapp.message"].sudo().browse(msg_id).exists()
+        if not msg or not msg._distri_upload_visible_to(user):
+            raise NotFound()
+        return msg
+
+    def _page_response(self, template, values):
+        user = request.env.user
+        base = {
+            "dn": kit_context("comprobantes.css", "comprobantes.js"),
+            "user": user,
+            "money": _money,
+        }
+        base.update(values)
+        html = request.env["ir.qweb"]._render(template, base)
+        return request.make_response(html, headers=[
+            ("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")])
+
+    @http.route("/comprobantes/<int:msg_id>", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def view(self, msg_id, desde="", **kw):
+        msg = self._receipt(msg_id)
+        parent = "/comprobantes/mios" if desde == "mios" else "/comprobantes"
+        return self._page_response("distri_pedido.comprobante_ver_page", {
+            "r": msg._distri_upload_detail(), "parent": parent})
+
+    @http.route("/comprobantes/<int:msg_id>/archivo", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def file(self, msg_id, **kw):
+        msg = self._receipt(msg_id)
+        attachment = msg.attachment_id.sudo()
+        if not attachment:
+            raise NotFound()
+        name = (attachment.name or "comprobante").replace('"', "")
+        return request.make_response(attachment.raw or b"", headers=[
+            ("Content-Type", attachment.mimetype or "application/octet-stream"),
+            ("Content-Disposition", "inline; filename*=UTF-8''%s" % quote(name)),
+            ("X-Content-Type-Options", "nosniff"),
+            ("Cache-Control", "private, no-store")])
+
+    @http.route("/comprobantes/mios", type="http", auth="user", methods=["GET"], sitemap=False)
+    def mine(self, estado="", **kw):
+        user = self._check()
+        bucket = estado if estado in BUCKETS else ""
+        msgs = request.env["distri.whatsapp.message"]._distri_uploads_recent(user, bucket or None)
+        return self._page_response("distri_pedido.comprobantes_mios_page", {
+            "rows": [m._distri_upload_row() for m in msgs],
+            "estado": bucket,
+            "filters": [("", "Todos"), ("pendiente", "Pendientes"), ("aprobado", "Aprobados"),
+                        ("rechazado", "Rechazados")],
+            "days": LIST_DAYS,
+        })
 
     # ---------------------------------------------------------------- share target
 

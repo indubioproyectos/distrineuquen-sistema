@@ -40,6 +40,7 @@
         <field name="receipt_id"/>
         <field name="receipt_is_image"/>
         <field name="receipt_amount_review"/>
+        <field name="receipt_amount_typed_note"/>
         <field name="receipt_forwarded_by_id"/>
         <field name="proposal"/>
         <field name="proposal_note"/>
@@ -134,6 +135,10 @@
               </span>
               <span t-if="record.receipt_amount_review.raw_value" class="o_distri_badge o_distri_badge_warn">
                 <i class="fa fa-eye" aria-hidden="true"/> Revisar importe de la foto
+              </span>
+              <span t-if="record.receipt_amount_typed_note.raw_value" class="o_distri_badge o_distri_badge_warn"
+                    title="Quien subió el comprobante cargó un importe y la lectura dice otro: quedó el leído.">
+                <i class="fa fa-pencil-square-o" aria-hidden="true"/> <t t-esc="record.receipt_amount_typed_note.raw_value"/>
               </span>
               <span t-if="record.confirmed_without_receipt.raw_value"
                     class="o_distri_badge o_distri_badge_danger"
@@ -485,6 +490,17 @@
             <h4>Comprobante de WhatsApp</h4>
             <field name="receipt_image" widget="image" options="{'size': [0, 900], 'zoom': true}"
                    invisible="not receipt_is_image"/>
+            <div invisible="not receipt_is_image" class="d-flex gap-2 my-2"
+                 groups="distri_pedido.grupo_administracion,distri_pedido.grupo_cobros,base.group_system">
+              <button name="action_receipt_rotate_left" type="object" string="Girar a la izquierda"
+                      icon="fa-rotate-left" class="btn-secondary"/>
+              <button name="action_receipt_rotate_right" type="object" string="Girar a la derecha"
+                      icon="fa-rotate-right" class="btn-secondary"/>
+            </div>
+            <div class="alert alert-warning" role="alert" invisible="not receipt_amount_typed_note">
+              Importe distinto: <field name="receipt_amount_typed_note" readonly="1" class="fw-bold"/>.
+              Quedó el leído; confirmalo mirando la foto.
+            </div>
             <field name="receipt_context_html" widget="html" readonly="1" nolabel="1"/>
             <group>
               <group>
@@ -883,6 +899,7 @@
     <field name="priority">30</field>
     <field name="arch" type="xml">
       <list string="Comprobantes por WhatsApp" create="0" delete="0" editable="bottom"
+            decoration-warning="distri_amount_typed_differs"
             decoration-muted="distri_receipt_state in ('matched', 'dismissed', 'duplicate', 'registered')"
             decoration-info="distri_receipt_state == 'outgoing'"
             decoration-danger="distri_receipt_state == 'no_money' or distri_conflict">
@@ -898,6 +915,10 @@
                decoration-warning="distri_amount_confidence in ('low', 'none')"
                decoration-info="distri_amount_confidence == 'manual'"/>
         <field name="distri_read_amount" optional="hide"/>
+        <field name="distri_amount_typed" optional="show" readonly="1"/>
+        <field name="distri_amount_typed_differs" column_invisible="1"/>
+        <field name="distri_amount_typed_note" optional="show" readonly="1"
+               decoration-warning="distri_amount_typed_differs"/>
         <field name="distri_operation" optional="show"/>
         <field name="distri_payer_name" optional="hide"/>
         <field name="distri_payer_cuit" optional="hide"/>
@@ -928,6 +949,11 @@
     <field name="arch" type="xml">
       <form string="Comprobante" create="0" delete="0">
         <sheet>
+          <field name="distri_amount_typed_differs" invisible="1"/>
+          <div class="alert alert-warning" role="alert" invisible="not distri_amount_typed_note">
+            Importe distinto: <field name="distri_amount_typed_note" readonly="1" class="fw-bold"/>.
+            Quedó el leído; confirmalo mirando la foto y, si hace falta, escribí el importe.
+          </div>
           <group>
             <group>
               <field name="timestamp" readonly="1"/>
@@ -944,6 +970,7 @@
                      decoration-success="distri_amount_confidence == 'high'"
                      decoration-warning="distri_amount_confidence in ('low', 'none')"
                      decoration-info="distri_amount_confidence == 'manual'"/>
+              <field name="distri_amount_typed" invisible="not distri_amount_typed"/>
               <label for="distri_read_amount" invisible="not distri_read_amount"/>
               <div invisible="not distri_read_amount" class="d-flex gap-2 align-items-baseline">
                 <field name="distri_read_amount" class="oe_inline"/>
@@ -965,6 +992,13 @@
               <field name="attachment_id" invisible="1"/>
               <field name="media_data" string="Comprobante" widget="image" readonly="1"
                      invisible="not media_is_image" options="{'size': [0, 520]}"/>
+              <div invisible="not media_is_image" class="d-flex gap-2" colspan="2"
+                   groups="distri_pedido.grupo_administracion,distri_pedido.grupo_cobros,base.group_system">
+                <button name="action_distri_rotate_left" type="object" string="Girar a la izquierda"
+                        icon="fa-rotate-left" class="btn-secondary"/>
+                <button name="action_distri_rotate_right" type="object" string="Girar a la derecha"
+                        icon="fa-rotate-right" class="btn-secondary"/>
+              </div>
               <field name="media_data" string="Comprobante" widget="binary" readonly="1"
                      filename="media_name" invisible="not attachment_id or media_is_image"/>
             </group>
@@ -1014,6 +1048,9 @@
         <filter name="no_amount" string="Sin importe" domain="[('distri_amount', '=', 0)]"/>
         <filter name="amount_review" string="Revisar importe"
                 domain="[('distri_amount_review', '=', True)]"/>
+        <separator/>
+        <filter name="amount_typed_differs" string="Importe cargado distinto del leído"
+                domain="[('distri_amount_typed_differs', '=', True)]"/>
         <filter name="no_partner" string="Sin cliente" domain="[('distri_partner_id', '=', False)]"/>
       </search>
     </field>

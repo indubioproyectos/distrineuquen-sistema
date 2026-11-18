@@ -54,3 +54,4 @@ from . import test_v99_facturas_rojo
 from . import test_v99_codigo_recibido
 from . import test_v99_comprobantes
 from . import test_v99_cobro_publico
+from . import test_v100_comprobantes
