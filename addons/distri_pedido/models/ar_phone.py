@@ -110,6 +110,61 @@ def normalize_whatsapp(value):
         "+54 9 299 4222444." % text)
 
 
+# 19.0.1.102.0: the phone typed on the order page (/pedido), checked in the
+# page and again on the server with these rules (the same in templates.xml,
+# «revisarTelefono»). The WhatsApp-verified number is not available there.
+MSG_FALTA_CARACTERISTICA = "Falta la característica, por ejemplo 299."
+MSG_REVISAR_TELEFONO = ("Revisá el número: tiene que tener la característica y el número, "
+                        "por ejemplo 299 412 3456.")
+
+
+def _ar_area_ok(area):
+    """Argentine area codes (without the 0): 11, or 3 or 4 digits that
+    start with 2 or 3."""
+    return area == "11" or (len(area) in (3, 4) and area[0] in "23")
+
+
+def check_ar_phone(value):
+    """(national, error) of a phone typed on the order page.
+
+    `national` is the 10 digits (area code without 0 + number without 15)
+    and `error` is "" when the number is fine. Accepts spaces, dashes,
+    dots and parentheses, a leading 0, +54 / 54, the 9 of mobiles and a 15
+    right after the area code. 6 to 8 digits (also after a leading 15) is a
+    number without its area code; anything else is a typo. Landlines have
+    10 digits too, so they are accepted."""
+    text = str(value or "").strip()
+    number = only_digits(text)
+    if not number or (text.startswith("+") and not number.startswith("54")):
+        return "", MSG_REVISAR_TELEFONO
+    number = number.lstrip("0")
+    if number.startswith("54") and len(number) >= 12:
+        number = number[2:]
+        if number.startswith("9") and len(number) in (11, 13):
+            number = number[1:]
+        number = number.lstrip("0")
+    elif number.startswith("9") and len(number) in (11, 13):
+        number = number[1:]  # «9 299 412 3456», the 9 without the 54
+    if len(number) == AR_NATIONAL_LENGTH + 2:
+        # the 15 only right after a real area code: «11 15 1515 1234» is
+        # area 11, never area 1115
+        cuts = [size for size in (2, 3, 4)
+                if number[size:size + 2] == "15" and _ar_area_ok(number[:size])]
+        if len(cuts) == 1:
+            number = number[:cuts[0]] + number[cuts[0] + 2:]
+    if len(number) == AR_NATIONAL_LENGTH and (number.startswith("11") or number[0] in "23"):
+        return number, ""
+    local = number[2:] if number.startswith("15") else number
+    if 6 <= len(local) <= 8:
+        return "", MSG_FALTA_CARACTERISTICA
+    return "", MSG_REVISAR_TELEFONO
+
+
+def format_ar_national(national):
+    """«+54 9 299 412-3456» for 10 national digits."""
+    return format_ar_mobile(*split_ar_national(national))
+
+
 def phone_key(value):
     """The 10 national digits: the wa_id carries 54 and the 9 of mobiles,
     the typed phone usually does not, and may carry the 0 and the 15.

@@ -60,18 +60,28 @@ def _wa():
     from ..models import pedido_whatsapp
     return pedido_whatsapp
 
+
+def _ar_phone():
+    # lazy import, same reason as _mp_error_class (pure helpers, no models)
+    from ..models import ar_phone
+    return ar_phone
+
 # Compra minima, igual que en AgilPedido. Since 19.0.1.91.0 it applies to
 # EVERY order through /pedido (delivery and pickup, customers and staff) and
 # /pedido/enviar enforces it; smaller purchases are made at the store, and the
 # administrator loads them as a quotation from the backend (never blocked).
 COMPRA_MINIMA = 70000.0
 
-# /pedido/enviar (19.0.1.29.0): what a real order can be. The catalog has
-# about 600 products; a big order has 100 lines.
-MAX_RENGLONES = 300
+# /pedido/enviar (19.0.1.29.0): what a real order can be. 19.0.1.102.0: an
+# order of ~120 products was refused, so the line cap is above the whole
+# catalog (about 1,221 active products in 2026-11) and only stops garbage.
+# A line is about 30 characters of JSON ({"id":"12345","cantidad":10000})
+# and about twice that url-encoded: 2,000 lines fit the text and body caps
+# with a wide margin (Odoo itself takes forms up to 10 MB).
+MAX_RENGLONES = 2000
 MAX_CANTIDAD = 10000
-MAX_RENGLONES_TEXTO = 100000
-MAX_CUERPO = 256 * 1024
+MAX_RENGLONES_TEXTO = MAX_RENGLONES * 125
+MAX_CUERPO = 1024 * 1024
 # 19.0.1.96.0 (audit F1): tighter caps for the public page (visitors and
 # logged-in customers; staff keep MAX_CANTIDAD and no total cap). Real data
 # (distri_lab, 2026-11): the biggest invoiced line is 200 units and the
@@ -1670,27 +1680,6 @@ class TomaDePedidos(http.Controller):
                 "Los productos de tu pedido ya no están en el catálogo: %s. Volvé y elegí otros."
                 % descartados)
 
-        nota = (
-            "PEDIDO DESDE LA PAGINA - ASIGNAR CLIENTE\n"
-            f"{como_llega}\n"
-            f"Nombre: {nombre or '(sin dato)'}\n"
-            f"Telefono: {telefono or '(sin dato)'}\n"
-            f"Domicilio: {domicilio or '(sin dato)'}"
-        )
-        if encomienda.get("distri_encomienda_pedida"):
-            nota += "\nRetira en la terminal: %s, DNI %s" % (
-                encomienda["distri_encomienda_nombre"], encomienda["distri_encomienda_dni"])
-        if de_distribuidoras:
-            nota += (
-                "\n\nCON PRECIO DE LA SECCION DISTRIBUIDORAS (%s renglones): se "
-                "valorizaron con la lista %s." % (len(de_distribuidoras), LISTA_OCULTA)
-            )
-        if sin_precio:
-            nota += (
-                "\n\nSIN PRECIO (%s renglones de cigarrillos): al asignar el "
-                "cliente se valorizan con su lista." % len(sin_precio)
-            )
-
         token = (post.get("token") or "").strip()
         pedido = self._por_token(token) if token else None
         if self._bloqueado_para_vendedor(pedido):
@@ -1717,9 +1706,35 @@ class TomaDePedidos(http.Controller):
         faltan = self._datos_faltantes(nombre, telefono, domicilio, entrega, encomienda)
         if faltan:
             return self._error_volver(faltan)
+        # 19.0.1.102.0: the typed phone, checked and stored as +549 + 10 digits
+        telefono, telefono_visto, error_telefono = self._telefono_revisado(
+            telefono, cliente, pedido)
+        if error_telefono:
+            return self._error_volver(error_telefono)
         demasiado = self._error_total_maximo(total)
         if demasiado:
             return demasiado
+
+        nota = (
+            "PEDIDO DESDE LA PAGINA - ASIGNAR CLIENTE\n"
+            f"{como_llega}\n"
+            f"Nombre: {nombre or '(sin dato)'}\n"
+            f"Telefono: {telefono_visto or '(sin dato)'}\n"
+            f"Domicilio: {domicilio or '(sin dato)'}"
+        )
+        if encomienda.get("distri_encomienda_pedida"):
+            nota += "\nRetira en la terminal: %s, DNI %s" % (
+                encomienda["distri_encomienda_nombre"], encomienda["distri_encomienda_dni"])
+        if de_distribuidoras:
+            nota += (
+                "\n\nCON PRECIO DE LA SECCION DISTRIBUIDORAS (%s renglones): se "
+                "valorizaron con la lista %s." % (len(de_distribuidoras), LISTA_OCULTA)
+            )
+        if sin_precio:
+            nota += (
+                "\n\nSIN PRECIO (%s renglones de cigarrillos): al asignar el "
+                "cliente se valorizan con su lista." % len(sin_precio)
+            )
 
         hay_mayorista = hay_distribuidoras
         original = json.dumps([
@@ -1790,7 +1805,7 @@ class TomaDePedidos(http.Controller):
             previo = request.env["sale.order"].sudo().search(
                 [("distri_envio_clave", "=", clave)], limit=1) if clave else None
             if previo:
-                return self._pagina_gracias(previo, nombre, telefono, domicilio, entrega,
+                return self._pagina_gracias(previo, nombre, telefono_visto, domicilio, entrega,
                                             hay_mayorista, descartados)
             valores_pedido["distri_envio_clave"] = clave or False
             try:
@@ -1814,8 +1829,34 @@ class TomaDePedidos(http.Controller):
             # 19.0.1.99.0 (audit F7): the receipt code exists from the start
             # and the customer sees it on the confirmation and his order page
             pedido._distri_ensure_receipt_code()
-        return self._pagina_gracias(pedido, nombre, telefono, domicilio, entrega, hay_mayorista,
-                                    descartados)
+        return self._pagina_gracias(pedido, nombre, telefono_visto, domicilio, entrega,
+                                    hay_mayorista, descartados)
+
+    def _telefono_revisado(self, telefono, cliente, pedido):
+        """19.0.1.102.0: the phone of the form, with the rules of the page
+        (models/ar_phone.py check_ar_phone). Returns (value to store, value
+        to show, error). A good one is stored as +549 + 10 digits, the
+        number WhatsApp links need. The phone already stored for the
+        customer (staff picked him and the page filled it in, or the order
+        being changed is already his) is never refused, whatever its old
+        format: only what is typed is checked."""
+        ar_phone = _ar_phone()
+        nacional, error = ar_phone.check_ar_phone(telefono)
+        if not error:
+            return (ar_phone.AR_PREFIX + nacional, ar_phone.format_ar_national(nacional), "")
+        if telefono in self._telefonos_guardados(cliente, pedido):
+            return telefono, telefono, ""
+        return telefono, telefono, error
+
+    @staticmethod
+    def _telefonos_guardados(cliente, pedido):
+        """The phones already on file for the customer of this order."""
+        socios = cliente.sudo()
+        if pedido and not pedido.sudo().partner_id.distri_generic_partner:
+            socios |= pedido.sudo().partner_id
+        socios |= socios.commercial_partner_id
+        guardados = set(socios.mapped("distri_whatsapp")) | set(socios.mapped("phone"))
+        return {(t or "").strip() for t in guardados} - {""}
 
     def _datos_extra(self, post):
         """19.0.1.98.0: the order's comment, «Mi vendedor es» and, for staff,

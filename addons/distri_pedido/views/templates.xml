@@ -121,6 +121,7 @@
     input.dato:focus,textarea.dato:focus,select.dato:focus{outline:0;border-color:var(--acento)}
     input.dato.mal{border-color:var(--alerta);background:#fff5f5}
     .err{color:var(--alerta);font-size:.8rem;display:none;margin-top:.2rem}
+    .tel-ok{color:#2b8a3e;font-size:.8rem;display:none;margin-top:.2rem}
     .interior{display:flex;gap:.7rem;align-items:flex-start;margin:1.1rem 0 0;padding:.85rem;
               border:1px solid var(--linea);border-radius:4px;background:#fff;cursor:pointer;
               font-size:.92rem;line-height:1.35;color:var(--texto)}
@@ -461,10 +462,12 @@
         <div class="err" id="e_nombre">Poné el nombre del comercio</div>
 
         <label class="campo">Teléfono
-          <input type="tel" name="telefono" id="f_tel" class="dato"
-                 autocomplete="tel" t-att-value="datos['telefono']"/>
+          <input type="tel" name="telefono" id="f_tel" class="dato" inputmode="tel"
+                 autocomplete="tel" placeholder="Ej.: 299 412 3456" t-att-value="datos['telefono']"/>
         </label>
         <div class="err" id="e_tel">Poné un teléfono de contacto</div>
+        <!-- 19.0.1.102.0: the number as it will be used, to catch a typo -->
+        <div class="tel-ok" id="o_tel"></div>
 
         <div id="caja_dom">
           <label class="campo">Domicilio de entrega
@@ -572,6 +575,74 @@
       function dniValido(texto) {
         return /^\d{7,8}$/.test(String(texto || '').replace(/[\s.\-]/g, ''));
       }
+
+      // 19.0.1.102.0: the phone, with the same rules as the server
+      // (models/ar_phone.py check_ar_phone): 10 digits after +54, the 9,
+      // the 0 and a 15 right after the area code.
+      var FALTA_CARACTERISTICA = 'Falta la característica, por ejemplo 299.';
+      var REVISAR_TELEFONO = 'Revisá el número: tiene que tener la característica y el número, por ejemplo 299 412 3456.';
+      // only to show it split (models/ar_phone.py KNOWN_AREAS)
+      var AREAS = ['2942', '2944', '2948', '2972', '2920', '2940', '2946', '299', '298', '11'];
+      function areaValida(a) {
+        return a === '11' || ((a.length === 3 || a.length === 4) &amp;&amp; /^[23]/.test(a));
+      }
+      function revisarTelefono(texto) {
+        texto = String(texto || '').trim();
+        var n = texto.replace(/\D/g, '');
+        if (!n || (texto.charAt(0) === '+' &amp;&amp; n.indexOf('54') !== 0)) {
+          return { error: REVISAR_TELEFONO };
+        }
+        n = n.replace(/^0+/, '');
+        if (n.indexOf('54') === 0 &amp;&amp; n.length >= 12) {
+          n = n.slice(2);
+          if (n.charAt(0) === '9' &amp;&amp; (n.length === 11 || n.length === 13)) { n = n.slice(1); }
+          n = n.replace(/^0+/, '');
+        } else if (n.charAt(0) === '9' &amp;&amp; (n.length === 11 || n.length === 13)) {
+          n = n.slice(1);
+        }
+        if (n.length === 12) {
+          var cortes = [2, 3, 4].filter(function (t) {
+            return n.substr(t, 2) === '15' &amp;&amp; areaValida(n.slice(0, t));
+          });
+          if (cortes.length === 1) { n = n.slice(0, cortes[0]) + n.slice(cortes[0] + 2); }
+        }
+        if (n.length === 10 &amp;&amp; /^(11|[23])/.test(n)) { return { nacional: n }; }
+        var local = n.indexOf('15') === 0 ? n.slice(2) : n;
+        return { error: local.length >= 6 &amp;&amp; local.length &lt;= 8 ? FALTA_CARACTERISTICA
+                                                               : REVISAR_TELEFONO };
+      }
+      function telefonoVisto(nacional) {
+        var area = AREAS.filter(function (a) { return nacional.indexOf(a) === 0; })[0] ||
+          nacional.slice(0, 3);
+        var resto = nacional.slice(area.length);
+        return '+54 9 ' + area + ' ' + resto.slice(0, -4) + '-' + resto.slice(-4);
+      }
+      var fTel = document.getElementById('f_tel'), eTel = document.getElementById('e_tel');
+      var oTel = document.getElementById('o_tel');
+      // the phone on file of the customer staff picked: never refused here,
+      // whatever its old format (the server keeps the same rule)
+      function telefonoGuardado() {
+        return fTel.dataset.guardado &amp;&amp; fTel.value.trim() === fTel.dataset.guardado;
+      }
+      // true when the phone can be sent; `avisar` shows the message
+      function pintarTelefono(avisar) {
+        var texto = fTel.value.trim();
+        var r = texto ? revisarTelefono(texto) : { error: 'Poné un teléfono de contacto' };
+        var ok = !r.error || (texto &amp;&amp; telefonoGuardado());
+        oTel.textContent = r.nacional ? 'Te vamos a escribir al ' + telefonoVisto(r.nacional) : '';
+        oTel.style.display = r.nacional ? 'block' : 'none';
+        if (ok || avisar) {
+          eTel.textContent = ok ? '' : r.error;
+          eTel.style.display = ok ? 'none' : 'block';
+          fTel.classList.toggle('mal', !ok);
+        }
+        return ok;
+      }
+      fTel.addEventListener('input', function () {
+        // while typing: the echo, and the warning only once it was shown
+        pintarTelefono(fTel.classList.contains('mal'));
+      });
+      fTel.addEventListener('change', function () { if (fTel.value.trim()) { pintarTelefono(true); } });
 
       function plata(n) {
         return '$ ' + n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
@@ -728,7 +799,7 @@
           return;
         }
         var falla = false;
-        var pares = [['f_nombre', 'e_nombre'], ['f_tel', 'e_tel']];
+        var pares = [['f_nombre', 'e_nombre']];
         if (enc.checked) {
           pares.push(['f_enc_nombre', 'e_enc_nombre'], ['f_enc_dni', 'e_enc_dni', dniValido],
                      ['f_enc_localidad', 'e_enc_localidad']);
@@ -740,6 +811,7 @@
           e.style.display = vacio ? 'block' : 'none';
           if (vacio &amp;&amp; !falla) { i.focus(); falla = true; }
         });
+        if (!pintarTelefono(true) &amp;&amp; !falla) { fTel.focus(); falla = true; }
         if (falla) { ev.preventDefault(); }
       });
 
@@ -782,11 +854,13 @@
           buscarCliente.style.display = 'none';
           resultados.innerHTML = '';
           document.getElementById('f_nombre').value = f.nombre;
-          if (f.whatsapp) { document.getElementById('f_tel').value = f.whatsapp; }
+          fTel.dataset.guardado = f.whatsapp || '';
+          if (f.whatsapp) { fTel.value = f.whatsapp; pintarTelefono(false); }
           if (f.domicilio) { document.getElementById('f_dom').value = f.domicilio + (f.ciudad ? ', ' + f.ciudad : ''); }
         }
         document.getElementById('cambiar_cliente').addEventListener('click', function () {
           document.getElementById('cliente_id').value = '';
+          fTel.dataset.guardado = '';
           elegido.style.display = 'none';
           buscarCliente.style.display = '';
           buscarCliente.focus();
@@ -801,6 +875,7 @@
 
       recalcular();
       pintarEncomienda();
+      if (fTel.value.trim()) { pintarTelefono(false); }
     })();
   </script>
 </body>

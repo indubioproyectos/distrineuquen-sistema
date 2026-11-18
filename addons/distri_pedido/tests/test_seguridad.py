@@ -12,6 +12,7 @@ from odoo.exceptions import UserError
 from odoo.tests import HttpCase, tagged
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
+from odoo.addons.distri_pedido.controllers.main import MAX_CUERPO, MAX_RENGLONES
 from odoo.addons.distri_pedido.models.mercado_pago import (
     PARAM_ENABLED, PARAM_TOKEN, PARAM_WEBHOOK_SECRET,
 )
@@ -176,14 +177,17 @@ class TestPedidoEnviar(PedidoAbiertoMixin, HttpCase):
         self.assertEqual(self._orders(), 0)
 
     def test_caps_on_lines_and_quantities(self):
-        many = [{"id": self.plantilla.id, "cantidad": 1}] * 301
-        self.assertEqual(self._post(self._data(many)).status_code, 400)
+        # 19.0.1.102.0: the line cap is above the whole catalog
+        many = [{"id": self.plantilla.id, "cantidad": 1}] * (MAX_RENGLONES + 1)
+        res = self._post(self._data(many))
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("máximo %s" % MAX_RENGLONES, res.text)
         huge = [{"id": self.plantilla.id, "cantidad": 10001}]
         res = self._post(self._data(huge))
         self.assertEqual(res.status_code, 400)
         self.assertIn("demasiado grande", res.text)
         oversized = dict(self._data([{"id": self.plantilla.id, "cantidad": 1}]),
-                         relleno="x" * (300 * 1024))
+                         relleno="x" * (MAX_CUERPO + 1))
         self.assertEqual(self._post(oversized).status_code, 413)
         self.assertEqual(self._orders(), 0)
 
