@@ -61,3 +61,4 @@ from . import test_v103_pegar_numero
 from . import test_v103_comprobante_cliente
 from . import test_v103_cliente_nuevo
 from . import test_v104_sitio
+from . import test_v105_reabrir_caja

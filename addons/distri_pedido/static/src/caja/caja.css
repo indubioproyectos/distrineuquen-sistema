@@ -109,3 +109,43 @@
 .caja-provisorio .caja-item__txt span{font-size:14px;color:var(--dn-muted)}
 .caja-provisorio__acc{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .caja-provisorio__acc form{margin:0}
+/* 19.0.1.105.0: «Cajas cerradas», one closed session, «Historial de cajas» */
+.caja-nota{margin:0;font-size:14px}
+.caja-centro{text-align:center;align-self:center}
+.caja-links{display:flex;flex-wrap:wrap;gap:4px 16px;justify-content:center;padding-top:4px}
+.caja-links .dn-i{width:20px;height:20px;margin-right:4px}
+.caja-reabierta{font-size:15px}
+.caja-hist{position:relative;display:flex;flex-direction:column;gap:10px}
+.caja-hist__cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.caja-hist__a,.caja-hist__tit{flex:1 1 auto;min-width:0;font-size:18px;font-weight:800;color:var(--dn-ink);text-decoration:none}
+.caja-hist__a::after{content:"";position:absolute;inset:0;border-radius:var(--dn-r)}
+.caja-hist__btn{position:relative;z-index:1}
+.caja-hist:active{background:var(--dn-tint)}
+.caja-st{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px 10px}
+.caja-st>span{display:flex;flex-direction:column;font-size:12px;color:var(--dn-muted);font-weight:600}
+.caja-st b{font-size:16px;color:var(--dn-ink);white-space:nowrap}
+.caja-st>span.caja-st--falta,.caja-st>span.caja-st--falta b,.caja-st--falta{color:var(--dn-red-text)}
+.caja-st>span.caja-st--sobra,.caja-st>span.caja-st--sobra b,.caja-st--sobra{color:var(--dn-amber-text)}
+.caja-detalle{gap:10px}
+.caja-res__tot{font-weight:800}
+.caja-conteo{width:100%;border-collapse:collapse;font-size:16px}
+.caja-conteo td{padding:6px 0;border-top:1px solid var(--dn-line)}
+.caja-conteo tr:first-child td{border-top:0}
+.caja-conteo__x{width:28px;text-align:center;color:var(--dn-muted)}
+.caja-conteo__sub{text-align:right;font-weight:700}
+.caja-conteo__tot td{font-weight:800;border-top:2px solid var(--dn-navy)}
+.caja-reemplazos{display:flex;flex-direction:column;gap:8px;background:var(--dn-amber-bg);color:var(--dn-amber-text);
+  border-radius:10px;padding:10px 12px;font-size:14px}
+.caja-reemplazo{display:flex;flex-direction:column;gap:2px;padding-bottom:8px;border-bottom:1px solid var(--dn-amber-line)}
+.caja-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.caja-tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:22px;border:1px solid var(--dn-input);
+  background:#fff;color:var(--dn-ink);font-size:15px;font-weight:700;text-decoration:none;white-space:nowrap}
+.caja-tab.on{background:var(--dn-navy);border-color:var(--dn-navy);color:#fff}
+a.dn-card.caja-hist2{flex-direction:column;align-items:stretch;gap:8px;padding:14px 16px}
+.caja-hist2--reabierta{border:2px solid var(--dn-amber-line)}
+.caja-kv{display:grid;grid-template-columns:minmax(45%,1fr) auto;gap:4px 16px;margin:0;font-size:15px}
+.caja-kv dt{color:var(--dn-muted)}
+.caja-kv dd{margin:0;font-weight:700;text-align:right}
+.caja-kv dd.caja-kv__txt{grid-column:1/-1;text-align:left;font-weight:600;overflow-wrap:anywhere}
+.caja-nw{white-space:nowrap}
+.caja-reabrir__motivo{min-height:96px;resize:vertical}

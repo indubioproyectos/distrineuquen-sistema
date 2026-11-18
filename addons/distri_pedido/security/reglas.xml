@@ -312,5 +312,19 @@
       <field name="domain_force">[(1, '=', 1)]</field>
     </record>
 
+    <!-- 19.0.1.105.0: the replaced closings follow their session -->
+    <record id="regla_caja_cierre_cajero" model="ir.rule">
+      <field name="name">Cierres reemplazados: el cajero ve los suyos</field>
+      <field name="model_id" ref="model_distri_caja_cierre"/>
+      <field name="groups" eval="[(4, ref('grupo_cajero'))]"/>
+      <field name="domain_force">[('caja_id.user_id', '=', user.id)]</field>
+    </record>
+    <record id="regla_caja_cierre_todos" model="ir.rule">
+      <field name="name">Cierres reemplazados: administración ve todos</field>
+      <field name="model_id" ref="model_distri_caja_cierre"/>
+      <field name="groups" eval="[(4, ref('grupo_administracion')), (4, ref('base.group_system'))]"/>
+      <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
   </data>
 </odoo>

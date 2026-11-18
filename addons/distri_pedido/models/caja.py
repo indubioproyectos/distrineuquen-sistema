@@ -23,8 +23,20 @@ Rules: one open session per cashier; today's cannot open while a previous
 one is open; the opening float is proposed from the previous closing's «queda
 para mañana»; a difference needs a reason, is posted to the «diferencias de
 caja» account and opens a case for the cashier (distri.route.case with
-caja_id); a closed session is reopened only by gerencia (or the system
-administrator) with a reason, logged in the chatter.
+caja_id).
+
+Reopening (19.0.1.105.0, owner's decision): the cashier reopens HIS latest
+closed session himself from /caja («Reabrir mi caja», a short reason, no
+gerente); gerencia and the system administrator reopen any cashier's from
+the backend. Same guard for both: only the latest session of that cashier
+and only while he has no later or open one. Reopening undoes the closing
+(`_undo_closing`: the statement goes, the payments are «en proceso» again,
+the difference case is closed naming who and why) and the next closing
+rebuilds everything from scratch, so the second closing REPLACES the first.
+Each replaced closing is kept in distri.caja.cierre (what it counted, its
+difference and case, who reopened it and why): the audit trail that
+gerencia sees in the backend and in «Historial de cajas», and the cashier
+on his closed session (/caja/cerradas).
 
 Accounting (owner's decision, option B; models/caja_contabilidad.py): the
 cash payments keep going to «Recibos pendientes»; the closing writes one cash
@@ -86,6 +98,7 @@ DIFFERENCE_MODES = [
 
 MAX_QUANTITY = 9999  # the closing label fits four digits per row
 NOTE_MAX = 250
+REOPEN_REASON_MAX = 500
 
 
 class CajaQuestion(UserError):
@@ -102,7 +115,15 @@ def is_cashier(user):
 
 
 def can_reopen(user):
+    """Gerencia and the system administrator: they reopen (and see on /caja)
+    the sessions of every cashier."""
     return user.has_group(GRUPO_GERENCIA) or user.has_group("base.group_system")
+
+
+def can_reopen_caja(user, caja):
+    """19.0.1.105.0: the session's own cashier reopens it too, no gerente."""
+    return bool(user) and not user.share and (
+        can_reopen(user) or (is_cashier(user) and caja.user_id == user))
 
 
 def parse_amount(env, value, allow_zero=False):
@@ -208,6 +229,10 @@ class DistriCaja(models.Model):
     case_id = fields.Many2one("distri.route.case", string="Caso de la diferencia",
                               readonly=True, copy=False)
     reopen_count = fields.Integer(string="Veces reabierta", readonly=True, copy=False)
+    # 19.0.1.105.0: the closings replaced by a later one (audit trail)
+    closing_ids = fields.One2many("distri.caja.cierre", "caja_id", string="Cierres reemplazados",
+                                  readonly=True)
+    reopen_label = fields.Char(string="Reabierta", compute="_compute_reopen_label")
 
     _user_date_unique = models.Constraint(
         "unique(user_id, date, company_id)", "Ese cajero ya tiene la caja de ese día.")
@@ -220,6 +245,13 @@ class DistriCaja(models.Model):
         for caja in self:
             caja.name = "Caja · %s · %s" % (
                 caja.date.strftime("%d/%m/%Y") if caja.date else "", caja.user_id.name or "")
+
+    @api.depends("reopen_count")
+    def _compute_reopen_label(self):
+        for caja in self:
+            count = caja.reopen_count
+            caja.reopen_label = ("Reabierta %s %s" % (count, "vez" if count == 1 else "veces")
+                                 if count else "")
 
     @api.depends("opening_float", "movement_ids.amount", "movement_ids.kind")
     def _compute_totals(self):
@@ -293,7 +325,8 @@ class DistriCaja(models.Model):
         today = today_ar()
         if self.sudo().search_count([("user_id", "=", user.id), ("date", "=", today),
                                      ("company_id", "=", self.env.company.id)]):
-            raise UserError("La caja de hoy ya se cerró. Si hace falta, gerencia la reabre.")
+            raise UserError("La caja de hoy ya se cerró. Si hace falta, reabrila desde "
+                            "«Cajas cerradas».")
         previous = self.last_closed(user)
         proposed = previous.left_for_tomorrow if previous else 0.0
         amount = parse_amount(self.env, opening_float, allow_zero=True)
@@ -578,10 +611,12 @@ class DistriCaja(models.Model):
         if not currency.is_zero(caja.difference):
             caja._open_difference_case()
         caja.message_post(body="Caja cerrada por %s: tenía que haber %s, se contó %s%s. Queda "
-                               "para mañana %s, se retira %s." % (
+                               "para mañana %s, se retira %s.%s" % (
             self.env.user.name, _money(caja.expected), _money(caja.counted),
             " (diferencia %s)" % _money(caja.difference) if caja.difference else "",
-            _money(caja.left_for_tomorrow), _money(caja.withdrawn)))
+            _money(caja.left_for_tomorrow), _money(caja.withdrawn),
+            " Cierre n.º %s: reemplaza al anterior." % (len(caja.closing_ids) + 1)
+            if caja.closing_ids else ""))
         return caja
 
     def _open_difference_case(self):
@@ -601,33 +636,94 @@ class DistriCaja(models.Model):
         self.case_id = case
         return case
 
-    def action_reopen(self, reason):
-        """Gerencia reopens a closed session (the latest of that cashier):
-        the closing's statement is undone and the case closed."""
+    def _later_caja(self):
+        """A later session of the same cashier (a later day, or any open
+        one): it blocks reopening this one."""
         self.ensure_one()
-        user = self.env.user
-        if not can_reopen(user):
-            raise AccessError("Solo gerencia reabre una caja cerrada.")
-        reason = " ".join((reason or "").split())
-        if not reason:
-            raise UserError("Escribí el motivo para reabrir la caja.")
+        caja = self.sudo()
+        return caja.search([("user_id", "=", caja.user_id.id), ("id", "!=", caja.id),
+                            ("company_id", "=", caja.company_id.id),
+                            "|", ("date", ">", caja.date), ("state", "=", "open")],
+                           order="date desc, id desc", limit=1)
+
+    def reopen_block(self, user=None):
+        """Why the session cannot be reopened now, or "" when it can (the
+        guard of `action_reopen`, also used by the pages to show the
+        button)."""
+        self.ensure_one()
+        user = user or self.env.user
         caja = self.sudo()
         if caja.state != "closed":
-            raise UserError("La caja está abierta.")
-        later = caja.search([("user_id", "=", caja.user_id.id), ("id", "!=", caja.id),
-                             ("company_id", "=", caja.company_id.id),
-                             "|", ("date", ">", caja.date), ("state", "=", "open")], limit=1)
+            return "La caja está abierta."
+        later = caja._later_caja()
         if later:
-            raise UserError("%s ya abrió %s: solo se reabre la última caja." % (
-                caja.user_id.name, later.name))
+            day = later.date.strftime("%d/%m")
+            if later.user_id == user:
+                return "Ya abriste la caja del %s: solo se reabre la última." % day
+            return "%s ya abrió la caja del %s: solo se reabre la última." % (
+                caja.user_id.name, day)
+        return ""
+
+    def can_reopen_now(self, user=None):
+        self.ensure_one()
+        user = user or self.env.user
+        return can_reopen_caja(user, self.sudo()) and not self.reopen_block(user)
+
+    def action_reopen(self, reason):
+        """Reopen a closed session (19.0.1.105.0: its own cashier, or
+        gerencia for any cashier; the latest one of that cashier only): the
+        closing is kept in the history, its statement is undone and its
+        case closed. The next closing rebuilds everything."""
+        self.ensure_one()
+        user = self.env.user
+        caja = self.sudo()
+        if not can_reopen_caja(user, caja):
+            raise AccessError("Solo el cajero de esa caja o gerencia la reabren.")
+        reason = " ".join((reason or "").split())[:REOPEN_REASON_MAX]
+        if not reason:
+            raise CajaQuestion("Escribí el motivo para reabrir la caja.", "motivo")
+        block = caja.reopen_block(user)
+        if block:
+            raise UserError(block)
+        replaced = caja._keep_closing(user, reason)
         caja._undo_closing()
         if caja.case_id.state == "open":
             caja.case_id.write({"state": "closed", "resolution": "Caja reabierta por %s: %s" % (
                 user.name, reason)})
+            caja.case_id.message_post(body="Caja reabierta por %s: %s. El caso queda cerrado; "
+                                           "si al volver a cerrar hay diferencia, se abre otro."
+                                      % (user.name, reason))
         caja.write({"state": "open", "closed_at": False, "closed_by_id": False,
                     "case_id": False, "reopen_count": caja.reopen_count + 1})
-        caja.message_post(body="Caja reabierta por %s. Motivo: %s" % (user.name, reason))
+        caja.message_post(body="Caja reabierta por %s. Motivo: %s. El próximo cierre reemplaza al "
+                               "cierre n.º %s (se contó %s)." % (
+            user.name, reason, replaced.number, _money(replaced.counted)))
         return True
+
+    def _keep_closing(self, user, reason):
+        """The closing about to be replaced, as a distri.caja.cierre."""
+        self.ensure_one()
+        bills = self.count_ids.filtered("quantity").sorted("value", reverse=True)
+        return self.env["distri.caja.cierre"].sudo().create({
+            "caja_id": self.id,
+            "number": len(self.closing_ids) + 1,
+            "closed_at": self.closed_at,
+            "closed_by_id": self.closed_by_id.id or False,
+            "expected": self.expected,
+            "counted": self.counted,
+            "difference": self.difference,
+            "reason": self.reason or False,
+            "left_for_tomorrow": self.left_for_tomorrow,
+            "withdrawn": self.withdrawn,
+            "other_amount": self.other_amount,
+            "bills": " · ".join("%s × %s" % (_money(c.value), c.quantity) for c in bills) or False,
+            "movement_count": len(self.movement_ids),
+            "statement_name": self.statement_id.name or False,
+            "case_id": self.case_id.id or False,
+            "reopened_at": fields.Datetime.now(),
+            "reopened_by_id": user.id,
+            "reopen_reason": reason,
+        })
 
     # ------------------------------------------------------------ label
 
@@ -648,7 +744,10 @@ class DistriCaja(models.Model):
     def action_open_reopen(self):
         self.ensure_one()
         if not can_reopen(self.env.user):
-            raise AccessError("Solo gerencia reabre una caja cerrada.")
+            raise AccessError("Solo gerencia reabre una caja cerrada desde acá.")
+        block = self.reopen_block()
+        if block:
+            raise UserError(block)
         return {
             "type": "ir.actions.act_window",
             "name": "Reabrir la caja",
@@ -754,6 +853,38 @@ class DistriCajaConteo(models.Model):
     def _check_quantity(self):
         if any(r.quantity < 0 for r in self):
             raise ValidationError("La cantidad no puede ser negativa.")
+
+
+class DistriCajaCierre(models.Model):
+    """19.0.1.105.0: a closing replaced by a later one (the session was
+    reopened). Written by `DistriCaja._keep_closing`, never edited."""
+    _name = "distri.caja.cierre"
+    _description = "Cierre de caja reemplazado"
+    _order = "caja_id, number"
+
+    caja_id = fields.Many2one("distri.caja", string="Caja", required=True, ondelete="cascade",
+                              index=True, readonly=True)
+    user_id = fields.Many2one(related="caja_id.user_id", store=True, string="Cajero")
+    company_id = fields.Many2one(related="caja_id.company_id", store=True)
+    currency_id = fields.Many2one(related="caja_id.currency_id")
+    number = fields.Integer(string="Cierre n.º", readonly=True)
+    closed_at = fields.Datetime(string="Cerrada el", readonly=True)
+    closed_by_id = fields.Many2one("res.users", string="La cerró", readonly=True)
+    expected = fields.Monetary(string="Tenía que haber", readonly=True)
+    counted = fields.Monetary(string="Se contó", readonly=True)
+    difference = fields.Monetary(string="Diferencia", readonly=True)
+    reason = fields.Text(string="Motivo de la diferencia", readonly=True)
+    left_for_tomorrow = fields.Monetary(string="Quedaba para mañana", readonly=True)
+    withdrawn = fields.Monetary(string="Se retiraba", readonly=True)
+    other_amount = fields.Monetary(string="Monedas / otros", readonly=True)
+    bills = fields.Char(string="Billetes", readonly=True)
+    movement_count = fields.Integer(string="Movimientos", readonly=True)
+    statement_name = fields.Char(string="Extracto (deshecho)", readonly=True)
+    case_id = fields.Many2one("distri.route.case", string="Caso de la diferencia", readonly=True,
+                              ondelete="set null")
+    reopened_at = fields.Datetime(string="Reabierta el", readonly=True)
+    reopened_by_id = fields.Many2one("res.users", string="La reabrió", readonly=True)
+    reopen_reason = fields.Text(string="Motivo de reabrir", readonly=True)
 
 
 class DistriCajaReabrir(models.TransientModel):

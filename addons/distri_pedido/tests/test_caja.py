@@ -225,8 +225,10 @@ class TestCaja(CajaMixin, AccountTestInvoicingCommon):
         caja.with_user(self.cashier).close_session(self._count(b2000=1), left="0", reason="faltan")
         self.assertEqual(payment.state, "paid")
         case = caja.case_id
+        # 19.0.1.105.0: his own cashier reopens it too (test_v105_reabrir_caja);
+        # somebody without the group never
         with self.assertRaises(AccessError):
-            caja.with_user(self.cashier).action_reopen("me equivoqué")
+            caja.with_user(self.seller).action_reopen("me equivoqué")
         with self.assertRaisesRegex(UserError, "motivo"):
             caja.with_user(self.manager).action_reopen("  ")
         caja.with_user(self.manager).action_reopen("Contó mal los de 2000")

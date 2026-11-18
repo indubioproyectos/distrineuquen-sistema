@@ -33,6 +33,9 @@ TILES = [
     # 19.0.1.97.0: controllers/caja.py, for the «Cajero» group
     ("distri_pedido.menu_caja_app", "Caja del día", "Abrir, recibir rendiciones, pagar y cerrar",
      IMG + "cobros.png", "/caja"),
+    # 19.0.1.105.0: every cashier's sessions and their closings, for gerencia
+    ("distri_pedido.menu_caja_historial", "Historial de cajas",
+     "Las cajas de todos los cajeros, con sus cierres", IMG + "cobros.png", "/caja/historial"),
     # 19.0.1.99.0: controllers/comprobantes.py (sellers, administración,
     # gerencia, cajero: the menu of «Cuentas» is the closest group match)
     ("comprobantes", "Subir comprobante", "Fotos o PDF de transferencias, sin el grupo",

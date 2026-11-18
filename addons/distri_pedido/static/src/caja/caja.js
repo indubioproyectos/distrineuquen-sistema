@@ -12,6 +12,8 @@
  * - form[data-caja-recibir]: what the driver handed vs what he has to hand,
  *   the expenses without paper said aloud BEFORE sending (audit F10), and
  *   the «Contar» sheet that fills «Entregó».
+ * - [data-caja-hoja="<id>"] (19.0.1.105.0): opens that sheet («Reabrir mi
+ *   caja»); a page opened with #reabrir opens it right away.
  */
 (function () {
   'use strict';
@@ -183,7 +185,29 @@
     });
   }
 
+  // ------------------------------------------------------------ sheets
+  function sheets() {
+    var first = null;
+    DN.$$('[data-caja-hoja]').forEach(function (b) {
+      var el = document.getElementById(b.getAttribute('data-caja-hoja'));
+      if (!el) { return; }
+      var sheet = el.dnSheet || DN.sheet(el);
+      var open = function () {
+        sheet.open();
+        var field = el.querySelector('textarea,input:not([type=hidden])');
+        if (field) { field.focus(); }
+      };
+      first = first || open;
+      b.addEventListener('click', function (ev) { ev.preventDefault(); open(); });
+    });
+    if (first && location.hash === '#reabrir') {
+      history.replaceState(history.state, '', location.pathname + location.search);
+      first();
+    }
+  }
+
   function init() {
+    sheets();
     DN.$$('form[data-caja-form]').forEach(function (form) {
       form.addEventListener('submit', function (ev) { send(form, ev); });
       if (form.hasAttribute('data-caja-cierre')) { closing(form); }

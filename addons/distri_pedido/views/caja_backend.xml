@@ -21,6 +21,7 @@
         <field name="difference" sum="Total"/>
         <field name="withdrawn" optional="show"/>
         <field name="left_for_tomorrow" optional="show"/>
+        <field name="reopen_count" string="Reabierta" optional="show"/>
         <field name="state" widget="badge" decoration-info="state == 'open'"
                decoration-success="state == 'closed'"/>
         <field name="currency_id" column_invisible="1"/>
@@ -43,6 +44,12 @@
         </header>
         <sheet>
           <div class="oe_title"><h1><field name="name"/></h1></div>
+          <!-- 19.0.1.105.0: the closings that a later one replaced -->
+          <div class="alert alert-warning" role="status" invisible="not reopen_count">
+            <field name="reopen_count" invisible="1"/>
+            <field name="reopen_label" readonly="1" class="oe_inline fw-bold"/>: el cierre de abajo
+            reemplaza a los anteriores (pestaña «Cierres reemplazados»).
+          </div>
           <group>
             <group string="Apertura">
               <field name="user_id"/>
@@ -64,7 +71,6 @@
               <field name="closed_by_id"/>
               <field name="statement_id"/>
               <field name="case_id"/>
-              <field name="reopen_count" invisible="not reopen_count"/>
               <field name="currency_id" invisible="1"/>
             </group>
           </group>
@@ -122,6 +128,51 @@
                 </form>
               </field>
             </page>
+            <page string="Cierres reemplazados" invisible="not closing_ids">
+              <field name="closing_ids">
+                <list>
+                  <field name="number"/>
+                  <field name="closed_at"/>
+                  <field name="closed_by_id"/>
+                  <field name="expected"/>
+                  <field name="counted"/>
+                  <field name="difference"/>
+                  <field name="reason" optional="show"/>
+                  <field name="bills" optional="hide"/>
+                  <field name="case_id" optional="show" groups="distri_pedido.grupo_administracion"/>
+                  <field name="reopened_at"/>
+                  <field name="reopened_by_id"/>
+                  <field name="reopen_reason"/>
+                  <field name="currency_id" column_invisible="1"/>
+                </list>
+                <form>
+                  <group>
+                    <group string="Cierre reemplazado">
+                      <field name="number"/>
+                      <field name="closed_at"/>
+                      <field name="closed_by_id"/>
+                      <field name="expected"/>
+                      <field name="counted"/>
+                      <field name="difference"/>
+                      <field name="reason"/>
+                      <field name="left_for_tomorrow"/>
+                      <field name="withdrawn"/>
+                      <field name="other_amount"/>
+                      <field name="bills"/>
+                      <field name="movement_count"/>
+                      <field name="statement_name"/>
+                      <field name="case_id" groups="distri_pedido.grupo_administracion"/>
+                      <field name="currency_id" invisible="1"/>
+                    </group>
+                    <group string="Reapertura">
+                      <field name="reopened_at"/>
+                      <field name="reopened_by_id"/>
+                      <field name="reopen_reason"/>
+                    </group>
+                  </group>
+                </form>
+              </field>
+            </page>
             <page string="Conteo de billetes">
               <field name="count_ids">
                 <list>
@@ -148,6 +199,7 @@
         <field name="user_id"/>
         <filter name="open" string="Abiertas" domain="[('state', '=', 'open')]"/>
         <filter name="with_difference" string="Con diferencia" domain="[('difference', '!=', 0)]"/>
+        <filter name="reopened" string="Reabiertas" domain="[('reopen_count', '&gt;', 0)]"/>
         <group>
           <filter name="by_user" string="Cajero" context="{'group_by': 'user_id'}"/>
           <filter name="by_month" string="Mes" context="{'group_by': 'date:month'}"/>
@@ -171,7 +223,9 @@
     <field name="arch" type="xml">
       <form string="Reabrir la caja">
         <p>Se deshace el asiento del cierre (el extracto de caja) y el caso de la diferencia
-           queda cerrado. El cajero vuelve a contar y cierra de nuevo.</p>
+           queda cerrado. El cajero vuelve a contar y cierra de nuevo: el segundo cierre reemplaza
+           al primero, que queda en «Cierres reemplazados». El cajero también puede reabrir su
+           última caja desde «Cajas cerradas» en /caja.</p>
         <group>
           <field name="caja_id" readonly="1"/>
           <field name="reason" placeholder="Por qué se reabre"/>
@@ -351,6 +405,15 @@
             action="action_caja_pantalla" sequence="5" groups="distri_pedido.grupo_cajero"/>
   <menuitem id="menu_caja_sesiones" name="Cajas" parent="menu_caja_root"
             action="action_caja" sequence="10"/>
+  <!-- 19.0.1.105.0: «Historial de cajas» (controllers/caja.py), every cashier -->
+  <record id="action_caja_historial" model="ir.actions.act_url">
+    <field name="name">Historial de cajas</field>
+    <field name="url">/caja/historial</field>
+    <field name="target">self</field>
+  </record>
+  <menuitem id="menu_caja_historial" name="Historial de cajas" parent="menu_caja_root"
+            action="action_caja_historial" sequence="12"
+            groups="distri_pedido.grupo_gerencia,base.group_system"/>
   <menuitem id="menu_caja_billetes" name="Billetes" parent="menu_caja_root"
             action="action_caja_denominacion" sequence="20"
             groups="distri_pedido.grupo_gerencia,base.group_system"/>

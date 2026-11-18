@@ -10,6 +10,11 @@ depot PC. Levels (back goes UP one level, dn.js):
           /caja/rendicion/<id>   receive one settlement / box
         /caja/salida             Salida de caja (gasto, proveedor, retiro, banco)
         /caja/cierre             the bill count and the closing
+        /caja/cerradas           19.0.1.105.0: «Cajas cerradas», his own
+          /caja/cerradas/<id>    one session: movements, count, history,
+                                 «Reabrir mi caja» (POST .../reabrir)
+        /caja/historial          19.0.1.105.0: «Historial de cajas», every
+                                 cashier (gerencia and the system admin)
       /caja/<id>/etiqueta        the closing label (PDF, new tab)
 
 Every form posts plain HTML (works without JavaScript: the answer is a
@@ -18,9 +23,13 @@ with fetch() (X-Distri-Fetch: 1) and gets JSON: {ok, url} goes UP to the
 parent with a message, {ok: false, error} shows it, {ok, ask, question}
 asks first (an expense without paper) and sends again with the answer.
 The rules live in models/caja.py; this file only translates HTTP. Every
-route checks the «Cajero» group first and then works with sudo.
+route checks the «Cajero» group first and then works with sudo. 19.0.1.105.0:
+the closed sessions are read by their own cashier and by gerencia (and the
+system administrator); anybody else gets a 404, administración included
+(it keeps the backend «Cajas», unchanged).
 """
 import base64
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from werkzeug.exceptions import Forbidden, NotFound
@@ -29,8 +38,8 @@ from odoo import http
 from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
-from ..models.caja import (CHIPS, DIFFERENCE_MODES, OUTFLOW_CHIPS, CajaQuestion, can_reopen,
-                           is_cashier)
+from ..models.caja import (CHIPS, DIFFERENCE_MODES, OUTFLOW_CHIPS, OUTFLOW_KINDS, CajaQuestion,
+                           can_reopen, is_cashier)
 from ..models.cliente_provisorio import can_confirm
 from ..models.gasto import MAX_PHOTO_BYTES, decode_outflow_receipt
 from ..models.reparto import _money
@@ -50,6 +59,37 @@ def _hora(moment):
 
 def _error_text(exc):
     return exc.args[0] if exc.args else str(exc)
+
+
+HISTORY_DAYS = 60  # «Cajas cerradas» and «Historial de cajas» look this far back
+
+
+def _dia(day, short=False):
+    """«Martes 17/11» (or «Mar 17/11»)."""
+    if not day:
+        return ""
+    name = DIAS[day.weekday()]
+    return "%s %s" % (name[:3] if short else name, day.strftime("%d/%m"))
+
+
+def _fecha_hora(moment):
+    if not moment:
+        return ""
+    local = moment.replace(tzinfo=UTC).astimezone(HORA_ARGENTINA)
+    return local.strftime("%d/%m %H:%M")
+
+
+def _firmado(amount):
+    """A difference with its sign: «− $ 500», «+ $ 200», «$ 0»."""
+    if not round(amount or 0.0, 2):
+        return "$ 0"
+    return ("− " if amount < 0 else "+ ") + _money(abs(amount))
+
+
+def _dif_class(amount):
+    if not round(amount or 0.0, 2):
+        return "ok"
+    return "falta" if amount < 0 else "sobra"
 
 
 class Caja(http.Controller):
@@ -91,6 +131,13 @@ class Caja(http.Controller):
             "provisorios": [p._distri_provisorio_row() for p in
                             request.env["res.partner"]._distri_provisorios_pendientes()],
             "puede_confirmar": can_confirm(request.env),
+            # 19.0.1.105.0: closed sessions and their history
+            "dia": _dia,
+            "fecha_hora": _fecha_hora,
+            "firmado": _firmado,
+            "dif_class": _dif_class,
+            "es_cajero": is_cashier(user),
+            "es_gerencia": not user.share and can_reopen(user),
         }
         base.update(values)
         html = request.env["ir.qweb"]._render(template, base)
@@ -126,6 +173,10 @@ class Caja(http.Controller):
 
     @http.route("/caja", type="http", auth="user", methods=["GET"], sitemap=False)
     def home(self, ok="", cerrada=None, **kw):
+        user = request.env.user
+        if not is_cashier(user) and not user.share and can_reopen(user):
+            # 19.0.1.105.0: gerencia without the «Cajero» group: the history
+            return request.redirect("/caja/historial", 303)
         self._check()
         Caja = request.env["distri.caja"]
         caja = self._caja()
@@ -157,7 +208,10 @@ class Caja(http.Controller):
                                         ("date", "=", today_ar()),
                                         ("company_id", "=", request.env.company.id)], limit=1)
             values.update({"previous": previous, "today_closed": today,
-                           "proposed": previous.left_for_tomorrow if previous else 0.0})
+                           "proposed": previous.left_for_tomorrow if previous else 0.0,
+                           # 19.0.1.105.0: «Reabrir mi caja» on the latest one
+                           "reabrible": previous if previous and previous.can_reopen_now()
+                           else Caja.browse()})
         return self._render("distri_pedido.caja_inicio", values, status=status)
 
     @http.route("/caja/abrir", type="http", auth="user", methods=["POST"], sitemap=False)
@@ -269,12 +323,12 @@ class Caja(http.Controller):
     def movement_receipt(self, movement_id, **kw):
         """19.0.1.103.0: the photo or PDF of a «Salida de caja», for the
         cashier of that box (and gerencia)."""
-        user = self._check()
+        user = self._check_viewer()
         movement = request.env["distri.caja.movimiento"].sudo().browse(movement_id).exists()
         if not movement or not movement.has_receipt:
             raise NotFound()
         if movement.caja_id.user_id != user and not can_reopen(user):
-            raise Forbidden()
+            raise NotFound()
         if movement.document:
             name = (movement.document_name or "comprobante.pdf").replace('"', "")
             return request.make_response(base64.b64decode(movement.document), headers=[
@@ -399,10 +453,10 @@ class Caja(http.Controller):
     @http.route("/caja/<int:caja_id>/etiqueta", type="http", auth="user", methods=["GET"],
                 sitemap=False)
     def label(self, caja_id, **kw):
-        user = self._check()
-        caja = request.env["distri.caja"].sudo().browse(caja_id).exists()
-        if not caja or caja.state != "closed" or (
-                caja.user_id != user and not user.has_group("distri_pedido.grupo_administracion")):
+        # 19.0.1.105.0: its cashier or gerencia (before: any administración
+        # user with the «Cajero» group); also «Reimprimir etiqueta»
+        caja = self._viewable(caja_id)
+        if caja.state != "closed":
             raise NotFound()
         pdf, _type = request.env["ir.actions.report"].sudo()._render_qweb_pdf(
             "distri_pedido.report_caja_cierre", caja.ids)
@@ -412,3 +466,137 @@ class Caja(http.Controller):
              % caja.date.strftime("%d-%m-%Y")),
             ("Cache-Control", "no-store"),
         ])
+
+    # ---------------------------------------------------------------- closed sessions
+    # 19.0.1.105.0: «Cajas cerradas» (the cashier), «Historial de cajas»
+    # (gerencia), one session read only, and «Reabrir mi caja».
+
+    def _check_viewer(self):
+        """A cashier (his own sessions) or gerencia / the system
+        administrator (every cashier's)."""
+        user = request.env.user
+        if user.share or not (is_cashier(user) or can_reopen(user)):
+            raise Forbidden()
+        return user
+
+    def _viewable(self, caja_id):
+        """The session when the user may read it; a 404 otherwise (another
+        cashier's session does not exist for him)."""
+        user = self._check_viewer()
+        caja = request.env["distri.caja"].sudo().browse(caja_id).exists()
+        if not caja or caja.company_id != request.env.company:
+            raise NotFound()
+        if caja.user_id != user and not can_reopen(user):
+            raise NotFound()
+        return caja
+
+    def _since(self):
+        return today_ar() - timedelta(days=HISTORY_DAYS)
+
+    @http.route("/caja/cerradas", type="http", auth="user", methods=["GET"], sitemap=False)
+    def closed_list(self, ok="", **kw):
+        user = request.env.user
+        if not is_cashier(user):
+            if not user.share and can_reopen(user):
+                return request.redirect("/caja/historial", 303)
+            raise Forbidden()
+        Caja = request.env["distri.caja"]
+        cajas = Caja.sudo().search([
+            ("user_id", "=", user.id), ("state", "=", "closed"),
+            ("company_id", "=", request.env.company.id), ("date", ">=", self._since())],
+            order="date desc, id desc")
+        latest = Caja.last_closed()
+        reopenable = latest if latest and latest.can_reopen_now() else Caja.browse()
+        return self._render("distri_pedido.caja_cerradas", {
+            "cajas": cajas, "reabrible": reopenable, "ok": ok,
+            "bloqueo": latest.reopen_block() if latest and not reopenable else "",
+            "dias": HISTORY_DAYS,
+        })
+
+    def _closed_detail(self, caja, ok="", error="", field="", form=None, status=200):
+        user = request.env.user
+        moves = caja.movement_ids.sorted(lambda m: (m.moment, m.id))
+        grupos = [
+            ("Cobros en el local", moves.filtered(lambda m: m.kind == "cobro")),
+            ("Rendiciones y cobros de otros usuarios",
+             moves.filtered(lambda m: m.kind in ("rendicion", "recepcion"))),
+            ("Salidas de caja", moves.filtered(lambda m: m.kind in OUTFLOW_KINDS)),
+            ("Otros movimientos de efectivo", moves.filtered(lambda m: m.kind == "ajuste")),
+        ]
+        own = caja.user_id == user
+        states = dict(request.env["distri.route.case"]._fields["state"].selection)
+        backend = user.has_group("distri_pedido.grupo_administracion") or can_reopen(user)
+        return self._render("distri_pedido.caja_cerrada", {
+            "caja": caja, "grupos": grupos, "own": own,
+            "volver": "/caja/cerradas" if own and is_cashier(user) else "/caja/historial",
+            "puede_reabrir": caja.can_reopen_now(),
+            "bloqueo": caja.reopen_block() if caja.state == "closed" else "",
+            "caso_estado": lambda case: states.get(case.state, ""),
+            "caso_url": (lambda case: "/odoo/distri.route.case/%s" % case.id) if backend
+            else (lambda case: ""),
+            "ok": ok, "error": error, "field": field, "form": form or {},
+        }, status=status)
+
+    @http.route("/caja/cerradas/<int:caja_id>", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def closed_detail(self, caja_id, ok="", **kw):
+        return self._closed_detail(self._viewable(caja_id), ok=ok)
+
+    @http.route("/caja/cerradas/<int:caja_id>/reabrir", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def reopen(self, caja_id, motivo="", **kw):
+        """«Reabrir mi caja» (or gerencia, any cashier's): the model checks
+        who and which one (models/caja.py, action_reopen)."""
+        caja = self._viewable(caja_id)
+        try:
+            with request.env.cr.savepoint():
+                request.env["distri.caja"].browse(caja.id).action_reopen(motivo)
+        except (UserError, AccessError) as exc:
+            return self._refuse(exc, lambda text, field: self._closed_detail(
+                caja, error=text, field=field, form={"motivo": motivo}, status=400))
+        if caja.user_id == request.env.user:
+            return self._done("/caja", "Reabriste la caja del %s." % caja.date.strftime("%d/%m"))
+        return self._done("/caja/historial", "Caja de %s del %s reabierta." % (
+            caja.user_id.name, caja.date.strftime("%d/%m")))
+
+    @http.route("/caja/historial", type="http", auth="user", methods=["GET"], sitemap=False)
+    def history(self, ver="", cajero="", ok="", **kw):
+        """«Historial de cajas»: every cashier's sessions of the last
+        HISTORY_DAYS days (and any still open), for gerencia."""
+        user = request.env.user
+        if user.share or not can_reopen(user):
+            raise Forbidden()
+        Caja = request.env["distri.caja"].sudo()
+        cajas = Caja.search([("company_id", "=", request.env.company.id),
+                             "|", ("date", ">=", self._since()), ("state", "=", "open")],
+                            order="date desc, id desc")
+        cashiers = cajas.user_id.sorted(lambda u: (u.name or "").lower())
+        try:
+            selected = cashiers.filtered(lambda u: u.id == int(cajero or 0))
+        except (TypeError, ValueError):
+            selected = cashiers.browse()
+        scoped = cajas.filtered(lambda c: c.user_id == selected) if selected else cajas
+        currency = request.env.company.currency_id
+        closed = scoped.filtered(lambda c: c.state == "closed")
+        filtros = [
+            ("", "Todas", scoped),
+            ("dif", "Con diferencia", closed.filtered(lambda c: not currency.is_zero(c.difference))),
+            ("reabiertas", "Reabiertas", scoped.filtered(lambda c: c.reopen_count)),
+            ("abiertas", "Abiertas", scoped.filtered(lambda c: c.state == "open")),
+        ]
+        ver = ver if ver in dict((k, 1) for k, _l, _c in filtros) else ""
+        shown = dict((k, c) for k, _l, c in filtros)[ver]
+
+        def url(v=None, c=None):
+            query = {"ver": ver if v is None else v,
+                     "cajero": (selected.id or "") if c is None else c}
+            query = {k: x for k, x in query.items() if x}
+            return "/caja/historial" + ("?" + urlencode(query) if query else "")
+
+        return self._render("distri_pedido.caja_historial", {
+            "cajas": shown, "filtros": filtros, "ver": ver, "cajeros": cashiers,
+            "cajero": selected, "url": url, "ok": ok, "dias": HISTORY_DAYS,
+            "total_dif": sum(closed.mapped("difference")), "cantidad": len(scoped),
+            "volver": "/caja" if is_cashier(user) else (
+                "/tablero" if wants_tablero(user) else ""),
+        })

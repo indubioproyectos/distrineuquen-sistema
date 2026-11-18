@@ -112,6 +112,12 @@
         Esta es la caja del <b t-esc="caja.date.strftime('%d/%m')"/>, que quedó abierta. Cerrala para
         poder abrir la de hoy.
       </div>
+      <div t-if="caja.closing_ids" class="dn-card dn-card--warn caja-reabierta" role="status">
+        <t t-set="ultimo" t-value="caja.closing_ids[-1]"/>
+        <b>Caja reabierta</b> por <t t-esc="ultimo.reopened_by_id.name"/> a las <t t-esc="hora(ultimo.reopened_at)"/>
+        (<t t-esc="ultimo.reopen_reason"/>). Cargá lo que faltaba y cerrala de nuevo: el nuevo cierre
+        reemplaza al de las <t t-esc="hora(ultimo.closed_at)"/>.
+      </div>
       <section class="dn-card dn-card--strong caja-total">
         <p class="caja-total__sub">Abierta <t t-if="caja.date != hoy">el <t t-esc="caja.date.strftime('%d/%m')"/> </t>a las <t t-esc="hora(caja.opened_at)"/>
           · fondo <b class="dn-num" t-esc="money(caja.opening_float)"/></p>
@@ -143,18 +149,8 @@
         <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'cash'"/></t>
         <p>Todavía no hay movimientos.</p>
       </div>
-      <ul class="caja-movs" t-else="">
-        <li t-foreach="movimientos" t-as="m" t-att-class="'caja-mov caja-mov--%s' % ('in' if m.amount &gt;= 0 else 'out')">
-          <span class="caja-mov__hora dn-num" t-esc="hora(m.moment)"/>
-          <span class="caja-mov__txt"><t t-esc="m.label"/>
-            <small t-if="m.route_difference" class="dn-chip dn-chip--warn">
-              <t t-esc="'faltan' if m.route_difference &lt; 0 else 'sobran'"/> <t t-esc="money(abs(m.route_difference))"/></small>
-            <a t-if="m.has_receipt" class="caja-mov__comp" target="_blank" rel="noopener"
-               t-att-href="'/caja/movimiento/%s/comprobante' % m.id"
-               t-esc="'Ver PDF' if m.document else 'Ver foto'"/></span>
-          <b class="caja-mov__imp dn-num"><t t-esc="'+' if m.amount &gt;= 0 else '−'"/> <t t-esc="money(abs(m.amount))"/></b>
-        </li>
-      </ul>
+      <t t-else="" t-call="distri_pedido.caja_mov_lista"><t t-set="movs" t-value="movimientos"/></t>
+      <t t-call="distri_pedido.caja_links"/>
     </t>
     <t t-else="">
       <section t-if="closed" class="dn-card dn-card--strong caja-cerrada">
@@ -166,10 +162,17 @@
           se retira <b class="dn-num" t-esc="money(closed.withdrawn)"/>.</p>
         <a class="dn-btn dn-btn--lg" target="_blank" rel="noopener" t-att-href="'/caja/%s/etiqueta' % closed.id">
           <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Imprimir la etiqueta</a>
+        <a t-if="reabrible and reabrible == closed" class="dn-btn dn-btn--ghost" data-dn="down"
+           t-att-href="'/caja/cerradas/%s#reabrir' % closed.id">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'refresh'"/></t> Reabrir mi caja</a>
       </section>
-      <section t-elif="today_closed" class="dn-card">
+      <section t-elif="today_closed" class="dn-card caja-cerrada">
         <h2 class="caja-h2">La caja de hoy ya está cerrada</h2>
-        <p>Si hace falta cambiar algo, gerencia la reabre.</p>
+        <p class="caja-muted">Si te falta cargar un pago, reabrila: contás de nuevo y el nuevo cierre
+          reemplaza al anterior.</p>
+        <a t-if="reabrible and reabrible == today_closed" class="dn-btn dn-btn--outline" data-dn="down"
+           t-att-href="'/caja/cerradas/%s#reabrir' % today_closed.id">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'refresh'"/></t> Reabrir mi caja</a>
         <a class="dn-btn dn-btn--ghost" target="_blank" rel="noopener" t-att-href="'/caja/%s/etiqueta' % today_closed.id">
           <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Imprimir la etiqueta</a>
       </section>
@@ -191,6 +194,7 @@
         </div>
         <button type="submit" class="dn-btn dn-btn--lg">Abrir la caja</button>
       </form>
+      <t t-call="distri_pedido.caja_links"/>
     </t>
   </main>
   <div class="dn-bottom" t-if="caja">
@@ -470,6 +474,11 @@
           data-caja-cierre="" t-att-data-esperado="caja.expected">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <input type="hidden" name="esperado" t-att-value="caja.expected"/>
+      <div t-if="caja.closing_ids" class="dn-card dn-card--warn" role="status">
+        Este cierre reemplaza al cierre n.º <t t-esc="caja.closing_ids[-1].number"/> de las
+        <t t-esc="hora(caja.closing_ids[-1].closed_at)"/> (se contó
+        <b class="dn-num" t-esc="money(caja.closing_ids[-1].counted)"/>). Contá todo de nuevo.
+      </div>
       <section class="dn-card caja-esperado">
         <span>Tiene que haber</span><b class="dn-num" t-esc="money(caja.expected)"/>
       </section>
@@ -504,6 +513,281 @@
         <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Cerrar e imprimir</button>
     </div>
   </div>
+</body>
+</html>
+  </template>
+  <!-- ============================================================ closed sessions -->
+  <!-- 19.0.1.105.0: «Cajas cerradas» (the cashier's own), one session read
+       only with «Reabrir mi caja», and «Historial de cajas» (gerencia). -->
+
+  <template id="caja_mov_lista" name="Caja: lista de movimientos">
+    <ul class="caja-movs">
+      <li t-foreach="movs" t-as="m" t-att-class="'caja-mov caja-mov--%s' % ('in' if m.amount &gt;= 0 else 'out')">
+        <span class="caja-mov__hora dn-num" t-esc="hora(m.moment)"/>
+        <span class="caja-mov__txt"><t t-esc="m.label"/>
+          <small t-if="m.route_difference" class="dn-chip dn-chip--warn">
+            <t t-esc="'faltan' if m.route_difference &lt; 0 else 'sobran'"/> <t t-esc="money(abs(m.route_difference))"/></small>
+          <a t-if="m.has_receipt" class="caja-mov__comp" target="_blank" rel="noopener"
+             t-att-href="'/caja/movimiento/%s/comprobante' % m.id"
+             t-esc="'Ver PDF' if m.document else 'Ver foto'"/></span>
+        <b class="caja-mov__imp dn-num"><t t-esc="'+' if m.amount &gt;= 0 else '−'"/> <t t-esc="money(abs(m.amount))"/></b>
+      </li>
+    </ul>
+  </template>
+
+  <template id="caja_links" name="Caja: más">
+    <nav class="caja-links" aria-label="Más de la caja">
+      <a t-if="es_cajero" class="dn-link" href="/caja/cerradas" data-dn="down">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'list'"/></t> Cajas cerradas</a>
+      <a t-if="es_gerencia" class="dn-link" href="/caja/historial" data-dn="down">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'clock'"/></t> Historial de cajas</a>
+    </nav>
+  </template>
+
+  <!-- expected / counted / difference of a closed session -->
+  <template id="caja_cifras" name="Caja: cifras del cierre">
+    <div class="caja-st">
+      <span>Tiene que haber<b class="dn-num" t-esc="money(c.expected)"/></span>
+      <span>Contado<b class="dn-num" t-esc="money(c.counted)"/></span>
+      <span t-att-class="'caja-st--%s' % dif_class(c.difference)">Diferencia<b class="dn-num" t-esc="firmado(c.difference)"/></span>
+    </div>
+  </template>
+
+  <!-- the closings replaced by a later one (distri.caja.cierre) -->
+  <template id="caja_reemplazos" name="Caja: cierres reemplazados">
+    <div class="caja-reemplazos">
+      <div t-foreach="c.closing_ids" t-as="h" class="caja-reemplazo">
+        <b>Cierre n.º <t t-esc="h.number"/> · <t t-esc="fecha_hora(h.closed_at)"/> · contado
+          <span class="dn-num caja-nw" t-esc="money(h.counted)"/> · <span class="dn-num caja-nw" t-esc="firmado(h.difference)"/></b>
+        <span t-if="h.reason">Motivo de la diferencia: <t t-esc="h.reason"/></span>
+        <span t-if="con_caso and h.case_id">Caso <t t-esc="h.case_id.name"/>: <t t-esc="caso_estado(h.case_id)"/></span>
+        <span>Reabierta por <t t-esc="h.reopened_by_id.name"/> el <t t-esc="fecha_hora(h.reopened_at)"/> ·
+          Motivo: <t t-esc="h.reopen_reason"/></span>
+      </div>
+      <span t-if="c.state == 'closed'">Cierre n.º <t t-esc="len(c.closing_ids) + 1"/> · <t t-esc="fecha_hora(c.closed_at)"/>:
+        reemplaza al anterior</span>
+      <span t-else="">Abierta de nuevo: falta el cierre que reemplaza al anterior.</span>
+    </div>
+  </template>
+
+  <!-- «Reabrir mi caja»: a sheet (without JavaScript, an ordinary card) -->
+  <template id="caja_reabrir_hoja" name="Caja: reabrir">
+    <div class="dn-sheet caja-reabrir" id="caja-reabrir" role="dialog" aria-labelledby="caja-reabrir-tit"
+         data-caja-reabrir="">
+      <h2 id="caja-reabrir-tit">Reabrir <t t-esc="'mi caja' if rc.user_id == user else 'la caja de %s' % rc.user_id.name"/>
+        del <t t-esc="rc.date.strftime('%d/%m')"/></h2>
+      <p>Se deshace el cierre y el caso de la diferencia queda cerrado. Volvés a contar y cerrás de nuevo:
+        <b>el segundo cierre reemplaza al primero.</b></p>
+      <form method="post" t-att-action="'/caja/cerradas/%s/reabrir' % rc.id" class="caja-form"
+            data-caja-form="" data-fetch="">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <div class="dn-field">
+          <label for="motivo-reabrir">Motivo</label>
+          <textarea id="motivo-reabrir" class="dn-input caja-reabrir__motivo" name="motivo" rows="3"
+                    maxlength="500" required="required" placeholder="Por ejemplo: pago de último minuto"
+                    t-esc="form.get('motivo') or ''"/>
+          <span class="caja-nota caja-muted">Queda en el historial: lo ve gerencia.</span>
+        </div>
+        <button type="submit" class="dn-btn dn-btn--lg">Reabrir la caja</button>
+        <button type="button" class="dn-link caja-centro" data-dn-close="">Volver</button>
+      </form>
+    </div>
+  </template>
+
+  <template id="caja_cerradas" name="Caja: cajas cerradas">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Cajas cerradas · Caja · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="caja" data-parent="/caja" data-page="cerradas">
+  <t t-call="distri_pedido.caja_top">
+    <t t-set="volver" t-value="'/caja'"/>
+    <t t-set="volver_txt" t-value="'Volver a la caja'"/>
+    <t t-set="kicker" t-value="'Caja · %s' % user.name"/>
+    <t t-set="titulo" t-value="'Cajas cerradas'"/>
+  </t>
+  <t t-call="distri_pedido.caja_avisos"/>
+  <main class="dn-main">
+    <p class="caja-muted">Si te equivocaste al cerrar o te faltó cargar un pago, reabrí tu última caja,
+      cargalo y cerrala otra vez.</p>
+    <div class="dn-empty" t-if="not cajas">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'list'"/></t>
+      <p>No cerraste ninguna caja en los últimos <t t-esc="dias"/> días.</p>
+    </div>
+    <article t-foreach="cajas" t-as="c" t-att-class="'dn-card caja-hist' + (' dn-card--strong' if c == reabrible else '')">
+      <div class="caja-hist__cab">
+        <a class="caja-hist__a" t-att-href="'/caja/cerradas/%s' % c.id" data-dn="down" t-esc="dia(c.date)"/>
+        <span class="dn-chip dn-chip--ok">Cerrada <t t-esc="hora(c.closed_at)"/></span>
+        <span t-if="c.reopen_count" class="dn-chip dn-chip--warn" t-esc="c.reopen_label"/>
+      </div>
+      <t t-call="distri_pedido.caja_cifras"/>
+      <t t-if="c == reabrible">
+        <p class="caja-nota caja-muted">Se retira <span class="caja-nw" t-esc="money(c.withdrawn)"/> · queda para mañana
+          <span class="caja-nw" t-esc="money(c.left_for_tomorrow)"/></p>
+        <a class="dn-btn dn-btn--outline caja-hist__btn" href="#reabrir" data-caja-hoja="caja-reabrir">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'refresh'"/></t> Reabrir mi caja</a>
+      </t>
+    </article>
+    <p t-if="bloqueo" class="dn-card dn-card--warn" role="status" t-esc="bloqueo"/>
+    <p t-elif="cajas" class="caja-nota caja-muted caja-centro">Solo se reabre la última caja que cerraste.</p>
+    <a t-if="es_gerencia" class="dn-link" href="/caja/historial" data-dn="down">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'clock'"/></t> Historial de cajas de todos los cajeros</a>
+  </main>
+  <t t-if="reabrible" t-call="distri_pedido.caja_reabrir_hoja"><t t-set="rc" t-value="reabrible"/></t>
+</body>
+</html>
+  </template>
+
+  <template id="caja_cerrada" name="Caja: una caja cerrada">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Caja del <t t-esc="caja.date.strftime('%d/%m')"/> · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="caja" t-att-data-parent="volver" data-page="cerrada">
+  <t t-call="distri_pedido.caja_top">
+    <t t-set="volver_txt" t-value="'Volver a la lista'"/>
+    <t t-set="kicker" t-value="'Caja · %s' % caja.user_id.name"/>
+    <t t-set="titulo" t-value="'Caja del %s' % dia(caja.date)"/>
+  </t>
+  <t t-call="distri_pedido.caja_avisos"/>
+  <main class="dn-main">
+    <section class="dn-card dn-card--strong caja-total caja-detalle">
+      <div class="caja-hist__cab">
+        <span t-if="caja.state == 'closed'" class="dn-chip dn-chip--ok">Cerrada <t t-esc="hora(caja.closed_at)"/></span>
+        <span t-else="" class="dn-chip">Abierta</span>
+        <span t-if="caja.reopen_count" class="dn-chip dn-chip--warn" t-esc="caja.reopen_label"/>
+      </div>
+      <p class="caja-total__sub">Abierta a las <t t-esc="hora(caja.opened_at)"/> · fondo
+        <b class="dn-num" t-esc="money(caja.opening_float)"/>
+        <t t-if="caja.closed_by_id"> · la cerró <t t-esc="caja.closed_by_id.name"/> el <t t-esc="fecha_hora(caja.closed_at)"/></t></p>
+      <t t-if="caja.state == 'closed'">
+        <t t-call="distri_pedido.caja_cifras"><t t-set="c" t-value="caja"/></t>
+        <p class="caja-nota caja-muted">Se retira <span class="caja-nw" t-esc="money(caja.withdrawn)"/> · queda para mañana
+          <span class="caja-nw" t-esc="money(caja.left_for_tomorrow)"/></p>
+        <p t-if="caja.reason" class="caja-nota"><b>Motivo de la diferencia:</b> <t t-esc="caja.reason"/></p>
+      </t>
+      <t t-else="">
+        <p class="dn-label">Tiene que haber</p>
+        <p class="caja-total__big dn-num" t-esc="money(caja.expected)"/>
+      </t>
+      <p t-if="caja.case_id" class="caja-nota">
+        <b>Caso de la diferencia:</b>
+        <a t-if="caso_url(caja.case_id)" t-att-href="caso_url(caja.case_id)" target="_blank" rel="noopener"
+           t-esc="caja.case_id.name"/><t t-else="" t-esc="caja.case_id.name"/>
+        · <t t-esc="caso_estado(caja.case_id)"/></p>
+      <a t-if="caja.state == 'closed'" class="dn-btn dn-btn--ghost" target="_blank" rel="noopener"
+         t-att-href="'/caja/%s/etiqueta' % caja.id">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Reimprimir etiqueta</a>
+      <a t-if="puede_reabrir" class="dn-btn dn-btn--outline" href="#reabrir" data-caja-hoja="caja-reabrir">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'refresh'"/></t>
+        <t t-esc="'Reabrir mi caja' if own else 'Reabrir la caja de %s' % caja.user_id.name"/></a>
+      <p t-elif="bloqueo" class="caja-nota caja-muted" t-esc="bloqueo"/>
+    </section>
+
+    <section t-if="caja.closing_ids" class="dn-card">
+      <h2 class="caja-h2">Cierres reemplazados</h2>
+      <t t-call="distri_pedido.caja_reemplazos"><t t-set="c" t-value="caja"/><t t-set="con_caso" t-value="True"/></t>
+    </section>
+
+    <section class="dn-card">
+      <dl class="caja-res">
+        <div><dt>Fondo inicial</dt><dd class="dn-num" t-esc="money(caja.opening_float)"/></div>
+        <div><dt>+ Cobros en el local</dt><dd class="dn-num" t-esc="money(caja.total_cobros)"/></div>
+        <div><dt>+ Rendiciones y recepciones</dt><dd class="dn-num" t-esc="money(caja.total_rendiciones)"/></div>
+        <div t-if="caja.total_ajustes"><dt>± Otros (ajustes)</dt><dd class="dn-num" t-esc="money(caja.total_ajustes)"/></div>
+        <div><dt>− Gastos y proveedores</dt><dd class="dn-num" t-esc="money(-caja.total_salidas)"/></div>
+        <div><dt>− Retiros y banco</dt><dd class="dn-num" t-esc="money(-caja.total_retiros)"/></div>
+        <div class="caja-res__tot"><dt>Tiene que haber</dt><dd class="dn-num" t-esc="money(caja.expected)"/></div>
+      </dl>
+    </section>
+
+    <t t-foreach="grupos" t-as="g">
+      <t t-if="g[1]">
+        <h2 class="dn-label"><t t-esc="g[0]"/> (<t t-esc="len(g[1])"/>)</h2>
+        <t t-call="distri_pedido.caja_mov_lista"><t t-set="movs" t-value="g[1]"/></t>
+      </t>
+    </t>
+    <div class="dn-empty" t-if="not caja.movement_ids">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'cash'"/></t>
+      <p>No hubo movimientos.</p>
+    </div>
+
+    <section t-if="caja.state == 'closed'" class="dn-card">
+      <h2 class="caja-h2">Conteo de billetes</h2>
+      <table class="caja-conteo">
+        <tr t-foreach="caja.count_ids.filtered('quantity').sorted('value', reverse=True)" t-as="r">
+          <td class="dn-num" t-esc="money(r.value)"/><td class="caja-conteo__x">×</td>
+          <td class="dn-num" t-esc="r.quantity"/><td class="dn-num caja-conteo__sub" t-esc="money(r.subtotal)"/>
+        </tr>
+        <tr t-if="caja.other_amount"><td colspan="3">Monedas / otros</td>
+          <td class="dn-num caja-conteo__sub" t-esc="money(caja.other_amount)"/></tr>
+        <tr class="caja-conteo__tot"><td colspan="3">Total contado</td>
+          <td class="dn-num caja-conteo__sub" t-esc="money(caja.counted)"/></tr>
+      </table>
+    </section>
+  </main>
+  <t t-if="puede_reabrir" t-call="distri_pedido.caja_reabrir_hoja"><t t-set="rc" t-value="caja"/></t>
+</body>
+</html>
+  </template>
+
+  <template id="caja_historial" name="Caja: historial de cajas">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Historial de cajas · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="caja" t-att-data-parent="volver" data-page="historial">
+  <t t-call="distri_pedido.caja_top">
+    <t t-set="volver_txt" t-value="'Volver'"/>
+    <t t-set="kicker" t-value="'Gerencia'"/>
+    <t t-set="titulo" t-value="'Historial de cajas'"/>
+  </t>
+  <t t-call="distri_pedido.caja_avisos"/>
+  <main class="dn-main">
+    <p class="caja-muted">Últimos <t t-esc="dias"/> días · <t t-esc="cantidad"/>
+      <t t-esc="'caja' if cantidad == 1 else 'cajas'"/> · diferencia total
+      <b t-att-class="'dn-num caja-nw caja-st--%s' % dif_class(total_dif)" t-esc="firmado(total_dif)"/></p>
+    <nav class="caja-tabs" aria-label="Qué cajas">
+      <a t-foreach="filtros" t-as="f" t-att-class="'caja-tab' + (' on' if f[0] == ver else '')"
+         t-att-href="url(v=f[0])" data-dn="side" t-att-aria-current="'page' if f[0] == ver else None">
+        <t t-esc="f[1]"/><t t-if="f[0]"> · <t t-esc="len(f[2])"/></t></a>
+    </nav>
+    <nav t-if="len(cajeros) &gt; 1 or cajero" class="caja-tabs" aria-label="Cajero">
+      <a t-att-class="'caja-tab' + ('' if cajero else ' on')" t-att-href="url(c='')" data-dn="side">Todos los cajeros</a>
+      <a t-foreach="cajeros" t-as="u" t-att-class="'caja-tab' + (' on' if u == cajero else '')"
+         t-att-href="url(c=u.id)" data-dn="side" t-esc="u.name"/>
+    </nav>
+    <div class="dn-empty" t-if="not cajas">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'list'"/></t>
+      <p>No hay cajas para mostrar.</p>
+    </div>
+    <a t-foreach="cajas" t-as="c" t-att-href="'/caja/cerradas/%s' % c.id" data-dn="down"
+       t-att-class="'dn-card caja-hist2' + (' caja-hist2--reabierta' if c.reopen_count else '')">
+      <div class="caja-hist__cab">
+        <b class="caja-hist__tit"><t t-esc="dia(c.date, True)"/> · <t t-esc="c.user_id.name"/></b>
+        <span t-if="c.state == 'open'" class="dn-chip">Abierta</span>
+        <span t-else="" class="dn-chip dn-chip--ok">Cerrada</span>
+        <span t-if="c.reopen_count" class="dn-chip dn-chip--warn" t-esc="c.reopen_label"/>
+        <span t-if="c.state == 'closed' and dif_class(c.difference) != 'ok'" class="dn-chip dn-chip--err">Con diferencia</span>
+      </div>
+      <dl class="caja-kv" t-if="c.state == 'open'">
+        <dt>Fondo inicial</dt><dd class="dn-num" t-esc="money(c.opening_float)"/>
+        <dt>Tiene que haber</dt><dd class="dn-num" t-esc="money(c.expected)"/>
+      </dl>
+      <dl class="caja-kv" t-else="">
+        <dt>Tiene que haber</dt><dd class="dn-num" t-esc="money(c.expected)"/>
+        <dt>Contado</dt><dd class="dn-num" t-esc="money(c.counted)"/>
+        <dt>Diferencia</dt><dd t-att-class="'dn-num caja-st--%s' % dif_class(c.difference)" t-esc="firmado(c.difference)"/>
+        <dt>Se retira · queda para mañana</dt>
+        <dd class="dn-num"><t t-esc="money(c.withdrawn)"/> · <t t-esc="money(c.left_for_tomorrow)"/></dd>
+        <t t-if="c.reason"><dt>Motivo de la diferencia</dt><dd class="caja-kv__txt" t-esc="c.reason"/></t>
+      </dl>
+      <t t-if="c.closing_ids" t-call="distri_pedido.caja_reemplazos"><t t-set="con_caso" t-value="False"/></t>
+    </a>
+  </main>
 </body>
 </html>
   </template>

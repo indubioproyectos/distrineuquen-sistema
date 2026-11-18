@@ -194,6 +194,9 @@ access_caja_denominacion_cajero,distri.caja.denominacion cajero,model_distri_caj
 access_caja_denominacion_admin,distri.caja.denominacion administracion,model_distri_caja_denominacion,distri_pedido.grupo_administracion,1,0,0,0
 access_caja_denominacion_gerencia,distri.caja.denominacion gerencia,model_distri_caja_denominacion,distri_pedido.grupo_gerencia,1,1,1,0
 access_caja_denominacion_sistema,distri.caja.denominacion sistema,model_distri_caja_denominacion,base.group_system,1,1,1,1
+access_caja_cierre_cajero,distri.caja.cierre cajero,model_distri_caja_cierre,distri_pedido.grupo_cajero,1,0,0,0
+access_caja_cierre_admin,distri.caja.cierre administracion,model_distri_caja_cierre,distri_pedido.grupo_administracion,1,0,0,0
+access_caja_cierre_sistema,distri.caja.cierre sistema,model_distri_caja_cierre,base.group_system,1,1,1,1
 access_caja_reabrir_gerencia,distri.caja.reabrir gerencia,model_distri_caja_reabrir,distri_pedido.grupo_gerencia,1,1,1,1
 access_caja_reabrir_sistema,distri.caja.reabrir sistema,model_distri_caja_reabrir,base.group_system,1,1,1,1
 access_caja_conciliacion_gerencia,distri.caja.conciliacion.inicial gerencia,model_distri_caja_conciliacion_inicial,distri_pedido.grupo_gerencia,1,1,1,1
