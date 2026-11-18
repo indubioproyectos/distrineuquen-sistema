@@ -1,0 +1,137 @@
+/* «Planificación de rutas» (19.0.1.110.0, controllers/rutas.py): the PC board
+   of the owner-approved mockup «pc-reparto-planificacion», on the kit tokens
+   (../kit/dn.css). Desktop first (1366 px); below 1024 px the depot column
+   goes on top and the routes wrap (tablet). */
+
+.rt{font-size:15px;line-height:1.4}
+.rt-bar{position:sticky;top:0;z-index:20;background:var(--dn-navy);color:#fff;display:flex;flex-wrap:wrap;
+  align-items:center;gap:8px 16px;padding:10px 24px}
+.rt-logo{width:36px;height:36px;border-radius:10px;background:var(--dn-turq);color:var(--dn-navy);display:flex;
+  align-items:center;justify-content:center;font-weight:800;font-size:15px;flex:none;text-decoration:none}
+.rt-bar__app{font-size:20px;font-weight:800}
+.rt-bar__sub{font-size:14px;color:var(--dn-mint);font-weight:700}
+.rt-bar__grow{flex-grow:1}
+.rt-nav{display:flex;flex-wrap:wrap;gap:4px}
+.rt-nav a{min-height:40px;padding:0 14px;border-radius:10px;display:flex;align-items:center;color:var(--dn-on-navy);
+  text-decoration:none;font-weight:600}
+.rt-nav a:hover{background:var(--dn-navy-2);color:#fff}
+.rt-nav a.on{background:var(--dn-mint);color:var(--dn-navy);font-weight:800}
+.rt-bar .dn-gear{color:#fff}
+
+.rt-wrap{max-width:1600px;margin:0 auto;padding:16px 24px 32px;display:flex;flex-direction:column;gap:16px}
+.rt-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.rt-day{display:flex;align-items:center;gap:8px}
+.rt-day__form{margin:0}
+.rt-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rt-row--between{justify-content:space-between}
+.rt-row--top{align-items:flex-start;flex-wrap:nowrap}
+.rt-board{display:flex;gap:16px;align-items:flex-start}
+.rt-panel{background:var(--dn-card);border:1px solid var(--dn-line);border-radius:12px;padding:16px;display:flex;
+  flex-direction:column;gap:12px;min-width:0}
+.rt-depot{flex:0 0 380px;max-width:420px;position:sticky;top:72px;max-height:calc(100vh - 88px);overflow:auto}
+.rt-depot>*{flex-shrink:0}
+.rt-routes{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;
+  align-items:start}
+.rt-h2{font-size:18px;font-weight:800;margin:0}
+.rt-lbl{font-size:12px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;color:var(--dn-muted)}
+.rt-mut{color:var(--dn-muted)}
+.rt-small{font-size:13px;margin:0}
+.rt-inp{min-height:44px;padding:8px 12px;border:1px solid var(--dn-input);border-radius:10px;background:#fff;font-size:16px;
+  max-width:100%}
+.rt-ib{width:40px;height:40px;border-radius:10px;border:1px solid var(--dn-input);background:#fff;color:var(--dn-navy);
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;text-decoration:none;list-style:none}
+.rt-ib::-webkit-details-marker{display:none}
+.rt-ib--sm{width:36px;height:36px;border-color:var(--dn-line)}
+.rt-btn{min-height:44px;padding:0 16px;border:0;border-radius:12px;background:var(--dn-primary);color:#fff;font-weight:800;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;text-decoration:none;white-space:nowrap;
+  list-style:none;font-size:15px}
+.rt-btn::-webkit-details-marker{display:none}
+.rt-btn:hover{background:var(--dn-primary-press)}
+.rt-btn--ghost{background:#fff;color:var(--dn-navy);border:1px solid var(--dn-input);font-weight:700}
+.rt-btn--ghost:hover{background:var(--dn-tint)}
+.rt-btn--sm{min-height:40px;padding:0 12px;border-radius:10px;font-size:14px}
+.rt-btn[disabled]{opacity:.6;cursor:default}
+
+/* «Nueva ruta» */
+.rt-new{position:relative}
+.rt-new summary{cursor:pointer}
+.rt-pop{position:absolute;right:0;top:52px;z-index:30;width:300px;background:#fff;border:1px solid var(--dn-line);
+  border-radius:12px;box-shadow:var(--dn-shadow);padding:16px;display:flex;flex-direction:column;gap:8px}
+.rt-pop label{font-size:13px;font-weight:700;color:var(--dn-muted)}
+
+/* zone filter and depot cards */
+.rt-zf{display:flex;flex-wrap:wrap;gap:6px}
+.rt-zchip{min-height:32px;padding:0 12px;border-radius:999px;border:0;background:var(--dn-info-bg);color:var(--dn-navy-2);
+  font-size:13px;font-weight:700;cursor:pointer}
+.rt-zchip.on{background:var(--dn-navy);color:#fff}
+.rt-drop{display:flex;flex-direction:column;gap:8px;min-height:56px;border-radius:10px;transition:background .15s}
+.rt-drop.rt-over{background:var(--dn-green-bg);outline:2px dashed var(--dn-primary);outline-offset:2px}
+.rt-group{display:flex;flex-direction:column;gap:8px}
+.rt-ord{display:flex;align-items:center;gap:10px;padding:10px 8px 10px 10px;border:1px solid var(--dn-line);border-radius:10px;
+  background:#fff;cursor:grab;position:relative}
+.rt-ord:hover{border-color:var(--dn-input)}
+.rt-ord--held{background:var(--dn-amber-bg);border-color:var(--dn-amber-line);color:var(--dn-amber-text);cursor:default}
+.rt-ord__txt,.rt-stop__txt{flex:1;min-width:0;display:flex;flex-direction:column;overflow-wrap:anywhere}
+.rt-meta{font-size:13px;color:var(--dn-muted)}
+.rt-ord--held .rt-meta{color:var(--dn-amber-text)}
+.rt-notice{font-size:13px;color:var(--dn-amber-text)}
+.rt-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.rt-chips .dn-chip{min-height:22px;font-size:12px}
+.rt-amt{white-space:nowrap}
+.rt-amt--sm{font-size:14px}
+.rt-grip{color:var(--dn-muted);display:flex;flex:none}
+.rt-dragging{opacity:.45}
+.rt-ph{height:4px;border-radius:2px;background:var(--dn-primary);margin:-2px 0}
+
+/* the «Mover a…» menu */
+.rt-menu{position:relative;flex:none}
+.rt-menu summary{list-style:none}
+.rt-menu__list{position:absolute;right:0;top:40px;z-index:25;min-width:240px;background:#fff;border:1px solid var(--dn-line);
+  border-radius:12px;box-shadow:var(--dn-shadow);padding:8px;display:flex;flex-direction:column;gap:2px}
+.rt-menu__list .rt-lbl{padding:4px 8px}
+.rt-menu__list button,.rt-menu__list a{min-height:40px;padding:0 10px;border:0;border-radius:8px;background:none;text-align:left;
+  font-weight:700;color:var(--dn-navy);cursor:pointer;display:flex;align-items:center;text-decoration:none;font-size:14px}
+.rt-menu__list button:hover,.rt-menu__list a:hover,.rt-menu__list button:focus-visible{background:var(--dn-tint)}
+.rt-menu__list .rt-mut{padding:4px 8px;font-size:13px}
+
+/* route columns */
+.rt-col__head{display:flex;flex-direction:column;min-width:0}
+.rt-col--locked{background:#fbfcfd}
+.rt-driver{display:flex;flex-direction:column;gap:4px}
+.rt-kpis{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:14px}
+.rt-prints{display:flex;flex-wrap:wrap;gap:8px}
+.rt-stops{list-style:none;margin:0;padding:0;gap:0}
+.rt-stop{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--dn-tint);background:#fff}
+.rt-stop[draggable=true]{cursor:grab}
+.rt-stop--fixed .rt-stop__txt b{color:var(--dn-ink)}
+.rt-stop .dn-chip{min-height:22px;font-size:12px}
+.rt-stop__txt b{font-size:14px}
+.rt-n{width:28px;height:28px;border-radius:14px;background:var(--dn-navy);color:#fff;font-size:13px;font-weight:800;display:flex;
+  align-items:center;justify-content:center;flex:none}
+.rt-stop.rt-new-stop{background:var(--dn-green-bg)}
+.rt-empty{border:1px dashed var(--dn-input);border-radius:10px;padding:20px 16px;display:flex;flex-direction:column;
+  align-items:center;gap:6px;text-align:center}
+.rt-empty--drop{list-style:none}
+.rt-note{background:var(--dn-info-bg);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--dn-navy-2)}
+.rt-left{background:var(--dn-amber-bg);color:var(--dn-amber-text);border-radius:10px;padding:8px 12px}
+.rt-zones summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--dn-primary);min-height:36px;display:flex;align-items:center}
+.rt-zones__form{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.rt-zones__list{display:flex;flex-wrap:wrap;gap:4px 12px}
+.rt-check{display:inline-flex;align-items:center;gap:6px;min-height:36px;font-size:14px}
+.rt-check input{width:18px;height:18px;accent-color:var(--dn-primary)}
+.rt-col__foot{justify-content:space-between}
+.rt-del{color:var(--dn-red-text)}
+.rt-busy{opacity:.6;pointer-events:none}
+
+@media (max-width:1023px){
+  .rt-wrap{padding:12px 16px 24px}
+  .rt-board{flex-direction:column;align-items:stretch}
+  .rt-depot{position:static;flex:none;max-width:none;max-height:none}
+  .rt-routes{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  .rt-bar{padding:10px 16px}
+}
+@media (max-width:640px){
+  .rt-nav{display:none}
+  .rt-routes{grid-template-columns:1fr}
+  .rt-pop{position:fixed;left:16px;right:16px;top:auto;bottom:16px;width:auto}
+}

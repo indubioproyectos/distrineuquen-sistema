@@ -40,6 +40,13 @@
     <field name="value">24</field>
   </record>
 
+  <!-- 19.0.1.110.0: titular del alias (distri_pedido.alias_transferencia) que
+       imprimen la hoja de ruta y el remito: «Titular: <esto> · Distri Neuquén». -->
+  <record id="param_alias_titular" model="ir.config_parameter">
+    <field name="key">distri_pedido.alias_titular</field>
+    <field name="value">Gonzalo Granero</field>
+  </record>
+
   <!-- La cuenta propia de la empresa: CUIT, titular, CVU/CBU y alias, separados
        por coma (models/ocr_comprobante.py). Nunca se toma como quien paga:
        un comprobante donde paga la cuenta propia es una devolucion. -->

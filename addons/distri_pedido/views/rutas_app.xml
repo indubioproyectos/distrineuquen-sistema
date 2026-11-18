@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Planificación de rutas» on the PC (19.0.1.110.0, controllers/rutas.py,
+       models/planificacion.py, static/src/rutas/): the owner-approved mockup
+       «pc-reparto-planificacion», on the kit. Desktop first (1366 px), usable
+       on a tablet: every drag has a «Mover a…» menu for touch and keyboard. -->
+
+  <template id="rutas_app" name="Planificación de rutas">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Planificación de rutas · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="rt" t-att-data-parent="inicio" data-page="rutas" t-att-data-fecha="day_iso">
+  <header class="rt-bar">
+    <a class="rt-logo" t-att-href="inicio" data-dn-back="" aria-label="Inicio">DN</a>
+    <span class="rt-bar__app">Reparto</span>
+    <span class="rt-bar__sub">Planificación · <t t-esc="b['day_text'].lower()"/></span>
+    <span class="rt-bar__grow"/>
+    <nav class="rt-nav" aria-label="Apps">
+      <a t-att-href="inicio">Inicio</a>
+      <a href="/despacho">Despacho</a>
+      <a href="/deposito">Depósito</a>
+      <a href="/rutas" class="on" aria-current="page">Planificación</a>
+      <a t-att-href="backend_url">Rutas en Odoo</a>
+    </nav>
+    <t t-call="distri_pedido.dn_ajustes"/>
+  </header>
+  <div id="dn-banner" class="dn-banner" hidden="hidden" role="status"/>
+  <main class="rt-wrap">
+    <div class="rt-toolbar">
+      <div class="rt-day">
+        <a class="rt-ib" t-att-href="'/rutas?fecha=%s' % prev_day" aria-label="Día anterior" data-dn="side">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+        <form method="get" action="/rutas" class="rt-day__form">
+          <label for="rt-fecha" class="dn-sr">Fecha</label>
+          <input id="rt-fecha" class="rt-inp" type="date" name="fecha" t-att-value="day_iso" data-rt-fecha=""/>
+        </form>
+        <a class="rt-ib" t-att-href="'/rutas?fecha=%s' % next_day" aria-label="Día siguiente" data-dn="side">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+        <a t-if="not b['is_today']" class="dn-link" href="/rutas" data-dn="side">Volver a hoy</a>
+      </div>
+      <details t-if="b['can_create']" class="rt-new" data-rt-new="">
+        <summary class="rt-btn rt-btn--ghost">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nueva ruta</summary>
+        <form class="rt-pop" data-rt-form="nueva">
+          <b>Nueva ruta de <t t-esc="b['day_text'].lower()"/></b>
+          <label for="rt-new-trip">Viaje</label>
+          <select id="rt-new-trip" name="trip" class="rt-inp">
+            <option t-foreach="b['trips']" t-as="t" t-att-value="t[0]" t-esc="t[1]"/>
+          </select>
+          <label for="rt-new-driver">Repartidor</label>
+          <select id="rt-new-driver" name="driver_id" class="rt-inp">
+            <option value="">Lo elijo después</option>
+            <option t-foreach="b['drivers']" t-as="d" t-att-value="d['id']" t-esc="d['name']"/>
+          </select>
+          <button type="submit" class="rt-btn">Crear la ruta</button>
+          <span class="rt-mut">Sale vacía: pasale los pedidos desde la izquierda.</span>
+        </form>
+      </details>
+    </div>
+    <div id="rt-board" class="rt-board"><t t-call="distri_pedido.rutas_tablero"/></div>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- The board: rendered with the page and again after every change
+       (controllers/rutas.py _board_html). Values: b = distri.route
+       _planning_board(), day_iso. -->
+  <template id="rutas_tablero" name="Planificación: tablero">
+    <section class="rt-depot rt-panel" aria-labelledby="rt-depot-t">
+      <div class="rt-row rt-row--between">
+        <h2 class="rt-h2" id="rt-depot-t">Sin ruta · depósito</h2>
+        <span class="rt-mut dn-num"><t t-esc="b['free_count']"/> pedidos · <t t-esc="b['free_parcels']"/> bultos</span>
+      </div>
+      <label for="rt-buscar" class="dn-sr">Buscar cliente o pedido</label>
+      <input id="rt-buscar" class="rt-inp" type="search" placeholder="Buscar cliente o pedido" autocomplete="off" data-rt-buscar=""/>
+      <div t-if="len(b['groups']) &gt; 1" class="rt-zf" role="group" aria-label="Zonas">
+        <button type="button" class="rt-zchip on" data-rt-zona="" aria-pressed="true">Todas</button>
+        <button t-foreach="b['groups']" t-as="g" type="button" class="rt-zchip" t-att-data-rt-zona="g['id']" aria-pressed="false">
+          <t t-esc="g['name']"/> · <t t-esc="len(g['orders'])"/></button>
+      </div>
+      <div class="rt-drop rt-drop--depot" data-drop="0" aria-label="Sin ruta · depósito">
+        <t t-foreach="b['groups']" t-as="g">
+          <div class="rt-group" t-att-data-zona="g['id']">
+            <span class="rt-lbl"><t t-esc="g['name']"/> · <t t-esc="len(g['orders'])"/></span>
+            <t t-foreach="g['orders']" t-as="o">
+              <div t-if="o['held']" class="rt-ord rt-ord--held" t-att-data-search="o['search']">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                <span class="rt-ord__txt"><b><t t-esc="o['client']"/> · retenido</b>
+                  <span class="rt-meta"><t t-esc="o['name']"/> · No entra a una ruta hasta liberarlo<t t-if="o['held_reason']">: <t t-esc="o['held_reason']"/></t></span></span>
+                <b class="dn-num rt-amt" t-esc="o['amount']"/>
+              </div>
+              <div t-else="" class="rt-ord" draggable="true" t-att-data-order="o['id']" data-from="0" t-att-data-search="o['search']">
+                <span class="rt-grip" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
+                <span class="rt-ord__txt"><b t-esc="o['client']"/>
+                  <span class="rt-meta" t-esc="o['meta']"/>
+                  <span t-if="o['notice']" class="rt-notice" t-esc="o['notice']"/>
+                  <span t-if="o['chips']" class="rt-chips"><span t-foreach="o['chips']" t-as="c" t-att-class="'dn-chip' + (' dn-chip--%s' % c[1] if c[1] else '')" t-esc="c[0]"/></span></span>
+                <b class="dn-num rt-amt" t-esc="o['amount']"/>
+                <details class="rt-menu">
+                  <summary class="rt-ib rt-ib--sm" t-att-aria-label="'Mover %s a…' % o['name']" title="Mover a…">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></summary>
+                  <div class="rt-menu__list" role="menu">
+                    <span class="rt-lbl">Mover a…</span>
+                    <button t-foreach="b['targets']" t-as="t" type="button" role="menuitem" t-att-data-rt-move="t['id']" t-att-data-order="o['id']" t-esc="t['label']"/>
+                    <span t-if="not b['targets']" class="rt-mut">No hay rutas abiertas: creá una con «Nueva ruta».</span>
+                    <a role="menuitem" t-att-href="'/deposito/entrega/%s' % o['id']">Entregar en el depósito</a>
+                    <a role="menuitem" t-att-href="'/report/pdf/distri_pedido.remito_pedido_documento/%s' % o['id']" target="_blank" rel="noopener">Imprimir remito</a>
+                  </div>
+                </details>
+              </div>
+            </t>
+          </div>
+        </t>
+        <div t-if="not b['groups']" class="rt-empty"><b>No hay armados sin ruta.</b>
+          <span class="rt-mut">Cuando el armador termine un pedido, aparece acá.</span></div>
+      </div>
+      <p class="rt-mut rt-small">Arrastrá un pedido a una ruta, o usá el menú de cada pedido. Lo que queda acá se puede
+        entregar en el depósito.</p>
+      <a t-if="b['pickup_count']" class="rt-small" href="/deposito"><t t-esc="b['pickup_count']"/>
+        <t t-esc="'pedido para retirar' if b['pickup_count'] == 1 else 'pedidos para retirar'"/> en el depósito ›</a>
+    </section>
+
+    <div class="rt-routes">
+      <div t-if="not b['columns']" class="rt-panel rt-empty rt-empty--routes">
+        <b>Todavía no hay rutas para este día.</b>
+        <span class="rt-mut" t-if="b['can_create']">Tocá «Nueva ruta»: una por repartidor (Simón, Italo) y por viaje.</span>
+      </div>
+      <section t-foreach="b['columns']" t-as="c" t-att-class="'rt-col rt-panel' + ('' if c['editable'] else ' rt-col--locked')"
+               t-att-data-route="c['id']" t-att-aria-label="c['title']">
+        <div class="rt-row rt-row--between rt-row--top">
+          <div class="rt-col__head">
+            <h2 class="rt-h2"><t t-esc="c['title']"/></h2>
+            <span class="rt-mut rt-small">Reparto<t t-if="c['zones']"> · <t t-esc="c['zones']"/></t><t t-if="c['old']"> · del <t t-esc="c['day_short']"/>, sin salir</t></span>
+          </div>
+          <span t-att-class="'dn-chip' + (' dn-chip--%s' % c['state_chip'] if c['state_chip'] else '')" t-esc="c['state_label']"/>
+        </div>
+        <div class="rt-driver">
+          <label t-att-for="'rt-drv-%s' % c['id']" class="rt-lbl">Repartidor</label>
+          <select t-if="not c['driver_locked']" t-att-id="'rt-drv-%s' % c['id']" class="rt-inp" data-rt-driver="" t-att-data-route="c['id']">
+            <option value="" t-att-selected="not c['driver_id']">Elegí el repartidor</option>
+            <option t-foreach="c['drivers']" t-as="d" t-att-value="d['id']" t-att-selected="d['id'] == c['driver_id']" t-esc="d['name']"/>
+          </select>
+          <b t-else="" t-att-id="'rt-drv-%s' % c['id']" t-esc="c['driver'] or 'Sin repartidor'"/>
+        </div>
+        <div class="rt-kpis dn-num">
+          <span><b t-esc="c['stop_count']"/> pedidos</span>
+          <span><b t-esc="c['parcel_count']"/> bultos</span>
+          <span t-if="c['draft']"><b t-esc="c['checked_count']"/> con doble control</span>
+          <span t-if="c['departed']">Salió <t t-esc="c['departed']"/></span>
+        </div>
+        <div class="rt-prints">
+          <a class="rt-btn rt-btn--ghost rt-btn--sm" t-att-href="c['sheet_url']" target="_blank" rel="noopener">Imprimir hoja de ruta</a>
+          <a class="rt-btn rt-btn--ghost rt-btn--sm" t-att-href="c['remitos_url']" target="_blank" rel="noopener">Imprimir remitos</a>
+        </div>
+        <ol t-att-class="'rt-stops' + (' rt-drop' if c['editable'] else '')" t-att-data-drop="c['id'] if c['editable'] else None">
+          <li t-foreach="c['stops']" t-as="s" t-att-class="'rt-stop' + ('' if s['movable'] else ' rt-stop--fixed')"
+              t-att-draggable="'true' if c['draft'] and s['movable'] else None"
+              t-att-data-stop="s['id']" t-att-data-order="s['order_id']" t-att-data-from="c['id']">
+            <span t-if="c['draft'] and s['movable']" class="rt-grip" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
+            <span class="rt-n" t-esc="s['n']"/>
+            <span class="rt-stop__txt"><b t-esc="s['client']"/><span class="rt-meta" t-esc="s['meta']"/>
+              <span t-if="s['chip'][0]" class="rt-chips"><span t-att-class="'dn-chip' + (' dn-chip--%s' % s['chip'][1] if s['chip'][1] else '')" t-esc="s['chip'][0]"/></span></span>
+            <span class="dn-num rt-amt rt-amt--sm" t-esc="s['amount']"/>
+            <details t-if="c['draft']" class="rt-menu">
+              <summary class="rt-ib rt-ib--sm" t-att-aria-label="'Opciones de %s' % s['order']" title="Mover a…">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></summary>
+              <div class="rt-menu__list" role="menu">
+                <t t-if="s['movable']">
+                  <span class="rt-lbl">Mover a…</span>
+                  <t t-foreach="b['targets']" t-as="t"><button t-if="t['id'] != c['id']" type="button" role="menuitem" t-att-data-rt-move="t['id']" t-att-data-order="s['order_id']" t-esc="t['label']"/></t>
+                  <button type="button" role="menuitem" data-rt-move="0" t-att-data-order="s['order_id']">Sin ruta · depósito</button>
+                </t>
+                <span t-else="" class="rt-mut">Ya está tildado en la carga: para moverlo, que lo destilden primero.</span>
+                <button t-if="s['n'] &gt; 1" type="button" role="menuitem" data-rt-step="-1" t-att-data-stop="s['id']" t-att-data-route="c['id']">Subir una parada</button>
+                <button t-if="s['n'] &lt; len(c['stops'])" type="button" role="menuitem" data-rt-step="1" t-att-data-stop="s['id']" t-att-data-route="c['id']">Bajar una parada</button>
+                <a role="menuitem" t-att-href="'/report/pdf/distri_pedido.remito_pedido_documento/%s' % s['order_id']" target="_blank" rel="noopener">Imprimir remito</a>
+              </div>
+            </details>
+          </li>
+          <li t-if="not c['stops'] and c['editable']" class="rt-empty rt-empty--drop">
+            <b>Sin pedidos todavía</b>
+            <span class="rt-mut">Arrastrá pedidos acá o usá «Mover a…».</span>
+          </li>
+        </ol>
+        <div t-if="c['left']" class="rt-left rt-small">
+          <b>Quedan en el depósito:</b>
+          <span t-foreach="c['left']" t-as="l"><t t-esc="l['client']"/> (<t t-esc="l['order']"/>): <t t-esc="l['reason']"/>. </span>
+        </div>
+        <p t-if="c['editable'] and c['stops']" class="rt-mut rt-small">Arrastrá para cambiar el orden de las paradas.</p>
+        <div t-if="c['locked']" class="rt-note" t-esc="c['locked']"/>
+        <details t-if="c['editable']" class="rt-zones">
+          <summary>Zonas y asignación automática</summary>
+          <form data-rt-form="zonas" class="rt-zones__form">
+            <input type="hidden" name="route_id" t-att-value="c['id']"/>
+            <div class="rt-zones__list">
+              <label t-foreach="c['zones_all']" t-as="z" class="rt-check">
+                <input type="checkbox" name="zone" t-att-value="z['id']" t-att-checked="z['id'] in c['zone_ids']"/>
+                <span t-esc="z['name']"/></label>
+            </div>
+            <div class="rt-row">
+              <button type="submit" class="rt-btn rt-btn--ghost rt-btn--sm">Guardar zonas</button>
+              <button type="button" class="rt-btn rt-btn--ghost rt-btn--sm" data-rt-assign="" t-att-data-route="c['id']">Asignar pedidos armados de las zonas</button>
+            </div>
+          </form>
+        </details>
+        <div class="rt-row rt-col__foot">
+          <a t-if="c['draft']" class="dn-link" href="/despacho">Control de carga en Despacho ›</a>
+          <button t-if="c['next_trip']" type="button" class="rt-btn rt-btn--sm" data-rt-next="" t-att-data-trip="c['next_trip']" t-att-data-driver="c['driver_id']">Nuevo viaje <t t-esc="c['next_trip']"/> con <t t-esc="c['driver_first']"/></button>
+          <button t-if="c['can_delete']" type="button" class="dn-link rt-del" data-rt-delete="" t-att-data-route="c['id']">Borrar esta ruta</button>
+        </div>
+      </section>
+    </div>
+  </template>
+
+  <record id="action_rutas_planificacion" model="ir.actions.act_url">
+    <field name="name">Planificación de rutas</field>
+    <field name="url">/rutas</field>
+    <field name="target">self</field>
+  </record>
+
+  <menuitem id="menu_reparto_planificacion" name="Planificación (PC)" parent="menu_reparto_root"
+            action="action_rutas_planificacion" sequence="5"
+            groups="distri_pedido.grupo_administracion"/>
+</odoo>

@@ -42,6 +42,9 @@ TILES = [
      IMG + "armado.png", "box", "/armado"),
     ("despacho", "distri_pedido.menu_reparto_despacho", "Despacho", "Salida de los repartos",
      IMG + "despacho.png", "truck", "/despacho"),
+    # 19.0.1.110.0: controllers/rutas.py, administración and gerencia (PC)
+    ("rutas", "rutas", "Planificación de rutas", "Pedidos armados a cada ruta del día",
+     IMG + "reparto.png", "pin", "/rutas"),
     # 19.0.1.109.0: controllers/deposito.py, administración and gerencia
     ("deposito", "deposito", "Depósito", "Entregas, venta en mostrador y caja",
      IMG + "despacho.png", "store", "/deposito"),
@@ -79,6 +82,9 @@ def _special_visible(env, key):
     if key == "deposito":
         from .deposito import installed, is_depot
         return is_depot(user) and installed(env)
+    if key == "rutas":
+        from .rutas import installed as rutas_installed, is_planner
+        return is_planner(user) and rutas_installed(env)
     if key == "comprobantes":
         from ..models.comprobante_subir import can_upload
         return can_upload(user)

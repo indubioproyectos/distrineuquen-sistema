@@ -40,6 +40,9 @@ FILES = {
     # 19.0.1.109.0: «Depósito» (controllers/deposito.py)
     "deposito.css": ("deposito/deposito.css", "text/css; charset=utf-8"),
     "deposito.js": ("deposito/deposito.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.110.0: «Planificación de rutas» on the PC (controllers/rutas.py)
+    "rutas.css": ("rutas/rutas.css", "text/css; charset=utf-8"),
+    "rutas.js": ("rutas/rutas.js", "text/javascript; charset=utf-8"),
     # 19.0.1.98.0: the «Ajustes» gear of every page (views/kit.xml dn_ajustes)
     "ajustes.css": ("kit/ajustes.css", "text/css; charset=utf-8"),
     "ajustes.js": ("kit/ajustes.js", "text/javascript; charset=utf-8"),

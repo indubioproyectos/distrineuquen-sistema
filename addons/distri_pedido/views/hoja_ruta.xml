@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Hoja de ruta y pagos» and «Remitos» (19.0.1.110.0, models/hoja_ruta.py):
+       the owner-approved designs of 18/11/2026 as QWeb PDF reports. Rendered
+       by wkhtmltopdf (old QtWebKit): tables and inline-blocks only, no CSS
+       variables, flex or grid. The font is Odoo's own report Lato (TrueType
+       served by Odoo; the system Roboto maps the regular weight to Medium). Every table carries
+       o_ignore_layout_styling: the company's report table style (boxed,
+       striped) must not draw on them.
+       Never the receipt code, never «factura» as the title, no signatures. -->
+
+  <record id="paperformat_a4_hoja_ruta" model="report.paperformat">
+    <field name="name">A4 hoja de ruta y remitos</field>
+    <field name="format">A4</field>
+    <field name="orientation">Portrait</field>
+    <field name="margin_top">8</field>
+    <field name="margin_bottom">8</field>
+    <field name="margin_left">8</field>
+    <field name="margin_right">8</field>
+    <field name="header_line" eval="False"/>
+    <field name="header_spacing">0</field>
+    <field name="disable_shrinking" eval="True"/>
+    <field name="dpi">96</field>
+  </record>
+
+  <record id="report_hoja_ruta" model="ir.actions.report">
+    <field name="name">Hoja de ruta y pagos</field>
+    <field name="model">distri.route</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.hoja_ruta_documento</field>
+    <field name="report_file">distri_pedido.hoja_ruta_documento</field>
+    <field name="paperformat_id" ref="paperformat_a4_hoja_ruta"/>
+    <field name="print_report_name">'Hoja de ruta - %s' % object.name</field>
+    <field name="binding_model_id" ref="model_distri_route"/>
+    <field name="binding_type">report</field>
+  </record>
+
+  <record id="report_remitos_ruta" model="ir.actions.report">
+    <field name="name">Remitos de la ruta</field>
+    <field name="model">distri.route</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.remitos_ruta_documento</field>
+    <field name="report_file">distri_pedido.remitos_ruta_documento</field>
+    <field name="paperformat_id" ref="paperformat_a4_hoja_ruta"/>
+    <field name="print_report_name">'Remitos - %s' % object.name</field>
+    <field name="binding_model_id" ref="model_distri_route"/>
+    <field name="binding_type">report</field>
+  </record>
+
+  <record id="report_remito_pedido" model="ir.actions.report">
+    <field name="name">Remito (A4)</field>
+    <field name="model">sale.order</field>
+    <field name="report_type">qweb-pdf</field>
+    <field name="report_name">distri_pedido.remito_pedido_documento</field>
+    <field name="report_file">distri_pedido.remito_pedido_documento</field>
+    <field name="paperformat_id" ref="paperformat_a4_hoja_ruta"/>
+    <field name="print_report_name">'Remito - %s' % object.name</field>
+    <field name="binding_model_id" ref="sale.model_sale_order"/>
+    <field name="binding_type">report</field>
+  </record>
+
+  <!-- shared look (also the alias band of both documents) -->
+  <template id="hoja_ruta_estilos">
+    <style>
+      .dr{font-family:Lato,"DejaVu Sans",sans-serif;color:#111827;font-size:12px;line-height:1.35;font-weight:normal}
+      .dr table{width:100%;border-collapse:collapse;border-spacing:0}
+      /* Odoo's report CSS (Bootstrap reboot) makes cell borders appear in
+         QtWebKit: the layout tables drop them explicitly */
+      .dr .dr-hdr tbody,.dr .dr-hdr tr,.dr .dr-hdr td,.dr .dr-meta tbody,.dr .dr-meta tr,.dr .dr-meta td,
+      .dr .dr-two tbody,.dr .dr-two tr,.dr .dr-two td{border-style:none}
+      .dr-hdr td{vertical-align:top;padding:0}
+      .dr-hdr .dr-hdr__l{width:62%}
+      .dr-brand span{white-space:nowrap}
+      .dr-hdr{border-bottom:2px solid #10243f;margin-bottom:10px}
+      .dr-hdr .dr-hdr__l{padding-bottom:10px}
+      .dr-mark{display:inline-block;width:38px;height:38px;line-height:38px;border-radius:9px;background:#10243f;color:#fff;
+        text-align:center;font-weight:bold;font-size:15px;vertical-align:middle}
+      .dr-brand{display:inline-block;vertical-align:middle;margin-left:10px}
+      .dr-brand b{display:block;font-size:16px}
+      .dr-brand span{color:#4b5563;font-size:11.5px}
+      .dr-doc{text-align:right;padding-bottom:10px}
+      .dr-kind{font-size:20px;font-weight:bold;letter-spacing:1px;color:#10243f}
+      .dr-num{font-family:"DejaVu Sans Mono",monospace;font-size:13px;font-weight:bold}
+      .dr-small{color:#4b5563;font-size:11px}
+      .dr-box{border:1px solid #d7dde4;border-radius:6px;padding:8px 10px}
+      .dr-meta td{vertical-align:top;padding:0 8px 0 0;width:18%}
+      .dr-meta td.wide{width:28%}
+      .dr-cap{display:block;color:#4b5563;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px}
+      .dr-meta strong{font-size:13px}
+      .dr-alias{border:2px solid #10243f;border-radius:8px;padding:8px 14px;margin:10px 0}
+      .dr-alias span{vertical-align:baseline}
+      .dr-alias__l{font-size:11px;font-weight:bold;letter-spacing:.6px;text-transform:uppercase;color:#4b5563;margin-right:14px}
+      .dr-alias__v{font-size:30px;font-weight:bold;letter-spacing:.5px;color:#10243f;margin-right:14px}
+      .dr-alias__t{font-size:12.5px}
+      .dr-grid th,.dr-grid td{border:1px solid #9aa5b1;padding:5px 6px;text-align:left;vertical-align:top}
+      .dr-grid th{background:#eef2f6;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;font-weight:bold}
+      .dr-grid{table-layout:fixed}
+      .dr-grid thead{display:table-header-group}
+      .dr-grid tr{page-break-inside:avoid}
+      .dr-grid .n{text-align:right;white-space:nowrap}
+      .dr-grid .n .dr-note{white-space:normal}
+      .dr-grid th{padding:5px 4px}
+      .dr-grid .c{text-align:center}
+      .dr-grid td.blank{height:17px}
+      .dr-grid tr.dr-blank td{padding:3px 6px}
+      .dr-cust b{display:block}
+      .dr-cust span{color:#4b5563;font-size:11.5px}
+      .dr-note{font-size:11px;color:#4b5563}
+      .dr-grid tr.tot td{font-weight:bold;background:#f6f8fa}
+      .dr-two td{vertical-align:top;padding:0}
+      .dr-legal{font-size:10.5px;color:#4b5563;border-top:1px solid #d7dde4;padding-top:6px;margin:8px 0 0}
+      .rm{page-break-inside:avoid}
+      .rm .dr-hdr{margin-bottom:8px}
+      .rm .dr-hdr .dr-hdr__l,.rm .dr-doc{padding-bottom:6px}
+      .rm .dr-kind{font-size:17px}
+      .rm .dr-grid th,.rm .dr-grid td{padding:2px 6px;font-size:11.5px;line-height:1.25}
+      .rm .dr-alias{padding:5px 12px;margin:8px 0}
+      .rm .dr-alias__v{font-size:24px}
+      .dr-cut{border-top:1px dashed #9aa5b1;color:#4b5563;font-size:10px;text-align:center;padding-top:2px;margin:12px 0}
+    </style>
+  </template>
+
+  <template id="hoja_ruta_marca">
+    <span class="dr-mark">DN</span><span class="dr-brand"><b t-esc="co['name']"/><span t-esc="line"/></span>
+  </template>
+
+  <template id="hoja_ruta_alias">
+    <div class="dr-alias"><span class="dr-alias__l">PARA TRANSFERIR · ALIAS</span><span class="dr-alias__v" t-esc="acc['alias']"/><span class="dr-alias__t">Titular: <t t-esc="acc['holder']"/></span></div>
+  </template>
+
+  <!-- ================================================ Hoja de ruta y pagos -->
+
+  <template id="hoja_ruta_documento">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="o">
+        <t t-set="v" t-value="o._sheet_values()"/>
+        <t t-call="web.basic_layout">
+          <t t-call="distri_pedido.hoja_ruta_estilos"/>
+          <div class="dr dr-sheet">
+            <table class="dr-hdr o_ignore_layout_styling"><tr>
+              <td class="dr-hdr__l"><t t-call="distri_pedido.hoja_ruta_marca"><t t-set="co" t-value="v['company']"/><t t-set="line" t-value="v['company']['sheet']"/></t></td>
+              <td class="dr-doc"><div class="dr-kind">HOJA DE RUTA</div><div class="dr-num" t-esc="v['title']"/>
+                <div class="dr-small">Impresa el <t t-esc="v['printed']"/></div></td>
+            </tr></table>
+            <div class="dr-box"><table class="dr-meta o_ignore_layout_styling"><tr>
+              <td><span class="dr-cap">Repartidor y cobrador</span><strong t-esc="v['driver'] or '—'"/></td>
+              <td class="wide"><span class="dr-cap">Fecha</span><strong t-esc="v['date']"/></td>
+              <td><span class="dr-cap">Zonas</span><strong t-esc="v['zones'] or '—'"/></td>
+              <td><span class="dr-cap">Bultos</span><strong t-esc="v['parcels']"/></td>
+              <td><span class="dr-cap">Despachó</span><strong t-esc="v['dispatcher'] or ' '"/></td>
+            </tr></table></div>
+            <t t-call="distri_pedido.hoja_ruta_alias"><t t-set="acc" t-value="v['account']"/></t>
+            <table class="dr-grid o_ignore_layout_styling">
+              <thead><tr><th class="c" style="width:3%">#</th><th style="width:32%">Cliente, dirección y teléfono</th><th style="width:10%">Pedido · Remito</th><th class="c" style="width:6%">Bul.</th><th class="n" style="width:17%">A cobrar</th><th class="c" style="width:8%">Código</th><th class="c" style="width:7%">Hora</th><th class="n" style="width:9%">Pagado</th><th class="c" style="width:8%">Medio</th></tr></thead>
+              <tbody>
+                <tr t-foreach="v['rows']" t-as="r">
+                  <td class="c" t-esc="r['n']"/>
+                  <td class="dr-cust"><b t-esc="r['client']"/><span t-esc="r['detail']"/></td>
+                  <td><t t-esc="r['order']"/><t t-if="r['remito']"><br/><t t-esc="r['remito']"/></t></td>
+                  <td class="c" t-esc="r['parcels']"/>
+                  <td class="n"><t t-esc="r['amount']"/><t t-if="r['breakdown']"><br/><span class="dr-note" t-esc="r['breakdown']"/></t></td>
+                  <td class="blank"/><td class="blank"/><td class="blank"/><td/>
+                </tr>
+                <tr><td/><td colspan="5"><i>Gastos del cobrador</i></td><td/><td class="blank"/><td/></tr>
+                <tr><td/><td colspan="5"><i>Faltante o sobrante</i></td><td/><td class="blank"/><td/></tr>
+                <tr><td/><td colspan="5"><i>Flete</i></td><td/><td class="blank"/><td/></tr>
+                <tr><td colspan="9" class="dr-note"><i>Otros cobros</i></td></tr>
+                <tr t-foreach="range(v['blank_rows'])" t-as="i" class="dr-blank"><td/><td class="blank"/><td/><td/><td/><td/><td/><td/><td/></tr>
+                <tr class="tot"><td colspan="3">Total de la ruta</td><td class="c" t-esc="v['parcels']"/><td class="n" t-esc="v['total']"/><td colspan="2"/><td class="blank"/><td/></tr>
+              </tbody>
+            </table>
+            <table class="dr-two o_ignore_layout_styling" style="margin-top:10px"><tr>
+              <td style="width:56%;padding-right:16px"><div class="dr-box"><span class="dr-cap">Medio</span>E = efectivo · T = transferencia · AC = a cuenta (no pagó) · D = devolución</div></td>
+              <td><div class="dr-box"><span class="dr-cap">Efectivo entregado en caja</span>$ ______________________</div></td>
+            </tr></table>
+            <p class="dr-note" style="margin-top:10px">«A cobrar» incluye el remito del día y lo que el cliente debía de antes. El código de recibido no va impreso: lo ve solo el cliente en su pedido y se lo dicta al repartidor al recibir. Código, Hora, Pagado y Medio se anotan a mano si la app no anda o se pierde el celular.</p>
+          </div>
+        </t>
+      </t>
+    </t>
+  </template>
+
+  <!-- ============================================================= Remitos -->
+
+  <template id="remito_bloque">
+    <div class="rm">
+      <table class="dr-hdr o_ignore_layout_styling"><tr>
+        <td class="dr-hdr__l"><t t-call="distri_pedido.hoja_ruta_marca"><t t-set="co" t-value="r['company']"/><t t-set="line" t-value="r['company']['remito']"/></t></td>
+        <td class="dr-doc"><div class="dr-kind">REMITO</div><div class="dr-num" t-esc="r['number'] or 'Sin remito validado'"/>
+          <div class="dr-small">Pedido <t t-esc="r['order']"/> · <t t-esc="r['date']"/></div></td>
+      </tr></table>
+      <table class="dr-two o_ignore_layout_styling"><tr>
+        <td style="width:55%;padding-right:16px"><div class="dr-box"><span class="dr-cap">Cliente</span><b t-esc="r['client_name']"/><t t-if="r['client']" t-esc="' · ' + r['client']"/></div></td>
+        <td><div class="dr-box"><span class="dr-cap">Entrega</span><t t-esc="r['delivery']"/></div></td>
+      </tr></table>
+      <table class="dr-grid o_ignore_layout_styling" style="margin-top:8px">
+        <thead><tr><th class="n" style="width:12%">Cant.</th><th>Producto</th><th class="n" style="width:18%">Precio</th><th class="n" style="width:18%">Subtotal</th></tr></thead>
+        <tbody>
+          <tr t-foreach="r['lines']" t-as="l"><td class="n" t-esc="l['qty_text']"/><td t-esc="l['product']"/><td class="n" t-esc="l['price_text']"/><td class="n" t-esc="l['subtotal_text']"/></tr>
+          <tr class="tot"><td colspan="3">Total del remito · debía de antes <t t-esc="r['debt']"/><t t-if="r['paid']"> · ya pagó <t t-esc="r['paid']"/></t> · total a pagar <t t-esc="r['to_pay']"/></td><td class="n" t-esc="r['total']"/></tr>
+        </tbody>
+      </table>
+      <t t-call="distri_pedido.hoja_ruta_alias"><t t-set="acc" t-value="r['account']"/></t>
+      <p class="dr-legal">Mandá el comprobante de la transferencia desde la página de tu pedido. Documento no válido como factura.</p>
+    </div>
+  </template>
+
+  <template id="remitos_ruta_documento">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="o">
+        <t t-call="web.basic_layout">
+          <t t-call="distri_pedido.hoja_ruta_estilos"/>
+          <div class="dr dr-remitos">
+            <t t-set="items" t-value="o._remito_values()"/>
+            <t t-foreach="items" t-as="r">
+              <div t-if="not r_first" class="dr-cut">✂ cortar</div>
+              <t t-call="distri_pedido.remito_bloque"/>
+            </t>
+            <p t-if="not items" class="dr-note">La ruta no tiene pedidos.</p>
+          </div>
+        </t>
+      </t>
+    </t>
+  </template>
+
+  <template id="remito_pedido_documento">
+    <t t-call="web.html_container">
+      <t t-foreach="docs" t-as="o">
+        <t t-call="web.basic_layout">
+          <t t-call="distri_pedido.hoja_ruta_estilos"/>
+          <div class="dr dr-remitos">
+            <t t-set="r" t-value="o._distri_remito_values()"/>
+            <t t-call="distri_pedido.remito_bloque"/>
+          </div>
+        </t>
+      </t>
+    </t>
+  </template>
+
+  <!-- the backend route form: the same buttons as the planning board -->
+  <record id="view_route_form_hoja_ruta" model="ir.ui.view">
+    <field name="name">distri.route.form.hoja_ruta</field>
+    <field name="model">distri.route</field>
+    <field name="inherit_id" ref="view_route_form"/>
+    <field name="arch" type="xml">
+      <button name="action_reopen" position="after">
+        <button name="action_print_route_sheet" type="object" string="Imprimir hoja de ruta"
+                icon="fa-print" invisible="kind != 'route'"/>
+        <button name="action_print_remitos" type="object" string="Imprimir remitos"
+                icon="fa-print" invisible="kind != 'route'"/>
+        <field name="kind" invisible="1"/>
+      </button>
+    </field>
+  </record>
+</odoo>

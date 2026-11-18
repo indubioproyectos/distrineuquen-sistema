@@ -69,3 +69,5 @@ from . import comprobante_subir
 from . import pegar_numero
 from . import comprobante_cliente
 from . import cliente_provisorio
+from . import planificacion
+from . import hoja_ruta

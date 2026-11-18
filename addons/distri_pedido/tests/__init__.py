@@ -64,3 +64,4 @@ from . import test_v104_sitio
 from . import test_v105_reabrir_caja
 from . import test_v108_revisar
 from . import test_v109_deposito
+from . import test_v110_planificacion
