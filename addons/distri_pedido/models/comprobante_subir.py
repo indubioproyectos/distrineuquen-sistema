@@ -158,7 +158,9 @@ BUCKETS = {
 # «Mis comprobantes» filter of the refused duplicates (19.0.1.101.0)
 ATTEMPT_FILTER = "repetido"
 ATTEMPT_FLAG = "No se cargó · ya estaba en el sistema"
-VIAS = [("pantalla", "Pantalla «Subir comprobante»"), ("compartido", "Compartir con Distri")]
+VIAS = [("pantalla", "Pantalla «Subir comprobante»"), ("compartido", "Compartir con Distri"),
+        # 19.0.1.103.0: the customer, from his order page
+        ("cliente", "Página del pedido (cliente)")]
 
 
 def _ar(dt, fmt):
@@ -407,7 +409,9 @@ class WhatsappMessageUpload(models.Model):
 
     @api.model
     def _distri_upload_create(self, name, raw, kind, user, customer, via, typed=0.0,
-                              degrees=0):
+                              degrees=0, extra=None):
+        """`extra` (19.0.1.103.0): values that replace the staff ones (the
+        customer's upload from his order page, models/comprobante_cliente.py)."""
         mime, message_type, ext = kind
         now = fields.Datetime.now()
         body = "Comprobante subido por %s (%s)" % (user.name, via)
@@ -431,6 +435,7 @@ class WhatsappMessageUpload(models.Model):
             # apart from distri_amount until the file is read (_distri_file_values)
             "distri_amount_typed": typed or 0.0,
         }
+        vals.update(extra or {})
         # stored upright; the key above stays the one of the original bytes,
         # and so does the checksum the other channels compare
         stored = upright_image(raw, mime, degrees)

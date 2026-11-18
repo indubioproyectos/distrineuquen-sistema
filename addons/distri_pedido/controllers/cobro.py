@@ -13,6 +13,7 @@ from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
 from ..models.caja import is_cashier
+from ..models.cliente_provisorio import PROVISIONAL_LABEL, NewCustomerMatches
 from ..models.cobro_efectivo import DuplicateCashError, OverDebtWarning, RouteCashWarning
 from .main import FICHA
 from .reparto import SHARED_CSS
@@ -57,6 +58,10 @@ class CobroEfectivo(http.Controller):
             "over_warning": "",
             "done": None,
             "form": {},
+            # 19.0.1.103.0: «Cliente nuevo» (models/cliente_provisorio.py)
+            "nuevo": False,
+            "matches": [],
+            "provisional_label": PROVISIONAL_LABEL,
             "today": today,
             "today_total": sum(today.mapped("amount")),
         }, **values)
@@ -85,6 +90,13 @@ class CobroEfectivo(http.Controller):
                 done = Cash.browse()
             # only the user's own receipt of what he just registered
             values["done"] = done if done and done.user_id == request.env.user else None
+        if kw.get("nuevo"):
+            # «Cliente nuevo»: what was searched fills the name or the phone
+            text = " ".join((q or "").split())
+            digits = sum(ch.isdigit() for ch in text)
+            values["nuevo"] = True
+            values["form"] = {"telefono": text} if digits >= 6 else {"nombre": text}
+            return self._render(values)
         if cliente:
             try:
                 values["account"] = self._account(cliente)
@@ -125,4 +137,31 @@ class CobroEfectivo(http.Controller):
         except (UserError, AccessError) as exc:
             return self._render({"account": account, "form": form,
                                  "error": exc.args[0] if exc.args else str(exc)}, status=400)
+        return request.redirect("/cobro?hecho=%d" % collection.id, 303)
+
+    @http.route("/cobro/nuevo", type="http", auth="user", methods=["POST"], sitemap=False)
+    def register_new(self, nombre="", telefono="", domicilio="", localidad="", importe="",
+                     nota="", nuevo_ok="", deuda_ok="", confirmado="", **kw):
+        """19.0.1.103.0: «Cliente nuevo»: a provisional customer and the cash
+        «a cuenta» on it (models/cliente_provisorio.py)."""
+        self._check()
+        form = {"nombre": nombre or "", "telefono": telefono or "", "domicilio": domicilio or "",
+                "localidad": localidad or "", "importe": importe or "", "nota": nota or "",
+                "nuevo_ok": nuevo_ok == "1", "deuda_ok": deuda_ok == "1"}
+        values = {"nuevo": True, "form": form}
+        try:
+            with request.env.cr.savepoint():
+                collection = request.env["distri.cash.collection"].cash_register_new(
+                    nombre, importe, phone=telefono, street=domicilio, city=localidad, note=nota,
+                    new_ok=nuevo_ok == "1", over_ok=deuda_ok == "1",
+                    confirmed=confirmado == "1")
+        except NewCustomerMatches as exc:
+            return self._render(dict(values, matches=exc.matches, error=""), status=409)
+        except OverDebtWarning as exc:
+            return self._render(dict(values, over_warning=exc.args[0]), status=409)
+        except DuplicateCashError as exc:
+            return self._render(dict(values, duplicate=exc.args[0]), status=409)
+        except (UserError, AccessError) as exc:
+            return self._render(dict(values, error=exc.args[0] if exc.args else str(exc)),
+                                status=400)
         return request.redirect("/cobro?hecho=%d" % collection.id, 303)

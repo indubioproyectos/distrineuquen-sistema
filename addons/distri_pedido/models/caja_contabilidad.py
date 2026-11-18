@@ -229,6 +229,13 @@ class DistriCajaAccounting(models.Model):
                     "name": "Comprobante %s.jpg" % move.label, "datas": move.photo,
                     "res_model": "account.move", "res_id": line.move_id.id,
                     "mimetype": "image/jpeg"})
+        # 19.0.1.103.0: a PDF receipt goes with its line the same way
+        for move in self.movement_ids.filtered("document"):
+            for line in move.statement_line_ids:
+                self.env["ir.attachment"].sudo().create({
+                    "name": "Comprobante %s.pdf" % move.label, "datas": move.document,
+                    "res_model": "account.move", "res_id": line.move_id.id,
+                    "mimetype": "application/pdf"})
         statement = self.env["account.bank.statement"].sudo().create({
             "name": self.name,
             "balance_start": start,

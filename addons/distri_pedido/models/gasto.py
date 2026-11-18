@@ -86,6 +86,26 @@ def decode_receipt_file(value):
     return decode_photo(value)
 
 
+def decode_outflow_receipt(raw, filename=""):
+    """19.0.1.103.0: the receipt of a «Salida de caja» (raw bytes of the
+    uploaded file), a photo or a PDF, with the size limit of the photos.
+    Returns the values for distri.caja.movimiento: {"photo": base64} or
+    {"document": base64, "document_name": name}. UserError otherwise."""
+    raw = raw or b""
+    if raw.startswith(b"%PDF-"):
+        if len(raw) > MAX_PHOTO_BYTES:
+            raise UserError("El PDF es demasiado grande (más de %d MB)." % (
+                MAX_PHOTO_BYTES // (1024 * 1024)))
+        name = (filename or "").replace("/", "_").replace("\\", "_").strip()[:120] \
+            or "comprobante.pdf"
+        if not name.lower().endswith(".pdf"):
+            name += ".pdf"
+        return {"document": base64.b64encode(raw), "document_name": name}
+    if not raw.startswith(_IMAGE_MAGIC):
+        raise UserError("El comprobante tiene que ser una foto o un PDF.")
+    return {"photo": decode_photo(base64.b64encode(raw).decode())}
+
+
 class DistriRouteExpense(models.Model):
     _name = "distri.route.expense"
     _description = "Gasto del repartidor"

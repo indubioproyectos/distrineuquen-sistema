@@ -57,3 +57,6 @@ from . import test_v99_cobro_publico
 from . import test_v100_comprobantes
 from . import test_v101_comprobantes
 from . import test_v102_telefono_tope
+from . import test_v103_pegar_numero
+from . import test_v103_comprobante_cliente
+from . import test_v103_cliente_nuevo

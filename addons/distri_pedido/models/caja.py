@@ -482,9 +482,12 @@ class DistriCaja(models.Model):
 
     # ------------------------------------------------------------ outflows
 
-    def add_outflow(self, chip, amount, who="", partner_id=False, note="", photo=False):
+    def add_outflow(self, chip, amount, who="", partner_id=False, note="", photo=False,
+                    document=False, document_name=False):
         """«Salida de caja»: a supplier, an expense, a withdrawal or a bank
-        deposit. The amount is positive on the screen and negative here."""
+        deposit. The amount is positive on the screen and negative here.
+        The receipt is a photo (`photo`) or, 19.0.1.103.0, a PDF
+        (`document`, gasto.decode_outflow_receipt)."""
         caja = self._check_mine_open()
         if chip not in CHIPS:
             raise UserError("Elegí el tipo de salida.")
@@ -514,6 +517,8 @@ class DistriCaja(models.Model):
             "who": who or partner.name or False,
             "note": note or False,
             "photo": photo or False,
+            "document": document or False,
+            "document_name": (document_name or "comprobante.pdf") if document else False,
         })
 
     # ------------------------------------------------------------ closing
@@ -678,6 +683,10 @@ class DistriCajaMovimiento(models.Model):
     note = fields.Char(string="Nota", readonly=True)
     photo = fields.Image(string="Comprobante", max_width=2000, max_height=2000,
                          attachment=True, readonly=True)
+    # 19.0.1.103.0: a PDF receipt (a transfer to a supplier, a bank deposit)
+    document = fields.Binary(string="Comprobante (PDF)", attachment=True, readonly=True)
+    document_name = fields.Char(string="Archivo del comprobante", readonly=True)
+    has_receipt = fields.Boolean(string="Con comprobante", compute="_compute_has_receipt")
     payment_id = fields.Many2one("account.payment", string="Pago", readonly=True,
                                  ondelete="restrict")
     box_id = fields.Many2one("distri.route", string="Caja depósito", readonly=True)
@@ -696,6 +705,11 @@ class DistriCajaMovimiento(models.Model):
                                          "Ese cobro ya está en una caja.")
     _route_unique = models.UniqueIndex("(route_id) WHERE route_id IS NOT NULL",
                                        "Esa rendición ya se recibió.")
+
+    @api.depends("photo", "document")
+    def _compute_has_receipt(self):
+        for move in self:
+            move.has_receipt = bool(move.photo or move.document)
 
     @api.depends("kind", "concept", "who", "partner_id.name", "route_id.name", "note")
     def _compute_label(self):

@@ -30,6 +30,35 @@
     <div t-if="error" class="dn-banner dn-banner--err" role="alert" id="caja-error"><span t-esc="error"/></div>
   </template>
 
+  <!-- 19.0.1.103.0: «Clientes nuevos a confirmar» (models/cliente_provisorio.py):
+       created in «Cobro en efectivo» by whoever did not find the customer.
+       Shown on receiving and closing; the closing never waits for them. -->
+  <template id="caja_provisorios" name="Caja: clientes nuevos a confirmar">
+    <section t-if="provisorios" class="dn-card dn-card--warn caja-provisorios" id="caja-provisorios">
+      <h2 class="caja-h2">Clientes nuevos a confirmar (<t t-esc="len(provisorios)"/>)</h2>
+      <p class="caja-provisorios__nota">Los crearon al cobrar porque no los encontraron. Confirmalos, o
+        unilos con el cliente que ya existía. La caja se cierra igual.</p>
+      <div t-foreach="provisorios" t-as="p" class="caja-provisorio">
+        <span class="caja-item__txt">
+          <b t-esc="p['name']"/>
+          <span t-if="p['detail']" t-esc="p['detail']"/>
+          <span>Lo creó <t t-esc="p['who']"/> el <t t-esc="p['when']"/> · cobró
+            <b class="dn-num" t-esc="money(p['amount'])"/></span>
+        </span>
+        <span t-if="puede_confirmar" class="caja-provisorio__acc">
+          <form method="post" t-att-action="'/caja/cliente-nuevo/%s/confirmar' % p['id']"
+                data-caja-form="" data-fetch="">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <input type="hidden" name="volver" t-att-value="volver_provisorios or '/caja'"/>
+            <button type="submit" class="dn-btn caja-btn-auto">Confirmar</button>
+          </form>
+          <a class="dn-btn dn-btn--outline caja-btn-auto" t-att-href="p['url']" target="_blank"
+             rel="noopener">Unir o editar</a>
+        </span>
+      </div>
+    </section>
+  </template>
+
   <!-- The bill grid: one row per active bill with big - / + and the number
        typed; `named` gives the inputs their form names (closing), without
        it they only feed the «Contar» total (receiving a settlement). -->
@@ -119,7 +148,10 @@
           <span class="caja-mov__hora dn-num" t-esc="hora(m.moment)"/>
           <span class="caja-mov__txt"><t t-esc="m.label"/>
             <small t-if="m.route_difference" class="dn-chip dn-chip--warn">
-              <t t-esc="'faltan' if m.route_difference &lt; 0 else 'sobran'"/> <t t-esc="money(abs(m.route_difference))"/></small></span>
+              <t t-esc="'faltan' if m.route_difference &lt; 0 else 'sobran'"/> <t t-esc="money(abs(m.route_difference))"/></small>
+            <a t-if="m.has_receipt" class="caja-mov__comp" target="_blank" rel="noopener"
+               t-att-href="'/caja/movimiento/%s/comprobante' % m.id"
+               t-esc="'Ver PDF' if m.document else 'Ver foto'"/></span>
           <b class="caja-mov__imp dn-num"><t t-esc="'+' if m.amount &gt;= 0 else '−'"/> <t t-esc="money(abs(m.amount))"/></b>
         </li>
       </ul>
@@ -187,6 +219,7 @@
   </t>
   <t t-call="distri_pedido.caja_avisos"/>
   <main class="dn-main">
+    <t t-call="distri_pedido.caja_provisorios"><t t-set="volver_provisorios" t-value="'/caja/rendicion'"/></t>
     <h2 class="dn-label">Rendiciones de los repartidores</h2>
     <div class="dn-empty" t-if="not routes">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'truck'"/></t>
@@ -395,8 +428,10 @@
                autocomplete="off" required="required" placeholder="$ 0" t-att-value="form.get('importe')"/>
       </div>
       <div class="dn-field">
-        <label for="foto">Comprobante (opcional)</label>
-        <input id="foto" class="dn-input caja-file" type="file" name="foto" accept="image/*" capture="environment"/>
+        <label for="foto">Comprobante (opcional): foto o PDF</label>
+        <!-- 19.0.1.103.0: also a PDF (no «capture»: it would open only the camera) -->
+        <input id="foto" class="dn-input caja-file" type="file" name="foto"
+               accept="image/*,application/pdf"/>
       </div>
       <div class="dn-field">
         <label for="nota">Nota</label>
@@ -430,6 +465,7 @@
   </t>
   <t t-call="distri_pedido.caja_avisos"/>
   <main class="dn-main">
+    <t t-call="distri_pedido.caja_provisorios"><t t-set="volver_provisorios" t-value="'/caja/cierre'"/></t>
     <form id="caja-cierre" class="caja-form" method="post" action="/caja/cierre" data-caja-form="" data-fetch=""
           data-caja-cierre="" t-att-data-esperado="caja.expected">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>

@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.102.0",
+    "version": "19.0.1.103.0",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -63,11 +63,26 @@
     # receipt form and the board card, «Ver comprobante» (/comprobantes/<id>)
     # and «Mis comprobantes» (/comprobantes/mios, last 30 days). New columns
     # only: no migration needed.
+    # 19.0.1.103.0 (audit WhatsApp Web 2026-11-18, 3a step 3): «Pegar número»
+    # in «WhatsApp del cliente», on the order and «Pedidos para revisar», and
+    # in «Asignar cliente» (models/pegar_numero.py, views/pegar_numero.xml);
+    # the phone search of «Asignar cliente» compares the 10 national digits
+    # (asignar_cliente._distri_clientes_por_telefono); «Copiar código»
+    # (static/src/js/copiar_codigo.*). The customer uploads his transfer
+    # receipt from /pedido/<token> (models/comprobante_cliente.py,
+    # views/comprobante_cliente.xml). «Salida de caja» takes a PDF too
+    # (distri.caja.movimiento.document). «Cliente nuevo» in /cobro: a
+    # provisional customer with the cash «a cuenta», confirmed or merged by
+    # administración from /caja, the cash closing forms and Cobros › Clientes
+    # nuevos a confirmar (models/cliente_provisorio.py). New columns only: no
+    # migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/inicio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml",
              "views/vendedor_web.xml", "data/vendedores_web.xml",
-             "views/comprobantes.xml", "views/errores.xml"],
+             "views/comprobantes.xml", "views/errores.xml",
+             "views/pegar_numero.xml", "views/comprobante_cliente.xml",
+             "views/cliente_provisorio.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare
@@ -86,6 +101,8 @@
             "distri_pedido/static/src/css/card_confirm.css",
             "distri_pedido/static/src/js/card_chat.js",
             "distri_pedido/static/src/js/card_chat.xml",
+            "distri_pedido/static/src/js/copiar_codigo.js",
+            "distri_pedido/static/src/js/copiar_codigo.xml",
         ],
     },
     "installable": True,

@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- «Cliente nuevo» from «Cobro en efectivo» (19.0.1.103.0,
+       models/cliente_provisorio.py): the list to confirm or merge them. -->
+
+  <record id="view_clientes_provisorios_list" model="ir.ui.view">
+    <field name="name">res.partner.list.provisorios</field>
+    <field name="model">res.partner</field>
+    <field name="priority">90</field>
+    <field name="arch" type="xml">
+      <list string="Clientes nuevos a confirmar" create="0" delete="0"
+            default_order="distri_provisorio_fecha">
+        <field name="name" string="Cliente"/>
+        <field name="phone"/>
+        <field name="street" optional="show"/>
+        <field name="city" optional="show"/>
+        <field name="distri_provisorio_user_id"/>
+        <field name="distri_provisorio_fecha"/>
+        <field name="distri_provisorio_cobrado" sum="Total"/>
+        <field name="distri_provisorio_nota" optional="show"/>
+        <field name="distri_cliente_provisorio" column_invisible="1"/>
+        <button name="action_distri_provisorio_confirmar" type="object" string="Confirmar"
+                icon="fa-check" class="btn-link text-success"
+                invisible="not distri_cliente_provisorio"/>
+        <button name="action_distri_provisorio_unir" type="object"
+                string="Unir con un cliente existente" icon="fa-compress" class="btn-link"
+                invisible="not distri_cliente_provisorio"/>
+        <button name="action_distri_provisorio_editar" type="object" string="Editar"
+                icon="fa-pencil" class="btn-link"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_clientes_provisorios" model="ir.actions.act_window">
+    <field name="name">Clientes nuevos a confirmar</field>
+    <field name="res_model">res.partner</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('distri_cliente_provisorio', '=', True)]</field>
+    <field name="context">{'create': False}</field>
+    <field name="view_ids" eval="[(5, 0, 0),
+        (0, 0, {'view_mode': 'list', 'view_id': ref('view_clientes_provisorios_list')}),
+        (0, 0, {'view_mode': 'form', 'view_id': ref('base.view_partner_form')})]"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No hay clientes nuevos para confirmar.</p>
+      <p>Los crea quien cobra en «Cobro en efectivo» cuando no encuentra al cliente. Confirmalo
+        (completá los datos si hace falta) o unilo con el cliente que ya existía: los cobros
+        pasan a ese cliente.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_cobros_clientes_provisorios" name="Clientes nuevos a confirmar"
+            parent="menu_cobros_root" action="action_clientes_provisorios" sequence="23"
+            groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,base.group_system"/>
+
+  <!-- ============================================ ficha del cliente -->
+
+  <record id="view_partner_form_provisorio" model="ir.ui.view">
+    <field name="name">res.partner.form.provisorio</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="before">
+        <field name="distri_cliente_provisorio" invisible="1"/>
+        <field name="distri_provisorio_unido_id" invisible="1"/>
+        <div class="alert alert-warning d-flex align-items-center gap-3 mb-0 flex-wrap" role="alert"
+             invisible="not distri_cliente_provisorio">
+          <div class="flex-grow-1">
+            <strong class="fs-5">Cliente nuevo · a confirmar</strong>
+            <div>Lo creó <field name="distri_provisorio_user_id" readonly="1" class="d-inline"/>
+              el <field name="distri_provisorio_fecha" readonly="1" class="d-inline"/> en «Cobro en
+              efectivo» (cobró <field name="distri_provisorio_cobrado" readonly="1" class="d-inline"/>).
+              <span invisible="not distri_provisorio_nota">Nota:
+                <field name="distri_provisorio_nota" readonly="1" class="d-inline"/></span></div>
+          </div>
+          <button name="action_distri_provisorio_confirmar" type="object" string="Confirmar"
+                  class="btn btn-primary"
+                  groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,base.group_system"/>
+          <button name="action_distri_provisorio_unir" type="object"
+                  string="Unir con un cliente existente" class="btn btn-secondary"
+                  groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,base.group_system"/>
+        </div>
+        <div class="alert alert-info mb-0" role="alert" invisible="not distri_provisorio_unido_id">
+          Era un cliente nuevo de «Cobro en efectivo»: se unió con
+          <field name="distri_provisorio_unido_id" readonly="1" class="d-inline"/>.
+        </div>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ asistente: unir -->
+
+  <record id="view_provisorio_unir_form" model="ir.ui.view">
+    <field name="name">distri.provisorio.unir.form</field>
+    <field name="model">distri.provisorio.unir</field>
+    <field name="arch" type="xml">
+      <form string="Unir con un cliente existente">
+        <p class="text-muted">Los cobros y los movimientos del cliente nuevo pasan al cliente
+          elegido (el efectivo «a cuenta» se aplica a sus facturas más viejas) y el cliente nuevo
+          se archiva. Queda una nota en los dos.</p>
+        <group>
+          <field name="partner_id"/>
+          <field name="target_id" options="{'no_create': True}"
+                 context="{'distri_search_phone': True}"/>
+        </group>
+        <div invisible="not suggestion_ids">
+          <div class="fw-bold">Parecidos</div>
+          <field name="suggestion_ids" readonly="1" nolabel="1">
+            <list create="0" delete="0" no_open="1">
+              <field name="name"/>
+              <field name="city"/>
+              <field name="phone"/>
+              <field name="distri_whatsapp"/>
+            </list>
+          </field>
+        </div>
+        <footer>
+          <button name="action_unir" type="object" string="Unir" class="btn-primary"
+                  confirm="Los cobros y movimientos pasan al cliente elegido y el cliente nuevo se archiva. ¿Seguir?"/>
+          <button string="Cancelar" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- ============================================ cierre de caja depósito y rendición -->
+
+  <record id="view_depot_close_form_provisorios" model="ir.ui.view">
+    <field name="name">distri.route.depot.form.provisorios</field>
+    <field name="model">distri.route</field>
+    <field name="inherit_id" ref="distri_pedido.view_depot_close_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet/div[hasclass('oe_title')]" position="before">
+        <div class="alert alert-warning" role="alert" invisible="not distri_provisorio_ids">
+          <b>Clientes nuevos a confirmar.</b> Los crearon al cobrar en esta caja. Confirmalos o
+          unilos con el cliente que ya existía; la caja se cierra igual.
+          <field name="distri_provisorio_ids" readonly="1" nolabel="1" class="mt-2">
+            <list create="0" delete="0">
+              <field name="name"/>
+              <field name="phone"/>
+              <field name="distri_provisorio_user_id"/>
+              <field name="distri_provisorio_cobrado"/>
+              <button name="action_distri_provisorio_confirmar" type="object" string="Confirmar"
+                      icon="fa-check" class="btn-link text-success"/>
+              <button name="action_distri_provisorio_unir" type="object" string="Unir"
+                      icon="fa-compress" class="btn-link"/>
+              <button name="action_distri_provisorio_editar" type="object" string="Editar"
+                      icon="fa-pencil" class="btn-link"/>
+            </list>
+          </field>
+        </div>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_route_form_provisorios" model="ir.ui.view">
+    <field name="name">distri.route.form.provisorios</field>
+    <field name="model">distri.route</field>
+    <field name="inherit_id" ref="distri_pedido.view_route_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-warning mb-0" role="alert" invisible="not distri_provisorio_ids">
+          <b>Clientes nuevos a confirmar:</b>
+          <field name="distri_provisorio_ids" widget="many2many_tags" readonly="1" class="d-inline"/>.
+          Revisalos en Cobros › Clientes nuevos a confirmar.
+        </div>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

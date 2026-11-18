@@ -29,8 +29,10 @@ from odoo import http
 from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
-from ..models.caja import (CHIPS, DIFFERENCE_MODES, OUTFLOW_CHIPS, CajaQuestion, is_cashier)
-from ..models.gasto import decode_photo
+from ..models.caja import (CHIPS, DIFFERENCE_MODES, OUTFLOW_CHIPS, CajaQuestion, can_reopen,
+                           is_cashier)
+from ..models.cliente_provisorio import can_confirm
+from ..models.gasto import MAX_PHOTO_BYTES, decode_outflow_receipt
 from ..models.reparto import _money
 from ..models.reparto_cliente import today_ar
 from .armado import DIAS, UTC
@@ -84,6 +86,11 @@ class Caja(http.Controller):
             "csrf_token": request.csrf_token(),
             "error": "",
             "form": {},
+            # 19.0.1.103.0: «Clientes nuevos a confirmar» (models/cliente_provisorio.py),
+            # shown on receiving and closing; they never block the closing
+            "provisorios": [p._distri_provisorio_row() for p in
+                            request.env["res.partner"]._distri_provisorios_pendientes()],
+            "puede_confirmar": can_confirm(request.env),
         }
         base.update(values)
         html = request.env["ir.qweb"]._render(template, base)
@@ -241,6 +248,47 @@ class Caja(http.Controller):
         return self._done("/caja", "%s: entraron %s a la caja." % (
             movement.label, _money(movement.amount)))
 
+    @http.route("/caja/cliente-nuevo/<int:partner_id>/confirmar", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def confirm_new_customer(self, partner_id, volver="", **kw):
+        """19.0.1.103.0: «Confirmar» a new customer from the list of /caja."""
+        self._check()
+        back = volver if volver in ("/caja/rendicion", "/caja/cierre") else "/caja"
+        partner = request.env["res.partner"].sudo().browse(partner_id).exists()
+        if not partner or not partner.distri_cliente_provisorio:
+            raise NotFound()
+        try:
+            partner.with_env(request.env)._distri_check_confirm()
+        except AccessError:
+            raise Forbidden()
+        partner.action_distri_provisorio_confirmar()
+        return self._done(back, "%s quedó confirmado." % partner.name)
+
+    @http.route("/caja/movimiento/<int:movement_id>/comprobante", type="http", auth="user",
+                methods=["GET"], sitemap=False)
+    def movement_receipt(self, movement_id, **kw):
+        """19.0.1.103.0: the photo or PDF of a «Salida de caja», for the
+        cashier of that box (and gerencia)."""
+        user = self._check()
+        movement = request.env["distri.caja.movimiento"].sudo().browse(movement_id).exists()
+        if not movement or not movement.has_receipt:
+            raise NotFound()
+        if movement.caja_id.user_id != user and not can_reopen(user):
+            raise Forbidden()
+        if movement.document:
+            name = (movement.document_name or "comprobante.pdf").replace('"', "")
+            return request.make_response(base64.b64decode(movement.document), headers=[
+                ("Content-Type", "application/pdf"),
+                ("Content-Disposition", 'inline; filename="%s"' % name),
+                ("X-Content-Type-Options", "nosniff"),
+                ("Cache-Control", "private, max-age=3600")])
+        raw = base64.b64decode(movement.photo)
+        mime = "image/png" if raw.startswith(b"\x89PNG") else (
+            "image/webp" if raw[:4] == b"RIFF" else "image/jpeg")
+        return request.make_response(raw, headers=[
+            ("Content-Type", mime), ("X-Content-Type-Options", "nosniff"),
+            ("Cache-Control", "private, max-age=3600")])
+
     @http.route("/caja/gasto/<int:expense_id>/foto", type="http", auth="user", methods=["GET"],
                 sitemap=False)
     def expense_photo(self, expense_id, **kw):
@@ -294,16 +342,18 @@ class Caja(http.Controller):
         if not caja:
             return request.redirect("/caja", 303)
         try:
-            photo = False
+            receipt = {}
             upload = request.httprequest.files.get("foto")
             if upload and upload.filename:
-                photo = decode_photo(base64.b64encode(upload.read()).decode())
+                # 19.0.1.103.0: a photo or a PDF
+                receipt = decode_outflow_receipt(upload.read(MAX_PHOTO_BYTES + 1),
+                                                 upload.filename)
             partner = request.env["res.partner"].sudo().search(
                 [("supplier_rank", ">", 0), ("name", "=ilike", (quien or "").strip())],
                 limit=1) if quien else request.env["res.partner"]
             with request.env.cr.savepoint():
                 movement = caja.add_outflow(tipo, importe, who=quien, partner_id=partner.id,
-                                            note=nota, photo=photo)
+                                            note=nota, **receipt)
         except (UserError, AccessError) as exc:
             return self._refuse(exc, lambda text, field: self._outflow(
                 caja, error=text, form=self._form(), status=400))

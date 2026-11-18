@@ -37,6 +37,14 @@
     .row2{display:flex;gap:8px}
     .row2 .inp{flex:1}
     .row2 .btn{width:auto;padding:10px 16px;font-size:16px}
+    /* 19.0.1.103.0: «Cliente nuevo» */
+    .prov{display:inline-block;font-size:12px;font-weight:700;border-radius:99px;padding:1px 8px;
+          background:#fff3bf;color:#8a6d00;margin-top:2px}
+    .match{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;
+           border-top:1px solid var(--line-2);text-decoration:none;color:var(--text)}
+    .match:first-of-type{border-top:0}
+    .match span{font-size:13px;color:var(--muted);display:block}
+    .match em{font-style:normal;font-size:12px;font-weight:700;color:var(--teal)}
   </style>
 </head>
 <body>
@@ -62,7 +70,8 @@
         <t t-set="socio" t-value="account['partner']"/>
         <div class="card">
           <div class="split">
-            <div><b t-esc="socio.name"/><div class="small muted" t-if="socio.ref">Ref. <t t-esc="socio.ref"/></div></div>
+            <div><b t-esc="socio.name"/><div class="small muted" t-if="socio.ref">Ref. <t t-esc="socio.ref"/></div>
+              <span t-if="socio.distri_cliente_provisorio" class="prov" t-esc="provisional_label"/></div>
             <a class="link" href="/cobro" data-up="">Otro cliente</a>
           </div>
           <div>
@@ -150,6 +159,74 @@
         </div>
       </t>
 
+      <!-- 19.0.1.103.0: «Cliente nuevo» (models/cliente_provisorio.py) -->
+      <t t-elif="nuevo">
+        <div class="card">
+          <div class="split"><b>Cliente nuevo</b><a class="link" href="/cobro" data-up="">Buscar otra vez</a></div>
+          <div class="small muted">Para quien no está en la lista. Queda como «Cliente nuevo · a
+            confirmar» hasta que administración lo revise; el cobro se registra a cuenta.</div>
+        </div>
+        <form class="card" method="post" action="/cobro/nuevo" id="cobro-nuevo"
+              onsubmit="this.querySelectorAll('button[type=submit]').forEach(function(b){b.disabled=true})">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <div t-if="matches" class="card warn" role="alert" id="cobro-parecidos">
+            <b>¿Es alguno de estos?</b>
+            <div class="small">Puede que ya esté cargado. Si es uno de estos, cobrale a ese.</div>
+            <a t-foreach="matches" t-as="m" class="match" t-att-href="'/cobro?cliente=%s' % m['id']">
+              <div><b t-esc="m['name']"/><span t-esc="m['detail']"/>
+                <span t-if="m['provisional']" class="prov" t-esc="provisional_label"/></div>
+              <em t-esc="m['why']"/>
+            </a>
+            <input type="hidden" name="nuevo_ok" value="1"/>
+            <!-- a new customer owes nothing: «No, es otro» also answers the over-debt question -->
+            <input type="hidden" name="deuda_ok" value="1"/>
+            <div class="small">Cliente nuevo: el importe queda a favor del cliente.</div>
+          </div>
+          <input t-if="form.get('nuevo_ok') and not matches" type="hidden" name="nuevo_ok" value="1"/>
+          <div t-if="duplicate" class="card warn" role="alert">
+            <b>¿Es otro cobro?</b>
+            <div class="small" t-esc="duplicate"/>
+            <input type="hidden" name="confirmado" value="1"/>
+          </div>
+          <div t-if="over_warning" class="card warn" role="alert" id="cobro-supera">
+            <b>Cliente nuevo: el importe queda a favor del cliente</b>
+            <div class="small" t-esc="over_warning"/>
+            <input type="hidden" name="deuda_ok" value="1"/>
+          </div>
+          <input t-if="form.get('deuda_ok') and not over_warning and not matches" type="hidden" name="deuda_ok" value="1"/>
+          <label class="stack">Nombre del comercio o de la persona
+            <input class="inp" type="text" name="nombre" required="required" maxlength="120"
+                   autocomplete="off" t-att-value="form.get('nombre')"/>
+          </label>
+          <label class="stack">Teléfono o WhatsApp
+            <input class="inp" type="tel" name="telefono" maxlength="40" autocomplete="off"
+                   placeholder="Ej.: 299 412 3456" t-att-value="form.get('telefono')"/>
+          </label>
+          <label class="stack">Domicilio (opcional)
+            <input class="inp" type="text" name="domicilio" maxlength="120" autocomplete="off"
+                   t-att-value="form.get('domicilio')"/>
+          </label>
+          <label class="stack">Localidad (opcional)
+            <input class="inp" type="text" name="localidad" maxlength="60" autocomplete="off"
+                   t-att-value="form.get('localidad')"/>
+          </label>
+          <label class="stack">Importe en efectivo
+            <input class="inp" type="text" name="importe" inputmode="decimal" autocomplete="off"
+                   required="required" placeholder="0" t-att-value="form.get('importe')"/>
+          </label>
+          <label class="stack">Nota (opcional)
+            <input class="inp" type="text" name="nota" maxlength="200" autocomplete="off"
+                   placeholder="Ej.: kiosco nuevo de la calle Belgrano" t-att-value="form.get('nota')"/>
+          </label>
+          <button type="submit" class="btn teal">
+            <t t-if="matches">No es ninguno: crear el cliente nuevo y registrar</t>
+            <t t-elif="duplicate">Sí, es otro cobro: registrarlo</t>
+            <t t-elif="over_warning">Sí, registrar a favor del cliente</t>
+            <t t-else="">Crear cliente y registrar el cobro</t>
+          </button>
+        </form>
+      </t>
+
       <t t-else="">
         <form class="card" method="get" action="/cobro" role="search" data-side="">
           <label class="stack">Buscá el cliente
@@ -164,10 +241,17 @@
           <div class="label"><t t-esc="len(results)"/> <t t-esc="'cliente' if len(results) == 1 else 'clientes'"/></div>
           <a t-foreach="results" t-as="c" class="card res" t-att-href="'/cobro?cliente=%s' % c['id']">
             <div><b t-esc="c['name']"/>
-              <span><t t-esc="' · '.join(x for x in (c['ref'], c['town'], c['phone']) if x)"/></span></div>
+              <span><t t-esc="' · '.join(x for x in (c['ref'], c['town'], c['phone']) if x)"/></span>
+              <span t-if="c.get('provisional')" class="prov" t-esc="provisional_label"/></div>
             <span>›</span>
           </a>
           <div t-if="not results" class="card muted">Ningún cliente coincide. Probá con otra parte del nombre.</div>
+          <!-- 19.0.1.103.0 -->
+          <form method="get" action="/cobro" data-side="" id="cobro-cliente-nuevo">
+            <input type="hidden" name="nuevo" value="1"/>
+            <input type="hidden" name="q" t-att-value="query"/>
+            <button type="submit" class="btn outline">¿No está? Cliente nuevo</button>
+          </form>
         </t>
       </t>
 

@@ -100,3 +100,12 @@
   .caja-acc{grid-template-columns:repeat(4,minmax(0,1fr))}
   .caja-bill__head,.caja-bill__row{grid-template-columns:120px auto 1fr}
 }
+.caja-mov__comp{display:inline-block;margin-left:6px;font-size:14px;font-weight:600}
+/* 19.0.1.103.0: «Clientes nuevos a confirmar» */
+.caja-provisorios{margin-bottom:12px}
+.caja-provisorios__nota{font-size:14px;margin:4px 0 8px}
+.caja-provisorio{display:flex;flex-direction:column;gap:8px;padding:10px 0;border-top:1px solid var(--dn-line,#e5e5e5)}
+.caja-provisorio .caja-item__txt{display:flex;flex-direction:column;min-width:0}
+.caja-provisorio .caja-item__txt span{font-size:14px;color:var(--dn-muted)}
+.caja-provisorio__acc{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.caja-provisorio__acc form{margin:0}

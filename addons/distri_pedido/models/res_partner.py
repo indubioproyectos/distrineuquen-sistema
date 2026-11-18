@@ -2,6 +2,8 @@ from odoo import api, fields, models
 from odoo.fields import Domain
 from odoo.exceptions import UserError
 
+from .ar_phone import read_pasted_phone
+
 # Solo estos roles ven la plata del cliente. El armador y el reparto ven
 # el contacto, pero no el saldo.
 VE_SALDOS = (
@@ -149,4 +151,10 @@ class ResPartner(models.Model):
                 and "phone_mobile_search" in self._fields):
             digits = "".join(c for c in value if c.isdigit())
             domain = Domain.OR([domain, [("phone_mobile_search", "ilike", digits)]])
+            # 19.0.1.103.0: «+54 9 299 555-1234» also finds «299 555-1234»
+            national = read_pasted_phone(value)[0]
+            if national:
+                ids = self._distri_clientes_por_telefono(national, limit=50).ids
+                if ids:
+                    domain = Domain.OR([domain, [("id", "in", ids)]])
         return domain

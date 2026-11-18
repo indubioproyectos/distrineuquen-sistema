@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- «Pegar número» and «Copiar código» (19.0.1.103.0,
+       models/pegar_numero.py, static/src/js/copiar_codigo.js). -->
+
+  <!-- ============================================ «WhatsApp del cliente» -->
+
+  <record id="view_wa_confirm_wizard_pegar" model="ir.ui.view">
+    <field name="name">distri.wa.confirm.wizard.form.pegar</field>
+    <field name="model">distri.wa.confirm.wizard</field>
+    <field name="inherit_id" ref="distri_pedido.view_wa_confirm_wizard"/>
+    <field name="priority">30</field>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='order_id']" position="after">
+        <field name="pegar_modo" invisible="1"/>
+        <field name="pegado_nacional" invisible="1"/>
+      </xpath>
+      <xpath expr="//p[contains(., 'no tiene un teléfono escrito')]" position="attributes">
+        <attribute name="invisible">then != 'verify' or pegar_modo</attribute>
+      </xpath>
+      <xpath expr="//field[@name='area']/.." position="before">
+        <p class="text-muted" invisible="not pegar_modo">
+          Pegá el número que copiaste de «Info. del contacto» en WhatsApp: queda como WhatsApp
+          verificado del cliente.
+        </p>
+        <div class="mb-3 o_distri_pegar">
+          <label for="pegado" string="Pegar número" class="fw-bold"/>
+          <field name="pegado" class="w-100"
+                 placeholder="Pegá lo que copiaste del chat, ej.: +54 9 299 555-1234"/>
+          <div class="text-muted small">
+            Copialo de «Info. del contacto» en WhatsApp y pegalo acá: el área y el número se
+            completan solos. También podés escribirlos abajo.
+          </div>
+          <div class="text-danger" invisible="not pegado_error">
+            <field name="pegado_error" readonly="1"/>
+          </div>
+        </div>
+      </xpath>
+      <xpath expr="//field[@name='preview']/../.." position="after">
+        <div class="alert alert-warning py-2 mt-2 mb-2" role="alert" invisible="not pegado_aviso">
+          <field name="pegado_aviso" readonly="1"/>
+        </div>
+        <div class="text-success small mt-1" invisible="not pegado_del_cliente">
+          El cliente del pedido ya tiene este número.
+        </div>
+        <div class="mt-2 o_distri_ya_lo_tienen" invisible="not pegado_cliente_ids">
+          <div class="fw-bold">Ya tienen este número</div>
+          <field name="pegado_cliente_ids" readonly="1" nolabel="1">
+            <list create="0" delete="0" no_open="1">
+              <field name="name" string="Cliente"/>
+              <field name="city" string="Localidad"/>
+              <field name="phone" string="Teléfono"/>
+              <field name="distri_whatsapp" string="WhatsApp"/>
+            </list>
+          </field>
+        </div>
+      </xpath>
+      <xpath expr="//footer" position="inside">
+        <button name="action_pegado_asignar" type="object" string="Asignar cliente"
+                icon="fa-user-plus" class="btn-secondary"
+                invisible="not generic or not pegado_nacional or not pegado_cliente_ids"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ «Asignar cliente» -->
+
+  <record id="view_asignar_cliente_form_pegar" model="ir.ui.view">
+    <field name="name">distri.asignar.cliente.form.pegar</field>
+    <field name="model">distri.asignar.cliente</field>
+    <field name="inherit_id" ref="distri_pedido.view_asignar_cliente_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='busqueda']/.." position="before">
+        <field name="pegado_nacional" invisible="1"/>
+        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap o_distri_pegar">
+          <span class="fw-bold">Pegar número</span>
+          <field name="pegado" class="flex-grow-1"
+                 placeholder="Pegá el número del chat, ej.: +54 9 299 555-1234"/>
+          <button name="action_pegado_buscar" type="object" string="Buscar este número"
+                  icon="fa-whatsapp" class="btn-secondary"
+                  invisible="modo != 'existente' or not pegado_nacional"/>
+        </div>
+        <div class="small mb-2" invisible="not pegado">
+          <div class="text-danger" invisible="not pegado_error">
+            <field name="pegado_error" readonly="1" class="d-inline"/>
+          </div>
+          <div invisible="not pegado_preview">
+            Queda así: <b><field name="pegado_preview" readonly="1" class="d-inline"/></b>
+            <span class="ms-2"><field name="pegado_guardar" nolabel="1" class="d-inline"/>
+              <label for="pegado_guardar" string="Guardar como WhatsApp verificado del cliente"
+                     class="d-inline"/></span>
+          </div>
+          <div class="text-warning fw-bold" invisible="not pegado_aviso">
+            <field name="pegado_aviso" readonly="1" class="d-inline"/>
+          </div>
+          <div invisible="not pegado_cliente_ids">
+            Ya tienen este número:
+            <field name="pegado_cliente_ids" widget="many2many_tags" readonly="1" class="d-inline"/>
+          </div>
+        </div>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- ============================================ pedido -->
+
+  <record id="view_order_form_pegar_numero" model="ir.ui.view">
+    <field name="name">sale.order.form.pegar.numero</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="priority">30</field>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button name="action_distri_pegar_numero" type="object" string="Pegar número"
+                icon="fa-clipboard" groups="distri_pedido.grupo_administracion"
+                invisible="state == 'cancel' or not partner_id"/>
+      </xpath>
+      <xpath expr="//group[@name='partner_details']" position="inside">
+        <field name="distri_wa_code_line" widget="distri_copiar" readonly="1"
+               string="Código en WhatsApp" groups="distri_pedido.grupo_administracion"
+               invisible="not distri_wa_code_line"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_order_kanban_revisar_pegar" model="ir.ui.view">
+    <field name="name">sale.order.kanban.revisar.pegar</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="distri_pedido.view_order_kanban_revisar"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='distri_semaforo_motivos']" position="before">
+        <div t-if="record.distri_wa_code_line.raw_value" class="small mt-1 o_distri_codigo">
+          <field name="distri_wa_code_line" widget="distri_copiar"/>
+        </div>
+      </xpath>
+      <xpath expr="//button[@name='action_distri_retener']" position="before">
+        <button t-if="record.state.raw_value != 'cancel' and record.partner_id.raw_value"
+                name="action_distri_pegar_numero" type="object"
+                class="btn btn-sm btn-outline-secondary">
+          <i class="fa fa-clipboard" title="Pegar número"/> Pegar número
+        </button>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_order_list_revisar_pegar" model="ir.ui.view">
+    <field name="name">sale.order.list.revisar.pegar</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="distri_pedido.view_order_list_revisar"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='distri_wa_code']" position="after">
+        <field name="distri_wa_code_line" string="Para buscar en WhatsApp" widget="distri_copiar"
+               optional="show"/>
+      </xpath>
+      <xpath expr="//button[@name='action_distri_abrir_chat']" position="before">
+        <button name="action_distri_pegar_numero" type="object" string="Pegar número"
+                icon="fa-clipboard" class="btn-link"
+                invisible="state == 'cancel' or not partner_id"/>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>

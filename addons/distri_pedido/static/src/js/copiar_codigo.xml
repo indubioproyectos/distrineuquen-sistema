@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="distri_pedido.DistriCopiarField">
+        <span class="o_distri_copiar d-inline-flex align-items-center gap-2 flex-wrap" t-if="value">
+            <span t-ref="texto" class="o_distri_copiar_texto user-select-all" t-esc="value"
+                  t-on-click.stop="() => {}"/>
+            <button type="button" class="btn btn-sm btn-outline-secondary o_distri_copiar_btn"
+                    title="Copiar el código para buscarlo en WhatsApp Web"
+                    t-on-click.stop="copiar">
+                <i class="fa fa-clipboard me-1"/>Copiar código
+            </button>
+            <span t-if="state.msg" role="status"
+                  t-attf-class="small fw-bold {{ state.ok ? 'text-success' : 'text-warning' }}"
+                  t-esc="state.msg"/>
+        </span>
+    </t>
+</templates>

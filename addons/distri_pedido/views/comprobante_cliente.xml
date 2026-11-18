@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- The customer uploads his transfer receipt from /pedido/<token>
+       (19.0.1.103.0, models/comprobante_cliente.py, controllers/main.py
+       subir_comprobante). -->
+
+  <!-- ============================================ página del pedido -->
+
+  <template id="seguimiento_subir_comprobante" inherit_id="distri_pedido.seguimiento"
+            name="Tu pedido: subir comprobante">
+    <xpath expr="//style" position="inside">
+    .subir-comp h3{margin:1rem 0 .2rem;font-size:.95rem}
+    .subir-comp form{margin:0}
+    .subir-comp label{display:block;font-size:.8rem;color:var(--tenue);margin:.6rem 0 .2rem}
+    .subir-comp input[type=file]{width:100%;font:inherit;font-size:.9rem;padding:.5rem;
+                                 border:1px dashed var(--linea);border-radius:6px;background:#fafafa}
+    .subir-comp input[type=text]{width:100%;max-width:14rem;font:inherit;padding:.55rem .7rem;
+                                 border:1px solid var(--linea);border-radius:6px}
+    .subir-comp .subir{display:block;width:100%;max-width:22rem;margin:.9rem 0 0;background:var(--acento);
+                       color:#fff;border:0;border-radius:6px;padding:.85rem 1.2rem;font:inherit;
+                       font-weight:700;cursor:pointer}
+    .subir-comp .subir:disabled{opacity:.6}
+    .subir-comp .ok-comp{background:#d3f9d8;color:#2b8a3e;font-weight:700;border-radius:6px;
+                         padding:.6rem .8rem;margin:0 0 .8rem}
+    .subir-comp .error-comp{background:#ffe3e3;color:var(--alerta);font-weight:600;border-radius:6px;
+                            padding:.6rem .8rem;margin:0 0 .8rem}
+    .subir-comp .fila-comp{display:flex;justify-content:space-between;align-items:center;gap:.8rem;
+                           padding:.6rem 0;border-top:1px solid var(--borde);font-size:.88rem}
+    .subir-comp .fila-comp .nom{font-weight:600;word-break:break-all}
+    .subir-comp .estado-comp{flex:none;font-size:.75rem;border-radius:99px;padding:.15rem .6rem;
+                             background:#fff3bf;color:var(--aviso);font-weight:600}
+    .subir-comp .estado-comp.aprobado{background:#d3f9d8;color:#2b8a3e}
+    .subir-comp .estado-comp.rechazado{background:#ffe3e3;color:var(--alerta)}
+    .subir-comp .estado-comp.cerrado,.subir-comp .estado-comp.repetido{background:#eee;color:var(--tenue)}
+    </xpath>
+    <xpath expr="//div[hasclass('mp')]" position="before">
+      <t t-set="sc" t-value="subir_comprobante"/>
+      <div class="pagar-tr subir-comp" t-if="sc" id="subir-comprobante" data-comp-cliente="103">
+        <h2>Subir comprobante de transferencia</h2>
+        <p t-if="sc['aviso']" role="status"
+           t-att-class="'ok-comp' if sc['aviso'][0] == 'ok' else 'error-comp'" t-esc="sc['aviso'][1]"/>
+        <t t-if="sc['abierto']">
+          <p class="nota">Si ya transferiste, subí la foto o el PDF del comprobante. Lo revisa
+            administración y lo vas a ver acá abajo.</p>
+          <form method="post" enctype="multipart/form-data" t-att-action="sc['url']"
+                id="form-subir-comprobante">
+            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <label for="comp-archivo">Foto o PDF del comprobante (hasta <t t-esc="sc['max_mb']"/> MB)</label>
+            <input id="comp-archivo" type="file" name="archivo" required="required"
+                   accept="image/jpeg,image/png,image/webp,application/pdf"/>
+            <label for="comp-importe">Importe que transferiste (opcional)</label>
+            <input id="comp-importe" type="text" name="importe" inputmode="decimal" maxlength="20"
+                   autocomplete="off" placeholder="$ 0"/>
+            <button type="submit" class="subir">Subir comprobante</button>
+          </form>
+        </t>
+        <p class="nota" t-else="" t-esc="sc['motivo']"/>
+        <t t-if="sc['filas']">
+          <h3>Tus comprobantes de este pedido</h3>
+          <div class="fila-comp" t-foreach="sc['filas']" t-as="f">
+            <div class="izq">
+              <div class="nom" t-esc="f['name']"/>
+              <div class="det"><t t-esc="f['date']"/><t t-if="f['amount']"> · <t t-esc="f['amount']"/></t></div>
+            </div>
+            <span t-att-class="'estado-comp ' + f['kind']" t-esc="f['state']"/>
+          </div>
+        </t>
+      </div>
+    </xpath>
+    <xpath expr="//body/script" position="after">
+      <script>
+        (function () {
+          // the same limits as the server: a 20 MB photo is refused here
+          // before it is sent over the phone's data
+          var form = document.getElementById('form-subir-comprobante');
+          if (!form) { return; }
+          var max = 10 * 1024 * 1024, tipos = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+          function aviso(texto) {
+            var p = form.parentNode.querySelector('.error-comp, .ok-comp');
+            if (!p) {
+              p = document.createElement('p');
+              form.parentNode.insertBefore(p, form.parentNode.querySelector('h2').nextSibling);
+            }
+            p.className = 'error-comp';
+            p.setAttribute('role', 'status');
+            p.textContent = texto;
+          }
+          form.addEventListener('submit', function (ev) {
+            var f = form.querySelector('input[type=file]').files[0];
+            if (!f) { return; }
+            if (f.size &gt; max) {
+              ev.preventDefault();
+              aviso('El archivo pesa más de 10 MB. Mandá una captura o una foto más liviana.');
+            } else if (f.type &amp;&amp; tipos.indexOf(f.type) &lt; 0) {
+              ev.preventDefault();
+              aviso('Subí una foto (JPG, PNG o WEBP) o un PDF del comprobante.');
+            }
+          });
+        })();
+      </script>
+    </xpath>
+  </template>
+
+  <!-- ============================================ comprobantes: origen -->
+
+  <record id="view_receipt_list_cliente" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.receipt.list.cliente</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="inherit_id" ref="distri_pedido.view_receipt_list"/>
+    <field name="arch" type="xml">
+      <field name="distri_forwarded_by_id" position="after">
+        <field name="distri_upload_source" optional="show"/>
+        <field name="distri_customer_order_id" readonly="1" optional="hide"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_receipt_form_cliente" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.receipt.form.cliente</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="inherit_id" ref="distri_pedido.view_receipt_form"/>
+    <field name="arch" type="xml">
+      <field name="distri_forwarded_by_id" position="after">
+        <field name="distri_upload_source" invisible="not distri_upload_source"/>
+        <field name="distri_customer_order_id" readonly="1" invisible="not distri_customer_order_id"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_receipt_search_cliente" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.receipt.search.cliente</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="inherit_id" ref="distri_pedido.view_receipt_search"/>
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <filter name="subidos_cliente" string="Subidos por el cliente"
+                domain="[('distri_customer_order_id', '!=', False)]"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_receipt_upload_attempt_list_cliente" model="ir.ui.view">
+    <field name="name">distri.receipt.upload.attempt.list.cliente</field>
+    <field name="model">distri.receipt.upload.attempt</field>
+    <field name="inherit_id" ref="distri_pedido.view_receipt_upload_attempt_list"/>
+    <field name="arch" type="xml">
+      <field name="via" position="after">
+        <field name="order_id" optional="show"/>
+      </field>
+    </field>
+  </record>
+
+</odoo>

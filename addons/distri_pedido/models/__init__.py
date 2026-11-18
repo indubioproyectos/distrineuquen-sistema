@@ -66,3 +66,6 @@ from . import caja_contabilidad
 from . import vendedor_web
 from . import armado_offline
 from . import comprobante_subir
+from . import pegar_numero
+from . import comprobante_cliente
+from . import cliente_provisorio

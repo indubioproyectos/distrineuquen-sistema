@@ -10,12 +10,19 @@ import re
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+from .ar_phone import only_digits, phone_match_key, read_pasted_phone
 from .res_partner import GENERIC_WHOLESALE
 
 MAX_CANDIDATOS = 8
 # Argentine numbers are written with and without +54, 9 and the area code:
 # the last 8 digits identify the line.
 DIGITOS_TELEFONO = 8
+# 19.0.1.103.0: a phone is compared on its 10 national digits
+# (ar_phone.phone_match_key). The SQL only narrows by the last
+# TELEFONO_FILTRO digits: every way of writing the number keeps them
+# together (the 54, the 9, the 0, the area and the 15 always come before).
+TELEFONO_FILTRO = 6
+TELEFONO_FILTRO_MAX = 500
 PALABRAS_VACIAS = {"de", "del", "la", "las", "los", "el", "y", "dni", "kiosco", "despensa",
                    "almacen", "minimarket", "maxikiosco", "drugstore", "mayorista", "calle"}
 # match marks shown in the candidate list: si = same, no = different,
@@ -67,7 +74,26 @@ def comparar_nombre(web, nombre):
     return "parcial" if comunes else "no"
 
 
+def coincide_sin_caracteristica(valor, nacional):
+    """A stored phone without its area code (or unreadable) whose last
+    digits are those of `nacional`; never a full number that is another
+    one."""
+    clave = phone_match_key(valor)
+    if len(clave) == 10 and clave != nacional:
+        return False
+    digitos = only_digits(valor)
+    if digitos.startswith("15") and len(digitos) in (8, 9, 10):
+        digitos = digitos[2:]
+    cola = digitos[-DIGITOS_TELEFONO:]
+    return len(cola) >= 7 and nacional.endswith(cola)
+
+
 def comparar_telefono(web, telefonos):
+    # 19.0.1.103.0: the 10 national digits first: «0299 15 555-1234» and
+    # «+54 9 299 555-1234» are the same line
+    nacional = read_pasted_phone(web)[0]
+    if nacional and any(phone_match_key(t) == nacional for t in telefonos):
+        return "si"
     clave = _telefono_clave(web)
     claves = {_telefono_clave(t) for t in telefonos} - {""}
     if not clave or not claves:
@@ -319,6 +345,7 @@ class DistriAsignarCliente(models.TransientModel):
         cliente = self._cliente()
         pedido.with_context(distri_asignar_cliente=True).write({"partner_id": cliente.id})
         pedido.message_post(body="Cliente asignado: %s." % cliente.display_name)
+        self._despues_de_asignar(pedido, cliente)
         if aprobar and pedido.distri_retenido_sin_cliente and (
                 self.env.su or self.env.user.has_group("distri_pedido.grupo_administracion")):
             # 19.0.1.96.0 (audit F1): approving is the release of the hold
@@ -330,6 +357,11 @@ class DistriAsignarCliente(models.TransientModel):
             if isinstance(resultado, dict):
                 return resultado
         return {"type": "ir.actions.act_window_close"}
+
+    def _despues_de_asignar(self, pedido, cliente):
+        """Hook: the customer is on the order and nothing was approved yet
+        (models/pegar_numero.py stores the pasted WhatsApp here)."""
+        return True
 
     def _cliente(self):
         if self.modo == "existente":
@@ -424,8 +456,11 @@ class ResPartner(models.Model):
         """
         base = [("distri_generic_partner", "=", False), ("type", "=", "contact")]
         encontrados = self._distri_buscar_clientes(busqueda)
+        nacional = read_pasted_phone(telefono_web)[0]
         clave = _telefono_clave(telefono_web)
-        if clave:
+        if nacional:
+            encontrados |= self._distri_clientes_por_telefono(nacional)
+        elif clave:
             telefono = ("phone_mobile_search", "ilike", clave) \
                 if "phone_mobile_search" in self._fields else ("phone_sanitized", "=like", "%" + clave)
             encontrados |= self.search(base + ["|", telefono, ("distri_whatsapp", "like", clave)],
@@ -439,16 +474,54 @@ class ResPartner(models.Model):
 
     @api.model
     def _distri_buscar_clientes(self, texto, limit=8):
-        """Customers matching a name, CUIT or phone typed by the buyer."""
+        """Customers matching a name, CUIT or phone typed by the buyer.
+
+        19.0.1.103.0: a phone in any format («+54 9 299 555-1234» pasted
+        from WhatsApp) finds the customers that have it as phone, WhatsApp
+        or learned payer phone, written in any other format; they come
+        first."""
         texto = (texto or "").strip()
         if len(texto) < 3:
             return self.browse()
+        nacional = read_pasted_phone(texto)[0]
+        por_telefono = self._distri_clientes_por_telefono(nacional, limit=limit) \
+            if nacional else self.browse()
         dominio = [("display_name", "ilike", texto)]
         digitos = re.sub(r"\D", "", texto)
         if len(digitos) >= 6:
             dominio = ["|", "|", ("vat", "ilike", digitos), ("phone_mobile_search", "ilike", digitos)] + dominio \
                 if "phone_mobile_search" in self._fields else ["|", ("vat", "ilike", digitos)] + dominio
-        return self.search(
+        encontrados = self.search(
             [("distri_generic_partner", "=", False), ("type", "=", "contact")] + dominio,
             limit=limit, order="customer_rank desc, name",
         )
+        return (por_telefono | encontrados)[:limit]
+
+    @api.model
+    def _distri_clientes_por_telefono(self, nacional, limit=MAX_CANDIDATOS):
+        """Customers (contacts, not the generic ones) with the phone of 10
+        national digits `nacional` as phone, WhatsApp or learned payer
+        phone, written in any format. Same number first; then a stored
+        phone without its area code that ends like it."""
+        if not (isinstance(nacional, str) and len(nacional) == 10 and nacional.isdigit()):
+            return self.browse()
+        cola = "%" + nacional[-TELEFONO_FILTRO:] + "%"
+        self.env.cr.execute("""
+            SELECT id, phone, distri_whatsapp FROM res_partner
+             WHERE active AND distri_generic_partner IS NOT TRUE AND type = 'contact'
+               AND (regexp_replace(coalesce(phone, ''), '\\D', '', 'g') LIKE %s
+                 OR regexp_replace(coalesce(distri_whatsapp, ''), '\\D', '', 'g') LIKE %s)
+             ORDER BY customer_rank DESC NULLS LAST, id
+             LIMIT %s""", [cola, cola, TELEFONO_FILTRO_MAX])
+        mismos, sin_area = [], []
+        for socio_id, telefono, whatsapp in self.env.cr.fetchall():
+            valores = [v for v in (telefono, whatsapp) if v]
+            if any(phone_match_key(v) == nacional for v in valores):
+                mismos.append(socio_id)
+            elif any(coincide_sin_caracteristica(v, nacional) for v in valores):
+                sin_area.append(socio_id)
+        aprendidos = self.env["distri.payer.identity"].sudo().search(
+            [("kind", "=", "phone"), ("value", "=", nacional)]).partner_id.filtered(
+            lambda s: s.active and not s.distri_generic_partner)
+        socios = self.browse(mismos) | self.browse(aprendidos.ids) | self.browse(sin_area)
+        return socios[:limit]

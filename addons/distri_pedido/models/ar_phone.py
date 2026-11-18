@@ -194,3 +194,38 @@ def wa_digits(value):
         # 54 + area + number: WhatsApp needs the 9 of mobiles
         number = "549" + number[2:]
     return number
+
+
+# 19.0.1.103.0: «Pegar número». What WhatsApp shows in the contact info
+# («+54 9 299 555-1234», often wrapped in invisible direction marks and with
+# non-breaking spaces or dashes) or any pasted text that carries a number
+# («Juan ~ +54 9 299 555-1234», «mi cel es 0299 15 555 1234»).
+MSG_SIN_NUMERO = "No encontramos un número en lo que pegaste."
+_PHONE_RUN_RE = re.compile(
+    r"\+?\(?\d[\d\s().\-‐-―−‎‏‪-‮⁦-⁩]{4,}\d")
+
+
+def read_pasted_phone(text):
+    """(national, error) of a pasted text, with the rules of check_ar_phone.
+
+    The first run of digits (with the usual separators) that reads as an
+    Argentine phone wins; when none does, the error of the first run. An
+    empty text is ("", "") and a text without digits MSG_SIN_NUMERO."""
+    text = str(text or "")
+    if not text.strip():
+        return "", ""
+    first_error = ""
+    for match in _PHONE_RUN_RE.finditer(text):
+        national, error = check_ar_phone(match.group(0))
+        if national:
+            return national, ""
+        first_error = first_error or error
+    return "", first_error or MSG_SIN_NUMERO
+
+
+def phone_match_key(value):
+    """The 10 national digits of a stored phone for the customer search:
+    the rules of the order page first (they also read «9 299 …» and a 15
+    after a 4-digit area), then phone_key. "" when it has no number."""
+    national, _error = check_ar_phone(value)
+    return national or phone_key(value)

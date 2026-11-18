@@ -209,3 +209,6 @@ access_receipt_share_sistema,distri.receipt.share sistema,model_distri_receipt_s
 access_receipt_upload_attempt_admin,distri.receipt.upload.attempt administracion,model_distri_receipt_upload_attempt,distri_pedido.grupo_administracion,1,0,0,0
 access_receipt_upload_attempt_gerencia,distri.receipt.upload.attempt gerencia,model_distri_receipt_upload_attempt,distri_pedido.grupo_gerencia,1,0,0,0
 access_receipt_upload_attempt_sistema,distri.receipt.upload.attempt sistema,model_distri_receipt_upload_attempt,base.group_system,1,1,1,1
+access_provisorio_unir_admin,distri.provisorio.unir administracion,model_distri_provisorio_unir,distri_pedido.grupo_administracion,1,1,1,1
+access_provisorio_unir_gerencia,distri.provisorio.unir gerencia,model_distri_provisorio_unir,distri_pedido.grupo_gerencia,1,1,1,1
+access_provisorio_unir_sistema,distri.provisorio.unir sistema,model_distri_provisorio_unir,base.group_system,1,1,1,1

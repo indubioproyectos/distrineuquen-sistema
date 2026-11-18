@@ -35,6 +35,26 @@ def _ya_se_esta_armando():
     from ..models.armado import YA_SE_ESTA_ARMANDO
     return YA_SE_ESTA_ARMANDO
 
+def _comprobante_cliente():
+    # lazy for the same reason as _mp_error_class (19.0.1.103.0)
+    from ..models import comprobante_cliente
+    return comprobante_cliente
+
+
+# 19.0.1.103.0: what /pedido/<token> says after «Subir comprobante»
+# (?comprobante=<code>); (kind, text). «estado» shows the order's reason.
+CUSTOMER_UPLOAD_NOTICES = {
+    "ok": ("ok", "Recibimos tu comprobante · lo revisa administración."),
+    "repetido": ("ok", "Este comprobante ya lo teníamos: no hace falta subirlo de nuevo."),
+    "falta": ("error", "Elegí la foto o el PDF del comprobante."),
+    "grande": ("error", "El archivo pesa más de 10 MB. Mandá una captura o una foto más liviana."),
+    "tipo": ("error", "Subí una foto (JPG, PNG o WEBP) o un PDF del comprobante."),
+    "muchos": ("error", "Ya subiste %d comprobantes hoy para este pedido. Si tenés que mandar "
+                        "otro, escribinos por WhatsApp."),
+    "limite": ("error", "Probaste muchas veces seguidas. Esperá unos minutos y probá de nuevo."),
+    "importe": ("error", "Revisá el importe: escribilo como 15.000 o 15.000,50, o dejalo vacío."),
+}
+
 # Alias al que transfiere el cliente. Parametro del sistema, lo cambia el
 # administrador en Ajustes > Tecnico > Parametros del sistema.
 PARAM_ALIAS = "distri_pedido.alias_transferencia"
@@ -1241,7 +1261,65 @@ class TomaDePedidos(http.Controller):
         datos["deuda"] = (pedido._distri_red_notice()
                           if datos["cliente"] and datos["mostrar_cuenta"]
                           and not datos["cancelado"] else False)
+        # 19.0.1.103.0: «Subir comprobante de transferencia»
+        datos["subir_comprobante"] = self._subir_comprobante(pedido, kw.get("comprobante"))
         return request.render("distri_pedido.seguimiento", datos)
+
+    def _subir_comprobante(self, pedido, codigo):
+        """The upload block of the order page: open or not (and why), the
+        notice of the last post and the receipts uploaded from this page.
+        False when there is nothing to show."""
+        modulo = _comprobante_cliente()
+        abierto, motivo = pedido._distri_customer_upload_open()
+        filas = request.env["distri.whatsapp.message"].sudo()._distri_customer_rows(pedido)
+        if not abierto and not filas:
+            return False
+        aviso = None
+        if codigo == "estado":
+            aviso = ("error", motivo) if motivo else None
+        elif codigo in CUSTOMER_UPLOAD_NOTICES:
+            tipo, texto = CUSTOMER_UPLOAD_NOTICES[codigo]
+            if "%d" in texto:
+                texto = texto % modulo.customer_max_per_day(request.env)
+            aviso = (tipo, texto)
+        return {
+            "abierto": abierto,
+            "motivo": motivo,
+            "filas": filas,
+            "aviso": aviso,
+            "max_mb": modulo.CUSTOMER_MAX_MB,
+            "url": "/pedido/%s/comprobante" % pedido.access_token,
+        }
+
+    @http.route("/pedido/<string:token>/comprobante", type="http", auth="public",
+                methods=["POST"], website=True, sitemap=False)
+    def subir_comprobante(self, token, **post):
+        """«Subir comprobante de transferencia» from the order page
+        (models/comprobante_cliente.py). Always back to the order page with
+        ?comprobante=<code>: the page says what happened."""
+        modulo = _comprobante_cliente()
+        pedido = self._por_token(token)
+        if not pedido or self._bloqueado_para_vendedor(pedido):
+            return self._error_simple("No encontramos ese pedido.", status=404)
+        volver = "/pedido/%s" % pedido.access_token
+
+        def ir(codigo):
+            return request.redirect("%s?comprobante=%s#subir-comprobante" % (volver, codigo), 303)
+
+        if request.env["distri.rate.hit"].sudo()._distri_check(
+                "comprobante_cliente", request.httprequest.remote_addr or "",
+                request.session.sid or "", limits=modulo.CUSTOMER_UPLOAD_LIMITS):
+            return ir("limite")
+        archivo = request.httprequest.files.get("archivo")
+        if not archivo or not archivo.filename:
+            return ir("falta")
+        raw = archivo.read(modulo.CUSTOMER_MAX_BYTES + 1)
+        try:
+            resultado = request.env["distri.whatsapp.message"].sudo()._distri_customer_upload(
+                pedido, archivo.filename, raw, post.get("importe"))
+        except modulo.CustomerUploadError as exc:
+            return ir(exc.code)
+        return ir("ok" if resultado["status"] == "nuevo" else "repetido")
 
     def _codigo_recibido(self, pedido):
         """The order's receipt code for its own page (the token already

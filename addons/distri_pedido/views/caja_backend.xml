@@ -116,6 +116,9 @@
                     </group>
                   </group>
                   <field name="photo" widget="image" invisible="not photo"/>
+                  <field name="document_name" invisible="1"/>
+                  <field name="document" filename="document_name" widget="pdf_viewer"
+                         invisible="not document"/>
                 </form>
               </field>
             </page>
