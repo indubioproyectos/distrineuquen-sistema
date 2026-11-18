@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.99.0 (audit F14): 403/404 for everyone but system administrators
+       (models/ir_http.py _get_error_html). No website layout: no shop cart,
+       no sample footer, Spanish, and a way back. -->
+  <template id="error_page" name="Página de error">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex"/>
+  <title><t t-if="status == 403">Esta pantalla no es para tu usuario</t><t t-else="">No encontramos la página</t> · Distri Neuquén</title>
+  <link rel="icon" href="/distri_pedido/static/src/img/iconos/app-192.png?v=95"/>
+  <style>
+    :root{--fondo:#f5f5f5;--tarjeta:#fff;--texto:#33383d;--tenue:#6b7177;--acento:#00d1b2;--navy:#10243f}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--fondo);color:var(--texto);min-height:100vh;display:flex;
+         align-items:center;justify-content:center;padding:1.5rem;
+         font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .caja{width:100%;max-width:26rem;text-align:center;background:var(--tarjeta);border-radius:12px;
+          padding:2rem 1.4rem;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    img{width:64px;height:64px}
+    h1{font-size:1.3rem;margin:1rem 0 .4rem;color:var(--navy)}
+    p{margin:0 0 1.2rem;color:var(--tenue)}
+    a.btn{display:block;background:var(--navy);color:#fff;font-weight:700;text-decoration:none;
+          padding:1rem;border-radius:10px}
+    a.sec{display:inline-block;margin-top:1rem;color:var(--navy)}
+  </style>
+</head>
+<body>
+  <div class="caja">
+    <img src="/distri_pedido/static/src/img/iconos/dn-logo.svg?v=95" alt="Distri Neuquén"/>
+    <t t-if="status == 403">
+      <h1>Esta pantalla no es para tu usuario</h1>
+      <p t-if="logged">Entraste como <b t-esc="user_name"/>. Si la necesitás, pedile acceso a administración.</p>
+      <p t-else="">Entrá con tu usuario para verla.</p>
+    </t>
+    <t t-else="">
+      <h1>No encontramos la página</h1>
+      <p>El enlace puede estar mal escrito o la página ya no existe.</p>
+    </t>
+    <a class="btn" t-att-href="home"><t t-if="logged">Ir a mi inicio</t><t t-else="">Ir al inicio</t></a>
+    <a t-if="not logged and status == 403" class="sec" href="/web/login">Entrar</a>
+  </div>
+</body>
+</html>
+  </template>
+</odoo>

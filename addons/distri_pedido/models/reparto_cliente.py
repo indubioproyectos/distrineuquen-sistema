@@ -2,9 +2,13 @@
 
 - Delivery data on the contact: exact location, days and time ranges in
   which the shop receives, a note for drivers and the confirmed WhatsApp.
-- The 4-digit receipt code of an order. Only a salted SHA-256 hash is stored:
-  the driver's phone validates the code offline with the same hash, and the
-  plain code exists only at the moment it is generated.
+- The 4-digit receipt code of an order. The driver's phone validates it
+  offline with a salted SHA-256 hash. Since 19.0.1.99.0 (audit F7) the code
+  is created when the customer places the order and shown to him on the
+  order confirmation and on his order page, so the plain code is kept too
+  (administración only; the customer page reads it with the order token).
+  Wrong tries are limited (audit F12): after PARAM_CODE_ATTEMPTS wrong codes
+  the order's code locks until administración unlocks it.
 """
 import hashlib
 import hmac
@@ -35,6 +39,17 @@ WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "do
 _HOURS_RE = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)-([01]?\d|2[0-3]):([0-5]\d)$")
 
 RECEIPT_CODE_DIGITS = 4
+PARAM_CODE_ATTEMPTS = "distri_pedido.codigo_recibido_intentos"
+DEFAULT_CODE_ATTEMPTS = 5
+
+
+def receipt_code_attempt_limit(env):
+    """Wrong codes allowed per order before it locks (>= 1)."""
+    value = env["ir.config_parameter"].sudo().get_param(PARAM_CODE_ATTEMPTS)
+    try:
+        return max(int(value), 1)
+    except (TypeError, ValueError):
+        return DEFAULT_CODE_ATTEMPTS
 
 
 def today_ar():
@@ -188,6 +203,16 @@ class SaleOrderDelivery(models.Model):
         copy=False, readonly=True, groups="distri_pedido.grupo_administracion")
     distri_receipt_date = fields.Datetime(
         string="Código de recibido generado", copy=False, readonly=True)
+    distri_receipt_code = fields.Char(
+        string="Código de recibido", copy=False, readonly=True,
+        groups="distri_pedido.grupo_administracion",
+        help="Lo ve el cliente en la página de su pedido y se lo dicta al repartidor.")
+    distri_receipt_attempts = fields.Integer(
+        string="Intentos fallidos del código", copy=False, readonly=True,
+        help="Códigos equivocados cargados en la entrega. Al llegar al límite el código se "
+             "bloquea hasta que administración lo desbloquee.")
+    distri_receipt_locked = fields.Boolean(
+        string="Código bloqueado", compute="_compute_distri_receipt_locked")
     distri_stop_ids = fields.One2many(
         "distri.route.stop", "order_id", string="Visitas de reparto", readonly=True)
     distri_delivery_state = fields.Selection([
@@ -214,10 +239,28 @@ class SaleOrderDelivery(models.Model):
             else:
                 order.distri_delivery_state = "on_route"
 
+    @api.depends("distri_receipt_attempts")
+    def _compute_distri_receipt_locked(self):
+        limit = receipt_code_attempt_limit(self.env)
+        for order in self:
+            order.distri_receipt_locked = order.distri_receipt_attempts >= limit
+
     # ---------------------------------------------------- receipt code
 
+    def _distri_ensure_receipt_code(self):
+        """The order's code, created once (when the customer places the
+        order, or at the end of packing for an order without one). Returns
+        the plain code, or "" for an order that only has the hash of a code
+        generated before 19.0.1.99.0."""
+        self.ensure_one()
+        order = self.sudo()
+        if order.distri_receipt_hash:
+            return order.distri_receipt_code or ""
+        return self._distri_generate_receipt_code(
+            note="Se generó el código de recibido: el cliente lo ve en la página de su pedido.")
+
     def _distri_generate_receipt_code(self, note=None):
-        """New 4-digit code. Returns it in plain text; only the hash is kept.
+        """New 4-digit code (the previous one stops working). Returns it.
 
         `note` replaces the default chatter note (models/pedido_link.py:
         «Enviar código por WhatsApp» says who prepared it)."""
@@ -227,17 +270,17 @@ class SaleOrderDelivery(models.Model):
         self.sudo().write({
             "distri_receipt_salt": salt,
             "distri_receipt_hash": receipt_code_hash(salt, code),
+            "distri_receipt_code": code,
             "distri_receipt_date": fields.Datetime.now(),
+            "distri_receipt_attempts": 0,
         })
         if note:
-            self.message_post(body=note)
+            self.sudo().message_post(body=note)
             return code
         sent = self._distri_send_receipt_code(code)
-        self.message_post(body=(
+        self.sudo().message_post(body=(
             "Se generó el código de recibido." if sent else
-            "Se generó el código de recibido. No se envió por WhatsApp: "
-            "el envío automático todavía no existe. Para mandarlo a mano, "
-            "tocá «Nuevo código de recibido»."))
+            "Se generó el código de recibido: el cliente lo ve en la página de su pedido."))
         return code
 
     def _distri_send_receipt_code(self, code):
@@ -253,13 +296,43 @@ class SaleOrderDelivery(models.Model):
         return False
 
     def _distri_check_receipt_code(self, code):
+        """True for the right code. A wrong one counts as a failed try; a
+        locked code (audit F12) is never accepted, not even the right one."""
         self.ensure_one()
         order = self.sudo()
         code = str(code or "").strip()
         if not order.distri_receipt_hash or not re.fullmatch(r"\d{%d}" % RECEIPT_CODE_DIGITS, code):
             return False
-        return hmac.compare_digest(
-            receipt_code_hash(order.distri_receipt_salt, code), order.distri_receipt_hash)
+        if order.distri_receipt_locked:
+            return False
+        if hmac.compare_digest(
+                receipt_code_hash(order.distri_receipt_salt, code), order.distri_receipt_hash):
+            return True
+        order._distri_add_receipt_attempts(1)
+        return False
+
+    def _distri_add_receipt_attempts(self, count):
+        """Adds failed tries (also the ones the driver's phone counted
+        offline) and notes the lock once it is reached."""
+        self.ensure_one()
+        order = self.sudo()
+        if count <= 0 or not order.distri_receipt_hash:
+            return
+        was_locked = order.distri_receipt_locked
+        order.distri_receipt_attempts += count
+        if order.distri_receipt_locked and not was_locked:
+            order.message_post(body=(
+                "El código de recibido se bloqueó: %d intentos equivocados. Administración "
+                "lo desbloquea con «Desbloquear código»." % order.distri_receipt_attempts))
+
+    def action_distri_unlock_receipt_code(self):
+        """Administración: the same code works again (the counter restarts)."""
+        self.ensure_one()
+        if not self.env.user.has_group("distri_pedido.grupo_administracion"):
+            raise UserError("Solo administración desbloquea el código de recibido.")
+        self.sudo().distri_receipt_attempts = 0
+        self.message_post(body="%s desbloqueó el código de recibido." % self.env.user.name)
+        return True
 
     def action_distri_new_receipt_code(self):
         """Shows a new code once, like the web access password."""

@@ -205,3 +205,4 @@ access_vendedor_web_admin,distri.vendedor.web administracion,model_distri_vended
 access_vendedor_web_sistema,distri.vendedor.web sistema,model_distri_vendedor_web,base.group_system,1,1,1,1
 access_armado_evento_sistema,distri.armado.evento sistema,model_distri_armado_evento,base.group_system,1,0,0,0
 access_product_category_recorrido_admin,product.category recorrido administracion,product.model_product_category,distri_pedido.grupo_administracion,1,1,0,0
+access_receipt_share_sistema,distri.receipt.share sistema,model_distri_receipt_share,base.group_system,1,0,0,0

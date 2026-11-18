@@ -67,6 +67,7 @@
 .summary .box b{font-size:15px;font-weight:800}
 .summary .box.wide{grid-column:1 / -1}
 .summary .box.warn{background:var(--amber-bg-2);border-color:var(--amber-border)}
+.summary .box.err{background:var(--red-bg-2)}
 
 /* statement rows: two lines, amounts right */
 .stmt{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}

@@ -14,3 +14,4 @@ from . import cobro
 from . import alta_revendedor
 from . import kit
 from . import caja
+from . import comprobantes

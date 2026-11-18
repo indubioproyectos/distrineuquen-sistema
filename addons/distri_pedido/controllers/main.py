@@ -1212,6 +1212,8 @@ class TomaDePedidos(http.Controller):
         datos["encomienda"] = self._encomienda_cliente(pedido)
         datos["espera"] = self._espera_whatsapp(pedido)
         datos["guardado"] = kw.get("guardado") == "1" and editable
+        # 19.0.1.99.0 (audit F7): the code the customer tells the driver
+        datos["codigo_recibido"] = self._codigo_recibido(pedido)
         # 19.0.1.93.0 (E2E-C C11): lines left out of the change just saved
         try:
             datos["descartados"] = int(kw.get("descartados") or 0) if datos["guardado"] else 0
@@ -1230,6 +1232,14 @@ class TomaDePedidos(http.Controller):
                           if datos["cliente"] and datos["mostrar_cuenta"]
                           and not datos["cancelado"] else False)
         return request.render("distri_pedido.seguimiento", datos)
+
+    def _codigo_recibido(self, pedido):
+        """The order's receipt code for its own page (the token already
+        proved who is asking), while it can still be delivered."""
+        pedido = pedido.sudo()
+        if pedido.state == "cancel" or pedido.distri_delivery_state in ("delivered", "dispatched"):
+            return ""
+        return pedido.distri_receipt_code or ""
 
     def _url_avisar_cambio(self, pedido):
         """«Avisar el cambio por WhatsApp» after saving an edit.
@@ -1801,6 +1811,9 @@ class TomaDePedidos(http.Controller):
                 pedido.with_context(distri_armado=True)._recompute_prices()
                 self._guardar_whatsapp_del_cliente(cliente, telefono)
             pedido._distri_wa_start(staff=personal)
+            # 19.0.1.99.0 (audit F7): the receipt code exists from the start
+            # and the customer sees it on the confirmation and his order page
+            pedido._distri_ensure_receipt_code()
         return self._pagina_gracias(pedido, nombre, telefono, domicilio, entrega, hay_mayorista,
                                     descartados)
 
@@ -1869,6 +1882,7 @@ class TomaDePedidos(http.Controller):
             "paga_por_transferencia": bool(self._alias_transferencia()),
             "espera": False,
             "personal": False,
+            "codigo_recibido": self._codigo_recibido(pedido),
         }
         if pedido.distri_wa_state == "staff":
             # the seller's order is already identified: it goes to the customer

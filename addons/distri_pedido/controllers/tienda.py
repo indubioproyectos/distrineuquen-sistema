@@ -1,3 +1,5 @@
+from werkzeug.exceptions import NotFound
+
 from odoo import http
 from odoo.http import request
 from odoo.addons.web.controllers.home import Home
@@ -14,11 +16,14 @@ if WebsiteSale is not None:
     class TiendaOculta(WebsiteSale):
         """La tienda que trae Odoo confunde: todo va a la pantalla de pedidos."""
 
-        @http.route()
+        # 19.0.1.99.0 (audit F14): the sitemap drops the shop URLs in
+        # models/ir_http.py (WebsiteSitemap); sitemap=False alone does not,
+        # website_sale's own rules keep theirs
+        @http.route(sitemap=False)
         def shop(self, **kw):
             return request.redirect("/pedido")
 
-        @http.route()
+        @http.route(sitemap=False)
         def product(self, *args, **kw):
             return request.redirect("/pedido")
 
@@ -85,3 +90,32 @@ class InicioComerciante(Home):
             if not user.share:
                 return request.redirect("/tablero", 303)
         return super().web_client(s_action=s_action, **kw)
+
+
+try:
+    from odoo.addons.website.controllers.main import Website
+except ImportError:
+    Website = None
+
+
+if Website is not None:
+
+    class SitioLimpio(Website):
+        """19.0.1.99.0 (audit F14): the stock pages of the website module
+        that showed sample data or the installed apps."""
+
+        @http.route(sitemap=False)
+        def website_info(self, **kwargs):
+            if not request.env.user.has_group("base.group_system"):
+                raise NotFound()
+            return super().website_info(**kwargs)
+
+
+class ContactoReal(http.Controller):
+    """/contactus was Odoo's sample page (invented address, +1 555 phone,
+    sample e-mail): the real contact is the home page and WhatsApp."""
+
+    @http.route(["/contactus", "/contactus-thank-you"], type="http", auth="public",
+                website=True, sitemap=False)
+    def contactus(self, **kw):
+        return request.redirect("/", 301)

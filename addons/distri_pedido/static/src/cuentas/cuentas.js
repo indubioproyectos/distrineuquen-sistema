@@ -382,6 +382,7 @@
     var tags = "";
     if (row.provisional) tags += ' <span class="pill warn">a controlar</span>';
     if (row.owed) tags += ' <span class="pill err">debe ' + money(row.owed) + "</span>";
+    if (row.review_note) tags += ' <span class="pill info" title="' + h(row.review_note) + '">nota de revisión</span>';
     if (row.card_id) tags += ' <span class="pill ok">MP</span>';
     if (row.comment_count) tags += ' <span class="pill info">' + plural(row.comment_count, "comentario", "comentarios") + "</span>";
     var concept = [row.remito ? "Remito " + row.remito : "", row.concept].filter(Boolean).join(" · ");
@@ -436,7 +437,9 @@
         '<div class="box"><span>Saldo si se aprueban</span><b class="num">' + money(d.whatif_balance) + "</b></div>");
     }
     if (d.owed_count) {
-      boxes.push('<div class="box wide"><span>Facturas adeudadas (revisadas)</span><b>' + d.owed_count + "</b></div>");
+      boxes.push('<div class="box wide err"><span>Facturas adeudadas · ' + d.owed_count +
+        ' · en rojo, pagos aplicados de la más vieja a la más nueva</span><b class="num">' +
+        (d.owed_total != null ? money(d.owed_total) : d.owed_count) + "</b></div>");
     }
     var summary = boxes.length ? '<div class="summary">' + boxes.join("") + "</div>" : "";
 
@@ -509,10 +512,10 @@
         ["Diario", h(L.journal || "")],
         ["Estado", L.provisional ? '<span class="pill warn">a controlar</span>' : ""],
       ]));
-      if (L.owed) {
-        parts.push('<div class="block"><div class="label">Adeudada (revisada)</div>' + kv([
-          ["Debe todavía", '<span class="num">' + money(L.owed) + "</span>"],
-          ["Nota", h(L.owed_note)],
+      if (L.owed || L.review_note) {
+        parts.push('<div class="block"><div class="label">' + (L.owed ? "Adeudada" : "Revisión de la cuenta") + "</div>" + kv([
+          ["Debe todavía", L.owed ? '<span class="num">' + money(L.owed) + "</span>" : ""],
+          ["Nota de la revisión", h(L.review_note)],
         ]) + "</div>");
       }
       if (L.card) {

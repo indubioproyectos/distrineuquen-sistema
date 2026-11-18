@@ -896,6 +896,12 @@
                     border:2px solid var(--acento);border-radius:6px}
     .modificar p{margin:.6rem 0 0;font-size:.85rem;color:var(--tenue)}
     .aviso.guardado{background:#d3f9d8;color:#2b8a3e;font-size:1rem;font-weight:700}
+    .codigo{background:var(--tarjeta);border-bottom:1px solid var(--borde);padding:1rem;
+            text-align:center}
+    .codigo .rot{margin:0;font-size:.85rem;color:var(--tenue)}
+    .codigo .num{margin:.15rem 0;font-size:2rem;font-weight:800;letter-spacing:.35em;
+                 padding-left:.35em;font-variant-numeric:tabular-nums}
+    .codigo .nota{margin:0;font-size:.82rem;color:var(--tenue)}
     .aviso.guardado .btn{font-size:.9rem;font-weight:600}
   </style>
   <t t-call="distri_pedido.sin_historial"/>
@@ -960,6 +966,12 @@
       <p style="margin:0 0 .6rem;font-weight:600">Falta un paso: enviá el mensaje por WhatsApp para que recibamos tu pedido.</p>
       <a class="btn" style="background:#25d366" t-att-href="espera['url']" target="_blank" rel="noopener">Enviar por WhatsApp</a>
       <p style="margin:.5rem 0 0;font-size:.82rem">Código <b t-esc="espera['codigo']"/></p>
+    </div>
+    <!-- 19.0.1.99.0 (audit F7) -->
+    <div class="codigo" id="codigo-recibido" t-if="codigo_recibido">
+      <p class="rot">Código de recibido</p>
+      <p class="num" t-esc="codigo_recibido"/>
+      <p class="nota">Dáselo al repartidor cuando recibas el pedido. No lo compartas con nadie más.</p>
     </div>
     <div class="aviso cliente" t-if="aviso_cliente" id="aviso">
       Tu aviso: «<t t-esc="aviso_cliente"/>» <span>— lo vamos a tener en cuenta.</span>
@@ -1383,6 +1395,12 @@
            font-weight:600;padding:.8rem;margin:0 0 1rem}
     .editar{font-size:.85rem;color:var(--tenue);margin:1.6rem 0 0;padding-top:1.2rem;
             border-top:1px solid var(--linea)}
+    .codigo{background:var(--tarjeta);border:2px dashed var(--acento);border-radius:10px;
+            padding:.9rem;margin:1.4rem 0 0}
+    .codigo .rot{font-size:.85rem;color:var(--tenue);margin:0}
+    .codigo .num{font-size:2.2rem;font-weight:800;letter-spacing:.35em;margin:.2rem 0 .1rem;
+                 padding-left:.35em;color:var(--texto);font-variant-numeric:tabular-nums}
+    .codigo .ayuda{margin:.2rem 0 0}
     .volver{display:inline-block;margin-top:1.4rem;font-size:.95rem;color:var(--texto);
             text-decoration:none;border-bottom:1px solid var(--linea);padding-bottom:.15rem}
   </style>
@@ -1409,6 +1427,8 @@
       <p class="ayuda" t-if="cliente_numero">Se abre tu WhatsApp con el chat del cliente y el enlace del pedido.</p>
       <p class="ayuda" t-else="">El cliente no tiene WhatsApp cargado: se abre tu WhatsApp para que elijas el chat.</p>
       <p class="ayuda">El pedido ya está en el sistema. No hace falta mandarlo a la empresa.</p>
+      <p class="ayuda" t-if="codigo_recibido">En el enlace del pedido el cliente ve su código de
+        recibido para dárselo al repartidor.</p>
     </t>
     <t t-elif="espera">
       <h1>Falta un paso</h1>
@@ -1431,6 +1451,13 @@
     </a>
     <p class="ayuda">Se abre WhatsApp con el pedido ya escrito. Solo tenés que darle enviar.</p>
     </t>
+    <!-- 19.0.1.99.0 (audit F7): the receipt code, from the moment the order is placed -->
+    <div class="codigo" id="codigo-recibido" t-if="codigo_recibido and not personal">
+      <p class="rot">Código de recibido</p>
+      <p class="num" t-esc="codigo_recibido"/>
+      <p class="ayuda">Dáselo al repartidor cuando recibas el pedido. También lo ves en la
+        página de tu pedido.</p>
+    </div>
 
     <p class="editar">
       Podés agregar o quitar productos hasta que empecemos a armarlo,

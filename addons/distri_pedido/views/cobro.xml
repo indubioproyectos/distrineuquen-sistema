@@ -90,6 +90,13 @@
             <div class="small" t-esc="route_warning"/>
             <input type="hidden" t-att-name="route_field" value="1"/>
           </div>
+          <!-- 19.0.1.99.0 (audit F4): more than the customer owes -->
+          <div t-if="over_warning" class="card warn" role="alert" id="cobro-supera">
+            <b>El importe supera la deuda</b>
+            <div class="small" t-esc="over_warning"/>
+            <input type="hidden" name="deuda_ok" value="1"/>
+          </div>
+          <input t-if="form.get('deuda_ok') and not over_warning" type="hidden" name="deuda_ok" value="1"/>
           <input t-if="form.get('ruta_ok') and route_field != 'ruta_ok'" type="hidden" name="ruta_ok" value="1"/>
           <input t-if="form.get('forzar') and route_field != 'forzar'" type="hidden" name="forzar" value="1"/>
           <label class="stack">Importe en efectivo
@@ -123,9 +130,12 @@
             <t t-if="route_warning and route_field == 'forzar'">Cobrar igual</t>
             <t t-elif="route_warning">No le pagó al repartidor: registrarlo</t>
             <t t-elif="duplicate">Sí, es otro cobro: registrarlo</t>
+            <t t-elif="over_warning">Sí, registrar igual</t>
             <t t-else="">Registrar cobro en efectivo</t>
           </button>
-          <a t-if="duplicate or route_warning" class="btn outline" href="/cobro" data-up="">No, no lo registro</a>
+          <a t-if="duplicate or route_warning or over_warning" class="btn outline"
+             t-att-href="'/cobro?cliente=%s' % socio.id if over_warning else '/cobro'" data-up="">
+            <t t-if="over_warning">No, corregir el importe</t><t t-else="">No, no lo registro</t></a>
         </form>
 
         <div class="card" t-if="account['rows']">

@@ -94,7 +94,7 @@
                 string="Enviar código por WhatsApp" icon="fa-whatsapp"
                 groups="distri_pedido.grupo_administracion"
                 invisible="state != 'sale' or not distri_receipt_wa_digits"
-                confirm="Se genera un código de recibido nuevo, el anterior deja de valer y se abre WhatsApp con el mensaje para el cliente. Si el pedido ya está en el celular del repartidor, que actualice la ruta. ¿Seguir?"/>
+                confirm="Se abre WhatsApp con el código de recibido del pedido para mandárselo al cliente. Si el pedido no tiene un código que se pueda leer, se genera uno nuevo. ¿Seguir?"/>
       </xpath>
     </field>
   </record>

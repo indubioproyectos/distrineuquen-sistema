@@ -572,8 +572,9 @@ class SaleOrder(models.Model):
         })
         self.message_post(body="%s terminó de armar el pedido en %s %s." % (
             self.env.user.name, bultos, "bulto" if bultos == 1 else "bultos"))
-        # receipt code for the delivery app (models/reparto_cliente.py)
-        self._distri_generate_receipt_code()
+        # receipt code for the delivery app (models/reparto_cliente.py): a
+        # web order already has it since it was placed (19.0.1.99.0)
+        self._distri_ensure_receipt_code()
         return ""
 
     def distri_corregir_bultos(self, bultos):

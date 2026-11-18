@@ -20,6 +20,13 @@ The cards «Candidato · falta el comprobante» of the customer (19.0.1.45.0)
 show apart for staff only, as «Pago a confirmar · falta el comprobante»:
 never subtracted from the balance, with the balance if they were approved.
 
+Red rows («debe $ X», 19.0.1.99.0): every credit of the customer
+(payments, credit notes, refunds, reported returns) is applied to the debit
+rows oldest to newest (mark_owed_fifo). What stays uncovered is owed, so the
+red total always equals the balance and a customer up to date or in credit
+has nothing red. The review marks (distri_owed*) no longer decide the color;
+their note stays visible as `review_note`.
+
 Staff see the invoice number and the remito. The customer sees only the
 remito (models/remito.py): `customer_type` and `customer_ref` never carry
 an invoice number.
@@ -57,6 +64,43 @@ PROVISIONAL_LABEL = "Devolución informada"
 PROVISIONAL_NOTE = "a controlar"
 CANDIDATE_ROW_LABEL = "Pago a confirmar · falta el comprobante"
 WHATIF_LABEL = "Saldo si se aprueban los candidatos"
+
+
+OWED_TOLERANCE = 0.005
+
+
+def mark_owed_fifo(rows):
+    """Set row["owed"] on statement rows, FIFO.
+
+    The credit is the sum of the rows whose net (debit - credit) is negative,
+    whatever their date: a payment made before an invoice still covers it.
+    It is applied to the rows with a positive net in the given order (oldest
+    first); whatever a row keeps uncovered is its «owed». Every other row gets
+    0. Invariant: sum(owed) == max(balance, 0), within cents.
+
+    Returns (count, total) of the owed rows.
+    """
+    credit = 0.0
+    for row in rows:
+        net = (row.get("debit") or 0.0) - (row.get("credit") or 0.0)
+        if net < 0:
+            credit -= net
+    count, total = 0, 0.0
+    for row in rows:
+        net = round((row.get("debit") or 0.0) - (row.get("credit") or 0.0), 2)
+        if net <= 0:
+            row["owed"] = 0.0
+            continue
+        covered = min(credit, net)
+        credit -= covered
+        owed = round(net - covered, 2)
+        if owed > OWED_TOLERANCE:
+            row["owed"] = owed
+            count += 1
+            total += owed
+        else:
+            row["owed"] = 0.0
+    return count, round(total, 2)
 
 
 def local_date(moment):
@@ -160,8 +204,10 @@ class ResPartnerEstadoCuenta(models.Model):
 
         Each row: date, source, doc_type (staff), number (staff: invoice or
         payment number), remito, concept, customer_type, customer_ref,
-        debit, credit, balance, provisional, key (sort key), line_key
-        (stable identity of the row, see statement_line_key).
+        debit, credit, balance, provisional, owed (uncovered amount, FIFO,
+        see mark_owed_fifo), review_note (the account review's note, shown
+        only), key (sort key), line_key (stable identity of the row, see
+        statement_line_key).
         """
         self.ensure_one()
         partner = self.commercial_partner_id.sudo()
@@ -207,7 +253,7 @@ class ResPartnerEstadoCuenta(models.Model):
                 "credit": line.credit,
                 "provisional": False,
                 "owed": 0.0,
-                "owed_note": "",
+                "review_note": "",
                 "res_model": "account.move",
                 "res_id": move.id,
                 "key": (line.date, _SOURCE_ORDER[SOURCE_ODOO], line.id),
@@ -233,9 +279,10 @@ class ResPartnerEstadoCuenta(models.Model):
                 "debit": mov.debe or 0.0,
                 "credit": mov.haber or 0.0,
                 "provisional": False,
-                # «Adeudada (revisada)»: the amount still owed, set by the review
-                "owed": (mov.distri_owed_amount or mov.debe or 0.0) if mov.distri_owed else 0.0,
-                "owed_note": (mov.distri_owed_note or "") if mov.distri_owed else "",
+                # set by mark_owed_fifo; the review mark is only a note now
+                "owed": 0.0,
+                "review_note": mov.distri_owed_note or (
+                    "Marcada adeudada en la revisión" if mov.distri_owed else ""),
                 "res_model": "distri.cuenta.movimiento",
                 "res_id": mov.id,
                 "key": (mov.fecha, _SOURCE_ORDER[SOURCE_ONLINE], mov.id),
@@ -261,7 +308,7 @@ class ResPartnerEstadoCuenta(models.Model):
                 "credit": ret.amount,
                 "provisional": True,
                 "owed": 0.0,
-                "owed_note": "",
+                "review_note": "",
                 "res_model": "distri.route.return",
                 "res_id": ret.id,
                 "key": (when, _SOURCE_ORDER[SOURCE_RETURN], ret.id),
@@ -282,6 +329,7 @@ class ResPartnerEstadoCuenta(models.Model):
         for row in rows:
             balance += (row["debit"] or 0.0) - (row["credit"] or 0.0)
             row["balance"] = balance
+        mark_owed_fifo(rows)
         return rows
 
     def _distri_statement(self, date_from=False, date_to=False):
@@ -319,6 +367,9 @@ class ResPartnerEstadoCuenta(models.Model):
             "closing": closing,
             "balance": balance,
             "provisional": sum(r["credit"] for r in rows if r["provisional"]),
+            # over every row, not only the period's: the red follows the balance
+            "owed_count": len([r for r in rows if r["owed"]]),
+            "owed_total": round(sum(r["owed"] for r in rows), 2),
             "debit": sum(r["debit"] for r in selected),
             "credit": sum(r["credit"] for r in selected),
         }
@@ -351,11 +402,11 @@ class ResPartnerEstadoCuenta(models.Model):
                 (" · incluye devoluciones informadas a controlar por %s"
                  % html_escape(_money(data["provisional"]))) if data["provisional"] else ""),
         ]
-        owed = [r for r in rows if r.get("owed")]
-        if owed:
-            out.append("<p class='text-danger o_distri_estado_adeudadas'><b>Facturas adeudadas "
-                       "(revisadas): %d por %s</b> · en rojo en la tabla</p>" % (
-                           len(owed), html_escape(_money(sum(r["owed"] for r in owed)))))
+        if data.get("owed_count"):
+            out.append("<p class='text-danger o_distri_estado_adeudadas'><b>Facturas adeudadas: "
+                       "%d por %s</b> · en rojo en la tabla · los pagos se aplican de la más "
+                       "vieja a la más nueva</p>" % (
+                           data["owed_count"], html_escape(_money(data["owed_total"]))))
         if candidates:
             out.append("<p><b>%s: %s</b> · %d %s por %s, no restados del saldo</p>" % (
                 WHATIF_LABEL, html_escape(_money(data["whatif_balance"])), len(candidates),
@@ -380,20 +431,27 @@ class ResPartnerEstadoCuenta(models.Model):
                     html_escape(cand["name"]), html_escape(cand["note"]),
                     html_escape(_money(cand["amount"]))))
         for row in rows:
+            note = row.get("review_note") or ""
+            badges = ""
+            if row["provisional"]:
+                badges += " <span class='badge text-bg-warning'>a controlar</span>"
+            elif row.get("owed"):
+                badges += " <span class='badge text-bg-danger'>debe %s</span>" % html_escape(
+                    _money(row["owed"]))
+            if note:
+                badges += (" <span class='badge text-bg-secondary o_distri_estado_nota' "
+                           "title='%s'>Revisión: %s</span>" % (
+                               html_escape(note), html_escape(note[:60])))
             out.append(
                 "<tr%s><td>%s</td><td>%s%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>"
                 "<td class='text-end'>%s</td><td class='text-end'>%s</td>"
                 "<td class='text-end'>%s</td></tr>" % (
                     " class='table-warning'" if row["provisional"] else (
-                        " class='table-danger o_distri_estado_adeudada'%s" % (
-                            " title='%s'" % html_escape(row["owed_note"])
-                            if row.get("owed_note") else "") if row.get("owed") else ""),
+                        " class='table-danger o_distri_estado_adeudada'"
+                        if row.get("owed") else ""),
                     row["date"].strftime("%d/%m/%Y") if row["date"] else "",
                     html_escape(row["doc_type"]),
-                    " <span class='badge text-bg-warning'>a controlar</span>"
-                    if row["provisional"] else (
-                        " <span class='badge text-bg-danger'>debe %s</span>" % html_escape(
-                            _money(row["owed"])) if row.get("owed") else ""),
+                    badges,
                     _statement_number(row), html_escape(row["remito"]),
                     html_escape(row["concept"]), html_escape(SOURCE_LABELS[row["source"]]),
                     html_escape(_money(row["debit"])) if row["debit"] else "",

@@ -13,8 +13,9 @@
 - «WhatsApp verificado»: the manager checked the chat and the number the
   customer typed is his. It goes to the customer's WhatsApp, normalized
   (models/ar_phone.py), and the semaphore repaints.
-- «Enviar código por WhatsApp»: a new receipt code (models/reparto_cliente.py)
-  in a wa.me link to the customer's chat, instead of copying it by hand.
+- «Enviar código por WhatsApp»: the order's receipt code
+  (models/reparto_cliente.py) in a wa.me link to the customer's chat; a new
+  one only when the order has no readable code (19.0.1.99.0).
 
 This file loads last and imports no other model module (sale.order
 overrides are built in import order): only the pure helpers of ar_phone.
@@ -275,11 +276,19 @@ class SaleOrderLink(models.Model):
         digits = self._distri_receipt_wa_number()
         if not digits:
             raise UserError("El cliente no tiene un WhatsApp cargado para mandarle el código.")
-        note = "Código de recibido nuevo, preparado para enviar por WhatsApp por %s." % (
-            self.env.user.name)
-        if self._distri_on_driver_phone():
-            note += " " + ROUTE_REFRESH_HINT
-        code = self._distri_generate_receipt_code(note=note)
+        # 19.0.1.99.0: the code the customer already sees on his order page
+        # is sent as is; a new one only for an order without a readable code
+        code = self.sudo().distri_receipt_code
+        if code:
+            self.sudo().message_post(
+                body="Código de recibido preparado para enviar por WhatsApp por %s." % (
+                    self.env.user.name))
+        else:
+            note = "Código de recibido nuevo, preparado para enviar por WhatsApp por %s." % (
+                self.env.user.name)
+            if self._distri_on_driver_phone():
+                note += " " + ROUTE_REFRESH_HINT
+            code = self._distri_generate_receipt_code(note=note)
         return {
             "type": "ir.actions.act_url",
             "url": "https://wa.me/%s?text=%s" % (digits, quote(RECEIPT_WA_TEXT % (self.name, code))),

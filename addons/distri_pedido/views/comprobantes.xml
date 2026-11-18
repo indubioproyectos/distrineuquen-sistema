@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Subir comprobante» (19.0.1.99.0, audit 3a): controllers/comprobantes.py,
+       models/comprobante_subir.py, static/src/comprobantes/. On the kit. -->
+
+  <template id="comprobantes_page" name="Subir comprobante">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Subir comprobante · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="comp dn-has-foot" t-att-data-parent="inicio" data-page="comprobantes">
+  <header class="dn-top">
+    <div class="dn-top__row">
+      <a class="dn-icon-btn" t-att-href="inicio" data-dn-back="" aria-label="Volver al inicio">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t>
+      </a>
+      <div class="dn-top__txt">
+        <span class="dn-top__kicker">Cobros · transferencias</span>
+        <h1 class="dn-top__title">Subir comprobante</h1>
+      </div>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+  </header>
+  <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
+  <main class="dn-main">
+    <form id="comp-form" class="comp-form" method="post" action="/comprobantes/subir"
+          enctype="multipart/form-data" data-comp-form="">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input t-if="stage" type="hidden" name="compartido" t-att-value="stage.token"/>
+
+      <div class="comp-pick">
+        <label class="dn-btn dn-btn--lg comp-pick__btn">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'camera'"/></t> Sacar foto
+          <input type="file" name="archivos" accept="image/*" capture="environment" class="comp-file" data-comp-file=""/>
+        </label>
+        <label class="dn-btn dn-btn--outline dn-btn--lg comp-pick__btn">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'image'"/></t> Elegir de galería
+          <input type="file" name="archivos" accept="image/*,application/pdf,.pdf" multiple="multiple"
+                 class="comp-file" data-comp-file=""/>
+        </label>
+        <p class="comp-muted">Varias a la vez, foto o PDF. En Android también podés tocar
+          <b>Compartir</b> en WhatsApp y elegir <b>Distri</b>.</p>
+      </div>
+
+      <section class="comp-sel" data-comp-sel="" t-att-hidden="None if preview else 'hidden'">
+        <h2 class="dn-label">Para subir</h2>
+        <ul class="comp-thumbs" data-comp-thumbs="">
+          <li t-foreach="preview" t-as="f" class="comp-thumb">
+            <img t-if="not f['pdf']" t-att-src="f['src']" alt="Comprobante compartido"/>
+            <span t-else="" class="comp-thumb__pdf"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'doc'"/></t>PDF</span>
+            <span class="comp-thumb__name" t-esc="f['name']"/>
+          </li>
+        </ul>
+        <p t-if="preview" class="comp-muted">Llegaron con «Compartir con Distri».</p>
+      </section>
+
+      <div class="dn-field comp-cliente">
+        <label for="comp-q">¿De qué cliente? (opcional)</label>
+        <input type="hidden" name="cliente_id" data-comp-cliente-id=""/>
+        <input id="comp-q" class="dn-input" type="search" autocomplete="off" maxlength="80"
+               placeholder="Buscar cliente…" data-comp-q=""/>
+        <ul class="comp-res" data-comp-res="" hidden="hidden"></ul>
+        <p class="comp-muted" data-comp-cliente-txt="">Si no lo elegís, el sistema lo propone con el CUIT
+          o el pedido que lea del comprobante.</p>
+      </div>
+
+      <ul t-if="results" class="comp-results" role="status">
+        <li t-foreach="results" t-as="r" t-att-class="'comp-r comp-r--%s' % r['status']">
+          <b t-esc="r['name']"/> <span t-esc="r['message']"/>
+        </li>
+      </ul>
+    </form>
+
+    <h2 class="dn-label">Subidos hoy por vos: <span data-comp-count="" t-esc="len(uploads)"/></h2>
+    <div class="dn-empty" t-if="not uploads" data-comp-empty="">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
+      <p>Todavía no subiste comprobantes hoy.</p>
+    </div>
+    <ul class="comp-list" data-comp-list="">
+      <li t-foreach="uploads" t-as="u" class="comp-item">
+        <span t-att-class="'comp-item__st comp-item__st--%s' % ('reading' if u['reading'] else (u['state'] or 'pending'))"
+              t-esc="'⏳' if u['reading'] or u['state'] in ('pending', 'no_money') else ('✓' if u['state'] in ('matched', 'registered') else '•')"/>
+        <span class="comp-item__amt dn-num" t-esc="money(u['amount']) if u['amount'] else ('leyendo…' if u['reading'] else 'sin importe')"/>
+        <span class="comp-item__who" t-esc="u['partner'] or 'sin cliente'"/>
+        <small class="comp-item__state" t-esc="u['state_label']"/>
+      </li>
+    </ul>
+  </main>
+  <div class="dn-bottom">
+    <div class="dn-foot dn-foot--one">
+      <button type="submit" form="comp-form" class="dn-btn dn-btn--lg" data-comp-send="">Subir</button>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+</odoo>

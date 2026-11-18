@@ -357,8 +357,8 @@ class DistriSyncEvent(models.Model):
             if existing.distri_app_stop_id != stop:
                 raise UserError("Esa foto es de otro pedido.")
             return "ya estaba"
-        from .gasto import decode_photo
-        photo = decode_photo(payload.get("photo"))
+        from .gasto import decode_receipt_file
+        photo = decode_receipt_file(payload.get("photo"))
         amount = _number(payload.get("transfer_amount"))
         Message._distri_app_receipt_create(stop, user, photo, photo_uuid, captured, amount)
         return False
@@ -488,6 +488,17 @@ class DistriSyncEvent(models.Model):
         returns = self._clean_returns(stop, payload.get("returns") if answer == "yes" else [])
         if answer == "yes" and not returns:
             raise UserError("Cargá lo que devolvió.")
+
+        # 19.0.1.99.0 (audit F12): the wrong codes the phone counted offline
+        # add to the order's tries once (a later edit of the visit sends the
+        # same running count)
+        try:
+            tries = min(max(int(payload.get("code_attempts") or 0), 0), 99)
+        except (TypeError, ValueError):
+            tries = 0
+        if tries > (stop.code_attempts or 0):
+            stop.order_id._distri_add_receipt_attempts(tries - (stop.code_attempts or 0))
+            stop.code_attempts = tries
 
         code = str(payload.get("code") or "").strip()
         if code:

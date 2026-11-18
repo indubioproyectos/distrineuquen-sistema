@@ -44,7 +44,7 @@ APP_VIA = "app"
 # what the reading cron takes per run
 APP_READ_BATCH = 30
 _MIMES = ((b"\xff\xd8\xff", "image/jpeg", "jpg"), (b"\x89PNG", "image/png", "png"),
-          (b"RIFF", "image/webp", "webp"))
+          (b"RIFF", "image/webp", "webp"), (b"%PDF-", "application/pdf", "pdf"))
 
 
 def photo_mime(raw):
@@ -98,7 +98,8 @@ class WhatsappMessageAppReceipt(models.Model):
         vals = {
             "wa_message_id": APP_KEY % photo_uuid,
             "direction": "in",
-            "message_type": "image",
+            # 19.0.1.99.0 (audit F16): a PDF is a «document», as on WhatsApp
+            "message_type": "document" if mime == "application/pdf" else "image",
             "profile_name": APP_PROFILE,
             # the text «Reenviar a la empresa» writes: names the order
             "body": "Comprobante del pedido %s · foto de %s en la app de reparto" % (

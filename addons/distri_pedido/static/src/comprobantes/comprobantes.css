@@ -1,0 +1,45 @@
+/* «Subir comprobante» (19.0.1.99.0): only what the kit (../kit/dn.css) does
+   not have. Phone first. */
+.comp-form{display:flex;flex-direction:column;gap:14px}
+.comp-muted{margin:0;color:var(--dn-muted);font-size:15px}
+.comp-pick{display:flex;flex-direction:column;gap:10px}
+.comp-pick__btn{position:relative;min-height:64px;font-size:19px}
+.comp-pick__btn .dn-i{width:26px;height:26px}
+.comp-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.dn-js .comp-pick__btn:focus-within{outline:3px solid var(--dn-turq);outline-offset:2px}
+
+.comp-thumbs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.comp-thumb{position:relative;display:flex;flex-direction:column;gap:4px;background:var(--dn-card);
+  border:1px solid var(--dn-line);border-radius:var(--dn-r);padding:6px;min-width:0}
+.comp-thumb img,.comp-thumb__pdf{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;background:var(--dn-line)}
+.comp-thumb__pdf{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  font-weight:900;color:var(--dn-navy)}
+.comp-thumb__pdf .dn-i{width:32px;height:32px}
+.comp-thumb__name{font-size:12px;color:var(--dn-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comp-thumb__x{position:absolute;top:-8px;right:-8px;width:32px;height:32px;border-radius:16px;border:0;
+  background:var(--dn-navy);color:#fff;font-size:20px;line-height:1;cursor:pointer}
+
+.comp-cliente{position:relative}
+.comp-res{list-style:none;margin:4px 0 0;padding:0;background:var(--dn-card);border:1px solid var(--dn-line);
+  border-radius:var(--dn-r);max-height:260px;overflow:auto}
+.comp-res li+li{border-top:1px solid var(--dn-line)}
+.comp-res button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:52px;
+  padding:8px 12px;border:0;background:none;font:inherit;text-align:left;cursor:pointer;color:var(--dn-ink)}
+.comp-res small{color:var(--dn-muted)}
+.comp-res__none{padding:12px;color:var(--dn-muted)}
+
+.comp-results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.comp-r{padding:10px 12px;border-radius:var(--dn-r);background:var(--dn-card);border:1px solid var(--dn-line)}
+.comp-r--nuevo{border-color:var(--dn-green-text)}
+.comp-r--repetido,.comp-r--error{border-color:var(--dn-red-text);color:var(--dn-red-text)}
+
+.comp-list{list-style:none;margin:0;padding:0;background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r)}
+.comp-list:empty{display:none}
+.comp-item{display:grid;grid-template-columns:28px auto 1fr;grid-template-areas:"st amt who" "st state state";
+  column-gap:10px;padding:12px 14px;border-top:1px solid var(--dn-line);align-items:baseline}
+.comp-item:first-child{border-top:0}
+.comp-item__st{grid-area:st;font-size:18px}
+.comp-item__st--matched,.comp-item__st--registered{color:var(--dn-green-text);font-weight:900}
+.comp-item__amt{grid-area:amt;font-weight:800;white-space:nowrap}
+.comp-item__who{grid-area:who;min-width:0;overflow-wrap:anywhere}
+.comp-item__state{grid-area:state;color:var(--dn-muted)}

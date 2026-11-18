@@ -349,9 +349,14 @@ class TestCuentasApp(HttpCase):
         self.assertAlmostEqual(data["balance"], full["balance"])
         self.assertAlmostEqual(data["balance"], self.pa._distri_account_balance())
         self.assertEqual(data["opening"], 0.0)
+        # 19.0.1.99.0: the red is FIFO and sums the balance; the review mark is a note
         owed = [r for r in data["rows"] if r["owed"]]
-        self.assertEqual(len(owed), 1)
-        self.assertEqual(owed[0]["owed_note"], "Revisada en la prueba")
+        self.assertEqual(len(owed), data["owed_count"])
+        self.assertAlmostEqual(sum(r["owed"] for r in owed), max(full["balance"], 0.0))
+        self.assertAlmostEqual(data["owed_total"], max(full["balance"], 0.0))
+        noted = [r for r in data["rows"] if r["review_note"]]
+        self.assertEqual([r["line_key"] for r in noted], ["online:99100"])
+        self.assertEqual(noted[0]["review_note"], "Revisada en la prueba")
 
         # 3 months: the old history goes to the opening balance
         data = app.app_account(self.pa.id)
@@ -424,8 +429,9 @@ class TestCuentasApp(HttpCase):
         online = app.app_line(self.pa.id, "online:99100")
         self.assertEqual(online["online"]["origen_id"], 99100)
         self.assertEqual(online["online"]["comprobante"], "0001/2025/99100")
-        self.assertAlmostEqual(online["owed"], BIG + 7000.0)
-        self.assertEqual(online["owed_note"], "Revisada en la prueba")
+        fifo = self._row(self.pa, lambda r: r["line_key"] == "online:99100")
+        self.assertAlmostEqual(online["owed"], fifo["owed"])
+        self.assertEqual(online["review_note"], "Revisada en la prueba")
         with self.assertRaises(UserError):
             app.app_line(self.pa.id, "online:1")
 

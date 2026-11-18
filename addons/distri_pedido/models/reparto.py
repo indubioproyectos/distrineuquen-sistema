@@ -11,7 +11,7 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
 from .ar_phone import wa_digits
-from .reparto_cliente import today_ar
+from .reparto_cliente import receipt_code_attempt_limit, today_ar
 
 ROUTE_STATES = [
     ("draft", "Asignada"),
@@ -837,6 +837,10 @@ class DistriRouteStop(models.Model):
         string="Código no coincide", readonly=True,
         help="El celular aceptó un código que no coincide con el del servidor "
              "(por ejemplo, se generó otro código después de descargar la ruta).")
+    code_attempts = fields.Integer(
+        string="Códigos equivocados", readonly=True,
+        help="Códigos de recibido equivocados que contó el celular en esta visita (ya sumados "
+             "a los intentos del pedido).")
     cash_amount = fields.Monetary(string="Efectivo", readonly=True)
     transfer = fields.Selection(TRANSFER, string="¿Paga con transferencia?", readonly=True)
     transfer_amount = fields.Monetary(string="Importe transferido", readonly=True)
@@ -999,8 +1003,14 @@ class DistriRouteStop(models.Model):
             # 19.0.1.93.0 (C4): held by administración, never delivered
             "retained": (order.distri_retenido_motivo or "Retenido por administración")
             if order.distri_retenido else "",
-            "code_salt": order.distri_receipt_salt or "",
-            "code_hash": order.distri_receipt_hash or "",
+            # 19.0.1.99.0 (audit F12): a locked code is not sent; the phone
+            # also stops after the wrong tries left
+            "code_locked": order.distri_receipt_locked,
+            "code_tries_left": max(receipt_code_attempt_limit(self.env)
+                                   - order.distri_receipt_attempts, 0),
+            "code_attempts_recorded": self.code_attempts,
+            "code_salt": "" if order.distri_receipt_locked else (order.distri_receipt_salt or ""),
+            "code_hash": "" if order.distri_receipt_locked else (order.distri_receipt_hash or ""),
             "whatsapp": partner._distri_whatsapp_shown(),
             "whatsapp_confirmed": partner.distri_whatsapp_confirmed,
             "customer": {

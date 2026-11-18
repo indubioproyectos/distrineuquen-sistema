@@ -525,13 +525,16 @@ class CuentaMovimientoOnline(models.Model):
     # «Adeudada (revisada)» (19.0.1.68.0): an invoice the account review found
     # unpaid, set by hand from the review's conclusions, never inferred. The
     # Online sync only rewrites date, number, concept and amounts, so the mark
-    # survives it.
+    # survives it. Since 19.0.1.99.0 it is only a record of the review: the red
+    # of the statement is computed FIFO (estado_cuenta.mark_owed_fifo) and the
+    # note shows on the row.
     distri_owed = fields.Boolean(
-        string="Adeudada (revisada)", index=True,
-        help="La revisión de la cuenta encontró esta factura sin pagar (o pagada de menos).")
+        string="Marcada en la revisión", index=True,
+        help="Registro de la revisión de la cuenta: la encontró sin pagar (o pagada de menos) "
+             "ese día. No decide el rojo del estado de cuenta, que se calcula solo.")
     distri_owed_amount = fields.Monetary(
-        string="Importe adeudado", currency_field="currency_id",
-        help="Lo que falta pagar de esta factura; vacío = el total.")
+        string="Adeudado según la revisión", currency_field="currency_id",
+        help="Lo que faltaba pagar el día de la revisión. Solo registro.")
     distri_owed_note = fields.Char(string="Nota de la revisión")
 
 

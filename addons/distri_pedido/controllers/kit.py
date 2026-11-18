@@ -30,6 +30,9 @@ FILES = {
     # 19.0.1.97.0: «Caja del día» (controllers/caja.py)
     "caja.css": ("caja/caja.css", "text/css; charset=utf-8"),
     "caja.js": ("caja/caja.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.99.0: «Subir comprobante» (controllers/comprobantes.py)
+    "comprobantes.css": ("comprobantes/comprobantes.css", "text/css; charset=utf-8"),
+    "comprobantes.js": ("comprobantes/comprobantes.js", "text/javascript; charset=utf-8"),
     # 19.0.1.98.0: the «Ajustes» gear of every page (views/kit.xml dn_ajustes)
     "ajustes.css": ("kit/ajustes.css", "text/css; charset=utf-8"),
     "ajustes.js": ("kit/ajustes.js", "text/javascript; charset=utf-8"),

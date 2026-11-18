@@ -43,8 +43,27 @@ NAV_HEADER = "X-Distri-Nav"
 LOCATION_HEADER = "X-Distri-Location"
 
 
+# 19.0.1.99.0 (audit F14): our own 403/404 page instead of Odoo's (English
+# text, the shop's cart and the sample footer «Somos un equipo...»)
+ERROR_CODES = {403: 403, 404: 404, "page_404": 404, "protected_403": 403}
+
+
 class IrHttp(models.AbstractModel):
     _inherit = "ir.http"
+
+    @classmethod
+    def _get_error_html(cls, env, code, values):
+        status = ERROR_CODES.get(code)
+        if status and not env.user.has_group("base.group_system"):
+            user = env.user
+            logged = not user._is_public()
+            home = (user._distri_landing() or ("/tablero" if not user.share else "/pedido")) \
+                if logged else "/"
+            return status, env["ir.ui.view"]._render_template("distri_pedido.error_page", {
+                "status": status, "logged": logged, "home": home,
+                "user_name": user.name if logged else "",
+            })
+        return super()._get_error_html(env, code, values)
 
     @classmethod
     def _post_dispatch(cls, response):
@@ -77,3 +96,22 @@ class IrHttp(models.AbstractModel):
             "js": kit_url("ajustes.js"),
             "manifest": "/tablero/manifest.webmanifest" if staff else "/dn/cliente.webmanifest",
         }
+
+
+# 19.0.1.99.0 (audit F14): the shop is hidden (controllers/tienda.py sends it
+# to /pedido), so its 1,208 product and category URLs leave the sitemap. The
+# website_sale rules keep their own sitemap functions even with the routes
+# overridden, so they are dropped here, where the sitemap is listed.
+SITEMAP_HIDDEN_PREFIXES = ("/shop",)
+SITEMAP_HIDDEN = {"/contactus", "/contactus-thank-you", "/website/info"}
+
+
+class WebsiteSitemap(models.Model):
+    _inherit = "website"
+
+    def _enumerate_pages(self, query_string=None, force=False):
+        for page in super()._enumerate_pages(query_string=query_string, force=force):
+            loc = (page.get("loc") or "").split("?", 1)[0]
+            if loc in SITEMAP_HIDDEN or loc.startswith(SITEMAP_HIDDEN_PREFIXES):
+                continue
+            yield page

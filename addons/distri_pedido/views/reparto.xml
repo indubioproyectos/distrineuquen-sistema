@@ -763,7 +763,10 @@
       <xpath expr="//header" position="inside">
         <button name="action_distri_new_receipt_code" type="object" string="Nuevo código de recibido"
                 groups="distri_pedido.grupo_administracion" invisible="state != 'sale'"
-                confirm="Se genera un código nuevo y el anterior deja de valer. ¿Seguir?"/>
+                confirm="Se genera un código nuevo y el anterior deja de valer: el cliente ve el nuevo en la página de su pedido. ¿Seguir?"/>
+        <button name="action_distri_unlock_receipt_code" type="object" string="Desbloquear código"
+                groups="distri_pedido.grupo_administracion" invisible="not distri_receipt_locked"
+                confirm="El mismo código de recibido vuelve a valer y se reinician los intentos. Si el pedido ya está en el celular del repartidor, que actualice la ruta. ¿Seguir?"/>
       </xpath>
       <xpath expr="//page[@name='distri_armado']" position="after">
         <page string="Reparto" name="distri_reparto">
@@ -771,6 +774,11 @@
             <group>
               <field name="distri_delivery_state"/>
               <field name="distri_receipt_date"/>
+              <field name="distri_receipt_code" groups="distri_pedido.grupo_administracion"
+                     invisible="not distri_receipt_code"/>
+              <field name="distri_receipt_attempts" invisible="not distri_receipt_attempts"/>
+              <field name="distri_receipt_locked" invisible="not distri_receipt_locked"
+                     decoration-danger="distri_receipt_locked"/>
             </group>
             <group string="Aviso del cliente" invisible="not distri_customer_notice_date">
               <field name="distri_customer_notice_text" string="Aviso"/>

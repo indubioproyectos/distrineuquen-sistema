@@ -202,8 +202,15 @@ class TestPedidoLink(PedidoLinkMixin, TransactionCase):
         self.assertIn("preparado para enviar por WhatsApp por Administración WA",
                       order.message_ids[0].body)
         self.assertNotIn("actualice la ruta", order.message_ids[0].body)
-        # once on the driver's phone the chatter keeps the hint
+        # 19.0.1.99.0: the code the customer already sees is sent again as is
+        # (no new code, so the driver's phone needs no refresh)
         self._route(order)
+        again = order.with_user(self.admin_distri).action_distri_receipt_code_whatsapp()
+        self.assertIn(code, unquote(again["url"]))
+        self.assertTrue(order._distri_check_receipt_code(code))
+        self.assertNotIn("que actualice la ruta", order.message_ids[0].body)
+        # an order with only the hash of an old code gets a new one, with the hint
+        order.sudo().distri_receipt_code = False
         order.with_user(self.admin_distri).action_distri_receipt_code_whatsapp()
         self.assertIn("que actualice la ruta", order.message_ids[0].body)
 

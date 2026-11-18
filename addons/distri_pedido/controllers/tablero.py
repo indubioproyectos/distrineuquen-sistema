@@ -33,6 +33,10 @@ TILES = [
     # 19.0.1.97.0: controllers/caja.py, for the «Cajero» group
     ("distri_pedido.menu_caja_app", "Caja del día", "Abrir, recibir rendiciones, pagar y cerrar",
      IMG + "cobros.png", "/caja"),
+    # 19.0.1.99.0: controllers/comprobantes.py (sellers, administración,
+    # gerencia, cajero: the menu of «Cuentas» is the closest group match)
+    ("comprobantes", "Subir comprobante", "Fotos o PDF de transferencias, sin el grupo",
+     IMG + "cobros.png", "/comprobantes"),
     # 19.0.1.92.0: controllers/cobro.py, for every internal user
     (None, "Cobro en efectivo", "Registrar el efectivo que te dio un cliente", IMG + "cobros.png",
      "/cobro"),
@@ -44,6 +48,12 @@ def staff_tiles(env):
     visible = env["ir.ui.menu"]._visible_menu_ids()
     tiles = []
     for xmlid, title, subtitle, icon, url in TILES:
+        if xmlid == "comprobantes":
+            from ..models.comprobante_subir import can_upload
+            if can_upload(env.user):
+                tiles.append({"title": title, "subtitle": subtitle, "icon": icon,
+                              "menu_id": False, "url": url})
+            continue
         if not xmlid:
             tiles.append({"title": title, "subtitle": subtitle, "icon": icon, "menu_id": False,
                           "url": url})
@@ -130,6 +140,19 @@ class Tablero(http.Controller):
                 {"src": IMG + "app-maskable-512.png" + LOGO_V, "sizes": "512x512", "type": "image/png",
                  "purpose": "maskable"},
             ],
+            # 19.0.1.99.0 (audit 3a step 2): «Compartir con Distri» from
+            # WhatsApp on Android (controllers/comprobantes.py)
+            "share_target": {
+                "action": "/comprobantes/compartir",
+                "method": "POST",
+                "enctype": "multipart/form-data",
+                "params": {
+                    "title": "titulo",
+                    "text": "texto",
+                    "files": [{"name": "archivos",
+                               "accept": ["image/*", "application/pdf", ".pdf"]}],
+                },
+            },
         }
         return request.make_response(json.dumps(data, ensure_ascii=False), headers=[
             ("Content-Type", "application/manifest+json; charset=utf-8")])

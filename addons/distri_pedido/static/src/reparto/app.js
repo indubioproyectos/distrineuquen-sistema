@@ -45,7 +45,13 @@
   var RECEIPT_PHOTO_WARNING = "La foto tiene que mostrar todos los datos del comprobante, legibles: " +
     "importe, fecha y hora, número de operación y quién transfirió.";
   // no «capture»: the phone offers the camera and the gallery
-  var RECEIPT_INPUT = '<input type="file" accept="image/*" data-f="rphoto" hidden>';
+  // 19.0.1.99.0 (audit F16): a PDF too (many banks give the receipt as PDF)
+  var RECEIPT_INPUT = '<input type="file" accept="image/*,application/pdf,.pdf" data-f="rphoto" hidden>';
+  var PDF_MAX_BYTES = 3 * 1024 * 1024;
+  var PDF_THUMB = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="200" viewBox="0 0 160 200">' +
+    '<rect width="160" height="200" rx="12" fill="#eef2f6"/><path d="M50 40h45l20 20v100H50z" fill="#fff" stroke="#10243f" stroke-width="5"/>' +
+    '<text x="80" y="128" font-family="sans-serif" font-size="30" font-weight="700" text-anchor="middle" fill="#10243f">PDF</text></svg>');
   var RECEIPT_LABELS = { forwarded: "reenviado", customer_wa: "lo manda el cliente", not_yet: "pendiente" };
   var REASONS = ["Envase golpeado", "Vencido", "No lo pidió", "Producto equivocado", "Sobrante"];
   var DAYS = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
@@ -267,6 +273,18 @@
       if (data.length > PHOTO_MAX_CHARS) data = drawScaled(img, 1280, 0.6);
       if (data.length > PHOTO_MAX_CHARS) data = drawScaled(img, 1024, 0.5);
       return { photo: data, thumb: drawScaled(img, THUMB_SIDE, 0.6) };
+    });
+  }
+  // the transfer receipt: a photo (compressed) or a PDF (as is)
+  function isPdf(file) { return file.type === "application/pdf" || /\.pdf$/i.test(file.name || ""); }
+  function readReceipt(file) {
+    if (!isPdf(file)) return readPhoto(file);
+    if (file.size > PDF_MAX_BYTES) return Promise.reject(new Error("El PDF es demasiado grande (más de 3 MB). Sacale una foto a la pantalla."));
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve({ photo: reader.result, thumb: PDF_THUMB, pdf: true }); };
+      reader.onerror = function () { reject(new Error("No se pudo leer el PDF.")); };
+      reader.readAsDataURL(file);
     });
   }
   function photoField(d, label) {
@@ -1084,7 +1102,9 @@
     if (v.receipt_answer !== "photo") return RECEIPT_LABELS[v.receipt_answer] || "pendiente";
     if (v.photo_error) return "la foto no se envió";
     if (S.outbox.some(function (e) { return e.key === "receipt:" + stop.id; })) return "foto por enviar";
-    return v.receipt_photo ? "foto enviada" : "sin foto";
+    if (v.receipt_photo) return "foto enviada";
+    // 19.0.1.99.0 (audit F15): the photo still on this phone is not «sin foto»
+    return v.thumb || v.photo_uuid ? "foto guardada en el celular" : "sin foto";
   }
 
   function discardedText(d) {
@@ -1313,11 +1333,12 @@
     // receipt code
     out += '<div class="card strong' + (answered ? "" : " locked") + '">' +
       '<label class="field">Código de recibido<input class="inp code" data-f="code" inputmode="numeric" maxlength="4" ' +
-      'autocomplete="off" value="' + h(d.code) + '"' + (answered && !d.without_code && !noCode ? "" : " disabled") +
+      'autocomplete="off" value="' + h(d.code) + '"' +
+      (answered && !d.without_code && !noCode && !(codeLocked(stop) && !d.code_ok) ? "" : " disabled") +
       ' aria-label="Código de recibido que dicta el cliente"></label>' +
       '<div id="code-status">' + codeStatus(stop) + "</div>" +
       '<div class="small muted">Obligatorio. Se habilita después de responder si devolvió algo, y acredita lo recibido ' +
-      "menos lo devuelto. El cliente lo recibió por WhatsApp cuando se armó el pedido. Se valida sin señal.</div>" +
+      "menos lo devuelto. El cliente lo ve en la página de su pedido. Se valida sin señal.</div>" +
       '<button class="opt amberopt' + (d.without_code ? " on" : "") + '" data-a="no-code"' + (answered ? "" : " disabled") +
       ">El cliente no tiene el código · Entregar igual</button>" +
       '<div class="small amber">Queda como "Entregado sin código": ante un reclamo por faltantes no hay constancia de recibido.</div></div>';
@@ -1358,9 +1379,9 @@
         '<div class="rchoices">' +
         // with a photo already taken the button only chooses it back
         (hasPhoto ? '<button class="opt teal photo-btn' + (ra === "photo" ? " on" : "") + '" data-a="rcpt" data-v="photo">' +
-          ICON_CAMERA + "Sacar foto del comprobante</button>"
+          ICON_CAMERA + "Foto o PDF del comprobante</button>"
           : '<label class="opt teal photo-btn' + (ra === "photo" ? " on" : "") + '">' + ICON_CAMERA +
-          "Sacar foto del comprobante" + RECEIPT_INPUT + "</label>") +
+          "Foto o PDF del comprobante" + RECEIPT_INPUT + "</label>") +
         '<button class="opt' + (ra === "customer_wa" ? " on" : "") + '" data-a="rcpt" data-v="customer_wa">El cliente lo manda por WhatsApp</button>' +
         '<button class="opt' + (ra === "not_yet" ? " on" : "") + '" data-a="rcpt" data-v="not_yet">Lo manda después</button>' +
         "</div>";
@@ -1368,7 +1389,7 @@
         out += '<div class="banner warn big-warn">' + ICON_CAMERA + "<span>" + h(RECEIPT_PHOTO_WARNING) + "</span></div>" +
           '<div class="photo">' + (d.thumb ? '<img src="' + d.thumb + '" alt="Foto del comprobante">'
             : '<span class="okline">' + ICON_CHECK + "Foto enviada</span>") +
-          '<label class="opt second">Sacar otra foto' + RECEIPT_INPUT + "</label></div>" +
+          '<label class="opt second">Cambiar foto o PDF' + RECEIPT_INPUT + "</label></div>" +
           '<div class="small muted">La foto queda en el celular y se envía sola cuando hay señal. Administración la ' +
           "revisa; el pago se confirma con el reporte de Mercado Pago.</div>";
       } else if (ra === "customer_wa") {
@@ -1419,25 +1440,61 @@
     return out;
   }
 
+  // 19.0.1.99.0 (audit F12): wrong codes per stop, kept on the phone and
+  // sent with the visit; at the server's limit the code locks
+  function codeTries(stop) {
+    var map = S.local.codeTries || {};
+    return map[stop.id] || 0;
+  }
+  // the server's tries left already count what this stop synced
+  function triesLeft(stop) {
+    if (typeof stop.code_tries_left !== "number") return null;
+    return stop.code_tries_left + (stop.code_attempts_recorded || 0) - codeTries(stop);
+  }
+  function codeLocked(stop) {
+    if (stop.code_locked) return true;
+    var left = triesLeft(stop);
+    return left !== null && !!stop.code_hash && left <= 0;
+  }
+  function addCodeTry(stop) {
+    S.local.codeTries = S.local.codeTries || {};
+    S.local.codeTries[stop.id] = codeTries(stop) + 1;
+    saveLocal();
+  }
+
   function codeStatus(stop) {
     var d = draft;
+    if (codeLocked(stop) && !d.code_ok) {
+      return '<div class="badline">Código bloqueado por intentos equivocados. Usá «Entregar igual» ' +
+        "o pedile a administración que lo desbloquee y actualizá la ruta.</div>";
+    }
     if (!stop.code_hash) {
       return '<div class="badline">Este pedido no tiene código cargado. Usá "Entregar igual".</div>';
     }
     if (d.without_code) return '<div class="small amber"><b>Entregado sin código</b></div>';
     if (d.code_ok) return '<div class="okline">' + ICON_CHECK + "Código correcto · Recibido acreditado</div>";
-    if ((d.code || "").length === 4) return '<div class="badline">Código incorrecto. Pedile que lo lea de nuevo.</div>';
+    if ((d.code || "").length === 4) {
+      var left = triesLeft(stop);
+      return '<div class="badline">Código incorrecto. Pedile que lo lea de nuevo' +
+        (left !== null ? " (" + (left === 1 ? "queda 1 intento" : "quedan " + left + " intentos") + ")" : "") +
+        ".</div>";
+    }
     return "";
   }
 
   function checkCode(stop) {
     var code = draft.code || "";
     draft.code_ok = false;
-    if (code.length !== 4 || !stop.code_hash) return Promise.resolve();
+    if (code.length !== 4 || !stop.code_hash || codeLocked(stop)) return Promise.resolve();
     var mine = draft;
     return sha256Hex(stop.code_salt + ":" + code).then(function (hex) {
       if (mine === draft && draft.code === code) {
         draft.code_ok = hex === stop.code_hash;
+        if (!draft.code_ok) addCodeTry(stop);
+        if (codeLocked(stop) && !draft.code_ok) {
+          var input = document.querySelector('[data-f="code"]');
+          if (input) input.disabled = true;
+        }
         var el = document.getElementById("code-status");
         if (el) el.innerHTML = codeStatus(stop);
       }
@@ -1450,6 +1507,7 @@
       returns_answer: d.outcome === "delivered" ? d.returns_answer : null,
       returns: d.returns_answer === "yes" ? d.returns : [],
       code: d.code_ok ? d.code : "", without_code: !!d.without_code,
+      code_attempts: d.code_attempts || 0,
       // a visit restored from the server keeps its validated code
       code_already_ok: !!(d.code_ok && !d.code),
       cash: d.cash || 0, transfer: d.transfer || "no",
@@ -1464,6 +1522,7 @@
     var visit = {
       visit_uuid: d.visit_uuid, stop_id: stop.id, outcome: d.outcome, reason: d.reason || "",
       returns_answer: d.returns_answer, returns: d.returns, code: d.code_ok ? d.code : "", code_ok: !!d.code_ok,
+      code_attempts: codeTries(stop),
       without_code: !!d.without_code, cash: d.cash || 0, transfer: d.transfer || "no",
       transfer_amount: d.transfer === "yes" ? d.transfer_amount || 0 : 0,
       receipt_answer: d.transfer === "yes" ? d.receipt_answer : null, red_ok: !!d.red_ok,
@@ -1771,11 +1830,23 @@
     if (!items.length) return "";
     var owed = items.filter(function (r) { return r.state === "open" || r.state === "overdue"; });
     var total = round2(owed.reduce(function (sum, r) { return sum + (r.amount || 0); }, 0));
-    var out = '<div class="label">A tu cargo · transferencias sin comprobante y pedidos sin cobrar</div>';
-    items.forEach(function (r) {
+    // 19.0.1.99.0 (audit F15): what is still owed first, under «A tu cargo»;
+    // what already arrived apart («Resueltas»), and a photo saved on the
+    // phone says so instead of «Pendiente»
+    var resolved = items.filter(function (r) { return r.state === "fulfilled"; });
+    items = items.filter(function (r) { return r.state !== "fulfilled"; }).concat(resolved);
+    var out = owed.length ? '<div class="label">A tu cargo · transferencias sin comprobante y pedidos sin cobrar</div>' : "";
+    items.forEach(function (r, n) {
       var done = r.state === "fulfilled", late = r.state === "overdue";
-      var pill = done ? '<span class="pill paid">Llegó' + (r.resolved_by ? " · resuelta por " + h(r.resolved_by) : "") + "</span>" :
+      if (done && (n === 0 || items[n - 1].state !== "fulfilled")) {
+        out += '<div class="label">Resueltas · ya no están a tu cargo</div>';
+      }
+      var stop = stopById(r.stop_id), v = stop && visitOf(stop);
+      var photoWaiting = !done && v && v.receipt_answer === "photo" &&
+        S.outbox.some(function (e) { return e.key === "receipt:" + stop.id; });
+      var pill = done ? '<span class="pill paid">Llegó el comprobante' + (r.resolved_by ? " · resuelta por " + h(r.resolved_by) : "") + "</span>" :
         late ? '<span class="pill not_paid">Vencida desde ' + h(r.overdue_since) + "</span>" :
+        photoWaiting ? '<span class="pill pendpill">Foto guardada en el celular · se envía sola</span>' :
         '<span class="pill pendpill">Pendiente</span>';
       out += '<div class="card rcpt' + (late ? " late" : "") + (done ? " done" : "") + '" style="gap:6px">' +
         '<div class="split"><b>' + h(r.name) + '</b><b class="' + (done ? "strike" : "") + '">' + money(r.amount) + "</b></div>" +
@@ -2240,12 +2311,12 @@
     }
     if (f === "rphoto" && el.files && el.files[0] && draft) {
       var rd = draft;
-      toast("Preparando la foto…");
-      readPhoto(el.files[0]).then(function (res) {
+      toast("Preparando el comprobante…");
+      readReceipt(el.files[0]).then(function (res) {
         if (draft !== rd) return;
         // a new photo is a new receipt for the server: a new id
         rd.photo = res.photo; rd.thumb = res.thumb; rd.photo_uuid = uuid(); rd.receipt_answer = "photo";
-        toast("Foto lista (" + Math.round(res.photo.length * 0.75 / 1024) + " KB). Guardá la visita.");
+        toast((res.pdf ? "PDF listo (" : "Foto lista (") + Math.round(res.photo.length * 0.75 / 1024) + " KB). Guardá la visita.");
         rerender();
       }).catch(function (e) { toast(e.message || "No se pudo leer la foto.", true); });
     }

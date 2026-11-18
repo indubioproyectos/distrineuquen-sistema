@@ -15,7 +15,9 @@ distributor's account, models/lista_oculta.py); an amount above zero; the
 invoice, when one is chosen, posted, open and of that customer, and the
 amount not above what it still owes. The same user, customer, amount and
 invoice again within DUPLICATE_MINUTES is refused unless confirmed (a double
-tap or a page sent twice).
+tap or a page sent twice). An amount above the customer's debt (the
+statement balance, models/estado_cuenta.py) is asked first (19.0.1.99.0,
+audit F4): the difference stays in his favor.
 """
 import re
 from datetime import timedelta
@@ -47,6 +49,12 @@ NOT_A_CUSTOMER = "Ese cliente no existe o no se puede cobrar desde acá."
 
 class DuplicateCashError(UserError):
     """The same cash was registered a moment ago: the page asks first."""
+
+
+class OverDebtWarning(UserError):
+    """19.0.1.99.0 (audit F4): the amount is more than the customer owes; the
+    page asks first («deuda_ok»)."""
+    field = "deuda_ok"
 
 
 class RouteCashWarning(UserError):
@@ -248,17 +256,20 @@ class DistriCashCollection(models.Model):
 
     @api.model
     def cash_register(self, partner_id, amount, invoice_id=False, note="", confirmed=False,
-                      route_ok=False, force=False):
+                      route_ok=False, force=False, over_ok=False):
         """Register and post one cash payment (see the module docstring).
         Raises DuplicateCashError when it looks like a repeat and
         `confirmed` is not set, RouteCashWarning when the order is on a
-        route and `route_ok` (or `force`) is not set."""
+        route and `route_ok` (or `force`) is not set, OverDebtWarning when
+        the amount is above the debt and `over_ok` is not set."""
         user = self._cash_check_user()
         partner = self._cash_partner(partner_id)
         amount = self._cash_amount(amount)
         invoice = self._cash_invoice(partner, invoice_id, amount)
         note = " ".join((note or "").split())[:NOTE_MAX_LENGTH]
         stops = self._cash_check_routes(partner, invoice, route_ok=route_ok, force=force)
+        if not over_ok:
+            self._cash_check_debt(partner, amount)
         # two pages sent at the same time for one customer: touching his row
         # makes the second wait, fail to serialize and be retried by Odoo,
         # and the retry sees the first one below
@@ -314,6 +325,15 @@ class DistriCashCollection(models.Model):
                     user.name, _money(amount), partner.name,
                     invoice.name if invoice else "a cuenta", stop.order_id.name))
         return collection
+
+    @api.model
+    def _cash_check_debt(self, partner, amount):
+        """Audit F4: ask before an amount above what the customer owes."""
+        debt = max(partner._distri_account_balance(), 0.0)
+        if amount > debt + 0.004:
+            raise OverDebtWarning(
+                "El importe supera la deuda de %s. ¿Registrar igual? La diferencia queda a "
+                "favor del cliente (%s)." % (_money(debt), _money(amount - debt)))
 
     @api.model
     def _cash_reconcile(self, payment, invoice):

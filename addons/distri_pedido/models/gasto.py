@@ -69,6 +69,23 @@ def decode_photo(value):
     return base64.b64encode(raw)
 
 
+def decode_receipt_file(value):
+    """19.0.1.99.0 (audit F16): the transfer receipt from the phone, a photo
+    or a PDF (data URL or plain base64) -> base64 bytes. Raises UserError
+    otherwise."""
+    if isinstance(value, str) and value.startswith("data:application/pdf"):
+        try:
+            raw = base64.b64decode(value.split(",", 1)[-1], validate=True)
+        except (binascii.Error, ValueError):
+            raise UserError("El PDF no se pudo leer. Elegilo de nuevo.")
+        if len(raw) > MAX_PHOTO_BYTES:
+            raise UserError("El PDF es demasiado grande.")
+        if not raw.startswith(b"%PDF-"):
+            raise UserError("El archivo no es un PDF.")
+        return base64.b64encode(raw)
+    return decode_photo(value)
+
+
 class DistriRouteExpense(models.Model):
     _name = "distri.route.expense"
     _description = "Gasto del repartidor"

@@ -91,7 +91,7 @@ class TestCaja(CajaMixin, AccountTestInvoicingCommon):
     def _collect(self, amount, user=None):
         """Cash collected at the depot by `user` (default the cashier)."""
         return self.env["distri.cash.collection"].with_user(user or self.cashier).cash_register(
-            self.partner.id, str(amount), confirmed=True, route_ok=True)
+            self.partner.id, str(amount), confirmed=True, route_ok=True, over_ok=True)
 
     def _closed_route(self, cash=100000, expenses=()):
         order = self._order(self.partner, self.product_a)

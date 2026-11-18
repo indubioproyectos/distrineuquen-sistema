@@ -94,4 +94,12 @@
     <field name="value">30000000</field>
   </record>
 
+  <!-- 19.0.1.99.0 (audit F12): wrong receipt codes allowed per order before
+       it locks; administración unlocks it from the order («Desbloquear
+       código», models/reparto_cliente.py). -->
+  <record id="param_codigo_recibido_intentos" model="ir.config_parameter">
+    <field name="key">distri_pedido.codigo_recibido_intentos</field>
+    <field name="value">5</field>
+  </record>
+
 </odoo>

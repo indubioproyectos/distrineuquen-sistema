@@ -147,7 +147,7 @@ class TestCobroEfectivo(AccountTestInvoicingCommon):
                 partner.name[:8])], partner.name)
             with self.assertRaisesRegex(UserError, "no se puede cobrar", msg=partner.name):
                 self._cash().cash_register(partner.id, 100)
-        self.assertTrue(self._cash().cash_register(self.partner.id, 100))
+        self.assertTrue(self._cash().cash_register(self.partner.id, 100, over_ok=True))
 
     def test_search_and_account(self):
         self.partner.write({"ref": "REF-EFECTIVO-1", "phone": "+54 299 456-7788"})
@@ -172,7 +172,7 @@ class TestCobroEfectivo(AccountTestInvoicingCommon):
         with self.assertRaises(UserError):
             self._cash(seller).cash_register(self.partner_b.id, 100)
         # a driver collects from anyone
-        self.assertTrue(self._cash().cash_register(self.partner_b.id, 100))
+        self.assertTrue(self._cash().cash_register(self.partner_b.id, 100, over_ok=True))
 
 
 @tagged("post_install", "-at_install", "distri_cobro_efectivo")
@@ -300,6 +300,11 @@ class TestCobroEfectivoHttp(HttpCase):
         super().setUpClass()
         cls.partner = cls.env["res.partner"].create({
             "name": "KIOSCO COBRO EFECTIVO", "ref": "EFE-HTTP-1", "customer_rank": 1})
+        # 19.0.1.99.0 (audit F4): an amount over the debt is asked first; this
+        # customer owes enough for the amounts below
+        cls.env["distri.cuenta.movimiento"].sudo().create({
+            "partner_id": cls.partner.id, "fecha": "2026-01-10", "comprobante": "0001/2026/98801",
+            "tipo": "factura", "debe": 10000.0})
         new_test_user(cls.env, login="cobro_http", name="Cobro Http", groups="base.group_user")
         new_test_user(cls.env, login="cobro_portal", groups="base.group_portal")
 
