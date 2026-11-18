@@ -333,7 +333,7 @@ class TestCaja(CajaMixin, AccountTestInvoicingCommon):
         closed = self._collect(1000, user=self.env.user)
         box = closed.route_id
         box.cash_counted = 1000
-        box.action_close_depot()
+        box._close_depot_box()
         backlog = closed.payment_id | cash_payment(self.cash_journal, 700) \
             | cash_payment(self.depot_journal, 2500)
         self.assertEqual(set(backlog.mapped("state")), {"in_process"})

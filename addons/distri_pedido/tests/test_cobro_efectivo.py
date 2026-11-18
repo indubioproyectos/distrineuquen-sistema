@@ -69,7 +69,7 @@ class TestCobroEfectivo(AccountTestInvoicingCommon):
         self.assertIn("Cobro en efectivo", note)
         self.assertIn("Cobrador Efectivo", note)
         route.cash_counted = 200
-        route.action_close_depot()
+        route._close_depot_box()
         self.assertEqual(route.state, "settled")
 
     def test_cash_on_account(self):

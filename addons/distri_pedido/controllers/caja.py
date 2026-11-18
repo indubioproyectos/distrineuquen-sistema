@@ -428,9 +428,20 @@ class Caja(http.Controller):
         return self._closing(caja)
 
     def _closing(self, caja, error="", field="", form=None, status=200):
+        Caja = request.env["distri.caja"]
+        routes, boxes = Caja.pending_receptions()
         return self._render("distri_pedido.caja_cierre", {
             "caja": caja, "denominaciones": self._denominations(), "error": error,
             "field": field, "form": form or {},
+            # 19.0.1.109.0: the depot PC sees the day and his last closings
+            # next to the count (views/caja.xml, .caja-pc-only)
+            "movimientos": self._movements_view(caja)[:6],
+            "pendientes": len(routes) + len(boxes),
+            "cerradas": Caja.sudo().search([
+                ("user_id", "=", request.env.user.id), ("state", "=", "closed"),
+                ("company_id", "=", request.env.company.id), ("date", ">=", self._since())],
+                order="date desc, id desc", limit=3),
+            "dias": HISTORY_DAYS,
         }, status=status)
 
     @http.route("/caja/cierre", type="http", auth="user", methods=["POST"], sitemap=False)

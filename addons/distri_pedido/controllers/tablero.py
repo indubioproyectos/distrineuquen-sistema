@@ -42,6 +42,9 @@ TILES = [
      IMG + "armado.png", "box", "/armado"),
     ("despacho", "distri_pedido.menu_reparto_despacho", "Despacho", "Salida de los repartos",
      IMG + "despacho.png", "truck", "/despacho"),
+    # 19.0.1.109.0: controllers/deposito.py, administración and gerencia
+    ("deposito", "deposito", "Depósito", "Entregas, venta en mostrador y caja",
+     IMG + "despacho.png", "store", "/deposito"),
     # 19.0.1.92.0: controllers/cobro.py, for every internal user
     ("cobro", None, "Cobro en efectivo", "Registrar el efectivo que te dio un cliente",
      IMG + "cobros.png", "cash", "/cobro"),
@@ -73,6 +76,9 @@ def _special_visible(env, key):
     if key == "revisar":
         from ..models.revisar import puede_revisar
         return puede_revisar(env)
+    if key == "deposito":
+        from .deposito import installed, is_depot
+        return is_depot(user) and installed(env)
     if key == "comprobantes":
         from ..models.comprobante_subir import can_upload
         return can_upload(user)
@@ -152,6 +158,13 @@ def _badge_reparto(env):
     return {"text": str(n), "kind": "", "n": n} if n else None
 
 
+def _badge_deposito(env):
+    """«Lo voy a retirar» orders packed and waiting at the depot."""
+    from .deposito import pickup_count
+    n = pickup_count(env)
+    return {"text": "%s para retirar" % n, "kind": "", "n": n} if n else None
+
+
 def _badge_caja(env):
     if env["distri.caja"].current_for(env.user):
         return {"text": "Abierta", "kind": "warn", "n": 1}
@@ -190,6 +203,7 @@ TILE_BADGES = {
     "revisar": _badge_revisar,
     "armado": _badge_armado,
     "despacho": _badge_despacho,
+    "deposito": _badge_deposito,
     "reparto": _badge_reparto,
     "caja": _badge_caja,
     "historial": _badge_historial,

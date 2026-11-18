@@ -149,3 +149,48 @@ a.dn-card.caja-hist2{flex-direction:column;align-items:stretch;gap:8px;padding:1
 .caja-kv dd.caja-kv__txt{grid-column:1/-1;text-align:left;font-weight:600;overflow-wrap:anywhere}
 .caja-nw{white-space:nowrap}
 .caja-reabrir__motivo{min-height:96px;resize:vertical}
+/* 19.0.1.109.0 (owner-approved mockup «PC · Conteo y cierre de caja»): the
+   closing on the depot PC. Below 1024 px nothing changes but the hidden
+   .caja-pc-only parts; from 1024 px three columns: the day, the bill count,
+   the closing (views/caja.xml caja_cierre, main.caja-pc). */
+.caja-pc-only{display:none!important}
+@media (min-width:1024px){
+  .caja-pc-only{display:flex!important}
+  body.caja--pc{padding-bottom:32px}
+  body.caja--pc .dn-bottom{display:none}
+  .caja-pc{max-width:1440px;padding:20px 24px 32px;display:grid;align-items:start;gap:16px;
+    grid-template-columns:minmax(300px,360px) minmax(440px,1fr) minmax(320px,400px);grid-auto-flow:row dense}
+  .caja-pc>.caja-form{display:contents}
+  .caja-pc>*,.caja-pc>.caja-form>*{grid-column:3;min-width:0}
+  .caja-pc>.caja-pc__dia{grid-column:1;grid-row:1/span 8;flex-direction:column;gap:12px}
+  .caja-pc>.caja-form>.caja-pc__billetes{grid-column:2;grid-row:1/span 8;display:flex;flex-direction:column;gap:12px}
+  .caja-pc .caja-esperado{font-size:16px}
+  .caja-pc .caja-esperado b{font-size:20px}
+  .caja-pc .caja-cuenta{border-width:1px}
+  .caja-pc .caja-cuenta>div{font-size:16px}
+  .caja-pc .caja-cuenta b{font-size:20px}
+  .caja-pc__queda{display:flex;flex-direction:column;gap:12px}
+  .caja-pc__queda .caja-retira{margin:0}
+  .caja-pc__cerradas{flex-direction:column;gap:4px}
+  .caja-pc__cab{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .caja-pc__cab .caja-h2{margin:0}
+  .caja-pc__cab .caja-muted{font-size:14px}
+  .caja-pc__acc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .caja-pc__dia .dn-btn{min-height:44px;font-size:15px}
+  .caja-pc__dia .caja-movs{border:0}
+  .caja-pc__dia .caja-mov{padding:8px 0;font-size:14px}
+  .caja-pc__total{justify-content:space-between;align-items:center;background:var(--dn-navy);color:#fff;
+    border-radius:12px;padding:14px 16px;font-weight:700}
+  .caja-pc__total b{font-size:26px}
+  .caja-pc .caja-bill__head,.caja-pc .caja-bill__row{grid-template-columns:140px auto minmax(0,1fr)}
+  .caja-pc .caja-bill__row{border-radius:8px;padding:6px 8px}
+  .caja-pc .caja-bill__row:focus-within{background:var(--dn-info-bg)}
+  .caja-pc .caja-bill__row--otros{grid-template-columns:140px minmax(0,200px)}
+  .caja-pc .caja-bill .dn-step button{width:44px;height:44px;border-radius:10px}
+  .caja-pc .caja-bill .dn-step input{width:72px;min-height:44px}
+  .caja-pc__cc{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--dn-tint);
+    color:var(--dn-ink);text-decoration:none}
+  .caja-pc__cc .caja-muted{font-size:14px}
+  .caja-pc__ccab{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .caja-pc__ccab b{margin-right:auto}
+}

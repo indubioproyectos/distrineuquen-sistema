@@ -345,7 +345,7 @@ class TestRevisarApp(HttpCase):
         self.assertIn('href="/revisar?ver=rojos"', text)
         self.assertRegex(text, r'class="tab-badge dn-num tab-badge--err">\d+ rojos<')
         self.assertIn("Todas las aplicaciones de Odoo", text)
-        self.assertNotIn("Depósito", text, "batch 2")
+        self.assertIn('href="/deposito"', text, "19.0.1.109.0: the «Depósito» tile")
         self.assertNotIn("Aprobar", text)
         self._login(self.cajero)
         text = self.url_open("/tablero").text

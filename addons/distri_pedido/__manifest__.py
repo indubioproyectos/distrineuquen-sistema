@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.108.0",
+    "version": "19.0.1.109.0",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -116,13 +116,28 @@
     # the kit: glyph tiles with cheap count badges, the «pedidos en rojo»
     # banner, «Tomar un pedido» and «Pedidos para revisar»). New static
     # files and sprite symbols only; no new fields, no migration.
+    # 19.0.1.109.0 (batch 2, owner-approved mockups): «Depósito» on the phone
+    # (/deposito, controllers/deposito.py, views/deposito_app.xml,
+    # static/src/deposito/): today's depot box, «Entrega en depósito» (with
+    # or without the code, returns, cash / transfer / nothing), «Venta en
+    # mostrador» and «Cierre de caja depósito», all through the backend's
+    # own wizard and methods; the depot role's bottom nav (Armado · Despacho
+    # · Cobro · Entregas, kit.depot_nav) and the «Depósito» tile on /tablero.
+    # /caja/cierre on the depot PC (>= 1024 px): the day, the bill count and
+    # the closing in one screen, Enter to the next bill, «Cerrar e imprimir»
+    # opens the label. Town prefixes «C -» (Cutral Có) and «S -»
+    # (Senillosa). Owner's decision: the depot cash always goes through a
+    # cashier: nobody closes a depot box by hand (action_close_depot
+    # refuses, the backend button is gone); a cashier receives it in /caja
+    # «Recibir plata» (now also with its returns), or it closes with its own
+    # cashier's «Caja del día». No new fields, no migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml",
              "views/vendedor_web.xml", "data/vendedores_web.xml",
              "views/comprobantes.xml", "views/errores.xml",
              "views/pegar_numero.xml", "views/comprobante_cliente.xml",
-             "views/cliente_provisorio.xml", "views/revisar_app.xml"],
+             "views/cliente_provisorio.xml", "views/revisar_app.xml", "views/deposito_app.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare

@@ -443,14 +443,17 @@ class DistriCaja(models.Model):
                     stop.unloaded = True
             if route.undelivered_stop_ids.filtered(lambda s: not s.unloaded):
                 raise UserError("Tildá «Volvió al depósito» en cada pedido sin entregar.")
-            for ret in route.return_ids.filtered(lambda r: r.settlement_state == "pending"):
-                answer = returns.get(ret.id)
-                if answer == "received":
-                    ret.action_received()
-                elif answer == "missing":
-                    ret.action_missing()
-            if route.return_ids.filtered(lambda r: r.settlement_state == "pending"):
-                raise UserError("Marcá cada devolución: volvió al depósito o no volvió.")
+        # the returns of a driver's route and (19.0.1.109.0) of another
+        # user's depot box: the receiving page asks both
+        for ret in route.return_ids.filtered(lambda r: r.settlement_state == "pending"):
+            answer = returns.get(ret.id)
+            if answer == "received":
+                ret.action_received()
+            elif answer == "missing":
+                ret.action_missing()
+        if route.return_ids.filtered(lambda r: r.settlement_state == "pending"):
+            raise UserError("Marcá cada devolución: volvió al depósito o no volvió.")
+        if route.kind == "route":
             for expense in open_expenses:
                 expense.paper_received = expense.id in papers
             if route.journal_id != caja.journal_id:
@@ -459,7 +462,7 @@ class DistriCaja(models.Model):
         if route.kind == "route":
             route.with_context(distri_caja_defer_post=True).action_settle()
         else:
-            route.action_close_depot()
+            route._close_depot_box()
         case = route._cash_case()
         if case and difference_mode:
             text = dict(DIFFERENCE_MODES)[difference_mode]
@@ -593,7 +596,7 @@ class DistriCaja(models.Model):
         # the cashier's own boxes close with the session: their cash is here
         for box in caja._own_boxes():
             box.cash_counted = box.cash_expected
-            box.action_close_depot()
+            box._close_depot_box()
             box.message_post(body="Cerrada con %s." % caja.name)
         caja.count_ids.unlink()
         caja.write({

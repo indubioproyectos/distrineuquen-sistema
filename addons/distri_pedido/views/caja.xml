@@ -460,7 +460,7 @@
   <title>Cierre de caja · Distri Neuquén</title>
   <t t-call="distri_pedido.dn_head"/>
 </head>
-<body class="caja dn-has-foot" data-parent="/caja" data-page="cierre">
+<body class="caja dn-has-foot caja--pc" data-parent="/caja" data-page="cierre">
   <t t-call="distri_pedido.caja_top">
     <t t-set="volver" t-value="'/caja'"/>
     <t t-set="volver_txt" t-value="'Volver a la caja'"/>
@@ -468,10 +468,36 @@
     <t t-set="titulo" t-value="'Contar la plata'"/>
   </t>
   <t t-call="distri_pedido.caja_avisos"/>
-  <main class="dn-main">
+  <!-- 19.0.1.109.0 (owner-approved mockup «PC · Conteo y cierre de caja»):
+       from 1024 px the depot PC sees the day, the bill count and the
+       closing in one screen (caja.css .caja-pc); .caja-pc-only parts are
+       hidden on the phone, whose page stays as it was. -->
+  <main class="dn-main caja-pc">
+    <section class="dn-card caja-pc-only caja-pc__dia" aria-label="Caja del día">
+      <h2 class="caja-h2">Caja del día</h2>
+      <p class="caja-total__sub">Abierta <t t-if="caja.date != hoy">el <t t-esc="caja.date.strftime('%d/%m')"/> </t>a las <t t-esc="hora(caja.opened_at)"/></p>
+      <dl class="caja-res">
+        <div><dt>Fondo inicial</dt><dd class="dn-num" t-esc="money(caja.opening_float)"/></div>
+        <div><dt>Cobros en el local</dt><dd class="dn-num">+ <t t-esc="money(caja.total_cobros)"/></dd></div>
+        <div><dt>Rendiciones y recepciones</dt><dd class="dn-num">+ <t t-esc="money(caja.total_rendiciones)"/></dd></div>
+        <div><dt>Ajustes</dt><dd class="dn-num" t-esc="firmado(caja.total_ajustes)"/></div>
+        <div><dt>Gastos y proveedores</dt><dd class="dn-num">− <t t-esc="money(abs(caja.total_salidas))"/></dd></div>
+        <div><dt>Retiros y banco</dt><dd class="dn-num">− <t t-esc="money(abs(caja.total_retiros))"/></dd></div>
+        <div class="caja-res__tot"><dt>Tiene que haber</dt><dd class="dn-num" t-esc="money(caja.expected)"/></div>
+      </dl>
+      <div class="caja-pc__acc">
+        <a class="dn-btn dn-btn--ghost" href="/cobro">Cobro</a>
+        <a class="dn-btn dn-btn--ghost" href="/caja/salida">Gasto</a>
+        <a class="dn-btn dn-btn--ghost" href="/caja/salida?tipo=retiro">Retiro</a>
+      </div>
+      <a class="dn-btn dn-btn--ghost" href="/caja/rendicion">Recibir plata<t t-if="pendientes"> · <t t-esc="pendientes"/></t></a>
+      <h3 class="dn-label">Últimos movimientos</h3>
+      <p t-if="not movimientos" class="caja-muted">Todavía no hay movimientos.</p>
+      <t t-else="" t-call="distri_pedido.caja_mov_lista"><t t-set="movs" t-value="movimientos"/></t>
+    </section>
     <t t-call="distri_pedido.caja_provisorios"><t t-set="volver_provisorios" t-value="'/caja/cierre'"/></t>
     <form id="caja-cierre" class="caja-form" method="post" action="/caja/cierre" data-caja-form="" data-fetch=""
-          data-caja-cierre="" t-att-data-esperado="caja.expected">
+          data-caja-cierre="" t-att-data-esperado="caja.expected" data-caja-enter="" data-caja-imprimir="">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <input type="hidden" name="esperado" t-att-value="caja.expected"/>
       <div t-if="caja.closing_ids" class="dn-card dn-card--warn" role="status">
@@ -482,17 +508,21 @@
       <section class="dn-card caja-esperado">
         <span>Tiene que haber</span><b class="dn-num" t-esc="money(caja.expected)"/>
       </section>
-      <section class="dn-card">
+      <section class="dn-card caja-pc__billetes" aria-label="Contar los billetes">
+        <div class="caja-pc-only caja-pc__cab"><h2 class="caja-h2">Contar los billetes</h2>
+          <span class="caja-muted">Teclado: número y Enter pasa al siguiente billete</span></div>
         <t t-call="distri_pedido.caja_billetes">
           <t t-set="named" t-value="True"/>
           <t t-set="prefijo" t-value="'cierre'"/>
         </t>
+        <div class="caja-pc-only caja-pc__total"><span>Total contado</span><b class="dn-num" data-caja-contado="">$ 0</b></div>
       </section>
       <section class="dn-card dn-card--strong caja-cuenta" aria-live="polite">
+        <h2 class="caja-pc-only caja-h2">Contar la plata y cerrar</h2>
         <div><span>Contado</span><b class="dn-num" data-caja-contado="">$ 0</b></div>
         <div><span>Diferencia</span><b class="dn-num" data-caja-diferencia="">$ 0</b></div>
       </section>
-      <section class="dn-card">
+      <section class="dn-card caja-pc__queda">
         <div class="dn-field">
           <label for="queda">¿Qué queda para mañana?</label>
           <input id="queda" class="dn-input dn-input--big dn-num" type="text" inputmode="decimal" name="queda"
@@ -504,8 +534,26 @@
           <textarea id="motivo" class="dn-input" name="motivo" rows="2" maxlength="1000"
                     placeholder="Obligatorio si falta o sobra plata" t-esc="form.get('motivo') or ''"/>
         </div>
+        <button type="submit" class="dn-btn dn-btn--navy dn-btn--lg caja-pc-only">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Cerrar e imprimir</button>
       </section>
     </form>
+    <section class="dn-card caja-pc-only caja-pc__cerradas" aria-label="Cajas cerradas">
+      <div class="caja-pc__cab"><h2 class="caja-h2">Mis cajas cerradas</h2>
+        <span class="caja-muted">Últimos <t t-esc="dias"/> días</span></div>
+      <p t-if="not cerradas" class="caja-muted">Todavía no cerraste ninguna caja.</p>
+      <a t-foreach="cerradas" t-as="c" class="caja-pc__cc" t-att-href="'/caja/cerradas/%s' % c.id">
+        <span class="caja-pc__ccab"><b t-esc="dia(c.date)"/>
+          <span class="dn-chip">Cerrada <t t-esc="hora(c.closed_at)"/></span>
+          <span t-if="c.reopen_count" class="dn-chip dn-chip--warn">Reabierta <t t-esc="c.reopen_count"/> <t t-esc="'vez' if c.reopen_count == 1 else 'veces'"/></span></span>
+        <span class="caja-muted dn-num">Tiene que haber <t t-esc="money(c.expected)"/> · contado <t t-esc="money(c.counted)"/> ·
+          <b t-att-class="'caja-st--%s' % dif_class(c.difference)" t-esc="firmado(c.difference)"/></span>
+        <span class="caja-muted dn-num">Se retira <t t-esc="money(c.withdrawn)"/> · queda <t t-esc="money(c.left_for_tomorrow)"/></span>
+      </a>
+      <p class="caja-nota caja-muted">Solo se reabre la última caja que cerraste, y antes de abrir la de hoy.</p>
+      <a class="dn-link" href="/caja/cerradas">Todas mis cajas cerradas</a>
+      <a t-if="es_gerencia" class="dn-link" href="/caja/historial">Historial de cajas de todos los cajeros</a>
+    </section>
   </main>
   <div class="dn-bottom">
     <div class="dn-foot dn-foot--one">

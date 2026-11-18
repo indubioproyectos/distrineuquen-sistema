@@ -165,9 +165,9 @@ class TestDeposito(RepartoMixin, AccountTestInvoicingCommon):
         self.assertFalse(ret.credit_note_id)
         route.cash_counted = 1160
         with self.assertRaises(UserError):
-            route.action_close_depot()
+            route._close_depot_box()
         ret.action_received()
-        route.action_close_depot()
+        route._close_depot_box()
         self.assertEqual(route.state, "settled")
         self.assertEqual(ret.credit_note_id.amount_total, 40)
 
@@ -327,10 +327,10 @@ class TestDeposito(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(other_box.driver_id, cashier)
 
         with self.assertRaises(UserError):
-            route.action_close_depot()  # counted cash missing
+            route._close_depot_box()  # counted cash missing
         route.write({"cash_counted": 1650, "driver_explanation": "Faltan 50"})
         self.assertEqual(route.cash_difference, -50)
-        route.action_close_depot()
+        route._close_depot_box()
         self.assertEqual(route.state, "settled")
         self.assertEqual(route.settled_by_id, self.env.user)
         case = route.case_ids.filtered(lambda c: c.kind == "cash")
@@ -438,7 +438,7 @@ class TestManagersAsDrivers(RepartoMixin, HttpCase):
         self.assertEqual(Route._depot_route_for(user), today, "one box per day")
         self.assertEqual(old.state, "on_route", "the old one waits for administración")
         old.sudo().write({"cash_counted": 0})
-        old.action_close_depot()
+        old._close_depot_box()
         self.assertFalse(old.depot_overdue)
 
     def test_driver_domain_includes_admin_and_manager(self):

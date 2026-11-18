@@ -1,0 +1,102 @@
+/* «Depósito» (19.0.1.109.0, views/deposito_app.xml): the hub, «Entrega en
+   depósito», «Venta en mostrador» and «Cierre de caja depósito», from the
+   owner-approved mockups. Only what the kit (../kit/dn.css) does not have;
+   every rule hangs from body.dp or a dp-* class. */
+.dp-top{position:relative;padding-bottom:18px}
+.dp-top__row{justify-content:space-between;padding-left:8px;max-width:760px}
+.dp-back{display:inline-flex;align-items:center;min-height:44px;color:var(--dn-mint);font-size:15px;font-weight:700;
+  text-decoration:none}
+.dp-top__txt{max-width:760px;margin:0 auto;padding:0 8px;display:flex;flex-direction:column;gap:2px}
+.dp-title{margin:0;font-size:24px;font-weight:800;line-height:1.15}
+.dp-sub{margin:4px 0 0;font-size:14px;color:var(--dn-on-navy)}
+
+/* hub: the three big actions */
+.dp-act{display:flex;align-items:center;gap:14px;min-height:88px;padding:14px;background:var(--dn-card);
+  border:1px solid var(--dn-line);border-radius:var(--dn-r);color:var(--dn-ink);text-decoration:none}
+.dp-act:active{background:var(--dn-tint)}
+.dp-ico{width:48px;height:48px;border-radius:12px;background:var(--dn-navy);color:#fff;display:flex;align-items:center;
+  justify-content:center;flex:none}
+.dp-ico .dn-i{width:26px;height:26px}
+.dp-act__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dp-act__txt b{font-size:17px}
+.dp-act__txt span{font-size:14px;color:var(--dn-muted)}
+
+/* rows: orders to deliver, delivered today, quotations */
+.dp-search{position:relative}
+.dp-search .dn-i{position:absolute;left:12px;top:14px;color:var(--dn-muted)}
+.dp-search .dn-input{padding-left:44px}
+.dp-row{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--dn-card);border:1px solid var(--dn-line);
+  border-radius:var(--dn-r)}
+.dp-row__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dp-row__txt b{overflow-wrap:anywhere}
+.dp-meta{font-size:14px;color:var(--dn-muted);font-variant-numeric:tabular-nums}
+.dp-chips{display:flex;flex-wrap:wrap;gap:6px}
+.dp-btn-sm{width:auto;flex:none;min-height:44px;padding:6px 14px;font-size:15px}
+.dp-amt{flex:none;font-weight:800;white-space:nowrap}
+.dp-note{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--dn-info-bg);border-radius:var(--dn-r);
+  color:var(--dn-navy);font-size:14px}
+.dp-note>span{flex:1}
+.dp-note a{display:inline-flex;align-items:center;min-height:44px;font-weight:800;color:var(--dn-primary);text-decoration:none}
+
+/* forms */
+.dp-form{display:flex;flex-direction:column;gap:12px}
+.dp-card{display:flex;flex-direction:column;gap:12px}
+.dp-card h2{margin:0;font-size:18px;font-weight:800}
+.dp-kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;margin:0;font-size:16px}
+.dp-kv dt{color:var(--dn-muted)}
+.dp-kv dd{margin:0;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.dp-hr{height:1px;background:var(--dn-line)}
+.dp-total{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.dp-total b:first-child{font-size:17px}
+.dp-total b:last-child{font-size:28px;font-variant-numeric:tabular-nums}
+.dp-det summary{display:inline-flex;align-items:center;min-height:44px;color:var(--dn-primary);font-weight:700;
+  font-size:15px;cursor:pointer;list-style:none}
+.dp-det summary::-webkit-details-marker{display:none}
+.dp-lines{list-style:none;margin:0;padding:0}
+.dp-lines li{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--dn-line);font-size:15px}
+.dp-seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);border:1px solid var(--dn-input);border-radius:12px;
+  overflow:hidden;background:#fff}
+.dp-seg label{position:relative;display:flex}
+.dp-seg label+label{border-left:1px solid var(--dn-input)}
+.dp-seg input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.dp-seg span{flex:1;display:flex;align-items:center;justify-content:center;min-height:52px;padding:6px 8px;font-weight:700;
+  font-size:15px;line-height:1.2;text-align:center;color:var(--dn-ink)}
+.dp-seg input:checked+span{background:var(--dn-navy);color:#fff}
+.dp-seg input:focus-visible+span{outline:3px solid var(--dn-mint);outline-offset:-3px}
+.dp-fl{font-size:15px;font-weight:700}
+.dp-code{letter-spacing:6px;text-align:center;font-size:24px}
+.dp-chk{display:flex;align-items:center;gap:12px;min-height:48px;font-size:16px;font-weight:600;cursor:pointer}
+.dp-chk input{width:24px;height:24px;flex:none;accent-color:var(--dn-primary)}
+.dp-hint{margin:0;font-size:13px;color:var(--dn-muted);background:var(--dn-tint);border-radius:8px;padding:8px 10px}
+.dp-warn{margin:0;font-size:14px;color:var(--dn-amber-text)}
+.dp-debe{display:flex;justify-content:space-between;gap:8px;border-radius:10px;padding:10px 12px;font-weight:700;
+  font-variant-numeric:tabular-nums;background:var(--dn-amber-bg);color:var(--dn-amber-text)}
+.dp-debe.ok{background:var(--dn-green-bg);color:var(--dn-green-text)}
+.dp-ret{display:grid;grid-template-columns:minmax(0,1fr) 84px;gap:6px 8px;padding:10px 0;border-top:1px solid var(--dn-line)}
+.dp-ret__name{font-weight:700;overflow-wrap:anywhere}
+.dp-ret__name small{display:block;font-weight:600;color:var(--dn-muted)}
+.dp-ret .dn-input{min-height:48px}
+.dp-ret__motivo{grid-column:1/-1}
+.dp-acts{display:flex;flex-direction:column;gap:8px;padding-top:4px}
+
+/* «Cierre de caja depósito» */
+.dp-dif{display:flex;justify-content:space-between;align-items:center;border-radius:10px;padding:10px 12px;font-weight:800}
+.dp-dif b{font-size:20px;font-variant-numeric:tabular-nums}
+.dp-dif.falta{background:var(--dn-red-bg);color:var(--dn-red-text)}
+.dp-dif.sobra{background:var(--dn-amber-bg);color:var(--dn-amber-text)}
+.dp-dif.ok{background:var(--dn-green-bg);color:var(--dn-green-text)}
+.dp-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.dp-tab{min-height:44px;padding:0 14px;border-radius:22px;border:1px solid var(--dn-input);background:#fff;font-size:15px;
+  font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;color:var(--dn-ink)}
+.dp-tab.on,.dp-tab[aria-selected=true]{background:var(--dn-navy);color:#fff;border-color:var(--dn-navy)}
+.dp-list{padding-top:4px;padding-bottom:4px}
+.dp-li{display:flex;flex-direction:column;gap:6px;padding:12px 0;border-top:1px solid var(--dn-line)}
+.dp-li:first-child{border-top:0}
+.dp-li__top{display:flex;justify-content:space-between;gap:8px}
+.dp-li__top>b.dn-num,.dp-kv dd,.dp-nw{white-space:nowrap}
+.dp-panel__h{margin:0;font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--dn-muted)}
+.dn-js .dp-panel__h{display:none}
+.dp-pend{gap:8px}
+.dp-pend form{margin:0}
+.dp-center{margin:0;font-size:13px;text-align:center;color:var(--dn-muted)}
+

@@ -21,14 +21,15 @@
     <t t-foreach="dn['page_js']" t-as="src"><script defer="defer" t-att-src="src"/></t>
   </template>
 
-  <!-- Role-based bottom nav (controllers/kit.py staff_nav). Put it inside
-       <div class="dn-bottom">, after the page's .dn-foot if it has one. -->
+  <!-- Role-based bottom nav (controllers/kit.py staff_nav, depot_nav). Put it
+       inside <div class="dn-bottom">, after the page's .dn-foot if it has
+       one. 19.0.1.109.0: an item may carry a count badge (it['badge']). -->
   <template id="dn_nav" name="Kit: bottom nav">
     <nav class="dn-nav" aria-label="Secciones" t-if="nav">
       <t t-foreach="nav" t-as="it">
         <a t-att-href="it['url']" t-att-data-dn="it['how']" t-att-class="'on' if it['on'] else None"
            t-att-aria-current="'page' if it['on'] else None">
-          <span><svg class="dn-i" aria-hidden="true"><use t-att-href="'%s#%s' % (dn['icons'], it['icon'])"/></svg></span>
+          <span class="dn-nav__ic"><svg class="dn-i" aria-hidden="true"><use t-att-href="'%s#%s' % (dn['icons'], it['icon'])"/></svg><i t-if="it.get('badge')" class="dn-nav__bd dn-num" t-esc="it['badge']"/></span>
           <span t-esc="it['label']"/>
         </a>
       </t>

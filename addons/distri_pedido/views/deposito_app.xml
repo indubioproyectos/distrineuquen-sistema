@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Depósito» on the phone (19.0.1.109.0, controllers/deposito.py,
+       static/src/deposito/): the owner-approved mockups «02 Depósito»,
+       «02 Entrega en depósito», «02 Cierre de caja depósito» and «12 Barra
+       inferior», on the kit. The backend buttons and «Reparto › Cierre de
+       caja depósito» (views/deposito.xml) stay for the PC. -->
+
+  <template id="deposito_top" name="Depósito: barra">
+    <header class="dn-top dp-top">
+      <div class="dn-top__row dp-top__row">
+        <a class="dp-back" t-att-href="volver" data-dn-back="">‹ Volver</a>
+        <t t-call="distri_pedido.dn_ajustes"/>
+      </div>
+      <div class="dp-top__txt">
+        <span class="dn-top__kicker" t-esc="kicker"/>
+        <h1 class="dp-title" t-esc="titulo"/>
+        <p t-if="sub" class="dp-sub" t-esc="sub"/>
+      </div>
+    </header>
+    <div t-if="ok" class="dn-banner dn-banner--ok" role="status"><span t-esc="ok"/></div>
+    <div t-if="error" class="dn-banner dn-banner--err" role="alert" id="dp-error"><span t-esc="error"/></div>
+  </template>
+
+  <!-- ================================================================ hub -->
+
+  <template id="deposito_hub" name="Depósito">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Depósito · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp dn-has-nav" t-att-data-parent="inicio" data-page="deposito">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="inicio"/>
+    <t t-set="kicker" t-value="'Distri Neuquén · %s' % user.name"/>
+    <t t-set="titulo" t-value="'Depósito'"/>
+    <t t-set="sub" t-value="'Lo que cobrás entra en tu Caja depósito y lo recibe un cajero en su Caja del día.'"/>
+  </t>
+  <div t-if="aviso" class="dn-banner dn-banner--warn" role="status"><span t-esc="aviso"/></div>
+  <main class="dn-main">
+    <a class="dp-act" href="#dp-entregar" data-dp-ir="">
+      <span class="dp-ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'box'"/></t></span>
+      <span class="dp-act__txt"><b>Entrega en depósito</b><span>Pedidos armados que el cliente retira</span></span>
+      <span t-if="retira" class="dn-chip dn-num" t-esc="retira"/>
+    </a>
+    <a class="dp-act" href="/deposito/mostrador" data-dn="down">
+      <span class="dp-ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'bag'"/></t></span>
+      <span class="dp-act__txt"><b>Venta en mostrador</b><span>Cliente presente: se confirma, se arma y sale la factura</span></span>
+    </a>
+    <a class="dp-act" href="/deposito/caja" data-dn="down">
+      <span class="dp-ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'cash'"/></t></span>
+      <span class="dp-act__txt"><b>Cierre de caja depósito</b>
+        <span t-if="por_caja">Se cierra con tu Caja del día</span>
+        <span t-elif="caja" class="dn-num">Efectivo a rendir hoy <span class="dp-nw" t-esc="money(caja.cash_expected)"/></span>
+        <span t-elif="cerradas_hoy">La caja de hoy ya se cerró</span>
+        <span t-else="">Todavía no cobraste nada hoy</span></span>
+      <span t-if="caja" class="dn-chip">Abierta</span>
+      <span t-elif="cerradas_hoy" class="dn-chip dn-chip--ok">Cerrada</span>
+    </a>
+    <div t-foreach="viejas" t-as="v" class="dn-banner dn-banner--err dp-vieja" role="alert">
+      <span>Tenés la caja del <t t-esc="dia(v.date).lower()"/> sin cerrar. Contá el efectivo y cerrala.
+        <a t-att-href="'/deposito/caja/%s' % v.id" data-dn="down">Ver esa caja</a></span>
+    </div>
+
+    <h2 class="dn-label" id="dp-entregar">Para entregar hoy · <t t-esc="len(rows)"/></h2>
+    <form class="dp-search" method="get" action="/deposito" role="search">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>
+      <label for="dp-q" class="dn-sr">Buscar pedido o cliente</label>
+      <input id="dp-q" class="dn-input" type="search" name="q" t-att-value="q" placeholder="Buscar pedido o cliente"
+             autocomplete="off" data-dp-buscar=""/>
+    </form>
+    <div t-foreach="rows" t-as="r" class="dp-row" data-dp-item="" t-att-data-texto="r['texto']">
+      <span class="dp-row__txt"><b t-esc="r['cliente']"/><span class="dp-meta" t-esc="r['meta']"/>
+        <span t-if="r['chips']" class="dp-chips">
+          <span t-foreach="r['chips']" t-as="c" t-att-class="'dn-chip' + (' dn-chip--%s' % c[1] if c[1] else '')" t-esc="c[0]"/>
+        </span></span>
+      <a class="dn-btn dp-btn-sm" t-att-href="'/deposito/entrega/%s' % r['id']" data-dn="down">Entregar</a>
+    </div>
+    <div class="dn-empty" t-att-hidden="'hidden' if rows else None" data-dp-nada="">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'box'"/></t>
+      <p t-if="q">Ningún pedido armado coincide con «<t t-esc="q"/>».</p>
+      <p t-else="">No hay pedidos armados esperando en el depósito.</p>
+    </div>
+
+    <h2 class="dn-label">Entregados hoy · <t t-esc="len(stops)"/></h2>
+    <div t-foreach="stops" t-as="s" class="dp-row">
+      <span class="dp-row__txt"><b t-esc="s.partner_id.name"/>
+        <span class="dp-meta"><t t-esc="s.order_id.name"/> · <t t-esc="hora(s.visit_received_at or s.create_date)"/> · <t t-esc="money(s.expected_balance)"/></span>
+        <span class="dp-chips">
+          <span t-if="s.delivery_state in delivery_chip" t-att-class="'dn-chip dn-chip--%s' % delivery_chip[s.delivery_state]" t-esc="delivery_label.get(s.delivery_state)"/>
+          <span t-if="s.transfer == 'yes'" class="dn-chip dn-chip--warn">Transferencia <t t-esc="money(s.transfer_amount)"/> a confirmar</span>
+        </span></span>
+      <span class="dp-amt dn-num" t-if="s.cash_amount" t-esc="money(s.cash_amount)"/>
+      <span t-att-class="'dn-chip' + (' dn-chip--%s' % stop_chip[s.state] if s.state in stop_chip else '')" t-esc="stop_label.get(s.state)"/>
+    </div>
+    <div t-foreach="cobros" t-as="c" class="dp-row">
+      <span class="dp-row__txt"><b t-esc="c.partner_id.name"/>
+        <span class="dp-meta">Cobro en efectivo · <t t-esc="hora(c.create_date)"/><t t-if="c.invoice_id"> · <t t-esc="c.invoice_id.name"/></t></span></span>
+      <span class="dp-amt dn-num" t-esc="money(c.amount)"/>
+    </div>
+    <div t-if="not stops and not cobros" class="dn-empty">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'clock'"/></t>
+      <p>Todavía no entregaste ni cobraste nada hoy.</p>
+    </div>
+
+    <div t-if="despacho" class="dp-note">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'truck'"/></t>
+      <span>La salida de viajes ahora se controla en <b>Despacho</b>.</span>
+      <a href="/despacho">Ir a Despacho</a>
+    </div>
+  </main>
+  <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================================ delivery -->
+
+  <template id="deposito_entrega" name="Depósito: entrega">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Entrega en depósito · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp" data-parent="/deposito" data-page="entrega">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/deposito'"/>
+    <t t-set="kicker" t-value="'Venta en mostrador' if mostrador else 'Depósito'"/>
+    <t t-set="titulo" t-value="'Entrega en depósito'"/>
+    <t t-set="sub" t-value="'%s · %s%s' % (order.name, order.partner_id.name, (' · %s %s' % (v.get('parcels'), 'bulto' if v.get('parcels') == 1 else 'bultos')) if v.get('parcels') else '')"/>
+  </t>
+  <main class="dn-main">
+    <form id="dp-entrega" class="dp-form" method="post" t-att-action="'/deposito/entrega/%s' % order.id"
+          data-dp-form="" data-dp-entrega="" t-att-data-pedido="v.get('order_amount') or 0"
+          t-att-data-deuda="v.get('previous_debt') or 0">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input t-if="mostrador" type="hidden" name="mostrador" value="1"/>
+      <div t-if="mostrador" class="dn-card dn-card--warn" role="status">El pedido ya quedó confirmado, armado
+        completo, con remito y factura. Registrá lo que se lleva el cliente y cómo paga.</div>
+
+      <section class="dn-card dp-card">
+        <h2>Saldo</h2>
+        <dl class="dp-kv">
+          <dt>Pedido de hoy</dt><dd t-esc="money(v.get('order_amount') or 0)"/>
+          <dt>Deuda anterior</dt><dd t-esc="money(v.get('previous_debt') or 0)"/>
+          <dt>Devolución</dt><dd data-dp-devolucion="">$ 0</dd>
+        </dl>
+        <div class="dp-hr"/>
+        <div class="dp-total"><b>Saldo total</b><b data-dp-saldo="" t-esc="money(saldo)"/></div>
+        <details class="dp-det">
+          <summary>Ver detalle de productos (<t t-esc="len(lineas)"/>)</summary>
+          <ul class="dp-lines">
+            <li t-foreach="lineas" t-as="l"><span><t t-esc="'%g' % l['qty']"/> × <t t-esc="l['name']"/></span>
+              <b class="dn-num" t-esc="money(l['total'])"/></li>
+          </ul>
+        </details>
+        <div t-if="mostrador" class="dn-field">
+          <label for="dp-bultos">Bultos</label>
+          <input id="dp-bultos" class="dn-input dn-num" type="text" inputmode="numeric" name="bultos"
+                 t-att-value="form.get('bultos')" autocomplete="off"/>
+        </div>
+      </section>
+
+      <section class="dn-card dp-card">
+        <h2>¿Devolvió algo?</h2>
+        <div class="dp-seg" role="radiogroup" aria-label="¿Devolvió algo?">
+          <label><input type="radio" name="devolvio" value="none" t-att-checked="'checked' if form.get('devolvio') == 'none' else None"/><span>No, recibió todo</span></label>
+          <label><input type="radio" name="devolvio" value="yes" t-att-checked="'checked' if form.get('devolvio') == 'yes' else None"/><span>Sí, devolvió</span></label>
+        </div>
+        <div data-dp-show="devolvio=yes" t-att-hidden="None if form.get('devolvio') == 'yes' else 'hidden'">
+          <p class="dp-fl">Cuánto devolvió de cada producto</p>
+          <div t-foreach="lineas" t-as="l" class="dp-ret">
+            <label class="dp-ret__name" t-att-for="'dp-dev-%s' % l['id']"><t t-esc="l['name']"/>
+              <small>Pidió <t t-esc="'%g' % l['qty']"/> <t t-esc="l['uom']"/> · <t t-esc="money(l['unit'])"/> c/u</small></label>
+            <input class="dn-input dn-num" type="text" inputmode="decimal" autocomplete="off" placeholder="0"
+                   t-att-id="'dp-dev-%s' % l['id']" t-att-name="'dev_%s' % l['id']" t-att-data-dp-unit="l['unit']"
+                   t-att-value="form.get('dev_%s' % l['id'])"/>
+            <input class="dn-input dp-ret__motivo" type="text" maxlength="120" placeholder="Motivo: vencido, roto, no lo pidió…"
+                   t-att-name="'motivo_%s' % l['id']" t-att-aria-label="'Motivo de la devolución de %s' % l['name']"
+                   t-att-value="form.get('motivo_%s' % l['id'])"/>
+          </div>
+          <label class="dp-chk"><input type="checkbox" name="recibido" value="1" t-att-checked="'checked' if form.get('recibido') == '1' else None"/>Recibido en el depósito</label>
+          <p class="dp-hint">La nota de crédito sale solo por lo recibido en el depósito. Sin la marca, la devolución
+            queda para controlar en el cierre de caja depósito.</p>
+        </div>
+      </section>
+
+      <section class="dn-card dp-card">
+        <h2>Código de recibido</h2>
+        <label t-if="mostrador" class="dp-chk"><input type="checkbox" name="presente" value="1"
+               t-att-checked="'checked' if form.get('presente') == '1' else None"/><t t-esc="counter_reason"/></label>
+        <div class="dp-card" t-att-data-dp-show="'presente=' if mostrador else None"
+             t-att-hidden="'hidden' if mostrador and form.get('presente') == '1' else None">
+          <div class="dp-seg" role="radiogroup" aria-label="Código de recibido">
+            <label><input type="radio" name="codigo_op" value="code" t-att-checked="'checked' if form.get('codigo_op') != 'without_code' else None"/><span>Ingresar el código</span></label>
+            <label><input type="radio" name="codigo_op" value="without_code" t-att-checked="'checked' if form.get('codigo_op') == 'without_code' else None"/><span>No tiene el código · Entregar igual</span></label>
+          </div>
+          <div class="dn-field" data-dp-show="codigo_op=code" t-att-hidden="'hidden' if form.get('codigo_op') == 'without_code' else None">
+            <label for="dp-codigo">Código que te dice el cliente</label>
+            <input id="dp-codigo" class="dn-input dn-input--big dn-num dp-code" type="text" inputmode="numeric"
+                   pattern="[0-9]*" maxlength="4" name="codigo" placeholder="4 dígitos" autocomplete="off"
+                   t-att-value="form.get('codigo')"/>
+          </div>
+          <p t-if="not has_code" class="dp-hint">Este pedido no tiene código cargado. Usá «Entregar igual».</p>
+          <p t-elif="locked" class="dp-warn">El código de este pedido está bloqueado por intentos equivocados: lo
+            desbloquea administración desde el pedido, o usá «Entregar igual».</p>
+          <p class="dp-warn" data-dp-show="codigo_op=without_code" t-att-hidden="None if form.get('codigo_op') == 'without_code' else 'hidden'">Queda
+            como «Entregado sin código»: ante un reclamo por faltantes no hay constancia de recibido.</p>
+        </div>
+      </section>
+
+      <section class="dn-card dp-card">
+        <h2>¿Cómo pagó?</h2>
+        <div class="dn-field">
+          <label for="dp-efectivo">Efectivo</label>
+          <input id="dp-efectivo" class="dn-input dn-input--big dn-num" type="text" inputmode="decimal" name="efectivo"
+                 placeholder="$ 0" autocomplete="off" t-att-value="form.get('efectivo')"/>
+        </div>
+        <span class="dp-fl" id="dp-transf-l">¿Paga con transferencia?</span>
+        <div class="dp-seg" role="radiogroup" aria-labelledby="dp-transf-l">
+          <label><input type="radio" name="transferencia" value="no" t-att-checked="'checked' if form.get('transferencia') != 'yes' else None"/><span>No</span></label>
+          <label><input type="radio" name="transferencia" value="yes" t-att-checked="'checked' if form.get('transferencia') == 'yes' else None"/><span>Sí</span></label>
+        </div>
+        <div class="dp-card" data-dp-show="transferencia=yes" t-att-hidden="None if form.get('transferencia') == 'yes' else 'hidden'">
+          <div class="dn-field">
+            <label for="dp-transf">Importe transferido</label>
+            <input id="dp-transf" class="dn-input dn-input--big dn-num" type="text" inputmode="decimal" name="importe_transf"
+                   placeholder="$ 0" autocomplete="off" t-att-value="form.get('importe_transf')"/>
+          </div>
+          <span class="dp-fl" id="dp-comp-l">Comprobante</span>
+          <div class="dp-seg" role="radiogroup" aria-labelledby="dp-comp-l">
+            <label t-foreach="answers" t-as="a"><input type="radio" name="comprobante" t-att-value="a[0]"
+                   t-att-checked="'checked' if form.get('comprobante') == a[0] else None"/><span t-esc="a[1]"/></label>
+          </div>
+        </div>
+        <label class="dp-chk" data-dp-nopago=""><input type="checkbox" name="no_pago" value="1" t-att-checked="'checked' if form.get('no_pago') == '1' else None"/>No pagó nada</label>
+        <div class="dn-field">
+          <label for="dp-comentario">Comentario (opcional)</label>
+          <input id="dp-comentario" class="dn-input" type="text" name="comentario" maxlength="250"
+                 placeholder="Ej.: paga el resto el viernes" t-att-value="form.get('comentario')"/>
+        </div>
+        <div class="dp-debe" data-dp-debe="" aria-live="polite"><span>Queda debiendo</span><b t-esc="money(saldo)"/></div>
+        <p class="dp-hint">El efectivo entra en «Caja depósito» y se aplica a las facturas del cliente, la más vieja
+          primero. Una transferencia queda como comprobante pendiente: nunca crea un pago.</p>
+      </section>
+
+      <div class="dp-acts">
+        <button type="submit" class="dn-btn dn-btn--lg">Registrar entrega</button>
+        <a class="dn-btn dn-btn--ghost" href="/deposito" data-dn="up">Cancelar</a>
+      </div>
+    </form>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- ======================================================== counter sale -->
+
+  <template id="deposito_mostrador" name="Depósito: venta en mostrador">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Venta en mostrador · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp dn-has-nav" data-parent="/deposito" data-page="mostrador">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/deposito'"/>
+    <t t-set="kicker" t-value="'Depósito'"/>
+    <t t-set="titulo" t-value="'Venta en mostrador'"/>
+    <t t-set="sub" t-value="'Elegí el presupuesto del cliente que está en el mostrador: se confirma, se arma completo y sale la factura.'"/>
+  </t>
+  <main class="dn-main">
+    <form class="dp-search" method="get" action="/deposito/mostrador" role="search">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>
+      <label for="dp-q" class="dn-sr">Buscar presupuesto o cliente</label>
+      <input id="dp-q" class="dn-input" type="search" name="q" t-att-value="q" placeholder="Buscar presupuesto o cliente"
+             autocomplete="off" data-dp-buscar=""/>
+    </form>
+    <h2 class="dn-label">Presupuestos · <t t-esc="len(rows)"/></h2>
+    <form t-foreach="rows" t-as="r" class="dp-row" method="post" t-att-action="'/deposito/mostrador/%s' % r['id']"
+          data-dp-form="" t-att-data-confirm="confirmar" data-dp-item="" t-att-data-texto="r['texto']">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <span class="dp-row__txt"><b t-esc="r['cliente']"/><span class="dp-meta" t-esc="r['meta']"/>
+        <span t-if="r['sin_wa']" class="dp-chips"><span class="dn-chip dn-chip--warn">Sin WhatsApp</span>
+          <a class="dp-meta" t-att-href="r['odoo_url']">Cargarlo en Odoo</a></span></span>
+      <button type="submit" class="dn-btn dp-btn-sm" data-confirm-ok="Sí, vender">Vender</button>
+    </form>
+    <div class="dn-empty" t-att-hidden="'hidden' if rows else None" data-dp-nada="">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'bag'"/></t>
+      <p>No hay presupuestos de clientes para vender en el mostrador.</p>
+      <a t-if="tomar" class="dn-link" href="/pedido">Cargar el pedido con «Tomar un pedido»</a>
+    </div>
+  </main>
+  <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================================= closing -->
+
+  <template id="deposito_caja" name="Depósito: cierre de caja">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Cierre de caja depósito · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp dn-has-nav" data-parent="/deposito" data-page="caja-deposito">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/deposito'"/>
+    <t t-set="kicker" t-value="'Depósito · %s' % box.driver_id.name if box else 'Depósito'"/>
+    <t t-set="titulo" t-value="'Cierre de caja depósito'"/>
+    <t t-set="sub" t-value="('%s · %s %s · %s' % (dia(box.date), box.stop_count, 'entrega' if box.stop_count == 1 else 'entregas', 'Abierta' if abierta else 'Cerrada')) if box else ''"/>
+  </t>
+  <div t-foreach="viejas" t-as="vj" class="dn-banner dn-banner--err" role="alert">
+    <span><t t-esc="'Tenés' if own else 'Hay'"/> la caja del <t t-esc="dia(vj.date).lower()"/> sin cerrar. Contá el
+      efectivo y cerrala. <a t-att-href="'/deposito/caja/%s' % vj.id" data-dn="side">Ver esa caja</a></span>
+  </div>
+  <div t-if="box and box.depot_overdue" class="dn-banner dn-banner--err" role="alert">
+    <span><b>Esta caja es de un día anterior y sigue abierta.</b> Contá el efectivo y cerrala: los cobros de hoy ya
+      entran en la caja nueva.</span>
+  </div>
+  <main class="dn-main">
+    <div t-if="not box" class="dn-empty">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'cash'"/></t>
+      <p>Todavía no tenés caja depósito: se abre sola con la primera entrega o el primer cobro en efectivo del día.</p>
+    </div>
+    <t t-else="">
+      <section class="dn-card dp-card">
+        <h2>Efectivo</h2>
+        <dl class="dp-kv"><dt>Efectivo a rendir</dt><dd t-esc="money(box.cash_expected)"/></dl>
+        <p class="dp-hint">Entregas en depósito y cobros en efectivo de /cobro que se registraron en esta caja.</p>
+        <!-- 19.0.1.109.0 (owner): the depot cash always goes through a
+             cashier; nobody closes a box here -->
+        <t t-if="abierta">
+          <div t-if="con_caja and own" class="dn-card dn-card--warn" role="status">Sos cajero: esta caja se cierra
+            sola cuando cerrás tu <a href="/caja">Caja del día</a>, con todo lo que cobraste.</div>
+          <div t-elif="con_caja" class="dn-card dn-card--warn" role="status">Esta caja se cierra sola cuando
+            <t t-esc="box.driver_id.name"/> cierra su Caja del día.</div>
+          <t t-else="">
+            <div class="dn-card dn-card--warn dp-acajero" role="status"><b t-esc="a_cajero"/>
+              <span>Llevale el efectivo: lo cuenta en «Recibir plata» y esta caja se cierra ahí.</span></div>
+            <a t-if="recibir" class="dn-btn" t-att-href="'/caja/rendicion/%s' % box.id">Recibirla en mi Caja del día</a>
+          </t>
+        </t>
+        <t t-else="">
+          <dl class="dp-kv">
+            <dt>Efectivo contado</dt><dd t-esc="money(box.cash_counted)"/>
+            <dt>Diferencia</dt><dd t-esc="firmado(box.cash_difference)"/>
+            <dt>Cerró</dt><dd><t t-esc="box.settled_by_id.name"/> · <t t-esc="hora(box.settled_at)"/></dd>
+          </dl>
+        </t>
+      </section>
+
+      <div class="dp-tabs" role="tablist">
+        <button type="button" class="dp-tab" role="tab" data-dp-tab="entregas">Entregas · <t t-esc="len(box.stop_ids)"/></button>
+        <button t-if="box.cash_collection_ids" type="button" class="dp-tab" role="tab" data-dp-tab="cobros">Cobros en efectivo · <t t-esc="len(box.cash_collection_ids)"/></button>
+        <button t-if="box.return_ids" type="button" class="dp-tab" role="tab" data-dp-tab="devoluciones">Devoluciones · <t t-esc="len(box.return_ids)"/></button>
+        <button t-if="box.promise_ids" type="button" class="dp-tab" role="tab" data-dp-tab="comprobantes">Comprobantes pendientes · <t t-esc="len(box.promise_ids)"/></button>
+        <button t-if="box.case_ids" type="button" class="dp-tab" role="tab" data-dp-tab="casos">Casos · <t t-esc="len(box.case_ids)"/></button>
+      </div>
+      <section class="dn-card dp-list" data-dp-panel="entregas">
+        <h2 class="dp-panel__h">Entregas</h2>
+        <div t-foreach="box.stop_ids" t-as="s" class="dp-li">
+          <div class="dp-li__top"><b><t t-esc="s.partner_id.name"/> · <t t-esc="s.order_id.name"/></b><b class="dn-num" t-esc="money(s.cash_amount)"/></div>
+          <div class="dp-chips">
+            <span t-att-class="'dn-chip' + (' dn-chip--%s' % stop_chip[s.state] if s.state in stop_chip else '')" t-esc="stop_label.get(s.state)"/>
+            <span t-if="s.delivery_state in delivery_chip" t-att-class="'dn-chip dn-chip--%s' % delivery_chip[s.delivery_state]" t-esc="delivery_label.get(s.delivery_state)"/>
+            <span t-if="s.transfer == 'yes'" class="dn-chip dn-chip--warn">Transferencia <t t-esc="money(s.transfer_amount)"/> a confirmar</span>
+          </div>
+        </div>
+        <p t-if="not box.stop_ids" class="dp-meta">Sin entregas en esta caja.</p>
+      </section>
+      <section t-if="box.cash_collection_ids" class="dn-card dp-list" data-dp-panel="cobros">
+        <h2 class="dp-panel__h">Cobros en efectivo</h2>
+        <div t-foreach="box.cash_collection_ids" t-as="c" class="dp-li">
+          <div class="dp-li__top"><b t-esc="c.partner_id.name"/><b class="dn-num" t-esc="money(c.amount)"/></div>
+          <span class="dp-meta"><t t-esc="hora(c.create_date)"/><t t-if="c.invoice_id"> · <t t-esc="c.invoice_id.name"/></t><t t-if="c.note"> · <t t-esc="c.note"/></t></span>
+        </div>
+      </section>
+      <section t-if="box.return_ids" class="dn-card dp-list" data-dp-panel="devoluciones">
+        <h2 class="dp-panel__h">Devoluciones</h2>
+        <div t-foreach="box.return_ids" t-as="r" class="dp-li">
+          <div class="dp-li__top"><b><t t-esc="r.partner_id.name"/> · <t t-esc="'%g' % r.quantity"/> × <t t-esc="r.product_id.display_name"/></b><b class="dn-num" t-esc="money(r.amount)"/></div>
+          <div class="dp-chips"><span class="dp-meta">Motivo: <t t-esc="r.reason or '-'"/></span>
+            <span t-att-class="'dn-chip' + {'received': ' dn-chip--ok', 'missing': ' dn-chip--err'}.get(r.settlement_state, ' dn-chip--warn')" t-esc="ret_state.get(r.settlement_state)"/></div>
+        </div>
+      </section>
+      <section t-if="box.promise_ids" class="dn-card dp-list" data-dp-panel="comprobantes">
+        <h2 class="dp-panel__h">Comprobantes pendientes</h2>
+        <div t-foreach="box.promise_ids" t-as="p" class="dp-li">
+          <div class="dp-li__top"><b><t t-esc="p.partner_id.name"/> · <t t-esc="p.order_id.name"/></b><b class="dn-num" t-esc="money(p.amount)"/></div>
+          <span class="dp-meta" t-esc="p.status_label"/>
+        </div>
+      </section>
+      <section t-if="box.case_ids" class="dn-card dp-list" data-dp-panel="casos">
+        <h2 class="dp-panel__h">Casos</h2>
+        <div t-foreach="box.case_ids" t-as="k" class="dp-li">
+          <div class="dp-li__top"><b t-esc="case_kind.get(k.kind)"/><b class="dn-num" t-esc="firmado(k.amount)"/></div>
+          <div class="dp-chips"><span t-att-class="'dn-chip' + (' dn-chip--err' if k.state == 'open' else ' dn-chip--ok')" t-esc="case_state.get(k.state)"/></div>
+        </div>
+      </section>
+
+      <section t-foreach="pendientes if abierta else []" t-as="r" class="dn-card dp-card dp-pend">
+        <span class="dn-label">Devolución para controlar</span>
+        <b><t t-esc="r.partner_id.name"/> · <t t-esc="'%g' % r.quantity"/> × <t t-esc="r.product_id.display_name"/></b>
+        <span class="dp-meta">Motivo: <t t-esc="r.reason or '-'"/> · <t t-esc="money(r.amount)"/></span>
+        <div class="dn-grid2">
+          <form method="post" t-att-action="'/deposito/caja/%s/devolucion/%s' % (box.id, r.id)" data-dp-form="">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <button type="submit" name="que" value="recibido" class="dn-btn">Recibido en el depósito</button>
+          </form>
+          <form method="post" t-att-action="'/deposito/caja/%s/devolucion/%s' % (box.id, r.id)" data-dp-form="">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <button type="submit" name="que" value="no_volvio" class="dn-btn dn-btn--ghost">No volvió</button>
+          </form>
+        </div>
+      </section>
+
+    </t>
+  </main>
+  <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
+</body>
+</html>
+  </template>
+
+</odoo>

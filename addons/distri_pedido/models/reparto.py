@@ -89,6 +89,8 @@ MISSING_RETURN_CREDITS_CUSTOMER = True
 # The new cash journal where depot deliveries and counter sales enter.
 DEPOT_JOURNAL_CODE = "CDEP"
 DEPOT_JOURNAL_NAME = "Caja depósito"
+# 19.0.1.109.0 (owner): nobody closes a depot box by hand any more
+DEPOT_TO_CASHIER = "Esta plata la recibe un cajero en su Caja del día."
 
 
 class DistriRoute(models.Model):
@@ -456,7 +458,7 @@ class DistriRoute(models.Model):
         """Closes the settlement and registers the cash as customer payments."""
         for route in self:
             if route.kind != "route":
-                raise UserError("Las entregas en depósito se cierran con «Cerrar caja depósito».")
+                raise UserError(DEPOT_TO_CASHIER)
             if route.state != "closed":
                 raise UserError("La ruta tiene que estar cerrada por el repartidor.")
             if not route.cash_count_done:
@@ -732,7 +734,19 @@ class DistriRoute(models.Model):
         }
 
     def action_close_depot(self):
-        """«Cerrar caja depósito»: counted vs expected, like the settlement.
+        """«Cerrar caja depósito» by hand: refused since 19.0.1.109.0.
+
+        Owner's decision: the depot cash ALWAYS goes through a cashier. A
+        cashier's own box closes with his «Caja del día» (distri.caja
+        close_session); anybody else's (gerencia included, unless a cashier)
+        is received by a cashier in /caja «Recibir plata» (receive_route),
+        who counts it there. Both call _close_depot_box.
+        """
+        raise UserError(DEPOT_TO_CASHIER)
+
+    def _close_depot_box(self):
+        """Counted vs expected, like the settlement (only from the cashier's
+        flows, see action_close_depot).
 
         The payments already exist (they are registered at each delivery);
         here a difference opens a case and received returns get their

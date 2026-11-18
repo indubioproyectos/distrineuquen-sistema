@@ -122,7 +122,7 @@ class TestDevolucion(RepartoMixin, AccountTestInvoicingCommon):
         # closing the depot cash does not apply it twice
         route = ret.route_id
         route.cash_counted = 1160
-        route.action_close_depot()
+        route._close_depot_box()
         self.assertEqual(len(order.picking_ids.filtered(
             lambda p: p.picking_type_code == "incoming")), 1)
         self.assertEqual(len(order.invoice_ids.filtered(lambda m: m.move_type == "out_refund")), 1)

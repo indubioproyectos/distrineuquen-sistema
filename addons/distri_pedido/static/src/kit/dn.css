@@ -155,6 +155,11 @@ a.dn-card:active{background:var(--dn-tint)}
 .dn-nav a.on{color:var(--dn-primary);font-weight:800}
 .dn-nav a.on>span:first-child{background:var(--dn-turq);color:var(--dn-navy)}
 .dn-nav .dn-i{width:22px;height:22px}
+/* 19.0.1.109.0: an item's count badge (views/kit.xml dn_nav, it['badge']) */
+.dn-nav .dn-nav__ic{position:relative}
+.dn-nav__bd{position:absolute;top:-4px;right:4px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;
+  background:var(--dn-navy);color:#fff;font-size:11px;font-weight:800;font-style:normal;display:flex;align-items:center;
+  justify-content:center}
 body.dn-has-nav{padding-bottom:calc(76px + var(--dn-safe-b))}
 body.dn-has-foot{padding-bottom:calc(150px + var(--dn-safe-b))}
 

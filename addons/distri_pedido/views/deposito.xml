@@ -157,16 +157,20 @@
     <field name="priority">30</field>
     <field name="arch" type="xml">
       <form string="Cierre de caja depósito" create="0">
+        <!-- 19.0.1.109.0 (owner): no «Cerrar caja depósito» by hand; a
+             cashier receives the box in /caja «Recibir plata», or it closes
+             with its own cashier's «Caja del día» (models/reparto.py
+             action_close_depot) -->
         <header>
-          <button name="action_close_depot" type="object" class="btn-primary"
-                  string="Cerrar caja depósito" invisible="state == 'settled'"
-                  groups="distri_pedido.grupo_administracion"
-                  confirm="Se cierra la caja del día de este usuario. ¿Seguir?"/>
           <field name="depot_status" widget="statusbar"/>
         </header>
         <sheet>
+          <div class="alert alert-info" role="status" invisible="state == 'settled'">
+            Esta plata la recibe un cajero en su Caja del día («Recibir plata»). La caja de un
+            cajero se cierra sola cuando cierra su Caja del día.
+          </div>
           <div class="alert alert-danger" role="alert" invisible="not depot_overdue">
-            <b>Esta caja es de un día anterior y sigue abierta.</b> Contá el efectivo y cerrala: los
+            <b>Esta caja es de un día anterior y sigue abierta.</b> Llevale la plata a un cajero: los
             cobros de hoy ya entran en la caja nueva de este usuario.
           </div>
           <field name="depot_overdue" invisible="1"/>
@@ -303,8 +307,9 @@
     <field name="help" type="html">
       <p class="o_view_nocontent_smiling_face">Sin entregas en depósito para cerrar</p>
       <p>Cada usuario que entrega en el depósito («Entrega en depósito» o «Venta en mostrador»)
-         tiene una caja por día. Al final del día se carga el efectivo contado; si no coincide con
-         lo registrado, la diferencia queda como un caso.</p>
+         tiene una caja por día. Esa plata la recibe un cajero en su Caja del día («Recibir
+         plata»), que la cuenta: si no coincide con lo registrado, la diferencia queda como un
+         caso. La caja de un cajero se cierra sola con su Caja del día.</p>
     </field>
   </record>
 

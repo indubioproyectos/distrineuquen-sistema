@@ -80,6 +80,27 @@
     }
     grid(DN.$('[data-caja-billetes]', form), function (t) { counted = t; paint(); });
     left.addEventListener('input', paint);
+    if (form.hasAttribute('data-caja-enter')) { enterFlow(form); }
+  }
+
+  // 19.0.1.109.0 (form[data-caja-enter]): «número y Enter pasa al siguiente
+  // billete». Enter in a field never sends the closing: it moves to the next
+  // bill, then «Monedas / otros», «¿Qué queda para mañana?» and the reason.
+  // A field takes the whole number when it gets the focus.
+  function enterFlow(form) {
+    var fields = DN.$$('[data-caja-billetes] input, [name=queda], [name=motivo]', form);
+    form.addEventListener('keydown', function (ev) {
+      var i = fields.indexOf(ev.target);
+      if (ev.key !== 'Enter' || i === -1 || ev.target.tagName === 'TEXTAREA') { return; }
+      ev.preventDefault();
+      var next = fields[i + 1];
+      if (next) { next.focus(); }
+    });
+    form.addEventListener('focusin', function (ev) {
+      if (fields.indexOf(ev.target) !== -1 && ev.target.tagName === 'INPUT') {
+        setTimeout(function () { try { ev.target.select(); } catch (e) { /* not selectable */ } }, 0);
+      }
+    });
   }
 
   // ------------------------------------------------------------ receiving
@@ -139,13 +160,33 @@
   }
 
   // ------------------------------------------------------------ sending
+  // 19.0.1.109.0 (form[data-caja-imprimir], on the depot PC): «Cerrar e
+  // imprimir» opens the closing label by itself. The tab is opened right on
+  // the click (a tab opened after the answer is blocked as a popup) and gets
+  // the label once the closing went fine; otherwise it closes again.
+  function printTab(form) {
+    if (!form.hasAttribute('data-caja-imprimir') || !window.matchMedia
+        || !window.matchMedia('(min-width: 1024px)').matches) { return null; }
+    var tab = window.open('', '_blank');
+    if (tab) {
+      try { tab.document.title = 'Etiqueta de cierre'; tab.document.body.textContent = 'Cerrando la caja…'; } catch (e) { /* not ready */ }
+    }
+    return tab;
+  }
+
   function send(form, ev) {
     if (ev) { ev.preventDefault(); }
+    var tab = printTab(form);
     var buttons = DN.$$('button[type=submit]', form).concat(
       form.id ? DN.$$('button[form="' + form.id + '"]') : []);
     buttons.forEach(function (b) { b.disabled = true; });
-    var done = function () { buttons.forEach(function (b) { b.disabled = false; }); };
+    var done = function () {
+      buttons.forEach(function (b) { b.disabled = false; });
+      if (tab) { tab.close(); tab = null; }
+    };
     DN.api(form.action, {body: new FormData(form), timeout: 60000}).then(function (r) {
+      var closed = r && r.url && /[?&]cerrada=(\d+)/.exec(r.url);
+      if (tab && closed) { tab.location.href = '/caja/' + closed[1] + '/etiqueta'; tab = null; }
       if (r && r.ask) {
         done();
         return DN.confirm(r.question, 'Sí, recibir así').then(function (yes) {

@@ -21,13 +21,17 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from .encomienda import PAYER_LABELS
-from .reparto_cliente import TOWN_PREFIXES, town_from_name
+from .reparto_cliente import TOWN_PREFIXES, town_from_name, town_prefix
 
 LABEL_TZ = "America/Argentina/Buenos_Aires"
 
 LABEL_REPORT = "distri_pedido.report_etiquetas_bultos"
 TEST_REPORT = "distri_pedido.report_etiqueta_prueba"
-PREFIX_OF_TOWN = {town: prefix for prefix, town in TOWN_PREFIXES.items()}
+# town -> the prefix printed on the label. 19.0.1.109.0: Cutral Có has two
+# («ZC -» and «C -»); without one in the contact's name it prints «C» (the
+# shortest one, the owner's). See _label_values.
+PREFIX_OF_TOWN = {town: prefix for prefix, town in sorted(
+    TOWN_PREFIXES.items(), key=lambda item: (-len(item[0]), item[0]))}
 # 19.0.1.94.0: the company's public phone on every label (never in the code)
 PARAM_PHONE = "distri_pedido.telefono_empresa"
 
@@ -76,7 +80,9 @@ class DistriPackage(models.Model):
         town = partner._distri_town() if not generic else (
             order.distri_zona_id.name or "")
         town = town or town_from_name(partner.name) or ""
-        prefix = PREFIX_OF_TOWN.get(town, "")
+        # the contact's own prefix when it names this town («ZC» stays «ZC»)
+        own = town_prefix(partner.name)
+        prefix = own if own and TOWN_PREFIXES.get(own) == town else PREFIX_OF_TOWN.get(town, "")
         total = order.distri_bultos or len(order.distri_package_ids) or 1
         # 19.0.1.101.0: the packer prints the labels and the route is often
         # assigned later, so the label never depends on the route (no driver,

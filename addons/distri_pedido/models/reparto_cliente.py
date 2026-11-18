@@ -25,15 +25,22 @@ from .cuenta import clave_documento
 AR_TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 
 # Contact name prefixes mark the town. No prefix means Neuquén capital.
+# 19.0.1.109.0 (owner): «C -» is Cutral Có too (the contacts use both) and
+# «S -» is Senillosa.
 TOWN_PREFIXES = {
     "ZC": "Cutral Có",
+    "C": "Cutral Có",
     "X": "Centenario",
     "Y": "Plottier",
     "Z": "Zapala",
     "W": "Catriel",
+    "S": "Senillosa",
 }
 CAPITAL = "Neuquén"
-_PREFIX_RE = re.compile(r"^\s*(ZC|X|Y|Z|W)\s*-\s*", re.IGNORECASE)
+# the longest prefix first, so «ZC -» is never read as «Z» (nor as «C»); the
+# spaces around the dash are optional («C-ATENCIO ...»)
+_PREFIX_RE = re.compile(r"^\s*(%s)\s*-\s*" % "|".join(
+    sorted(TOWN_PREFIXES, key=lambda prefix: (-len(prefix), prefix))), re.IGNORECASE)
 
 WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 _HOURS_RE = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)-([01]?\d|2[0-3]):([0-5]\d)$")
@@ -63,6 +70,12 @@ def strip_town_prefix(name):
 def town_from_name(name):
     match = _PREFIX_RE.match(name or "")
     return TOWN_PREFIXES[match.group(1).upper()] if match else CAPITAL
+
+
+def town_prefix(name):
+    """The town prefix the contact's name carries («ZC», «C»...), or ""."""
+    match = _PREFIX_RE.match(name or "")
+    return match.group(1).upper() if match else ""
 
 
 def friendly_case(text):

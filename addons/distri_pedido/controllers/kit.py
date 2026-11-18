@@ -37,6 +37,9 @@ FILES = {
     "revisar.css": ("revisar/revisar.css", "text/css; charset=utf-8"),
     "revisar.js": ("revisar/revisar.js", "text/javascript; charset=utf-8"),
     "tablero.css": ("tablero/tablero.css", "text/css; charset=utf-8"),
+    # 19.0.1.109.0: «Depósito» (controllers/deposito.py)
+    "deposito.css": ("deposito/deposito.css", "text/css; charset=utf-8"),
+    "deposito.js": ("deposito/deposito.js", "text/javascript; charset=utf-8"),
     # 19.0.1.98.0: the «Ajustes» gear of every page (views/kit.xml dn_ajustes)
     "ajustes.css": ("kit/ajustes.css", "text/css; charset=utf-8"),
     "ajustes.js": ("kit/ajustes.js", "text/javascript; charset=utf-8"),
@@ -125,6 +128,38 @@ def staff_nav(env, current):
     if menu and menu.id in env["ir.ui.menu"]._visible_menu_ids():
         items.append({"key": "despacho", "label": "Despacho", "icon": "truck", "url": "/despacho",
                       "how": "side"})
+    for item in items:
+        item["on"] = item["key"] == current
+    return items
+
+
+def depot_nav(env, current):
+    """19.0.1.109.0 (mockup «12 Barra inferior»): the bottom nav of the depot
+    role (administración: who delivers at the depot), only on its own screens
+    (/deposito): Armado · Despacho · Cobro · Entregas, each one when the user
+    can open it, Armado with the count of /armado's list. They are sibling
+    apps of the same home: they replace the page (dn.js «side»).
+    """
+    from .deposito import is_depot
+    from .tablero import _badge_armado
+
+    user = env.user
+    if not is_depot(user):
+        return []
+    items = []
+    if user.has_group("distri_pedido.grupo_armador"):
+        badge = _badge_armado(env)
+        items.append({"key": "armado", "label": "Armado", "icon": "box", "url": "/armado",
+                      "how": "side", "badge": badge["text"] if badge else ""})
+    menu = env.ref("distri_pedido.menu_reparto_despacho", raise_if_not_found=False)
+    if menu and menu.id in env["ir.ui.menu"]._visible_menu_ids():
+        items.append({"key": "despacho", "label": "Despacho", "icon": "truck", "url": "/despacho",
+                      "how": "side"})
+    items += [
+        {"key": "cobro", "label": "Cobro", "icon": "cash", "url": "/cobro", "how": "side"},
+        {"key": "entregas", "label": "Entregas", "icon": "store", "url": "/deposito",
+         "how": "side"},
+    ]
     for item in items:
         item["on"] = item["key"] == current
     return items

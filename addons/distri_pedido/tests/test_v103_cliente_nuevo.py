@@ -139,7 +139,7 @@ class TestClienteNuevoModelo(AccountTestInvoicingCommon):
         route = cash.route_id
         self.assertIn(cash.partner_id, route.distri_provisorio_ids)
         route.cash_counted = route.cash_expected
-        route.action_close_depot()
+        route._close_depot_box()
         self.assertEqual(route.state, "settled")
         self.assertTrue(cash.partner_id.distri_cliente_provisorio)
 
