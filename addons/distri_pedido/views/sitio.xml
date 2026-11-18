@@ -52,14 +52,14 @@
   <meta property="og:image" t-att-content="og_image"/>
   <meta property="og:image:width" content="1200"/>
   <meta property="og:image:height" content="630"/>
-  <meta property="og:image:alt" content="Pilas de cajas en un depósito, con el logo de Distri Neuquén"/>
+  <meta property="og:image:alt" content="Paquetes sobre cintas transportadoras en un depósito, con el logo de Distri Neuquén"/>
   <meta name="twitter:card" content="summary_large_image"/>
   <link rel="icon" type="image/svg+xml" t-att-href="logo + 'dn-logo.svg' + logo_v"/>
   <link rel="icon" type="image/png" sizes="192x192" t-att-href="logo + 'app-192.png' + logo_v"/>
   <link rel="apple-touch-icon" t-att-href="logo + 'app-192.png' + logo_v"/>
   <link t-if="font" rel="preload" as="font" type="font/woff2" crossorigin="anonymous" t-att-href="font"/>
   <t t-if="preload_portada">
-    <link rel="preload" as="image" type="image/webp" t-att-imagesrcset="portada['webp']" imagesizes="100vw" fetchpriority="high"/>
+    <link rel="preload" as="image" type="image/webp" t-att-imagesrcset="portada['webp']" imagesizes="(min-width: 900px) 560px, calc(100vw - 32px)" fetchpriority="high"/>
   </t>
   <link rel="stylesheet" t-att-href="css"/>
   <script t-if="jsonld" type="application/ld+json" t-out="jsonld"/>
@@ -146,11 +146,6 @@
       <t t-set="preload_portada" t-value="True"/>
 
       <section class="portada" aria-labelledby="portada-tit">
-        <t t-call="distri_pedido.sitio_foto">
-          <t t-set="f" t-value="portada"/><t t-set="alt" t-value="''"/>
-          <t t-set="sizes" t-value="'100vw'"/><t t-set="cls" t-value="'portada__foto'"/>
-          <t t-set="w" t-value="1280"/><t t-set="h" t-value="960"/><t t-set="eager" t-value="True"/>
-        </t>
         <div class="marco portada__in">
           <p class="volanta volanta--claro">Mayorista · Kioscos y almacenes</p>
           <h1 id="portada-tit">Tu kiosco o almacén abastecido, sin salir del local.</h1>
@@ -165,6 +160,13 @@
             <t t-call="distri_pedido.sitio_wa_icono"/>
             <span>¿Dudas? Escribinos al WhatsApp <a t-att-href="whatsapp_url" target="_blank" rel="noopener"><t t-esc="whatsapp_texto"/></a></span>
           </p>
+          <!-- v107 (owner): on phones the photo is a card below the buttons, on
+               plain navy; on desktop the same card sits right of the text. -->
+          <t t-call="distri_pedido.sitio_foto">
+            <t t-set="f" t-value="portada"/><t t-set="alt" t-value="''"/>
+            <t t-set="sizes" t-value="'(min-width: 900px) 560px, calc(100vw - 32px)'"/><t t-set="cls" t-value="'portada__foto'"/>
+            <t t-set="w" t-value="1280"/><t t-set="h" t-value="853"/><t t-set="eager" t-value="True"/>
+          </t>
         </div>
       </section>
 

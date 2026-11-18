@@ -33,7 +33,7 @@ from .reparto import fonts
 
 # query of the site's images: bump it when static/src/sitio/img changes
 # (Odoo serves static files with a one-week cache, Cloudflare too)
-SITIO_V = "?v=106"
+SITIO_V = "?v=107"
 IMG = "/distri_pedido/static/src/sitio/img/"
 LOGO = "/distri_pedido/static/src/img/iconos/"
 LOGO_V = "?v=95"
@@ -150,7 +150,7 @@ def contexto_sitio(page_title, description, path):
         "v": SITIO_V,
         "logo": LOGO,
         "logo_v": LOGO_V,
-        "og_image": "%s%sog-distri-neuquen-2.jpg%s" % (base, IMG, SITIO_V),
+        "og_image": "%s%sog-distri-neuquen-3.jpg%s" % (base, IMG, SITIO_V),
         "empresa": datos["nombre"],
         "ficha": datos,
         "whatsapp": whatsapp,
@@ -204,7 +204,7 @@ class SitioPublico(http.Controller):
             "almacenes de Neuquén y la región. Hacé tu pedido online.",
             "/")
         values.update({
-            "portada": foto("portada2", (640, 960, 1280)),
+            "portada": foto("portada3", (640, 960, 1280)),
             "comercio": foto("comercio", (480, 800)),
             "reparto_foto": foto("reparto", (480, 800)),
             "categorias": [dict(imagen("cat-" + key, "jpg"), titulo=titulo, ejemplos=ejemplos)

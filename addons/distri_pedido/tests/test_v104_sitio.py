@@ -121,8 +121,8 @@ class TestSitioPublico(HttpCase):
         self.assertRegex(html, r'<meta name="description" content="[^"]{60,}"')
         self.assertIn('<meta name="robots" content="index,follow"', html)
         self.assertIn('property="og:image" content="', html)
-        self.assertIn("og-distri-neuquen-2.jpg", html)
-        self.assertIn("portada2-1280.webp", html)
+        self.assertIn("og-distri-neuquen-3.jpg", html)
+        self.assertIn("portada3-1280.webp", html)
         self.assertIn('property="og:locale" content="es_AR"', html)
         self.assertIn('rel="canonical"', html)
         self.assertIn('"@type": "WholesaleStore"', html)
@@ -181,6 +181,15 @@ class TestSitioPublico(HttpCase):
         self.assertIn('class="cab"', res.text)
         for frase in ("listas de precios", "tu lista", "lista mayorista general"):
             self.assertNotIn(frase, page)
+
+    def test_cover_photo_below_the_buttons(self):
+        """v107 (owner): no photo behind the headline on phones; the cover is
+        a card after the buttons, with its size set (no layout shift)."""
+        html = self._home()
+        hero = html[html.index('class="portada"'):html.index('class="datos"')]
+        self.assertLess(hero.index("Soy distribuidora"), hero.index("portada3-1280"))
+        self.assertRegex(hero, r'class="portada__foto" width="1280" height="853"')
+        self.assertIn('imagesizes="(min-width: 900px) 560px, calc(100vw - 32px)"', html)
 
     def test_phone_text(self):
         self.assertEqual(sitio.telefono_visible("5492994646085"), "299 464-6085")

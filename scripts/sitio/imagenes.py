@@ -3,7 +3,8 @@
 Sources (owner's folder /srv/odoo-lab/run/sitio-online-fotos, not in git):
   catalogo/         images extracted from the Dec 2024 catalog PDF
   pexels/           Pexels originals (free licence, no attribution needed):
-                    10834810 stacks of boxes in a warehouse (cover, owner's pick, v106),
+                    (also pixabay-8914266.jpg, the cover since v107: Pixabay Content
+                    License, free commercial use, no attribution; AI generated),
                     6545444 store counter, 5025669 delivery van,
                     6696896 unlabelled soda bottles (Gaseosas tile)
 Run with the lab image (Pillow with WebP):
@@ -83,11 +84,11 @@ def logo(path, name, box=(232, 112), size=(264, 136)):
     return bg
 
 
-# cover: Pexels 10834810 (high stacks of boxes under a metal roof in a warehouse)
-# New file names («portada2», «og-distri-neuquen-2»): production serves
-# static files live, so the cover of the installed version keeps its files
-# until the upgrade.
-hero = widths(DL + "/p-10834810.jpg", "portada2", (640, 960, 1280), jpg_q=72)
+# cover (v107): Pixabay 8914266, parcels on roller conveyors between orange
+# racks; only 1280 px wide available, so no larger size. New file names
+# («portada3», «og-distri-neuquen-3»): production serves static files live,
+# so the cover of the installed version keeps its files until the upgrade.
+hero = widths(DL + "/pixabay-8914266.jpg", "portada3", (640, 960, 1280), jpg_q=72)
 # about us: Pexels 6545444 (store counter); delivery: Pexels 5025669 (van)
 widths(DL + "/p-6545444.jpg", "comercio", (480, 800))
 widths(DL + "/p-5025669.jpg", "reparto", (480, 800))
@@ -97,7 +98,7 @@ og = ImageOps.fit(hero, (1200, 630), Image.LANCZOS, centering=(0.45, 0.5))
 icon = Image.open(ICON).convert("RGBA").resize((168, 168), Image.LANCZOS)
 og = og.convert("RGBA")
 og.alpha_composite(icon, (64, 630 - 64 - 168))
-og.convert("RGB").save(os.path.join(OUT, "og-distri-neuquen-2.jpg"), "JPEG", quality=82,
+og.convert("RGB").save(os.path.join(OUT, "og-distri-neuquen-3.jpg"), "JPEG", quality=82,
                        optimize=True, progressive=True)
 
 C = SRC + "/catalogo/"
