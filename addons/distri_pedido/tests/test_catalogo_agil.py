@@ -402,8 +402,9 @@ class TestCatalogoAgilPagina(PedidoAbiertoMixin, AgilMixin, HttpCase):
         # inside a section, the storefront order
         self.assertLess(html.index(self._fila(self._temporal(MAY))),
                         html.index(self._fila(self.cigarrillo)))
-        portada = self._html("/")
-        self.assertLess(portada.index("Zeta Pruebagil"), portada.index("Alfa Pruebagil"))
+        # 19.0.1.104.0: the home page shows the catalog's fixed categories
+        # (controllers/sitio.py), not the live sections
+        self.assertNotIn("Zeta Pruebagil", self._html("/"))
         # and back, instantly
         self._switch("0")
         self.assertIn(self._fila(self.regular), self._html())

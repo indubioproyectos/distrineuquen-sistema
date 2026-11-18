@@ -103,7 +103,9 @@ class IrHttp(models.AbstractModel):
 # website_sale rules keep their own sitemap functions even with the routes
 # overridden, so they are dropped here, where the sitemap is listed.
 SITEMAP_HIDDEN_PREFIXES = ("/shop",)
-SITEMAP_HIDDEN = {"/contactus", "/contactus-thank-you", "/website/info"}
+SITEMAP_HIDDEN = {"/contactus", "/contactus-thank-you", "/website/info",
+                  # 19.0.1.104.0: Odoo's sample terms (account), not a page of the site
+                  "/terms"}
 
 
 class WebsiteSitemap(models.Model):

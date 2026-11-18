@@ -36,6 +36,8 @@ FILES = {
     # 19.0.1.98.0: the «Ajustes» gear of every page (views/kit.xml dn_ajustes)
     "ajustes.css": ("kit/ajustes.css", "text/css; charset=utf-8"),
     "ajustes.js": ("kit/ajustes.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.104.0: the public site (controllers/sitio.py)
+    "sitio.css": ("sitio/sitio.css", "text/css; charset=utf-8"),
     # 19.0.1.95.0: the legacy pages' history fix (models/ir_http.py)
     "sin_historial.js": ("js/sin_historial.js", "text/javascript; charset=utf-8"),
 }

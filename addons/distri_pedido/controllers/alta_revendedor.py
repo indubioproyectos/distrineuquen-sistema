@@ -2,7 +2,8 @@
 
 19.0.1.93.0: private. /revendedor answers only to the invitation link
 /revendedor?c=<code> (models/alta_revendedor.py PARAM_INVITE_CODE); without
-the right code it is a 404, like an unknown page. The code stays in the
+the right code it was a 404 until 19.0.1.104.0, and is now the public «Quiero
+ser revendedor» page of the website (no signup links, nothing in the session). The code stays in the
 session: /web/signup and the Google signup only create a user from that
 session (AuthSignupHome.get_auth_signup_config below, and
 res.users._signup_create_user). Every page carries noindex.
@@ -14,8 +15,6 @@ revendedor»: the rules and the states live in models/alta_revendedor.py.
 """
 import json
 from urllib.parse import quote_plus, urlencode
-
-from werkzeug.exceptions import NotFound
 
 from odoo import http
 from odoo.exceptions import UserError
@@ -78,10 +77,14 @@ class AltaRevendedor(http.Controller):
         response.headers.set(*NOINDEX)
         return response
 
-    @http.route("/revendedor", type="http", auth="public", website=True, sitemap=False)
+    @http.route("/revendedor", type="http", auth="public", website=True, sitemap=True)
     def revendedor(self, c="", **kw):
         if not invite_code_ok(request.env, c):
-            raise NotFound()
+            # 19.0.1.104.0: «Quiero ser revendedor» of the public site. Without
+            # the current code it is the public page that explains how to
+            # ask for the invitation (WhatsApp); it offers no signup and puts
+            # nothing in the session, so the signup stays private.
+            return self._quiero_ser_revendedor()
         request.session[SESSION_INVITE] = c
         user = request.env.user
         if not user._is_public():
@@ -95,6 +98,15 @@ class AltaRevendedor(http.Controller):
             "whatsapp": self._whatsapp("Hola, soy revendedor/distribuidora y quiero ver mi "
                                        "lista de precios en la página de pedidos."),
         })
+
+    def _quiero_ser_revendedor(self):
+        from .sitio import contexto_sitio
+        values = contexto_sitio(
+            "Quiero ser revendedor · Distri Neuquén",
+            "Revendedores y distribuidoras de Neuquén y la región: comunicate con nosotros "
+            "y te contamos cómo trabajamos. Pedí tu alta por WhatsApp.",
+            "/revendedor")
+        return request.render("distri_pedido.sitio_revendedor", values)
 
     def _limit_reached(self):
         return request.env["distri.rate.hit"].sudo()._distri_check(

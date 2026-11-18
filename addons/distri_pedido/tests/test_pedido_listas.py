@@ -180,8 +180,10 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         return "/revendedor?c=%s" % invite_code(self.env)
 
     def test_reseller_signup_is_private(self):
-        """19.0.1.93.0: no public «Soy revendedor» on /pedido; /revendedor
-        only with the invitation link, a 404 otherwise; noindex."""
+        """19.0.1.93.0: no public «Soy revendedor» on /pedido; the signup
+        only with the invitation link; noindex. 19.0.1.104.0: without the
+        code /revendedor is the public «Quiero ser revendedor» page of the
+        website, with no signup link and nothing in the session."""
         html = self._pedido_html()
         self._assert_publica(html)
         self.assertNotIn("Soy revendedor", html)
@@ -192,7 +194,11 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         code = invite_code(self.env)
         for url in ("/revendedor", "/revendedor?c=", "/revendedor?c=%s" % code[:-1] + "x",
                     "/revendedor?c=%s" % code.upper()):
-            self.assertEqual(self.url_open(url).status_code, 404, url)
+            res = self.url_open(url)
+            self.assertEqual(res.status_code, 200, url)
+            self.assertIn("Quiero ser revendedor", res.text, url)
+            self.assertNotIn("/web/signup", res.text, url)
+            self.assertNotIn("Crear cuenta con mi correo", res.text, url)
         # no free signup without the invitation in the session
         self.env["ir.config_parameter"].sudo().set_param("auth_signup.invitation_scope", "b2c")
         self.assertEqual(self.url_open("/web/signup?redirect=%2Fmi-perfil").status_code, 404)
@@ -218,7 +224,7 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
 
     def test_invite_link_for_managers_and_regenerate(self):
         """«Invitar revendedor»: the link and the WhatsApp message; a new code
-        makes the old link a 404."""
+        turns the old link into the public page (19.0.1.104.0; a 404 before)."""
         invite = self._invite()
         old = invite_code(self.env)
         self.assertTrue(invite.link.endswith("/revendedor?c=%s" % old), invite.link)
@@ -235,8 +241,12 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         invite.action_regenerate()
         new = invite_code(self.env)
         self.assertNotEqual(new, old)
-        self.assertEqual(self.url_open("/revendedor?c=%s" % old).status_code, 404)
-        self.assertEqual(self.url_open("/revendedor?c=%s" % new).status_code, 200)
+        res = self.url_open("/revendedor?c=%s" % old)
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn("Crear cuenta con mi correo", res.text)
+        res = self.url_open("/revendedor?c=%s" % new)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Crear cuenta con mi correo", res.text)
 
     def test_signup_needs_the_current_invitation(self):
         """The code is kept in the session; a regenerated code closes the

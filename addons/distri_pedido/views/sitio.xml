@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.104.0: the public website (controllers/sitio.py). Standalone
+       documents, no website layout: no shop, cart, sample footer or Odoo
+       branding. Styles in static/src/sitio/sitio.css (/dn/sitio.css).
+       Values: controllers/sitio.py contexto_sitio(). -->
+
+  <!-- One responsive photo: t-call with f = foto(...), alt, sizes, cls,
+       w/h (intrinsic size of the largest file) and eager (above the fold). -->
+  <template id="sitio_foto" name="Sitio: foto">
+    <picture>
+      <source type="image/webp" t-att-srcset="f['webp']" t-att-sizes="sizes"/>
+      <img t-att-src="f['src']" t-att-srcset="f['srcset']" t-att-sizes="sizes" t-att-alt="alt"
+           t-att-class="cls" t-att-width="w" t-att-height="h"
+           t-att-loading="None if eager else 'lazy'" t-att-fetchpriority="'high' if eager else None"
+           decoding="async"/>
+    </picture>
+  </template>
+
+  <!-- A fixed-size image (WebP and its fallback): t-call with f = imagen(...). -->
+  <template id="sitio_imagen" name="Sitio: imagen">
+    <picture>
+      <source type="image/webp" t-att-srcset="f['webp']"/>
+      <img t-att-src="f['src']" t-att-alt="alt" t-att-class="cls" t-att-width="w" t-att-height="h"
+           t-att-loading="None if eager else 'lazy'" decoding="async"/>
+    </picture>
+  </template>
+
+  <template id="sitio_wa_icono" name="Sitio: ícono de WhatsApp">
+    <svg viewBox="0 0 448 512" aria-hidden="true" focusable="false" class="ico-wa"><path fill="currentColor" d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
+  </template>
+
+  <!-- The page frame: header, t-out 0 (the page), footer. -->
+  <template id="sitio_layout" name="Sitio: estructura">&lt;!DOCTYPE html&gt;
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title t-esc="titulo"/>
+  <meta name="description" t-att-content="descripcion"/>
+  <link rel="canonical" t-att-href="canonical"/>
+  <meta name="robots" content="index,follow"/>
+  <meta name="theme-color" content="#10243f"/>
+  <meta name="geo.region" content="AR-Q"/>
+  <meta name="geo.placename" content="Neuquén"/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:site_name" content="Distri Neuquén"/>
+  <meta property="og:locale" content="es_AR"/>
+  <meta property="og:title" t-att-content="titulo"/>
+  <meta property="og:description" t-att-content="descripcion"/>
+  <meta property="og:url" t-att-content="canonical"/>
+  <meta property="og:image" t-att-content="og_image"/>
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+  <meta property="og:image:alt" content="Carga de cajas en una camioneta de reparto, con el logo de Distri Neuquén"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <link rel="icon" type="image/svg+xml" t-att-href="logo + 'dn-logo.svg' + logo_v"/>
+  <link rel="icon" type="image/png" sizes="192x192" t-att-href="logo + 'app-192.png' + logo_v"/>
+  <link rel="apple-touch-icon" t-att-href="logo + 'app-192.png' + logo_v"/>
+  <link t-if="font" rel="preload" as="font" type="font/woff2" crossorigin="anonymous" t-att-href="font"/>
+  <t t-if="preload_portada">
+    <link rel="preload" as="image" type="image/webp" t-att-imagesrcset="portada['webp']" imagesizes="100vw" fetchpriority="high"/>
+  </t>
+  <link rel="stylesheet" t-att-href="css"/>
+  <script t-if="jsonld" type="application/ld+json" t-out="jsonld"/>
+</head>
+<body>
+  <a class="saltar" href="#contenido">Ir al contenido</a>
+
+  <header class="cab">
+    <div class="marco cab__in">
+      <a class="marca" href="/" aria-label="Distri Neuquén, inicio">
+        <img t-att-src="logo + 'dn-logo.svg' + logo_v" width="40" height="40" alt=""/>
+        <span class="marca__txt">Distri Neuquén</span>
+      </a>
+      <nav class="menu" aria-label="Secciones">
+        <a href="/#productos">Productos</a>
+        <a href="/#marcas">Marcas</a>
+        <a href="/#como-pedir">Cómo pedir</a>
+        <a href="/#zonas">Zonas</a>
+        <a href="/#contacto">Contacto</a>
+      </nav>
+      <a class="btn btn--turq btn--cab" href="/pedido">Hacé tu pedido</a>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <t t-out="0"/>
+  </main>
+
+  <footer class="pie" id="contacto">
+    <div class="marco">
+      <div class="pie__grid">
+        <div class="pie__marca">
+          <a class="marca" href="/">
+            <img t-att-src="logo + 'dn-logo.svg' + logo_v" width="40" height="40" alt=""/>
+            <span class="marca__txt">Distri Neuquén</span>
+          </a>
+          <p>Distribuidora mayorista para kioscos y almacenes de <t t-esc="ficha['localidad']"/> y la región.</p>
+        </div>
+        <div>
+          <h2 class="pie__tit">Contacto</h2>
+          <ul class="pie__lista">
+            <li t-if="whatsapp_texto">WhatsApp:
+              <a t-att-href="whatsapp_url" target="_blank" rel="noopener" class="pie__wa"><t t-esc="whatsapp_texto"/></a></li>
+            <li t-if="telefono_texto">Teléfono:
+              <a t-if="telefono_tel" t-att-href="telefono_tel"><t t-esc="telefono_texto"/></a>
+              <t t-else="" t-esc="telefono_texto"/></li>
+            <li t-if="email">Correo: <a t-att-href="'mailto:%s' % email"><t t-esc="email"/></a></li>
+            <li t-if="direccion" t-esc="direccion"/>
+            <li t-else=""><t t-esc="ficha['localidad']"/>, provincia de Neuquén</li>
+            <li><t t-esc="ficha['reparto']"/></li>
+          </ul>
+        </div>
+        <div>
+          <h2 class="pie__tit">Comprar</h2>
+          <ul class="pie__lista">
+            <li><a href="/pedido">Hacé tu pedido</a></li>
+            <li><a href="/revendedor">Quiero ser revendedor</a></li>
+            <li><a href="/#zonas">Zonas de reparto</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="aviso" role="note" aria-label="Advertencia sanitaria">
+        <p><strong t-esc="aviso_titulo"/> <t t-esc="aviso"/></p>
+      </div>
+      <div class="pie__base">
+        <span>© <t t-esc="anio"/> Distri Neuquén</span>
+        <a href="/web/login" class="pie__personal">Acceso para el personal</a>
+      </div>
+    </div>
+  </footer>
+
+  <a t-if="whatsapp_url and not sin_flota" class="wa-flota" t-att-href="whatsapp_url" target="_blank" rel="noopener"
+     aria-label="Escribinos por WhatsApp">
+    <t t-call="distri_pedido.sitio_wa_icono"/>
+  </a>
+</body>
+</html>
+  </template>
+
+  <!-- «/»: the home page. -->
+  <template id="inicio" name="Sitio: inicio">
+    <t t-call="distri_pedido.sitio_layout">
+      <t t-set="preload_portada" t-value="True"/>
+
+      <section class="portada" aria-labelledby="portada-tit">
+        <t t-call="distri_pedido.sitio_foto">
+          <t t-set="f" t-value="portada"/><t t-set="alt" t-value="''"/>
+          <t t-set="sizes" t-value="'100vw'"/><t t-set="cls" t-value="'portada__foto'"/>
+          <t t-set="w" t-value="1280"/><t t-set="h" t-value="837"/><t t-set="eager" t-value="True"/>
+        </t>
+        <div class="marco portada__in">
+          <p class="volanta volanta--claro">Mayorista · Kioscos y almacenes</p>
+          <h1 id="portada-tit">Tu kiosco o almacén abastecido, sin salir del local.</h1>
+          <p class="portada__bajada">Cigarrillos Red Point, Master y Kiel, tabaco, golosinas, galletitas,
+            gaseosas, vinos, farmacia y mucho más. Hacé tu pedido desde el celular, a cualquier hora, y te lo llevamos el día de
+            reparto de tu zona.</p>
+          <div class="acciones">
+            <a class="btn btn--turq btn--grande" href="/pedido">Hacé tu pedido</a>
+            <a class="btn btn--borde btn--grande" href="/revendedor">Quiero ser revendedor</a>
+          </div>
+          <p t-if="whatsapp_texto" class="portada__wa">
+            <t t-call="distri_pedido.sitio_wa_icono"/>
+            <span>¿Dudas? Escribinos al WhatsApp <a t-att-href="whatsapp_url" target="_blank" rel="noopener"><t t-esc="whatsapp_texto"/></a></span>
+          </p>
+        </div>
+      </section>
+
+      <section class="datos" aria-label="Condiciones de compra">
+        <div class="marco datos__in">
+          <div class="dato"><b>Compra mínima $ <t t-esc="compra_minima_texto"/></b><span>con envío sin cargo o para retirar</span></div>
+          <div class="dato"><b>Reparto propio</b><span><t t-esc="ficha['reparto']"/></span></div>
+          <div class="dato"><b><t t-esc="ficha['leyenda']"/></b><span>por encomienda desde Neuquén</span></div>
+        </div>
+      </section>
+
+      <section class="bloque" id="quienes-somos" aria-labelledby="quienes-tit">
+        <div class="marco dos">
+          <div>
+            <p class="volanta">Quiénes somos</p>
+            <h2 id="quienes-tit">Abastecemos kioscos y almacenes de Neuquén y la región</h2>
+            <p>En Distri Neuquén nos especializamos en la distribución mayorista de cigarrillos,
+              golosinas, galletitas, bebidas y artículos de almacén, farmacia y perfumería.</p>
+            <p>Abastecemos almacenes y kioscos del Alto Valle de Río Negro y Neuquén, con variedad,
+              buenos precios y un servicio cercano: te atendemos por WhatsApp y te llevamos el pedido
+              al comercio.</p>
+          </div>
+          <t t-call="distri_pedido.sitio_foto">
+            <t t-set="f" t-value="comercio"/><t t-set="alt" t-value="'Almacén de barrio atendiendo a una clienta en el mostrador'"/>
+            <t t-set="sizes" t-value="'(min-width: 900px) 520px, 100vw'"/><t t-set="cls" t-value="'foto-redonda'"/>
+            <t t-set="w" t-value="800"/><t t-set="h" t-value="533"/>
+          </t>
+        </div>
+      </section>
+
+      <section class="bloque bloque--gris" id="productos" aria-labelledby="productos-tit">
+        <div class="marco">
+          <p class="volanta">Qué vendemos</p>
+          <h2 id="productos-tit">Todo lo que tu comercio necesita</h2>
+          <p class="bajada">Las secciones de nuestro catálogo. Entrá a la página de pedidos para ver
+            todos los productos y los precios.</p>
+          <ul class="cats">
+            <li t-foreach="categorias" t-as="c">
+              <a class="cat" href="/pedido">
+                <t t-call="distri_pedido.sitio_imagen">
+                  <t t-set="f" t-value="c"/><t t-set="alt" t-value="''"/><t t-set="cls" t-value="'cat__img'"/>
+                  <t t-set="w" t-value="320"/><t t-set="h" t-value="320"/>
+                </t>
+                <span class="cat__tit" t-esc="c['titulo']"/>
+                <span class="cat__ej" t-esc="c['ejemplos']"/>
+              </a>
+            </li>
+            <li>
+              <a class="cat cat--todo" href="/pedido">
+                <span class="cat__tit">Y mucho más</span>
+                <span class="cat__ej">Mirá todo el catálogo con precios</span>
+                <span class="cat__flecha" aria-hidden="true">→</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="bloque" id="marcas" aria-labelledby="marcas-tit">
+        <div class="marco">
+          <p class="volanta">Marcas que distribuimos</p>
+          <h2 id="marcas-tit">Las marcas que piden tus clientes</h2>
+          <!-- Owner review 18/11/2026: Red Point, Master and Kiel first, same tile as the rest. -->
+          <ul class="logos">
+            <li t-foreach="marcas" t-as="m">
+              <t t-call="distri_pedido.sitio_imagen">
+                <t t-set="f" t-value="m"/><t t-set="alt" t-value="m['nombre']"/>
+                <t t-set="w" t-value="264"/><t t-set="h" t-value="136"/>
+              </t>
+            </li>
+            <!-- no logo in the catalog yet: a wordmark until the owner sends one -->
+            <li t-foreach="marcas_texto" t-as="nombre" class="logo-txt"><span t-esc="nombre"/></li>
+          </ul>
+          <p class="otras"><b>Y muchas más:</b> <t t-esc="', '.join(otras_marcas)"/>.</p>
+        </div>
+      </section>
+
+      <section class="bloque bloque--gris" id="como-pedir" aria-labelledby="pedir-tit">
+        <div class="marco">
+          <p class="volanta">Cómo pedir</p>
+          <h2 id="pedir-tit">Tu pedido en cuatro pasos</h2>
+          <p class="bajada">No hace falta usuario ni contraseña. Si ya tenés usuario, entrá con él
+            antes de pedir.</p>
+          <ol class="pasos">
+            <li><b>Entrá a la página de pedidos</b><span>Tocá «Hacé tu pedido». Se abre el catálogo
+              completo, ordenado por sección y con buscador.</span></li>
+            <li><b>Cargá las cantidades</b><span>Poné cuánto querés de cada producto. Abajo vas
+              viendo el total todo el tiempo.</span></li>
+            <li><b>Confirmá el pedido</b><span>Elegí si te lo llevamos o lo retirás en el depósito,
+              y dejá el nombre del comercio y un teléfono.</span></li>
+            <li><b>Lo armamos y te lo llevamos</b><span>Con el enlace que te queda podés cambiarlo
+              hasta que lo empezamos a armar, y después ver cómo quedó.</span></li>
+          </ol>
+          <div class="llamado">
+            <div class="llamado__txt">
+              <h3>¿Listo para pedir?</h3>
+              <p>Compra mínima $ <t t-esc="compra_minima_texto"/>.</p>
+            </div>
+            <div class="acciones">
+              <a class="btn btn--turq btn--grande" href="/pedido">Hacé tu pedido</a>
+              <a t-if="whatsapp_url" class="btn btn--wa btn--grande" t-att-href="whatsapp_url"
+                 target="_blank" rel="noopener"><t t-call="distri_pedido.sitio_wa_icono"/>WhatsApp <t t-esc="whatsapp_texto"/></a>
+            </div>
+          </div>
+          <div class="revende">
+            <div>
+              <h3>¿Sos revendedor o distribuidora?</h3>
+              <p>Comunicate con nosotros y te contamos cómo trabajamos con revendedores y
+                distribuidoras.</p>
+            </div>
+            <a class="btn btn--primario" href="/revendedor">Quiero ser revendedor</a>
+          </div>
+        </div>
+      </section>
+
+      <section t-if="zonas['reparto'] or zonas['encomienda']" class="bloque" id="zonas" aria-labelledby="zonas-tit">
+        <div class="marco dos dos--foto-izq">
+          <t t-call="distri_pedido.sitio_foto">
+            <t t-set="f" t-value="reparto_foto"/><t t-set="alt" t-value="'Camioneta de reparto descargando cajas frente a un comercio'"/>
+            <t t-set="sizes" t-value="'(min-width: 900px) 520px, 100vw'"/><t t-set="cls" t-value="'foto-redonda'"/>
+            <t t-set="w" t-value="800"/><t t-set="h" t-value="450"/>
+          </t>
+          <div>
+            <p class="volanta">Zonas de reparto</p>
+            <h2 id="zonas-tit">¿Hasta dónde llegamos?</h2>
+            <ul t-if="zonas['reparto']" class="zonas">
+              <li t-foreach="zonas['reparto']" t-as="z"><b t-esc="z['ciudad']"/><span t-esc="z['dias']"/></li>
+            </ul>
+            <p t-if="zonas['encomienda']">Por encomienda: <t t-esc="', '.join(zonas['encomienda'])"/>.</p>
+            <p>También podés retirar tu pedido en el depósito. ¿Tu localidad no está?
+              <a t-if="whatsapp_url" t-att-href="whatsapp_url" target="_blank" rel="noopener">Consultanos por WhatsApp</a>.</p>
+          </div>
+        </div>
+      </section>
+    </t>
+  </template>
+
+  <!-- /revendedor without an invitation code (controllers/alta_revendedor.py). -->
+  <template id="sitio_revendedor" name="Sitio: quiero ser revendedor">
+    <t t-call="distri_pedido.sitio_layout">
+      <t t-set="sin_flota" t-value="True"/>
+      <section class="bloque">
+        <div class="marco angosto">
+          <p class="volanta">Revendedores y distribuidoras</p>
+          <h1 class="tit-pagina">Quiero ser revendedor</h1>
+          <p class="bajada">Si tenés un comercio, sos revendedor o distribuidora, comunicate con
+            nosotros y te contamos cómo trabajamos.</p>
+          <ol class="pasos">
+            <li><b>Escribinos por WhatsApp</b><span>Contanos el nombre de tu comercio y tu
+              localidad.</span></li>
+            <li><b>Te mandamos tu enlace</b><span>Con ese enlace creás tu cuenta con tu correo y
+              completás los datos de tu comercio.</span></li>
+            <li><b>Te habilitamos</b><span>Revisamos tus datos y te avisamos cuando tu cuenta
+              está lista para pedir.</span></li>
+          </ol>
+          <div class="acciones acciones--pagina">
+            <a t-if="whatsapp_revendedor" class="btn btn--wa btn--grande" t-att-href="whatsapp_revendedor"
+               target="_blank" rel="noopener"><t t-call="distri_pedido.sitio_wa_icono"/>Pedir el alta por WhatsApp</a>
+            <a class="btn btn--primario btn--grande" href="/pedido">Ver el catálogo</a>
+          </div>
+          <p class="nota">¿Ya tenés usuario? <a href="/web/login?redirect=%2Fpedido">Entrá con tu usuario</a>.</p>
+        </div>
+      </section>
+    </t>
+  </template>
+</odoo>
