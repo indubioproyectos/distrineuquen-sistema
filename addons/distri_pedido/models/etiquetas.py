@@ -23,6 +23,8 @@ from odoo.exceptions import UserError
 from .encomienda import PAYER_LABELS
 from .reparto_cliente import TOWN_PREFIXES, town_from_name
 
+LABEL_TZ = "America/Argentina/Buenos_Aires"
+
 LABEL_REPORT = "distri_pedido.report_etiquetas_bultos"
 TEST_REPORT = "distri_pedido.report_etiqueta_prueba"
 PREFIX_OF_TOWN = {town: prefix for prefix, town in TOWN_PREFIXES.items()}
@@ -76,22 +78,27 @@ class DistriPackage(models.Model):
         town = town or town_from_name(partner.name) or ""
         prefix = PREFIX_OF_TOWN.get(town, "")
         total = order.distri_bultos or len(order.distri_package_ids) or 1
-        stop = order.distri_stop_ids.filtered(
-            lambda s: not (s.state == "not_delivered" and s.unloaded)).sorted("id")[-1:]
+        # 19.0.1.101.0: the packer prints the labels and the route is often
+        # assigned later, so the label never depends on the route (no driver,
+        # no trip, no route date, never «a confirmar»)
         if order.distri_encomienda:
             payer = PAYER_LABELS.get(order.distri_envio_paga or "distri", "")
             destination = "Encomienda a %s" % (order._distri_parcel_town() or town)
             detail = payer
         elif order.distri_entrega == "retira":
             destination, detail = "Retira en depósito", ""
-        elif stop:
-            route = stop.route_id
-            destination = "Reparto · %s" % (route.driver_id.name or "").split(" ")[0]
-            detail = "Viaje %s · %s" % (route.trip or "1", stop.zone_id.name or town)
         else:
             destination, detail = "Reparto", order.distri_zona_id.name or town
-        when = stop.route_id.date if stop else (
-            order.commitment_date.date() if order.commitment_date else False)
+        # the agreed delivery date when the order has one, else the packing day
+        if order.commitment_date:
+            date_label = "Entrega"
+            when = fields.Datetime.context_timestamp(
+                order.with_context(tz=LABEL_TZ), order.commitment_date).date()
+        else:
+            date_label = "Armado"
+            moment = order.distri_armado_fin or fields.Datetime.now()
+            when = fields.Datetime.context_timestamp(
+                order.with_context(tz=LABEL_TZ), moment).date()
         # 19.0.1.94.0: the store's address (the order's delivery address);
         # a web order without a customer yet carries the address it typed
         ship = order.partner_shipping_id or partner
@@ -118,7 +125,8 @@ class DistriPackage(models.Model):
             "total": total,
             "destination": destination,
             "detail": detail or "",
-            "date": when.strftime("%d/%m/%Y") if when else "a confirmar",
+            "date_label": date_label,
+            "date": when.strftime("%d/%m/%Y"),
             "code": self.code,
             "barcode": self._barcode_png(),
         }

@@ -10,12 +10,19 @@
                                  amount, customer, state; read only
     /comprobantes/<id>/archivo   the stored file, for that page
     /comprobantes/mios           «Mis comprobantes»: last 30 days, by state
+    /comprobantes/intento/<id>   19.0.1.101.0: a refused duplicate of the user,
+                                 the existing receipt it matched (few facts,
+                                 read only); /archivo its file
 
 19.0.1.100.0: an optional «Importe» and a «Girar» per file. comprobantes.js
 sends one «importes» and one «giros» value per «archivos» file, in the same
 order, and one «importe_compartido» / «giro_compartido» per shared file (the
 page renders those inputs); the model parses and checks them. An older
 server ignores these fields.
+
+19.0.1.101.0: the JSON of /comprobantes/hoy and /comprobantes/subir keeps
+«uploads» (only the receipts created) and adds «attempts» (the refused
+duplicates of today); the page merges both by time.
 
 Plain HTML forms that also work without JavaScript; comprobantes.js sends
 them with fetch() (X-Distri-Fetch: 1) and gets JSON. The rules live in
@@ -30,7 +37,8 @@ from odoo import http
 from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
-from ..models.comprobante_subir import BUCKETS, LIST_DAYS, MAX_FILE_BYTES, MAX_FILES, can_upload
+from ..models.comprobante_subir import (
+    ATTEMPT_FILTER, BUCKETS, LIST_DAYS, MAX_FILE_BYTES, MAX_FILES, can_upload, merge_rows)
 from ..models.reparto import _money
 from .kit import kit_context
 from .tablero import wants_tablero
@@ -57,17 +65,25 @@ class Comprobantes(http.Controller):
         return request.make_json_response(data, status=status,
                                           headers=[("Cache-Control", "no-store")])
 
+    def _today(self, user):
+        """(rows of today's uploads, rows of today's refused attempts)."""
+        uploads = request.env["distri.whatsapp.message"]._distri_uploads_today(user)
+        attempts = request.env["distri.receipt.upload.attempt"]._distri_for(user, 1)
+        return ([m._distri_upload_row() for m in uploads],
+                [a._distri_row(user) for a in attempts[:50]])
+
     def _render(self, values, status=200):
         user = request.env.user
-        Message = request.env["distri.whatsapp.message"]
-        uploads = Message._distri_uploads_today(user)
+        uploads, attempts = self._today(user)
         base = {
             "dn": kit_context("comprobantes.css", "comprobantes.js"),
             "user": user,
             "money": _money,
             "inicio": "/tablero" if wants_tablero(user) else (user._distri_landing() or "/tablero"),
             "csrf_token": request.csrf_token(),
-            "uploads": [m._distri_upload_row() for m in uploads],
+            "uploads": uploads,
+            "attempts": attempts,
+            "rows": merge_rows(uploads, attempts),
             "results": [],
             "error": "",
             "stage": None,
@@ -128,8 +144,8 @@ class Comprobantes(http.Controller):
     def today(self, **kw):
         """«Subidos hoy por vos» for the page to refresh while files are read."""
         user = self._check()
-        uploads = request.env["distri.whatsapp.message"]._distri_uploads_today(user)
-        return self._json({"ok": True, "uploads": [m._distri_upload_row() for m in uploads]})
+        uploads, attempts = self._today(user)
+        return self._json({"ok": True, "uploads": uploads, "attempts": attempts})
 
     @http.route("/comprobantes/clientes", type="http", auth="user", methods=["GET"], sitemap=False)
     def customers(self, q="", **kw):
@@ -169,9 +185,9 @@ class Comprobantes(http.Controller):
         if stage:
             stage._distri_done()
         if self._by_fetch():
-            uploads = request.env["distri.whatsapp.message"]._distri_uploads_today()
-            return self._json({"ok": True, "results": results,
-                               "uploads": [m._distri_upload_row() for m in uploads]})
+            uploads, attempts = self._today(request.env.user)
+            return self._json({"ok": True, "results": results, "uploads": uploads,
+                               "attempts": attempts})
         return self._render({"results": results})
 
     def _refuse(self, text, status=400):
@@ -213,7 +229,9 @@ class Comprobantes(http.Controller):
     @http.route("/comprobantes/<int:msg_id>/archivo", type="http", auth="user", methods=["GET"],
                 sitemap=False)
     def file(self, msg_id, **kw):
-        msg = self._receipt(msg_id)
+        return self._file_response(self._receipt(msg_id))
+
+    def _file_response(self, msg):
         attachment = msg.attachment_id.sudo()
         if not attachment:
             raise NotFound()
@@ -227,15 +245,46 @@ class Comprobantes(http.Controller):
     @http.route("/comprobantes/mios", type="http", auth="user", methods=["GET"], sitemap=False)
     def mine(self, estado="", **kw):
         user = self._check()
-        bucket = estado if estado in BUCKETS else ""
-        msgs = request.env["distri.whatsapp.message"]._distri_uploads_recent(user, bucket or None)
+        bucket = estado if estado in BUCKETS or estado == ATTEMPT_FILTER else ""
+        rows = []
+        if bucket != ATTEMPT_FILTER:
+            msgs = request.env["distri.whatsapp.message"]._distri_uploads_recent(
+                user, bucket or None)
+            rows = [m._distri_upload_row() for m in msgs]
+        attempts = []
+        if bucket in ("", ATTEMPT_FILTER):
+            found = request.env["distri.receipt.upload.attempt"]._distri_for(user, LIST_DAYS)
+            attempts = [a._distri_row(user) for a in found]
         return self._page_response("distri_pedido.comprobantes_mios_page", {
-            "rows": [m._distri_upload_row() for m in msgs],
+            "rows": merge_rows(rows, attempts),
             "estado": bucket,
             "filters": [("", "Todos"), ("pendiente", "Pendientes"), ("aprobado", "Aprobados"),
-                        ("rechazado", "Rechazados")],
+                        ("rechazado", "Rechazados"), (ATTEMPT_FILTER, "Ya estaban cargados")],
             "days": LIST_DAYS,
         })
+
+    # ---------------------------------------------------------------- refused duplicates
+
+    def _attempt(self, attempt_id):
+        """The user's own refused attempt, else 404."""
+        user = self._check()
+        attempt = request.env["distri.receipt.upload.attempt"].sudo().browse(attempt_id).exists()
+        if not attempt or not attempt._distri_visible_to(user):
+            raise NotFound()
+        return attempt
+
+    @http.route("/comprobantes/intento/<int:attempt_id>", type="http", auth="user",
+                methods=["GET"], sitemap=False)
+    def attempt(self, attempt_id, desde="", **kw):
+        attempt = self._attempt(attempt_id)
+        parent = "/comprobantes/mios" if desde == "mios" else "/comprobantes"
+        return self._page_response("distri_pedido.comprobante_intento_page", {
+            "r": attempt._distri_detail(), "parent": parent})
+
+    @http.route("/comprobantes/intento/<int:attempt_id>/archivo", type="http", auth="user",
+                methods=["GET"], sitemap=False)
+    def attempt_file(self, attempt_id, **kw):
+        return self._file_response(self._attempt(attempt_id).message_id)
 
     # ---------------------------------------------------------------- share target
 

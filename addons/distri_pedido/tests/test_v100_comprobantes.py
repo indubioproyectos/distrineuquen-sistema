@@ -86,7 +86,7 @@ class TestComprobantesV100(HttpCase):
     def test_typed_amount_saved_and_shown_at_once(self):
         self.authenticate("vendedor_comp_v100", "vendedor_comp_v100")
         page, csrf = self._csrf()
-        self.assertIn('data-comp-api="100"', page.text)
+        self.assertRegex(page.text, r'data-comp-api="1[0-9]{2}"')
         res = self._upload([("a.png", _png((10, 0, 0)), "image/png"),
                             ("b.png", _png((0, 10, 0)), "image/png")], csrf,
                            amounts=["150.000", "150000,50"])

@@ -75,7 +75,8 @@ class TestEtiquetas(RepartoMixin, AccountTestInvoicingCommon):
         self.assertIn("1/2", text)
         self.assertIn("2/2", text)
         self.assertIn("de 2 bultos", " ".join(text.split()))
-        self.assertIn("Entrega:", text)
+        # 19.0.1.101.0: without an agreed date the label shows the packing day
+        self.assertIn("Armado:", text)
         self.assertIn("data:image/png;base64,", html, "the Code128 barcode is embedded")
         self.assertIn("%s-01" % order.name, text)
         # never a price or an amount
@@ -98,8 +99,28 @@ class TestEtiquetas(RepartoMixin, AccountTestInvoicingCommon):
         routed = self._packed(1)
         route = self._route(routed)
         values = routed._distri_packages()._label_values()
-        self.assertTrue(values["destination"].startswith("Reparto"))
-        self.assertEqual(values["date"], route.date.strftime("%d/%m/%Y"))
+        # 19.0.1.101.0: the route does not reach the label (no driver, no
+        # trip, no route date)
+        self.assertEqual(values["destination"], "Reparto")
+        self.assertNotIn("Viaje", values["detail"])
+        self.assertEqual(values["date_label"], "Armado")
+        driver = (route.driver_id.name or "").split(" ")[0]
+        if driver:
+            self.assertNotIn(driver, values["destination"] + values["detail"])
+
+    def test_label_never_says_a_confirmar(self):
+        order = self._packed(1)
+        values = order._distri_packages()._label_values()
+        self.assertEqual((values["destination"], values["date_label"]), ("Reparto", "Armado"))
+        self.assertRegex(values["date"], r"^\d{2}/\d{2}/\d{4}$")
+        text = re.sub(r"<[^>]+>", " ", self._html(order._distri_packages()))
+        self.assertNotIn("a confirmar", text.lower())
+
+    def test_label_uses_the_agreed_delivery_date(self):
+        order = self._packed(1)
+        order.sudo().commitment_date = "2026-12-01 15:00:00"
+        values = order._distri_packages()._label_values()
+        self.assertEqual((values["date_label"], values["date"]), ("Entrega", "01/12/2026"))
 
     def test_route_prints_all_its_packages(self):
         first, second = self._packed(2), self._packed(3)

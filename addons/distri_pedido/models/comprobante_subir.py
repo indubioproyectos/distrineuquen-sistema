@@ -61,6 +61,19 @@ gerencia; «Mis comprobantes» lists the uploader's last LIST_DAYS days by
 state (`_distri_upload_bucket`). Read only: nothing is approved or deleted
 from there.
 
+Refused duplicates (19.0.1.101.0): every «Ya estaba cargado» is kept as a
+`distri.receipt.upload.attempt` (who, when, the file name, the channel, the
+typed amount and the receipt it matched; not the file again: the receipt
+already has it). «Subidos hoy por vos» and «Mis comprobantes» list them as
+their own rows («No se cargó · ya estaba en el sistema», when and how the
+existing receipt arrived, its state) and the row opens the existing receipt
+read only for the user who tried (/comprobantes/intento/<id>): only the
+file, amount, customer, date, channel and state, never the notes of
+administración. Administración sees them in Cobros › Intentos repetidos and
+as «Intentaron subirlo de nuevo: N» on the receipt form. The JSON keeps
+«uploads» as before and adds «attempts», drawn by comprobantes.js only on a
+data-comp-api="101" page.
+
 The receipt never creates a payment (docs cobranza/README.md, decision 10).
 """
 import base64
@@ -142,6 +155,26 @@ BUCKETS = {
     "rechazado": "Rechazado",
     "cerrado": "Cerrado",
 }
+# «Mis comprobantes» filter of the refused duplicates (19.0.1.101.0)
+ATTEMPT_FILTER = "repetido"
+ATTEMPT_FLAG = "No se cargó · ya estaba en el sistema"
+VIAS = [("pantalla", "Pantalla «Subir comprobante»"), ("compartido", "Compartir con Distri")]
+
+
+def _ar(dt, fmt):
+    """A stored UTC datetime as Argentine text."""
+    return dt.replace(tzinfo=timezone.utc).astimezone(AR_TZ).strftime(fmt) if dt else ""
+
+
+def _since(days):
+    """UTC start of the Argentine day `days - 1` days ago (1: today)."""
+    return datetime.combine(today_ar() - timedelta(days=days - 1), time()).replace(
+        tzinfo=AR_TZ).astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def merge_rows(*lists):
+    """Rows of uploads and attempts, newest first (their «ts»)."""
+    return sorted((row for rows in lists for row in rows), key=lambda r: r["ts"], reverse=True)
 
 
 def rotation(value):
@@ -199,10 +232,32 @@ class WhatsappMessageUpload(models.Model):
                          "confirmá el importe mirando la foto.")
     distri_amount_typed_note = fields.Char(
         string="Importe cargado y leído", compute="_compute_distri_amount_typed_differs")
+    distri_upload_attempt_count = fields.Integer(
+        string="Intentaron subirlo de nuevo", compute="_compute_distri_upload_attempt_count",
+        help="Veces que alguien quiso subir este mismo archivo desde «Subir comprobante» y no "
+             "se cargó porque ya estaba.")
     distri_original_checksum = fields.Char(
         string="Checksum del archivo original", readonly=True, index=True, copy=False,
         help="SHA1 del archivo tal como llegó, antes de girarlo: el mismo archivo que llegue "
              "por otro medio se reconoce igual.")
+
+    def _compute_distri_upload_attempt_count(self):
+        counts = {}
+        if self.ids:
+            groups = self.env["distri.receipt.upload.attempt"].sudo()._read_group(
+                [("message_id", "in", self.ids)], ["message_id"], ["__count"])
+            counts = {message.id: count for message, count in groups}
+        for msg in self:
+            msg.distri_upload_attempt_count = counts.get(msg.id, 0)
+
+    def action_distri_view_upload_attempts(self):
+        """«Ver» next to «Intentaron subirlo de nuevo» on the receipt form."""
+        self.ensure_one()
+        action = self.env["ir.actions.act_window"]._for_xml_id(
+            "distri_pedido.action_receipt_upload_attempts")
+        action["domain"] = [("message_id", "=", self.id)]
+        action["context"] = {}
+        return action
 
     @api.depends("distri_amount_typed", "distri_read_amount", "distri_amount_confidence")
     def _compute_distri_amount_typed_differs(self):
@@ -331,7 +386,13 @@ class WhatsappMessageUpload(models.Model):
                 continue
             existing = self._distri_upload_duplicate(raw)
             if existing:
+                # 19.0.1.101.0: kept so the user can review it later
+                attempt = self.env["distri.receipt.upload.attempt"].sudo().create({
+                    "user_id": user.id, "file_name": name, "message_id": existing.id,
+                    "via": via if via in dict(VIAS) else "pantalla",
+                    "amount_typed": typed or 0.0})
                 results.append({"name": name, "status": "repetido", "id": existing.id,
+                                "attempt_id": attempt.id,
                                 "message": "Ya estaba cargado (%s)." % existing._distri_upload_label()})
                 continue
             msg = self._distri_upload_create(name, raw, kind, user, customer, via, typed,
@@ -411,11 +472,9 @@ class WhatsappMessageUpload(models.Model):
     def _distri_uploads_today(self, user=None):
         """The receipts the user uploaded today (Argentine day), newest first."""
         user = user or self.env.user
-        start = datetime.combine(today_ar(), time()).replace(tzinfo=AR_TZ).astimezone(
-            timezone.utc).replace(tzinfo=None)
         return self.sudo().search([
             ("distri_upload", "=", True), ("distri_forwarded_by_id", "=", user.id),
-            ("create_date", ">=", start)], order="id desc", limit=50)
+            ("create_date", ">=", _since(1))], order="id desc", limit=50)
 
     def _distri_upload_row(self):
         self.ensure_one()
@@ -435,8 +494,9 @@ class WhatsappMessageUpload(models.Model):
             "name": msg.media_filename or "",
             # 19.0.1.100.0: the row opens «Ver comprobante»
             "url": "/comprobantes/%d" % msg.id,
-            "date": msg.create_date.replace(tzinfo=timezone.utc).astimezone(AR_TZ).strftime(
-                "%d/%m %H:%M") if msg.create_date else "",
+            "date": _ar(msg.create_date, "%d/%m %H:%M"),
+            # 19.0.1.101.0: merged with the refused attempts (merge_rows)
+            "ts": msg.create_date.isoformat() if msg.create_date else "",
             "bucket": msg._distri_upload_bucket(),
             "bucket_label": BUCKETS[msg._distri_upload_bucket()],
         }
@@ -480,8 +540,7 @@ class WhatsappMessageUpload(models.Model):
             "note": msg.distri_receipt_note or "",
             "typed_note": msg.distri_amount_typed_note or "",
             "uploader": msg.distri_forwarded_by_id.name or "",
-            "when": msg.create_date.replace(tzinfo=timezone.utc).astimezone(AR_TZ).strftime(
-                "%d/%m/%Y %H:%M") if msg.create_date else "",
+            "when": _ar(msg.create_date, "%d/%m/%Y %H:%M"),
             "dismissed": state == "dismissed",
         })
         return row
@@ -491,14 +550,35 @@ class WhatsappMessageUpload(models.Model):
         """«Mis comprobantes»: the user's uploads of the last `days` days,
         newest first, optionally of one bucket."""
         user = user or self.env.user
-        start = datetime.combine(today_ar() - timedelta(days=days - 1), time()).replace(
-            tzinfo=AR_TZ).astimezone(timezone.utc).replace(tzinfo=None)
         found = self.sudo().search([
             ("distri_upload", "=", True), ("distri_forwarded_by_id", "=", user.id),
-            ("create_date", ">=", start)], order="id desc", limit=300)
+            ("create_date", ">=", _since(days))], order="id desc", limit=300)
         if bucket in BUCKETS:
             found = found.filtered(lambda m: m._distri_upload_bucket() == bucket)
         return found
+
+    def _distri_upload_channel(self, user=None):
+        """How the receipt arrived, for the user who tried to upload it again:
+        «Por WhatsApp», «Exportación del chat de WhatsApp», «App del
+        repartidor», «Subido por X» («Subido por vos»)."""
+        self.ensure_one()
+        msg = self.sudo()
+        if msg.distri_upload:
+            who = msg.distri_forwarded_by_id
+            if user and who == user:
+                return "Subido por vos"
+            return "Subido por %s" % (who.name or "el personal")
+        if msg.distri_from_app:
+            return "App del repartidor"
+        if (msg.wa_message_id or "").startswith(CHAT_KEY % ""):
+            return "Exportación del chat de WhatsApp"
+        return "Por WhatsApp"
+
+    def _distri_arrived_at(self):
+        """When the receipt arrived (the WhatsApp time when there is one)."""
+        self.ensure_one()
+        msg = self.sudo()
+        return msg.timestamp or msg.create_date
 
     # ------------------------------------------------------------ turn a stored photo
 
@@ -632,6 +712,89 @@ class DistriReceiptShare(models.Model):
         old = self.sudo().search([
             ("create_date", "<", fields.Datetime.now() - timedelta(hours=STAGE_HOURS))])
         old._distri_done()
+
+
+class DistriReceiptUploadAttempt(models.Model):
+    """A file refused at «Subir comprobante» because it was already loaded
+    (19.0.1.101.0). The file itself is not kept again: `message_id` has it."""
+    _name = "distri.receipt.upload.attempt"
+    _description = "Intento de subir un comprobante que ya estaba"
+    _order = "id desc"
+    _rec_name = "file_name"
+
+    user_id = fields.Many2one("res.users", string="Quién lo intentó", required=True,
+                              readonly=True, index=True, ondelete="cascade")
+    attempted_at = fields.Datetime(string="Cuándo", required=True, readonly=True, index=True,
+                                   default=fields.Datetime.now)
+    file_name = fields.Char(string="Archivo", readonly=True)
+    via = fields.Selection(VIAS, string="Desde", required=True, readonly=True,
+                           default="pantalla")
+    message_id = fields.Many2one("distri.whatsapp.message", string="Comprobante que ya estaba",
+                                 required=True, readonly=True, index=True, ondelete="cascade")
+    amount_typed = fields.Float(string="Importe que cargó", digits=(16, 2), readonly=True)
+    message_timestamp = fields.Datetime(related="message_id.timestamp", string="Había llegado")
+    partner_id = fields.Many2one(related="message_id.distri_partner_id", string="Cliente")
+    receipt_state = fields.Selection(related="message_id.distri_receipt_state",
+                                     string="Estado del comprobante")
+    channel = fields.Char(string="Cómo había llegado", compute="_compute_channel")
+
+    def _compute_channel(self):
+        for attempt in self:
+            attempt.channel = attempt.message_id._distri_upload_channel() \
+                if attempt.message_id else ""
+
+    @api.model
+    def _distri_for(self, user, days):
+        """The user's attempts of the last `days` Argentine days, newest first."""
+        return self.sudo().search([("user_id", "=", user.id),
+                                   ("attempted_at", ">=", _since(days))],
+                                  order="id desc", limit=300)
+
+    def _distri_visible_to(self, user):
+        """Only the user who tried sees an attempt (and through it the
+        existing receipt, with the few facts of `_distri_detail`)."""
+        self.ensure_one()
+        return can_upload(user) and self.sudo().user_id == user and bool(self.sudo().message_id)
+
+    def _distri_row(self, user=None):
+        """A row of «Subidos hoy por vos» / «Mis comprobantes»."""
+        self.ensure_one()
+        attempt = self.sudo()
+        msg = attempt.message_id
+        bucket = msg._distri_upload_bucket()
+        return {
+            "attempt": True,
+            "id": attempt.id,
+            "url": "/comprobantes/intento/%d" % attempt.id,
+            "name": attempt.file_name or "",
+            "flag": ATTEMPT_FLAG,
+            "amount": msg.distri_amount or msg.distri_amount_typed or 0.0,
+            "amount_typed": attempt.amount_typed or 0.0,
+            "partner": msg.distri_partner_id.name or "",
+            "date": _ar(attempt.attempted_at, "%d/%m %H:%M"),
+            "ts": attempt.attempted_at.isoformat() if attempt.attempted_at else "",
+            "existing_when": _ar(msg._distri_arrived_at(), "%d/%m/%Y"),
+            "existing_channel": msg._distri_upload_channel(user or attempt.user_id),
+            "bucket": bucket,
+            "bucket_label": BUCKETS[bucket],
+        }
+
+    def _distri_detail(self):
+        """The attempt page: the existing receipt, only what the user needs
+        to recognise it (file, amount, customer, date, channel, state)."""
+        self.ensure_one()
+        attempt = self.sudo()
+        msg = attempt.message_id
+        row = attempt._distri_row()
+        row.update({
+            "image": (msg.media_mime_type or "").startswith("image/") and bool(msg.attachment_id),
+            "file_url": "/comprobantes/intento/%d/archivo" % attempt.id
+            if msg.attachment_id else "",
+            "existing_when": _ar(msg._distri_arrived_at(), "%d/%m/%Y %H:%M"),
+            "when": _ar(attempt.attempted_at, "%d/%m/%Y %H:%M"),
+            "via_label": dict(VIAS).get(attempt.via, ""),
+        })
+        return row
 
 
 class DistriMpCollectionUpload(models.Model):

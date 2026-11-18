@@ -5,7 +5,23 @@
        19.0.1.100.0: «Importe» and «Girar» per file, «Ver comprobante» and
        «Mis comprobantes». data-comp-api="100" on the form tells
        comprobantes.js that this server takes them (the static files are
-       served before the module is updated). -->
+       served before the module is updated).
+       19.0.1.101.0: data-comp-api="101"; the refused duplicates are rows of
+       «Subidos hoy por vos» and «Mis comprobantes» (attempt_row) and open
+       comprobante_intento_page. -->
+
+  <!-- a refused duplicate in a list; `u` is DistriReceiptUploadAttempt._distri_row,
+       `href` the link -->
+  <template id="comprobante_intento_row" name="Comprobante que ya estaba (fila)">
+    <a class="comp-item comp-item--link comp-item--attempt" t-att-href="href" data-dn="down">
+      <span class="comp-item__st comp-item__st--attempt" aria-hidden="true">⊘</span>
+      <span class="comp-item__amt dn-num" t-esc="money(u['amount']) if u['amount'] else 'sin importe'"/>
+      <span class="comp-item__who" t-esc="u['partner'] or 'sin cliente'"/>
+      <small class="comp-item__state comp-item__flag" t-esc="u['flag']"/>
+      <small class="comp-item__note">Llegó el <t t-esc="u['existing_when']"/> · <t t-esc="u['existing_channel']"/>
+        · <t t-esc="u['bucket_label']"/> · intentado <t t-esc="u['date']"/></small>
+    </a>
+  </template>
 
   <template id="comprobantes_page" name="Subir comprobante">&lt;!DOCTYPE html&gt;
 <html lang="es">
@@ -30,7 +46,7 @@
   <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
   <main class="dn-main">
     <form id="comp-form" class="comp-form" method="post" action="/comprobantes/subir"
-          enctype="multipart/form-data" data-comp-form="" data-comp-api="100">
+          enctype="multipart/form-data" data-comp-form="" data-comp-api="101">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <input t-if="stage" type="hidden" name="compartido" t-att-value="stage.token"/>
 
@@ -89,12 +105,14 @@
     </form>
 
     <h2 class="dn-label">Subidos hoy por vos: <span data-comp-count="" t-esc="len(uploads)"/></h2>
-    <div class="dn-empty" t-if="not uploads" data-comp-empty="">
+    <div class="dn-empty" t-if="not rows" data-comp-empty="">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
       <p>Todavía no subiste comprobantes hoy.</p>
     </div>
     <ul class="comp-list" data-comp-list="">
-      <li t-foreach="uploads" t-as="u"><a class="comp-item comp-item--link" t-att-href="u['url']" data-dn="down">
+      <t t-foreach="rows" t-as="u">
+      <li t-if="u.get('attempt')"><t t-call="distri_pedido.comprobante_intento_row"><t t-set="href" t-value="u['url']"/></t></li>
+      <li t-else=""><a class="comp-item comp-item--link" t-att-href="u['url']" data-dn="down">
         <span t-att-class="'comp-item__st comp-item__st--%s' % ('reading' if u['reading'] else (u['state'] or 'pending'))"
               t-esc="'⏳' if u['reading'] or u['state'] in ('pending', 'no_money') else ('✓' if u['state'] in ('matched', 'registered') else '•')"/>
         <span class="comp-item__amt dn-num" t-esc="money(u['amount'] or u['amount_typed']) if (u['amount'] or u['amount_typed']) else ('leyendo…' if u['reading'] else 'sin importe')"/>
@@ -104,6 +122,7 @@
                t-esc="'Cargaste %s y el comprobante dice %s: lo revisa administración.' % (money(u['amount_typed']), money(u['amount']))"/>
         <small t-elif="u['amount_typed'] and u['reading']" class="comp-item__note">Importe cargado por vos · leyendo el comprobante…</small>
       </a></li>
+      </t>
     </ul>
     <p class="comp-more"><a class="dn-link" href="/comprobantes/mios" data-dn="down">Ver mis comprobantes de los
       últimos 30 días</a></p>
@@ -202,19 +221,175 @@
     </nav>
     <div class="dn-empty" t-if="not rows">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
-      <p>No hay comprobantes<t t-if="estado"> en este estado</t>.</p>
+      <p t-if="estado == 'repetido'">No intentaste subir comprobantes que ya estaban.</p>
+      <p t-else="">No hay comprobantes<t t-if="estado"> en este estado</t>.</p>
     </div>
     <ul class="comp-list" t-if="rows">
-      <li t-foreach="rows" t-as="u"><a class="comp-item comp-item--link" t-att-href="u['url'] + '?desde=mios'" data-dn="down">
+      <t t-foreach="rows" t-as="u">
+      <li t-if="u.get('attempt')"><t t-call="distri_pedido.comprobante_intento_row"><t t-set="href" t-value="u['url'] + '?desde=mios'"/></t></li>
+      <li t-else=""><a class="comp-item comp-item--link" t-att-href="u['url'] + '?desde=mios'" data-dn="down">
         <span t-att-class="'comp-item__st comp-item__st--%s' % u['bucket']"
               t-esc="{'aprobado': '✓', 'rechazado': '✕', 'pendiente': '⏳'}.get(u['bucket'], '•')"/>
         <span class="comp-item__amt dn-num" t-esc="money(u['amount'] or u['amount_typed']) if (u['amount'] or u['amount_typed']) else 'sin importe'"/>
         <span class="comp-item__who" t-esc="u['partner'] or 'sin cliente'"/>
         <small class="comp-item__state"><t t-esc="u['bucket_label']"/> · <t t-esc="u['date']"/></small>
       </a></li>
+      </t>
     </ul>
   </main>
 </body>
 </html>
   </template>
+
+  <!-- A refused duplicate (19.0.1.101.0): the receipt that was already in the
+       system, for the user who tried to upload it again. Only what is needed
+       to recognise it: no notes of administración, no actions. -->
+  <template id="comprobante_intento_page" name="Comprobante que ya estaba">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Ya estaba cargado · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="comp" t-att-data-parent="parent" data-page="comprobante-intento">
+  <header class="dn-top">
+    <div class="dn-top__row">
+      <a class="dn-icon-btn" t-att-href="parent" data-dn-back="" aria-label="Volver">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t>
+      </a>
+      <div class="dn-top__txt">
+        <span class="dn-top__kicker">Ya estaba en el sistema</span>
+        <h1 class="dn-top__title dn-num" t-esc="money(r['amount']) if r['amount'] else 'Sin importe'"/>
+      </div>
+    </div>
+  </header>
+  <main class="dn-main comp-ver">
+    <div class="dn-card dn-card--warn comp-ver__note">
+      <b t-esc="r['flag']"/>. Este es el comprobante que ya estaba: no hace falta subirlo de nuevo.
+    </div>
+    <t t-set="chip" t-value="{'pendiente': 'warn', 'aprobado': 'ok', 'rechazado': 'err'}.get(r['bucket'], 'neutral')"/>
+    <dl class="comp-ver__facts">
+      <dt>Importe</dt><dd class="dn-num" t-esc="money(r['amount']) if r['amount'] else 'sin importe leído'"/>
+      <dt>Cliente</dt><dd t-esc="r['partner'] or 'sin cliente'"/>
+      <dt>Llegó</dt><dd t-esc="r['existing_when']"/>
+      <dt>Cómo llegó</dt><dd t-esc="r['existing_channel']"/>
+      <dt>Estado</dt><dd><span t-att-class="'dn-chip dn-chip--%s' % chip" t-esc="r['bucket_label']"/></dd>
+    </dl>
+    <t t-if="r['file_url']">
+      <a t-if="r['image']" class="comp-ver__photo" t-att-href="r['file_url']" target="_blank" rel="noopener">
+        <img t-att-src="r['file_url']" alt="Foto del comprobante que ya estaba"/>
+      </a>
+      <a class="dn-btn dn-btn--outline dn-btn--lg" t-att-href="r['file_url']" target="_blank" rel="noopener">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'image' if r['image'] else 'doc'"/></t>
+        <t t-esc="'Ver la foto en pantalla completa' if r['image'] else 'Abrir el PDF'"/>
+      </a>
+    </t>
+    <h2 class="dn-label">Tu intento</h2>
+    <dl class="comp-ver__facts">
+      <dt>Cuándo</dt><dd t-esc="r['when']"/>
+      <dt>Desde</dt><dd t-esc="r['via_label']"/>
+      <dt>Archivo</dt><dd class="comp-ver__file" t-esc="r['name']"/>
+      <t t-if="r['amount_typed']"><dt>Importe que cargaste</dt><dd class="dn-num" t-esc="money(r['amount_typed'])"/></t>
+    </dl>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- ================================================= back office (19.0.1.101.0) -->
+
+  <record id="view_receipt_upload_attempt_list" model="ir.ui.view">
+    <field name="name">distri.receipt.upload.attempt.list</field>
+    <field name="model">distri.receipt.upload.attempt</field>
+    <field name="arch" type="xml">
+      <list string="Intentos repetidos" create="0" edit="0" delete="0">
+        <field name="attempted_at"/>
+        <field name="user_id"/>
+        <field name="via"/>
+        <field name="file_name"/>
+        <field name="amount_typed" optional="show" invisible="not amount_typed"/>
+        <field name="message_id" optional="hide"/>
+        <field name="message_timestamp"/>
+        <field name="partner_id"/>
+        <field name="channel"/>
+        <field name="receipt_state" optional="show"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_receipt_upload_attempt_form" model="ir.ui.view">
+    <field name="name">distri.receipt.upload.attempt.form</field>
+    <field name="model">distri.receipt.upload.attempt</field>
+    <field name="arch" type="xml">
+      <form string="Intento repetido" create="0" edit="0" delete="0">
+        <sheet>
+          <group>
+            <group>
+              <field name="attempted_at"/>
+              <field name="user_id"/>
+              <field name="via"/>
+              <field name="file_name"/>
+              <field name="amount_typed"/>
+            </group>
+            <group>
+              <field name="message_id" context="{'form_view_ref': 'distri_pedido.view_receipt_form'}"/>
+              <field name="message_timestamp"/>
+              <field name="partner_id"/>
+              <field name="channel"/>
+              <field name="receipt_state"/>
+            </group>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_receipt_upload_attempt_search" model="ir.ui.view">
+    <field name="name">distri.receipt.upload.attempt.search</field>
+    <field name="model">distri.receipt.upload.attempt</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="user_id"/>
+        <field name="file_name"/>
+        <field name="partner_id"/>
+        <group>
+          <filter name="by_user" string="Quién lo intentó" context="{'group_by': 'user_id'}"/>
+          <filter name="by_receipt" string="Comprobante" context="{'group_by': 'message_id'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_receipt_upload_attempts" model="ir.actions.act_window">
+    <field name="name">Intentos repetidos</field>
+    <field name="res_model">distri.receipt.upload.attempt</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_receipt_upload_attempt_search"/>
+    <field name="help" type="html">
+      <p>Comprobantes que alguien quiso subir desde «Subir comprobante» y no se cargaron porque
+         el mismo archivo ya estaba en el sistema. El archivo no se guarda de nuevo: se abre el
+         comprobante que ya estaba.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_cobros_upload_attempts" name="Intentos repetidos" parent="menu_cobros_root"
+            action="action_receipt_upload_attempts" sequence="22"
+            groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,base.group_system"/>
+
+  <record id="view_receipt_form_upload_attempts" model="ir.ui.view">
+    <field name="name">distri.whatsapp.message.receipt.form.upload.attempts</field>
+    <field name="model">distri.whatsapp.message</field>
+    <field name="inherit_id" ref="view_receipt_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet/group[1]" position="before">
+        <div class="alert alert-info d-flex gap-2 align-items-baseline" role="status"
+             invisible="not distri_upload_attempt_count">
+          Intentaron subirlo de nuevo: <field name="distri_upload_attempt_count" readonly="1" class="fw-bold"/>
+          <button name="action_distri_view_upload_attempts" type="object" string="Ver"
+                  class="btn-link p-0"
+                  groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,base.group_system"/>
+        </div>
+      </xpath>
+    </field>
+  </record>
 </odoo>

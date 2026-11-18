@@ -63,7 +63,7 @@
                   overflow: hidden; margin-top: .6mm; }
       .etq .dir { font-size: 10.5pt; font-weight: bold; line-height: 1.1; max-height: 8.1mm;
                   overflow: hidden; margin-top: .6mm; }
-      .etq .fila { font-size: 8pt; line-height: 1.2; margin-top: .5mm; white-space: nowrap; overflow: hidden; }
+      .etq .fila { font-size: 8pt; line-height: 1.15; margin-top: .3mm; white-space: nowrap; overflow: hidden; }
       .etq .dest { font-size: 8.5pt; font-weight: bold; line-height: 1.2; margin-top: .5mm;
                    white-space: nowrap; overflow: hidden; }
       .etq .bulto { position: absolute; right: 3mm; top: 2.5mm; width: 32mm; height: 30mm; box-sizing: border-box;
@@ -89,7 +89,10 @@
             <t t-esc="e['locality']"/><t t-if="e['prefix']"> (<t t-esc="e['prefix']"/>)</t>
           </div>
           <div class="dest"><t t-esc="e['destination']"/><t t-if="e['detail']"> · <t t-esc="e['detail']"/></t></div>
-          <div class="fila">Entrega: <b t-esc="e['date']"/> · Pedido <b t-esc="e['order']"/><t t-if="e['remito']"> · Remito <b t-esc="e['remito']"/></t></div>
+          <!-- 19.0.1.101.0: order and remito first (the remito was cut off
+               on one line with the date); the date goes last -->
+          <div class="fila">Pedido <b t-esc="e['order']"/><t t-if="e['remito']"> · Remito <b t-esc="e['remito']"/></t></div>
+          <div class="fila"><t t-esc="e.get('date_label', 'Entrega')"/>: <b t-esc="e['date']"/></div>
         </div>
         <div class="bulto">
           <span class="cap">BULTO</span>

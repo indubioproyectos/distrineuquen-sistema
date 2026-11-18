@@ -20,6 +20,11 @@
  *   sent as one «importes» / «giros» per new file and one
  *   «importe_compartido» / «giro_compartido» per shared file.
  *   · a row of «Subidos hoy por vos» opens «Ver comprobante» (row.url).
+ * - 19.0.1.101.0, only on a data-comp-api="101" page: the answers also carry
+ *   «attempts» (files refused because they were already loaded); they are
+ *   drawn among the uploads, newest first («ts»), marked «No se cargó · ya
+ *   estaba en el sistema», and open the receipt that was already there. The
+ *   count stays the one of «uploads».
  */
 (function () {
   'use strict';
@@ -86,7 +91,9 @@
   function init() {
     var form = DN.$('form[data-comp-form]');
     if (!form) { return; }
-    var v100 = Number(form.getAttribute('data-comp-api') || 0) >= 100;
+    var api = Number(form.getAttribute('data-comp-api') || 0);
+    var v100 = api >= 100;
+    var v101 = api >= 101;
     var files = [];  // {file, amount, turn}
     var sel = DN.$('[data-comp-sel]');
     var thumbs = DN.$('[data-comp-thumbs]');
@@ -207,10 +214,26 @@
     var count = DN.$('[data-comp-count]');
     var empty = DN.$('[data-comp-empty]');
     var poll = null;
-    function paintUploads(rows) {
+    function attemptRow(u) {
+      return '<li><a class="comp-item comp-item--link comp-item--attempt" href="' + DN.h(u.url) + '" data-dn="down">' +
+        '<span class="comp-item__st comp-item__st--attempt" aria-hidden="true">⊘</span>' +
+        '<span class="comp-item__amt dn-num">' + (u.amount ? money(u.amount) : 'sin importe') + '</span>' +
+        '<span class="comp-item__who">' + DN.h(u.partner || 'sin cliente') + '</span>' +
+        '<small class="comp-item__state comp-item__flag">' + DN.h(u.flag) + '</small>' +
+        '<small class="comp-item__note">Llegó el ' + DN.h(u.existing_when) + ' · ' + DN.h(u.existing_channel) +
+        ' · ' + DN.h(u.bucket_label) + ' · intentado ' + DN.h(u.date) + '</small></a></li>';
+    }
+    function paintUploads(rows, attempts) {
       count.textContent = rows.length;
-      if (empty) { empty.hidden = !!rows.length; }
-      list.innerHTML = rows.map(function (u) {
+      var all = rows;
+      if (v101 && attempts && attempts.length) {
+        all = rows.concat(attempts).sort(function (a, b) {
+          return (a.ts || '') < (b.ts || '') ? 1 : ((a.ts || '') > (b.ts || '') ? -1 : 0);
+        });
+      }
+      if (empty) { empty.hidden = !!all.length; }
+      list.innerHTML = all.map(function (u) {
+        if (u.attempt) { return attemptRow(u); }
         var open = u.reading || u.state === 'pending' || u.state === 'no_money';
         var mark = open ? '⏳' : (u.state === 'matched' || u.state === 'registered' ? '✓' : '•');
         var amount = u.amount || u.amount_typed;  // amount_typed: 19.0.1.100.0 servers
@@ -233,11 +256,11 @@
       clearTimeout(poll);
       if (reading) {
         poll = setTimeout(function () {
-          DN.api('/comprobantes/hoy').then(function (r) { if (r && r.uploads) { paintUploads(r.uploads); } }, function () {});
+          DN.api('/comprobantes/hoy').then(function (r) { if (r && r.uploads) { paintUploads(r.uploads, r.attempts); } }, function () {});
         }, 5000);
       }
     }
-    if (DN.$('.comp-item__st--reading', list)) { paintUploads([]); DN.api('/comprobantes/hoy').then(function (r) { paintUploads(r.uploads || []); }, function () {}); }
+    if (DN.$('.comp-item__st--reading', list)) { paintUploads([]); DN.api('/comprobantes/hoy').then(function (r) { paintUploads(r.uploads || [], r.attempts); }, function () {}); }
 
     // ---- send
     form.addEventListener('submit', function (ev) {
@@ -284,6 +307,7 @@
         var parts = [];
         if (fresh) { parts.push(fresh === 1 ? '1 comprobante subido' : fresh + ' comprobantes subidos'); }
         if (repeated.length) { parts.push(repeated.length === 1 ? '1 ya estaba cargado: ' + repeated[0].message.replace(/^Ya estaba cargado /, '') : repeated.length + ' ya estaban cargados'); }
+        if (repeated.length && v101) { parts.push('No se cargó de nuevo: queda en la lista para que lo revises'); }
         if (bad.length) { parts.push(bad.map(function (x) { return x.name + ': ' + x.message; }).join(' · ')); }
         DN.toast(parts.join('. ') + '.', bad.length || (repeated.length && !fresh) ? 'err' : 'ok');
         files = [];
@@ -294,7 +318,7 @@
         }
         q.value = ''; choose('', '');
         paint();
-        if (r && r.uploads) { paintUploads(r.uploads); }
+        if (r && r.uploads) { paintUploads(r.uploads, r.attempts); }
       }, function (e) {
         sendBtn.disabled = false;
         paint();

@@ -155,6 +155,10 @@ class TestPedidoAnonimo(PedidoAbiertoMixin, HttpCase):
     # ------------------------------------------------------------ quantities
 
     def test_quantity_and_total_caps(self):
+        # the defaults, whatever the copy of production has set (0 = no cap)
+        params = self.env["ir.config_parameter"].sudo()
+        params.set_param(PARAM_MAX_UNIDADES, False)
+        params.set_param(PARAM_MAX_TOTAL, False)
         for cantidad in (0, 0.5, 1.6, -2):
             res = post_pedido(self, self._data(cantidad=cantidad))
             self.assertEqual(res.status_code, 400, cantidad)
