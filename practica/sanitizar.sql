@@ -269,7 +269,7 @@ FROM (VALUES
   ('distri_pedido.mp_link_habilitado', '0'),
   ('distri_pedido.mp_carpeta_reportes', '/nonexistent/practica'),
   ('distri_pedido.agil_url', 'http://127.0.0.1:9/'),
-  ('distri_pedido.catalogo_agil', '0'),
+  ('distri_pedido.catalogo_agil', '1'),  -- same catalog as production (AgilPedido copy); the sync cron stays off
   ('distri_pedido.agilpedido_wa_auto', '0'),
   ('distri_pedido.revendedor_codigo', md5(random()::text || clock_timestamp()::text)),
   ('distri_pedido.alias_titular', 'Distri Neuquén (práctica)'),
