@@ -30,12 +30,23 @@ their note stays visible as `review_note`.
 Staff see the invoice number and the remito. The customer sees only the
 remito (models/remito.py): `customer_type` and `customer_ref` never carry
 an invoice number.
+
+Public link («Por WhatsApp» in /cuentas, 19.0.1.112.0): share_token signs
+(customer, expiry, date range) with the database secret; nothing is stored,
+so it needs no new column. /estado-de-cuenta/<token> (controllers/main.py)
+shows that customer's account the way he sees it in «Mi cuenta» (remitos,
+never an invoice number), read-only, until the expiry
+(PARAM_LINK_DAYS, 7 days by default) and only while his account is shown
+to him (models/cuenta_visible.py).
 """
-from datetime import date, datetime, timezone
+import base64
+import binascii
+from datetime import date, datetime, time, timedelta, timezone
 
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
-from odoo.tools import html_escape
+from odoo.tools import consteq, html_escape
+from odoo.tools.misc import hmac as odoo_hmac
 
 from .ajuste_cuenta import AJC_JOURNAL_CODE
 from .cuenta import clave_documento
@@ -67,6 +78,13 @@ WHATIF_LABEL = "Saldo si se aprueban los candidatos"
 
 
 OWED_TOLERANCE = 0.005
+
+# the public statement link (see the module docstring)
+PARAM_LINK_DAYS = "distri_pedido.estado_link_dias"
+DEFAULT_LINK_DAYS = 7
+LINK_SCOPE = "distri_pedido.estado_link"
+LINK_VERSION = "e1"
+LINK_SIGNATURE_BYTES = 24
 
 
 def mark_owed_fifo(rows):
@@ -101,6 +119,66 @@ def mark_owed_fifo(rows):
         else:
             row["owed"] = 0.0
     return count, round(total, 2)
+
+
+def link_days(env):
+    """How many days a public statement link lasts (>= 1)."""
+    value = env["ir.config_parameter"].sudo().get_param(PARAM_LINK_DAYS)
+    if not value:
+        return DEFAULT_LINK_DAYS
+    try:
+        return max(int(value), 1)
+    except (TypeError, ValueError):
+        return DEFAULT_LINK_DAYS
+
+
+def _b64(data):
+    return base64.urlsafe_b64encode(data).decode().rstrip("=")
+
+
+def _unb64(text):
+    return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
+
+
+def _link_signature(env, payload):
+    digest = odoo_hmac(env(su=True), LINK_SCOPE, payload)
+    return _b64(binascii.unhexlify(digest)[:LINK_SIGNATURE_BYTES])
+
+
+def share_token(env, partner, date_from=False, date_to=False, now=None):
+    """(token, expiry) of the public link to `partner`'s statement between
+    the two dates. The expiry is the end of the last day, in Argentina."""
+    now = now or datetime.now(AR_TZ)
+    last_day = now.astimezone(AR_TZ).date() + timedelta(days=link_days(env))
+    expires = datetime.combine(last_day, time(23, 59, 59), tzinfo=AR_TZ)
+    payload = "%s:%d:%d:%s:%s" % (
+        LINK_VERSION, partner.commercial_partner_id.id, int(expires.timestamp()),
+        date_from.isoformat() if date_from else "", date_to.isoformat() if date_to else "")
+    return "%s.%s" % (_b64(payload.encode()), _link_signature(env, payload)), expires
+
+
+def read_share_token(env, token, now=None):
+    """{"partner", "date_from", "date_to", "expires"} of a valid, unexpired
+    link; None for anything else (forged, altered, expired, unknown or
+    generic customer)."""
+    try:
+        encoded, signature = (token or "").split(".")
+        payload = _unb64(encoded).decode()
+        version, partner_id, expires, date_from, date_to = payload.split(":")
+        if version != LINK_VERSION or not consteq(signature, _link_signature(env, payload)):
+            return None
+        expires = datetime.fromtimestamp(int(expires), AR_TZ)
+        date_from = date.fromisoformat(date_from) if date_from else False
+        date_to = date.fromisoformat(date_to) if date_to else False
+        partner_id = int(partner_id)
+    except (ValueError, TypeError, UnicodeDecodeError, binascii.Error):
+        return None
+    if expires < (now or datetime.now(AR_TZ)):
+        return None
+    partner = env["res.partner"].sudo().with_context(active_test=False).browse(partner_id).exists()
+    if not partner or partner.parent_id or partner.distri_generic_partner:
+        return None
+    return {"partner": partner, "date_from": date_from, "date_to": date_to, "expires": expires}
 
 
 def local_date(moment):

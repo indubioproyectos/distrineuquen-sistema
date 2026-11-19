@@ -401,28 +401,6 @@ class SaleOrderRevisar(models.Model):
         return {"type": "ir.actions.act_url", "url": self.distri_revisar_wa_url,
                 "target": "new"}
 
-    @api.model
-    def action_distri_revisar_asignar(self):
-        """«Asignar cliente» opened from the phone's «Pedidos para revisar»
-        (the v108 bridge: server action action_revisar_asignar_cliente,
-        opened by URL, no active record). The wizard the page just prepared
-        for this user, with the pasted number already searched.
-
-        19.0.1.111.0 replaces the bridge with the kit screen
-        (controllers/asignar.py) and drops the server action; this method
-        stays only for a database still on 19.0.1.110.0 (the page uses the
-        bridge until the module is updated). Remove it in the next version."""
-        _exigir_revisar(self.env)
-        wizard = self.env["distri.asignar.cliente"].search([
-            ("create_uid", "=", self.env.uid),
-            ("create_date", ">=", fields.Datetime.now() - timedelta(minutes=30)),
-        ], order="id desc", limit=1)
-        if not wizard or not wizard.order_id.distri_partner_generic:
-            raise UserError("Volvé a «Pedidos para revisar» y tocá «Asignar cliente» en el pedido.")
-        action = wizard._reabrir()
-        action["context"] = dict(action["context"], default_order_id=wizard.order_id.id)
-        return action
-
     # ------------------------------------------------------------ alerts
 
     @api.model_create_multi

@@ -155,7 +155,8 @@ class TestCuentasApp(HttpCase):
             self.authenticate(user.login, user.login)
             page = self._get("/cuentas")
             self.assertEqual(page.status_code, 200, user.login)
-            self.assertIn("cuentas.js", page.text)
+            # 19.0.1.112.0: cuentas_app.js (cuentas.js stays one version)
+            self.assertIn("cuentas_app.js", page.text)
             self.assertTrue(self._get("/cuentas/api/debtors").json()["ok"], user.login)
         for user in (self.plain_u, self.packer_u):
             self.authenticate(user.login, user.login)
@@ -515,8 +516,10 @@ class TestCuentasApp(HttpCase):
         self.assertEqual(writes, {"/cuentas/api/comment", "/cuentas/api/comment/delete"})
         public = {name for name in dir(type(self.env["distri.account.app"]))
                   if name.startswith("app_")}
+        # 19.0.1.112.0: app_statement_pdf prints the statement report (a read)
         self.assertEqual(public, {"app_debtors", "app_account", "app_line", "app_receipt",
-                                  "app_sheet_file", "app_add_comment", "app_delete_comment"})
+                                  "app_sheet_file", "app_add_comment", "app_delete_comment",
+                                  "app_statement_pdf"})
 
         def money_state():
             return (self.env["account.payment"].search_count([]),

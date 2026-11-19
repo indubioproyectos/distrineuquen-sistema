@@ -426,25 +426,29 @@ class TestDepositoApp(RepartoMixin, AccountTestInvoicingHttpCommon):
     # ------------------------------------------------------------ tablero and nav
 
     def test_tablero_tile_and_badge(self):
-        self._packed()
-        self._packed(pickup=False)
-
         def tiles(user):
             env = self.env(user=user)
             found = staff_tiles(env)
             tile_badges(env, found)
             return {t["key"]: t for t in found}
 
+        # 19.0.1.112.0: the copy of production may already hold packed pickups
+        badge = tiles(self.admin)["deposito"]["badge"]
+        before = badge["n"] if badge else 0
+        self._packed()
+        self._packed(pickup=False)
+        expected = "%d para retirar" % (before + 1)
+
         for user in (self.admin, self.gerente):
             tile = tiles(user)["deposito"]
             self.assertEqual(tile["url"], "/deposito")
-            self.assertEqual(tile["badge"]["text"], "1 para retirar", "only the pickups")
+            self.assertEqual(tile["badge"]["text"], expected, "only the pickups")
         for user in (self.armador, self.repartidor, self.vendedor, self.cajero):
             self.assertNotIn("deposito", tiles(user), user.login)
         self._login(self.gerente)
         text = self.url_open("/tablero").text
         self.assertIn('href="/deposito"', text)
-        self.assertIn("1 para retirar", text)
+        self.assertIn(expected, text)
 
     def test_bottom_nav_only_for_the_depot_role(self):
         keys = [i["key"] for i in depot_nav(self.env(user=self.admin), "entregas")]

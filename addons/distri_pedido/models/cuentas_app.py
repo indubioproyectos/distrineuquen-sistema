@@ -21,8 +21,22 @@ Who opens it (app_scope):
 The debtor list and the statement reuse the logic of «Deudores» and of the
 account statement (models/deudores.py debtor_entries, models/estado_cuenta.py
 _distri_statement), computed live.
+
+19.0.1.112.0 (owner-approved mockups «05 Estado de cuenta» and
+«pc-cuentas-deudores»): the statement takes a free date range besides the
+quick periods; «Compartir PDF» prints the existing report
+(report_estado_cuenta) through the statement wizard, so its rules apply as
+they are: vendedor, administración or gerencia, and a seller only for the
+customers of his portfolio (audit F9). «Por WhatsApp» sends the public link
+of models/estado_cuenta.py share_token under the same rule and only while
+the account is shown to the customer (models/cuenta_visible.py). The
+account also lists the customer's open «Comprobantes pendientes»
+(models/comprobante_pendiente.py). The debtors take the filters of the PC
+screen (zone, minimum balance, age of the oldest red invoice). Still
+read-only: nothing here approves, registers or adjusts money.
 """
-from datetime import timedelta, timezone
+from datetime import date, timedelta, timezone
+from urllib.parse import quote
 
 from dateutil.relativedelta import relativedelta
 
@@ -31,7 +45,9 @@ from odoo.exceptions import AccessError, UserError
 
 from .deudores import ADMIN_GROUP, SELLERS, debtor_entries, direct_customers, seller_of, \
     seller_tags
-from .estado_cuenta import PROVISIONAL_NOTE, SOURCE_LABELS
+from .ar_phone import wa_digits
+from .comprobante_pendiente import OPEN_STATES
+from .estado_cuenta import PROVISIONAL_NOTE, SOURCE_LABELS, share_token
 from .lista_oculta import solo_vendedor
 from .reparto_cliente import AR_TZ, today_ar
 
@@ -45,6 +61,11 @@ COMMENT_DELETE_WINDOW = timedelta(hours=1)
 COMMENT_MAX_LENGTH = 2000
 PERIODS = {"1m": 1, "3m": 3, "all": None}
 DEFAULT_PERIOD = "3m"
+# 19.0.1.112.0: «Elegir fechas», a free range (date_from / date_to)
+CUSTOM_PERIOD = "custom"
+SHARE_HIDDEN = ("La cuenta está oculta para el cliente (administración la muestra desde el "
+                "contacto). Mandale el PDF con «Compartir PDF».")
+SHARE_NO_WHATSAPP = "El cliente no tiene WhatsApp cargado. Mandale el PDF con «Compartir PDF»."
 PAGE_SIZE = 50
 SELLER_FILTER_VALUES = ("all", "italo", "distrineuquen")
 CARD_STATES = {"draft": "A revisar", "confirmed": "Confirmado", "ignored": "Descartado"}
@@ -65,6 +86,51 @@ def app_scope(env):
 
 def _iso(day):
     return day.isoformat() if day else ""
+
+
+def _day_text(day):
+    return day.strftime("%d/%m/%Y") if day else ""
+
+
+def _parse_day(value):
+    """«2026-11-01» -> date; empty -> False; anything else -> UserError."""
+    if not value:
+        return False
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value).strip())
+    except ValueError:
+        raise UserError("La fecha «%s» no es válida." % value) from None
+
+
+def _number(value):
+    try:
+        return max(float(value or 0), 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def filter_debtors(entries, zone="", min_balance=0.0, min_age=0, today=None):
+    """The PC filters over debtor_entries (19.0.1.112.0): the zone, the
+    minimum balance and the age in days of the oldest red invoice
+    (oldest_owed, FIFO). A filter left empty does not filter; with an age,
+    a customer without red invoices is left out."""
+    today = today or today_ar()
+    zone = (zone or "").strip()
+    min_balance = _number(min_balance)
+    min_age = int(_number(min_age))
+    out = []
+    for entry in entries:
+        if zone and (entry["zone"] or "") != zone:
+            continue
+        if min_balance and entry["balance"] < min_balance:
+            continue
+        if min_age and not (entry.get("oldest_owed")
+                            and (today - entry["oldest_owed"]).days >= min_age):
+            continue
+        out.append(entry)
+    return out
 
 
 def _local_text(moment):
@@ -235,11 +301,12 @@ class DistriAccountApp(models.AbstractModel):
     # ------------------------------------------------------------ debtors
 
     @api.model
-    def app_debtors(self, seller="all", settled=False):
+    def app_debtors(self, seller="all", settled=False, zone="", min_balance=0, min_age=0):
         """The debtors screen: every customer of the scope with its balance,
         highest debt first, the uncollectible ones and, when `settled` is
         asked (the «saldos a favor» toggle), the settled ones (zero or in
-        credit) apart: they are most of the customers and most of the bytes."""
+        credit) apart: they are most of the customers and most of the bytes.
+        19.0.1.112.0: `zone`, `min_balance` and `min_age` (filter_debtors)."""
         scope = self._app_check()
         customers = self._app_customers()
         if scope != "all" or seller not in SELLER_FILTER_VALUES:
@@ -247,6 +314,9 @@ class DistriAccountApp(models.AbstractModel):
         entries = debtor_entries(self.env, customers, include_settled=True)
         if seller != "all":
             entries = [e for e in entries if e["seller"] == seller]
+        zones = sorted({e["zone"] for e in entries if e["zone"]})
+        today = today_ar()
+        entries = filter_debtors(entries, zone, min_balance, min_age, today)
         counts = self._app_comment_counts(customers)
         sellers = dict(SELLERS)
 
@@ -269,6 +339,10 @@ class DistriAccountApp(models.AbstractModel):
                 "candidate_count": entry["candidate_count"],
                 "candidate_amount": entry["candidate_amount"],
                 "comment_count": counts.get(partner.id, 0),
+                # 19.0.1.112.0: «Deuda más vieja» (the oldest red invoice, FIFO)
+                "oldest_owed_date": _iso(entry.get("oldest_owed")),
+                "oldest_owed_days": (today - entry["oldest_owed"]).days
+                if entry.get("oldest_owed") else None,
             }
 
         # 12/11/2026: a seller must not learn that the «incobrable» state
@@ -289,6 +363,14 @@ class DistriAccountApp(models.AbstractModel):
             "can_filter_seller": scope == "all",
             "can_see_uncollectible": not hide_uncollectible,
             "seller": seller,
+            "zone": (zone or "").strip(),
+            "zones": zones,
+            "min_balance": _number(min_balance),
+            "min_age": int(_number(min_age)),
+            "total_candidates": round(sum(d["candidate_amount"] for d in debtors), 2),
+            # «Deudores» of the backend: PDF and Excel (administración)
+            "report_url": "/odoo/action-distri_pedido.action_debtor_report_open"
+            if scope == "all" else "",
             "debtors": debtors,
             "uncollectible": groups["uncollectible"],
             "settled": groups["settled"] if settled else [],
@@ -324,6 +406,21 @@ class DistriAccountApp(models.AbstractModel):
         return (today_ar() - relativedelta(months=months)) if months else False
 
     @api.model
+    def _app_range(self, period, date_from=None, date_to=None):
+        """(period, date_from, date_to): a quick period runs up to today;
+        «custom» (19.0.1.112.0) is the range typed, either end open."""
+        if period == CUSTOM_PERIOD:
+            start, end = _parse_day(date_from), _parse_day(date_to)
+            if start and end and start > end:
+                raise UserError("La fecha «Desde» es posterior a «Hasta».")
+            if not start and not end:
+                return "all", False, False
+            return CUSTOM_PERIOD, start, end
+        if period not in PERIODS:
+            period = DEFAULT_PERIOD
+        return period, self._app_period_start(period), False
+
+    @api.model
     def _app_row(self, row, counts):
         return {
             "line_key": row["line_key"],
@@ -347,15 +444,16 @@ class DistriAccountApp(models.AbstractModel):
         }
 
     @api.model
-    def app_account(self, partner_id, period=DEFAULT_PERIOD, offset=0, limit=PAGE_SIZE):
+    def app_account(self, partner_id, period=DEFAULT_PERIOD, offset=0, limit=PAGE_SIZE,
+                    date_from=None, date_to=None):
         """The account screen: header, balances, account comments and one
-        page of the statement rows of the period, newest first."""
+        page of the statement rows of the period, newest first.
+        19.0.1.112.0: a free range (`period` «custom»), the period's totals,
+        what may be shared and the open «Comprobantes pendientes»."""
         partner = self._app_partner(partner_id)
         full = self._app_check() == "all"
-        if period not in PERIODS:
-            period = DEFAULT_PERIOD
-        date_from = self._app_period_start(period)
-        data = partner._distri_statement(date_from, False)
+        period, date_from, date_to = self._app_range(period, date_from, date_to)
+        data = partner._distri_statement(date_from, date_to)
         comments = self.env["distri.account.comment"].sudo().search(
             [("partner_id", "=", partner.id)])
         counts = {}
@@ -368,11 +466,16 @@ class DistriAccountApp(models.AbstractModel):
         result = {
             "period": period,
             "date_from": _iso(date_from),
+            "date_to": _iso(date_to),
             "offset": offset,
             "row_count": len(rows),
             "more": offset + limit < len(rows),
             "rows": [self._app_row(row, counts) for row in page],
             "opening": data["opening"],
+            # the period's totals (the PDF's «Totales del período»)
+            "debit": round(data["debit"], 2),
+            "credit": round(data["credit"], 2),
+            "closing": data["closing"],
         }
         if offset:
             return result
@@ -410,8 +513,111 @@ class DistriAccountApp(models.AbstractModel):
             "comments": comments.filtered(lambda c: not c.line_key)._app_payload(),
             "line_comment_count": len(comments.filtered("line_key")),
             "line_comments": comments.filtered("line_key")._app_payload(),
+            "share": self._app_share(partner, date_from, date_to),
+            "pending_receipts": self._app_pending_receipts(partner),
         })
         return result
+
+    # ------------------------------------------------------------ share
+
+    @api.model
+    def _app_print_denied(self, partner):
+        """Why the user may not print this customer's statement, or "": the
+        statement wizard's own checks (vendedor, administración, gerencia;
+        a seller only for his portfolio, audit F9)."""
+        Wizard = self.env["distri.estado.cuenta"]
+        try:
+            Wizard._check_access_saldos()
+            Wizard.new({"partner_id": partner.id})._check_partner_visible()
+        except (AccessError, UserError) as exc:
+            return str(exc.args[0] if exc.args else exc)
+        return ""
+
+    @api.model
+    def _app_period_text(self, date_from, date_to):
+        if date_from and date_to:
+            return "del %s al %s" % (_day_text(date_from), _day_text(date_to))
+        if date_from:
+            return "desde el %s" % _day_text(date_from)
+        if date_to:
+            return "hasta el %s" % _day_text(date_to)
+        return ""
+
+    @api.model
+    def _app_share(self, partner, date_from, date_to):
+        """«Compartir PDF» and «Por WhatsApp» of the account: allowed or
+        why not, and the WhatsApp link with the public statement link."""
+        denied = self._app_print_denied(partner)
+        share = {"pdf": not denied, "pdf_reason": denied, "whatsapp_url": "",
+                 "whatsapp_reason": denied, "link": "", "expires": ""}
+        if denied:
+            return share
+        digits = wa_digits(partner.distri_whatsapp or partner.phone or "")
+        if not partner._distri_account_visible():
+            share["whatsapp_reason"] = SHARE_HIDDEN
+        elif not digits:
+            share["whatsapp_reason"] = SHARE_NO_WHATSAPP
+        else:
+            from ..controllers.main import FICHA
+            token, expires = share_token(self.env, partner, date_from, date_to)
+            link = "%s/estado-de-cuenta/%s" % (partner.get_base_url(), token)
+            period = self._app_period_text(date_from, date_to)
+            text = ("Hola! Te paso el estado de cuenta de %s en %s%s: %s\n"
+                    "El link es personal y vence el %s.") % (
+                partner.name or "", FICHA["nombre"], (" " + period) if period else "", link,
+                _day_text(expires.date()))
+            share.update({
+                "whatsapp_url": "https://wa.me/%s?text=%s" % (digits, quote(text)),
+                "whatsapp_reason": "",
+                "link": link,
+                "expires": _day_text(expires.date()),
+            })
+        return share
+
+    @api.model
+    def _app_pending_receipts(self, partner):
+        """The customer's open «Comprobantes pendientes» (transfers without
+        their receipt, models/comprobante_pendiente.py), oldest first, and
+        «Reclamar por WhatsApp» with the company's claim of all of them."""
+        Promise = self.env["distri.promised.transfer"].sudo()
+        items = Promise.search([("partner_id", "child_of", partner.id),
+                                ("state", "in", OPEN_STATES)], order="captured_at, id")
+        kinds = dict(Promise._fields["kind"].selection)
+        digits = wa_digits(partner.distri_whatsapp or partner.phone or "")
+        claim = Promise._distri_customer_claim(items, voice="company") if items else ""
+        return {
+            "items": [{
+                "id": item.id,
+                "order": item.order_id.name or "",
+                "kind": kinds.get(item.kind or "done", ""),
+                "amount": item.amount,
+                "delivered": _day_text(item.delivered_day),
+                "status": item.status_label or "",
+                "overdue": item.state == "overdue",
+            } for item in items],
+            "total": round(sum(items.mapped("amount")), 2),
+            "claim_url": "https://wa.me/%s?text=%s" % (digits, quote(claim))
+            if items and digits and claim else "",
+        }
+
+    @api.model
+    def app_statement_pdf(self, partner_id, period=DEFAULT_PERIOD, date_from=None,
+                          date_to=None):
+        """(pdf bytes, file name) of the existing statement report for the
+        range, printed through the statement wizard as the user (its checks
+        decide, see _app_print_denied)."""
+        partner = self._app_partner(partner_id)
+        denied = self._app_print_denied(partner)
+        if denied:
+            raise AccessError(denied)
+        _period, start, end = self._app_range(period, date_from, date_to)
+        wizard = self.env["distri.estado.cuenta"].create(
+            {"partner_id": partner.id, "date_from": start, "date_to": end})
+        pdf, _kind = self.env["ir.actions.report"]._render_qweb_pdf(
+            "distri_pedido.report_estado_cuenta", wizard.ids)
+        name = "Estado de cuenta - %s - %s.pdf" % (
+            (partner.name or "cliente").replace("/", "-"), today_ar().strftime("%Y-%m-%d"))
+        return pdf, name
 
     # ------------------------------------------------------------ one row
 

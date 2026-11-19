@@ -96,6 +96,8 @@
 .dp-li__top>b.dn-num,.dp-kv dd,.dp-nw{white-space:nowrap}
 .dp-panel__h{margin:0;font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--dn-muted)}
 .dn-js .dp-panel__h{display:none}
+/* 19.0.1.112.0: the first row under a panel title has no line of its own */
+.dp-panel__h+.dp-li{border-top:0}
 .dp-pend{gap:8px}
 .dp-pend form{margin:0}
 .dp-center{margin:0;font-size:13px;text-align:center;color:var(--dn-muted)}

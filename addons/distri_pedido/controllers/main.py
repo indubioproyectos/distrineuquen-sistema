@@ -632,7 +632,7 @@ class TomaDePedidos(http.Controller):
             return True
         return socio._distri_account_visible()
 
-    def _cuenta_de(self, socio, pagina=1):
+    def _cuenta_de(self, socio, pagina=1, desde=False, hasta=False):
         """La cuenta corriente completa del comercio, paginada.
 
         Decision de ale (22/09/2026): registro unico, el cliente ve todo el
@@ -644,10 +644,20 @@ class TomaDePedidos(http.Controller):
         numero de factura (customer_type y customer_ref).
 
         Lo mas nuevo primero. `pagina` es un numero o "todo".
+
+        19.0.1.112.0: `desde` / `hasta` limit the movements to a range (the
+        public statement link); the balance on top is still today's and,
+        with `desde`, the last row is the balance before it.
         """
-        datos = socio.sudo()._distri_statement()
+        datos = socio.sudo()._distri_statement(desde, hasta)
         filas = list(reversed(datos["rows"]))
         saldo = datos["balance"]
+        if desde:
+            filas.append({
+                "date": desde, "customer_ref": "Todo lo anterior a esta fecha",
+                "customer_type": "Saldo anterior", "provisional": False,
+                "debit": 0.0, "credit": 0.0, "balance": datos["opening"],
+            })
         cuantos = len(filas)
         paginas = max(1, -(-cuantos // POR_PAGINA))
         if pagina == "todo":
@@ -1112,6 +1122,46 @@ class TomaDePedidos(http.Controller):
         }
         return self._pagina_cuenta(cliente, datos, "/pedido/%s/cuenta" % token,
                                    kw.get("pagina"))
+
+    @http.route("/estado-de-cuenta/<string:token>", type="http", auth="public",
+                methods=["GET"], website=True, sitemap=False)
+    def estado_compartido(self, token, **kw):
+        """The statement a seller sent by WhatsApp from /cuentas (19.0.1.112.0,
+        models/estado_cuenta.py share_token): the same page as «Mi cuenta»,
+        read-only, only that customer, only the range of the link and only
+        until it expires. While the account is hidden from the customer the
+        page shows the neutral notice, like his own links."""
+        from ..models.estado_cuenta import read_share_token
+        enlace = read_share_token(request.env, token)
+        if not enlace:
+            return self._error_simple(
+                "Este link venció o no es válido. Pedile a tu vendedor que te mande el estado "
+                "de cuenta de nuevo.", status=404)
+        socio = enlace["partner"]
+        desde, hasta = enlace["date_from"], enlace["date_to"]
+        datos = {
+            "pedido": False,
+            "empresa_id": request.env.company.id,
+            "ficha": ficha(),
+            "whatsapp": self._whatsapp_empresa(),
+            "token": "",
+            # shown by cuenta_corriente_compartida (views/cuentas.xml)
+            "compartido": {
+                "desde": desde.strftime("%d/%m/%Y") if desde else "",
+                "hasta": hasta.strftime("%d/%m/%Y") if hasta else "",
+                "vence": enlace["expires"].strftime("%d/%m/%Y"),
+            },
+        }
+        if self._cuenta_visible(socio):
+            datos.update(self._cuenta_de(socio, kw.get("pagina"), desde, hasta))
+            datos.update({"oculta": False, "url_cuenta": "/estado-de-cuenta/%s" % token})
+        else:
+            datos.update({"socio": socio, "oculta": True})
+        response = request.render("distri_pedido.cuenta_corriente", datos)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
 
     @http.route("/pedido/<string:token>", type="http", auth="public",
                 website=True, sitemap=False)

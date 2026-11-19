@@ -66,3 +66,4 @@ from . import test_v108_revisar
 from . import test_v109_deposito
 from . import test_v110_planificacion
 from . import test_v111_asignar_agil
+from . import test_v112_estado_cuenta

@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.111.0",
+    "version": "19.0.1.112.0",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -159,6 +159,26 @@
     # hand, create the quotation only when nothing is left to fix); from
     # 1024 px the lines are a table with the correction panel beside it.
     # «AgilPedido» tile on /tablero with today's orders. No new stored
+    # fields, no migration.
+    # 19.0.1.112.0 (owner-approved mockups «05 Estado de cuenta» and
+    # «pc-cuentas-deudores»): the «Cuentas» statement takes a free date range
+    # besides «Último mes / 3 meses / Todo», shows the period's totals, the
+    # open «Comprobantes pendientes» and «Pagos a confirmar», «Compartir PDF»
+    # (the existing report_estado_cuenta through the statement wizard and its
+    # F9 rules; Web Share API, else a download) and «Por WhatsApp» (a public
+    # read-only link /estado-de-cuenta/<token>, signed with the database
+    # secret, nothing stored, expiring after distri_pedido.estado_link_dias
+    # days, 7 by default, only while the account is shown to the customer;
+    # it renders the customer's own «Mi cuenta» page). From 1024 px /cuentas
+    # is «Deudores y estado de cuenta»: the debtors (debtor_entries, plus the
+    # oldest red invoice, FIFO) with zone, seller, minimum balance and age
+    # filters beside the selected statement. The page loads
+    # static/src/cuentas/cuentas_app.*; cuentas.* stay until the next version
+    # (static files are served live). Bundled: the v106 cover files
+    # (portada2-*, og-distri-neuquen-2.jpg) are deleted; the v108 bridge to
+    # the backend «Asignar cliente» wizard is gone (the wizard stays); bulto
+    # labels print the customer's own city when it is loaded, the name
+    # prefix only when the city is empty; depot panel rows. No new stored
     # fields, no migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],

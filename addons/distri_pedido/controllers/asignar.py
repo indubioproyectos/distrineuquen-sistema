@@ -11,7 +11,7 @@ Asignar cliente»): /revisar/<order>/asignar.
     /revisar/<id>/asignar              POST  with `accion` (asignar | aprobar):
                                              «Solo asignar» / «Asignar y
                                              aprobar»; without it, the URL of
-                                             this screen (what the v108 page
+                                             this screen (what «Pegar número»
                                              asks before going on)
 
 Same access as the backend wizard (models/asignar_cliente.py puede_asignar:
@@ -44,11 +44,6 @@ MARCA_CHIP = {"si": ("✓", "ok"), "parcial": ("≈", "warn"), "no": ("✗", "er
               "falta": ("", "neutral")}
 VOLVER = {"agilpedido": "/agilpedido"}
 MAX_TEXTO = 200
-
-
-def installed(env):
-    """The templates of this version are loaded (module updated)."""
-    return bool(env.ref(PAGE, raise_if_not_found=False))
 
 
 def asignar_url(order_id, pegado="", volver=""):
@@ -85,7 +80,7 @@ class AsignarCliente(http.Controller):
 
     def _check(self):
         user = request.env.user
-        if user.share or not puede_asignar(request.env) or not installed(request.env):
+        if user.share or not puede_asignar(request.env):
             raise Forbidden()
         return user
 
@@ -313,9 +308,7 @@ class AsignarCliente(http.Controller):
             raise Forbidden()
         order = self._order(order_id)
         if not accion:
-            return self._bridge(order, pegado)
-        if not installed(request.env):
-            raise Forbidden()
+            return self._screen_url(order, pegado)
         if not order.distri_partner_generic:
             return self._refuse(order, "Este pedido ya tiene el cliente asignado.", volver, 409)
         modo = "nuevo" if kw.get("modo") == "nuevo" else "existente"
@@ -372,17 +365,15 @@ class AsignarCliente(http.Controller):
         return request.redirect("%s%serror=%s" % (
             asignar_url(order.id, volver=volver), "&" if volver else "?", quote(text)), local=True)
 
-    def _bridge(self, order, pegado):
-        """The v108 page asks where «Asignar cliente» goes: this screen once
-        the module is updated, the backend wizard until then."""
+    def _screen_url(self, order, pegado):
+        """«Pegar número» › «Asignar cliente» on /revisar asks where to go:
+        this screen, with the pasted number (19.0.1.112.0: the backend
+        wizard fallback of 19.0.1.110.0 is gone)."""
         if not order.distri_partner_generic or order.state == "cancel":
             text = "Este pedido ya tiene el cliente asignado."
             if self._by_fetch():
                 return self._json({"ok": False, "error": text}, status=400)
             return request.redirect("/revisar", local=True)
-        if not installed(request.env):
-            from .revisar import asignar_backend
-            return asignar_backend(order, pegado, self._by_fetch())
         url = asignar_url(order.id, pegado)
         if self._by_fetch():
             return self._json({"ok": True, "url": url})

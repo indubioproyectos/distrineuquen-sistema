@@ -12,7 +12,7 @@
  * - [data-rv-pegar]: the «Pegar número» sheet; what is pasted (or typed in
  *   Área / Número) is read by the server as you type.
  * - form[data-rv-asignar], [data-rv-pegar-asignar]: «Asignar cliente» opens
- *   the backend wizard (the URL comes in the answer).
+ *   the kit screen /revisar/<id>/asignar (the URL comes in the answer).
  */
 (function () {
   'use strict';

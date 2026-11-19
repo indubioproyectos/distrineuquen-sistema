@@ -20,6 +20,7 @@ import re
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+from .armado import normalizar_ciudad
 from .encomienda import PAYER_LABELS
 from .reparto_cliente import TOWN_PREFIXES, town_from_name, town_prefix
 
@@ -34,6 +35,30 @@ PREFIX_OF_TOWN = {town: prefix for prefix, town in sorted(
     TOWN_PREFIXES.items(), key=lambda item: (-len(item[0]), item[0]))}
 # 19.0.1.94.0: the company's public phone on every label (never in the code)
 PARAM_PHONE = "distri_pedido.telefono_empresa"
+
+
+def label_town(partner, generic=False, zone=""):
+    """(town, prefix) printed on a label.
+
+    19.0.1.112.0: the customer's own city wins when it is loaded («C-ATENCIO
+    ... CHOS MALAL» has the city Chos Malal although «C -» is Cutral Có);
+    the name prefix only names the town when the city is empty. A web order
+    without a customer yet (`generic`) uses the order's `zone`. The prefix
+    is the contact's own one when it names that town («ZC» stays «ZC»), else
+    the town's («C» for Cutral Có), else none (Chos Malal has no prefix).
+    """
+    if generic:
+        town = zone
+    else:
+        city = (partner.city or partner.commercial_partner_id.city or "").strip()
+        town = city or partner._distri_town()
+    town = town or town_from_name(partner.name) or ""
+    key = normalizar_ciudad(town)
+    own = town_prefix(partner.name)
+    if own and normalizar_ciudad(TOWN_PREFIXES.get(own)) == key:
+        return town, own
+    prefix = next((p for t, p in PREFIX_OF_TOWN.items() if normalizar_ciudad(t) == key), "")
+    return town, prefix
 
 
 def format_phone(raw):
@@ -77,12 +102,7 @@ class DistriPackage(models.Model):
         partner = order.partner_id
         generic = partner.distri_generic_partner
         name = (order.distri_nombre or partner.name) if generic else partner._distri_app_name()
-        town = partner._distri_town() if not generic else (
-            order.distri_zona_id.name or "")
-        town = town or town_from_name(partner.name) or ""
-        # the contact's own prefix when it names this town («ZC» stays «ZC»)
-        own = town_prefix(partner.name)
-        prefix = own if own and TOWN_PREFIXES.get(own) == town else PREFIX_OF_TOWN.get(town, "")
+        town, prefix = label_town(partner, generic, order.distri_zona_id.name or "")
         total = order.distri_bultos or len(order.distri_package_ids) or 1
         # 19.0.1.101.0: the packer prints the labels and the route is often
         # assigned later, so the label never depends on the route (no driver,

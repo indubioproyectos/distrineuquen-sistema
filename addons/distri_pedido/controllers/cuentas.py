@@ -5,6 +5,13 @@ models/cuentas_app.py (distri.account.app); this file only translates HTTP.
 
 Read-only: the only writes are adding and deleting a comment
 (distri.account.comment). Nothing here registers, confirms or adjusts money.
+
+19.0.1.112.0: the statement takes a free range (period=custom, date_from,
+date_to), /cuentas/api/statement_pdf prints the existing statement report
+(«Compartir PDF», «Imprimir») and the debtors take the PC filters (zone,
+min_balance, min_age). The page loads cuentas_app.js / cuentas_app.css;
+cuentas.js / cuentas.css stay one version for the 19.0.1.111.0 template
+(static files are served live).
 """
 import hashlib
 import json
@@ -24,7 +31,7 @@ from .reparto import SHARED_CSS, _disk
 STATIC = "/distri_pedido/static/src/cuentas/"
 ICONS = "/distri_pedido/static/src/img/iconos/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "cuentas")
-ASSETS = ("cuentas.js", "cuentas.css")
+ASSETS = ("cuentas.js", "cuentas.css", "cuentas_app.js", "cuentas_app.css")
 
 
 def asset_version():
@@ -124,17 +131,42 @@ class Cuentas(http.Controller):
 
     @http.route("/cuentas/api/debtors", type="http", auth="user", methods=["GET"],
                 sitemap=False)
-    def debtors(self, seller="all", settled="0", **kw):
-        return self._call("app_debtors", seller=seller, settled=settled == "1")
+    def debtors(self, seller="all", settled="0", zone="", min_balance=0, min_age=0, **kw):
+        return self._call("app_debtors", seller=seller, settled=settled == "1", zone=zone,
+                          min_balance=min_balance, min_age=min_age)
 
     @http.route("/cuentas/api/account", type="http", auth="user", methods=["GET"],
                 sitemap=False)
-    def account(self, id=None, period="3m", offset=0, **kw):
+    def account(self, id=None, period="3m", offset=0, date_from="", date_to="", **kw):
         try:
             offset = int(offset or 0)
         except (TypeError, ValueError):
             offset = 0
-        return self._call("app_account", id, period=period, offset=offset)
+        return self._call("app_account", id, period=period, offset=offset,
+                          date_from=date_from, date_to=date_to)
+
+    @http.route("/cuentas/api/statement_pdf", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def statement_pdf(self, id=None, period="3m", date_from="", date_to="", download="0", **kw):
+        """The statement report of the range («Compartir PDF», «Imprimir»):
+        the statement wizard's rules decide (models/cuentas_app.py
+        app_statement_pdf); a refusal answers JSON, like the other reads."""
+        if not app_scope(request.env):
+            return self._json({"ok": False, "error": "Sin acceso a esta pantalla."}, 403)
+        try:
+            pdf, name = self._app().app_statement_pdf(id, period=period, date_from=date_from,
+                                                      date_to=date_to)
+        except AccessError as exc:
+            return self._json({"ok": False, "error": _message(exc)}, 403)
+        except UserError as exc:
+            return self._json({"ok": False, "error": _message(exc)}, 400)
+        return request.make_response(pdf, headers=[
+            ("Content-Type", "application/pdf"),
+            ("Content-Disposition", http.content_disposition(
+                name, "attachment" if download == "1" else "inline")),
+            ("Cache-Control", "no-store"),
+            ("X-Content-Type-Options", "nosniff"),
+        ])
 
     @http.route("/cuentas/api/line", type="http", auth="user", methods=["GET"],
                 sitemap=False)

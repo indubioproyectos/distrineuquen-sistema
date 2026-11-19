@@ -334,31 +334,3 @@ class Revisar(http.Controller):
         except (UserError, AccessError) as exc:
             return self._refuse(_error_text(exc))
         return self._done(order, "Listo: quedó como WhatsApp verificado del cliente.")
-
-
-def asignar_backend(order, pegado, by_fetch):
-    """«Asignar cliente» in the backend wizard (the v108 bridge): only until
-    19.0.1.111.0 is installed, when the page goes to the kit screen
-    (controllers/asignar.py). With a pasted number, the wizard opens with it
-    already searched."""
-    try:
-        with request.env.cr.savepoint():
-            if (pegado or "").strip():
-                wizard = request.env["distri.wa.confirm.wizard"].with_context(
-                    distri_wa_pegar=True).new({
-                        "order_id": order.id, "then": "verify", "pegado": pegado.strip(),
-                        "area": "", "number": ""})
-                action = wizard.action_pegado_asignar()
-            else:
-                action = order.action_distri_asignar_cliente()
-    except (UserError, AccessError) as exc:
-        if by_fetch:
-            return request.make_json_response({"ok": False, "error": _error_text(exc)},
-                                              status=400)
-        return request.redirect("/revisar", local=True)
-    url = "/odoo/sale.order/%s/action-distri_pedido.action_revisar_asignar_cliente" % order.id
-    if not action.get("res_id"):
-        url = "/odoo/sale.order/%s" % order.id
-    if by_fetch:
-        return request.make_json_response({"ok": True, "url": url})
-    return request.redirect(url, local=True)

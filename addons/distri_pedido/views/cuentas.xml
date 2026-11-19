@@ -15,7 +15,10 @@
   <link rel="icon" t-att-href="icons + 'app-192.png?v=95'"/>
   <link rel="apple-touch-icon" t-att-href="icons + 'app-192.png?v=95'"/>
   <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
-  <link rel="stylesheet" t-att-href="static + 'cuentas.css?v=' + version"/>
+  <!-- 19.0.1.112.0: cuentas_app.* (phone statement with dates and sharing,
+       PC «Deudores y estado de cuenta» from 1024 px); cuentas.* stay one
+       version for the 19.0.1.111.0 template -->
+  <link rel="stylesheet" t-att-href="static + 'cuentas_app.css?v=' + version"/>
 </head>
 <body>
   <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
@@ -23,9 +26,24 @@
   <div id="app" t-att-data-uid="uid"><div class="cargando">Cargando…</div></div>
   <div id="sheet-root"></div>
   <div id="toast" hidden="hidden"></div>
-  <script t-att-src="static + 'cuentas.js?v=' + version" defer="defer"></script>
+  <script t-att-src="static + 'cuentas_app.js?v=' + version" defer="defer"></script>
 </body>
 </html>
+  </template>
+
+  <!-- 19.0.1.112.0: the statement a seller sends by WhatsApp
+       (/estado-de-cuenta/<token>, controllers/main.py estado_compartido):
+       the customer's own page plus the range and the expiry of the link -->
+  <template id="cuenta_corriente_compartida" inherit_id="distri_pedido.cuenta_corriente"
+            name="Cuenta corriente: link compartido por el vendedor">
+    <xpath expr="//p[hasclass('personal')]" position="before">
+      <p t-if="compartido" class="compartido">
+        <t t-if="compartido['desde'] and compartido['hasta']">Movimientos del <t t-esc="compartido['desde']"/> al <t t-esc="compartido['hasta']"/>.</t>
+        <t t-elif="compartido['desde']">Movimientos desde el <t t-esc="compartido['desde']"/>.</t>
+        <t t-elif="compartido['hasta']">Movimientos hasta el <t t-esc="compartido['hasta']"/>.</t>
+        Este link vence el <t t-esc="compartido['vence']"/>.
+      </p>
+    </xpath>
   </template>
 
   <record id="action_cuentas_pantalla" model="ir.actions.act_url">

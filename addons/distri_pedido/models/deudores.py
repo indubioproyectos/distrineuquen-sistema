@@ -44,7 +44,8 @@ from odoo.tools.pdf import merge_pdf
 from .ajuste_cuenta import AJC_JOURNAL_CODE
 from .armado import normalizar_ciudad
 from .cuenta import clave_documento
-from .estado_cuenta import SOURCE_LABELS, _imported_staff_type, _money, local_date
+from .estado_cuenta import SOURCE_LABELS, _imported_staff_type, _money, local_date, \
+    mark_owed_fifo
 from .reparto_cliente import AR_TZ, today_ar, town_from_name
 from .revision_cliente import is_reseller
 
@@ -116,7 +117,7 @@ def debtor_balances(env, partners, date_to=False):
 
     Returns {partner_id: {"balance", "last_payment": (date, amount) or None,
     "last_invoice": (date, amount) or None, "candidate_amount",
-    "candidate_count"}}.
+    "candidate_count", "oldest_owed": date of the oldest red row or None}}.
     """
     ids = partners.ids
     rows = defaultdict(list)  # partner_id -> [(day, kind, debit, credit, sort key)]
@@ -188,15 +189,21 @@ def debtor_balances(env, partners, date_to=False):
     for pid in ids:
         balance = 0.0
         last_payment = last_invoice = None
+        counted = []
         for day, kind, debit, credit, key in sorted(
                 rows.get(pid, []), key=lambda r: (r[0] or date.min, r[4])):
             if date_to and (day or date.min) > date_to:
                 break
             balance += (debit or 0.0) - (credit or 0.0)
+            counted.append({"date": day, "debit": debit or 0.0, "credit": credit or 0.0})
             if kind == "payment":
                 last_payment = (day, credit)
             elif kind == "invoice":
                 last_invoice = (day, debit)
+        # 19.0.1.112.0: the date of the oldest red row (FIFO, the statement's
+        # rule, models/estado_cuenta.py mark_owed_fifo), for «Deuda más vieja»
+        mark_owed_fifo(counted)
+        oldest = next((r["date"] for r in counted if r["owed"]), None)
         count, amount = candidates.get(pid, (0, 0.0))
         result[pid] = {
             "balance": balance,
@@ -204,6 +211,7 @@ def debtor_balances(env, partners, date_to=False):
             "last_invoice": last_invoice,
             "candidate_count": count,
             "candidate_amount": amount,
+            "oldest_owed": oldest,
         }
     return result
 
@@ -215,7 +223,8 @@ def debtor_entries(env, customers, date_to=False, include_settled=False):
     `include_settled`, the customers at zero or in credit come too, as kind
     «settled». Each entry: kind, partner, seller, balance (rounded),
     last_payment and last_invoice ((date, amount) or None), candidate_count,
-    candidate_amount, phone, zone."""
+    candidate_amount, oldest_owed (date of the oldest red row, FIFO, or None),
+    phone, zone."""
     tags = seller_tags(env)
     zones = {normalizar_ciudad(z.name): z.name for z in env["distri.zona"].sudo().search([])}
     balances = debtor_balances(env, customers, date_to)
@@ -241,6 +250,7 @@ def debtor_entries(env, customers, date_to=False, include_settled=False):
             "last_invoice": data["last_invoice"],
             "candidate_count": data["candidate_count"],
             "candidate_amount": data["candidate_amount"],
+            "oldest_owed": data["oldest_owed"],
             "phone": partner.distri_whatsapp or partner.phone or "",
             "zone": zones.get(normalizar_ciudad(town), town),
         })

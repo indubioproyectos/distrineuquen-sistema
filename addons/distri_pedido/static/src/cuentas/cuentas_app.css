@@ -1,0 +1,271 @@
+/* «Cuentas»: review customer accounts on the phone (360 px and up) and, from
+   1024 px, «Deudores y estado de cuenta» on the PC (19.0.1.112.0). Colors,
+   type, header, cards, buttons and pills come from ../css/distri_ui.css
+   (shared with /reparto, /armado and /despacho). */
+#app{max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
+.cargando{padding:3rem 1rem;text-align:center;color:var(--muted)}
+.body{padding:8px 10px 20px;display:flex;flex-direction:column;gap:5px;flex-grow:1}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* sticky header with totals and filters */
+.sticky{position:sticky;top:0;z-index:5;box-shadow:0 2px 8px rgba(16,36,63,.18)}
+.head.compact{padding:8px 12px;gap:2px}
+.head.compact .kicker{font-size:11px;letter-spacing:1px}
+.head.compact h1{font-size:19px}
+.head.compact .sub{font-size:12px}
+.head.compact .back{font-size:13px}
+.loadbtn{border:1px solid var(--head-sub);background:transparent;color:var(--mint);border-radius:99px;padding:2px 9px;
+         font-size:11px;font-weight:700;cursor:pointer}
+.loadbtn.on{background:var(--mint);border-color:var(--mint);color:var(--navy)}
+.headbtns{display:flex;gap:6px;align-items:center}
+.loadbtn.logout{text-decoration:none;color:#fff}
+.loadinfo{font-size:12px;color:#fff;display:flex;flex-direction:column;gap:1px}
+.loadinfo span{color:var(--head-sub);font-size:11px}
+.head .upd{color:var(--mint)}
+.head .total{font-size:22px;font-weight:800;line-height:1.1}
+.head .total small{font-size:14px;font-weight:600;color:var(--head-sub)}
+.tools{background:#fff;border-bottom:1px solid var(--line);padding:6px 10px;display:flex;flex-direction:column;gap:6px}
+.searchrow{display:flex;gap:6px;align-items:center}
+.tools .inp{font-size:16px;padding:7px 10px;flex-grow:1;min-width:0}
+.iconbtn{position:relative;flex:none;width:38px;height:38px;border:1px solid var(--input);border-radius:10px;background:#fff;
+         color:var(--soft);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.iconbtn.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.iconbtn.dot::after{content:"";position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:99px;background:var(--teal)}
+.opts{display:flex;flex-direction:column;gap:6px;padding-bottom:2px}
+.seg{display:flex;gap:6px;overflow-x:auto}
+.seg button{flex:1 0 auto;min-height:32px;border:1px solid var(--input);background:#fff;border-radius:99px;padding:4px 10px;
+            font-size:13px;font-weight:700;color:var(--soft);cursor:pointer}
+.seg button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.toggles{display:flex;flex-wrap:wrap;gap:6px 14px}
+.toggles label{display:flex;align-items:center;gap:6px;font-size:13px;min-height:30px;cursor:pointer}
+.toggles input{width:18px;height:18px}
+
+/* debtor rows */
+.debtor{display:flex;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 9px;
+        color:var(--text);text-decoration:none;min-height:44px;align-items:flex-start;cursor:pointer}
+.debtor:active{background:var(--tint)}
+.debtor .rk{flex:none;width:24px;font-size:11px;font-weight:800;color:var(--muted);padding-top:2px}
+.debtor .who{flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.debtor .who b{font-size:14px;line-height:1.2;overflow-wrap:anywhere}
+.debtor .who .d{font-size:11.5px;color:var(--muted)}
+.debtor .amt{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.debtor .amt b{font-size:15px;font-weight:800}
+.debtor .pill{font-size:10.5px;padding:1px 6px}
+.debtor .amt b.credit{color:var(--green)}
+.badges{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.section-title{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:800;
+               padding:6px 2px 0;display:flex;justify-content:space-between;gap:8px}
+
+/* account screen */
+.facts{display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--soft)}
+.contact{display:flex;gap:8px;flex-wrap:wrap}
+.contact a{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:5px 12px;border-radius:99px;
+           background:var(--teal);color:#fff;font-weight:700;font-size:13px;text-decoration:none}
+.contact a + a{background:var(--navy)}
+.summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.summary .box{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 9px;display:flex;flex-direction:column;gap:1px}
+.summary .box span{font-size:11px;color:var(--muted);font-weight:700}
+.summary .box b{font-size:15px;font-weight:800}
+.summary .box.wide{grid-column:1 / -1}
+.summary .box.warn{background:var(--amber-bg-2);border-color:var(--amber-border)}
+.summary .box.err{background:var(--red-bg-2)}
+
+/* statement rows: two lines, amounts right */
+.stmt{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.srow{display:flex;gap:8px;padding:6px 9px;border-top:1px solid var(--line-2);cursor:pointer;min-height:42px;
+      background:#fff;border-left:0;border-right:0;border-bottom:0;text-align:left;width:100%;color:inherit}
+.srow:first-child{border-top:0}
+.srow:active{background:var(--tint)}
+.srow.prov{background:var(--amber-bg-2)}
+.srow.owed{background:var(--red-bg-2)}
+.srow.opening{cursor:default;background:var(--tint)}
+.srow .l{flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.srow .l .t{font-size:12.5px;font-weight:700;overflow-wrap:anywhere}
+.srow .l .t .dt{color:var(--muted);font-weight:600;margin-right:6px}
+.srow .l .c{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow .r{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.srow .r .m{font-size:13.5px;font-weight:800}
+.srow .r .m.cr{color:var(--green)}
+.srow .r .b{font-size:11px;color:var(--muted)}
+.more{margin-top:4px}
+
+/* comments */
+.comments{display:flex;flex-direction:column;gap:8px}
+.comment{background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 9px;display:flex;flex-direction:column;gap:4px}
+.comment.resolved{opacity:.65}
+.comment .meta{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.comment .txt{font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.comment .ref{font-size:12px;color:var(--navy);font-weight:700}
+.compose{display:flex;flex-direction:column;gap:6px}
+.compose textarea{min-height:56px;resize:vertical;font-size:16px}
+.compose .btn{padding:8px;font-size:14px}
+
+/* bottom sheet (line detail) */
+.overlay{position:fixed;inset:0;background:rgba(16,36,63,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:16px 16px 0 0;
+       padding:0 0 calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+.sheet .grab{position:sticky;top:0;background:var(--bg);padding:10px 16px 8px;display:flex;justify-content:space-between;
+             align-items:center;gap:8px;border-bottom:1px solid var(--line);z-index:1}
+.sheet .grab b{font-size:15px}
+.sheet .close{min-width:44px;min-height:44px;border:0;background:var(--chip);border-radius:99px;font-size:20px;cursor:pointer}
+.sheet .inner{padding:8px 10px;display:flex;flex-direction:column;gap:7px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12.5px;background:#fff;border:1px solid var(--line);
+    border-radius:10px;padding:8px 10px}
+.kv dt{color:var(--muted);font-weight:700}
+.kv dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.block{display:flex;flex-direction:column;gap:6px}
+.block.placeholder{border:2px dashed var(--input);border-radius:12px;padding:12px;background:var(--tint)}
+.receipt{display:block;width:100%;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:zoom-in}
+.zoom{position:fixed;inset:0;background:#000;z-index:30;overflow:auto;display:flex;align-items:flex-start;justify-content:center}
+.zoom img{max-width:none;width:100%;height:auto}
+.zoom.big img{width:200%}
+.zoom .close{position:fixed;top:calc(10px + env(safe-area-inset-top));right:10px;min-width:48px;min-height:48px;border:0;
+             border-radius:99px;background:rgba(255,255,255,.9);font-size:22px;cursor:pointer}
+.empty{padding:14px 4px;text-align:center;color:var(--muted);font-size:13px}
+.denied{padding:40px 20px;text-align:center}
+
+/* denser account screen: shared card/button sizes shrunk for this app only */
+#app .card{padding:8px 10px;border-radius:10px}
+#app .btn{padding:9px;font-size:14px;border-radius:10px}
+
+/* cash sheet of a cash payment (line detail): compact rows, the paired one marked */
+.cs{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.cs-head{display:flex;flex-direction:column;gap:1px;padding:6px 9px;border-bottom:1px solid var(--line-2)}
+.cs-head b{font-size:13px}
+.cs-head span{font-size:11.5px;color:var(--muted)}
+.cs-rows{position:relative;max-height:46vh;overflow-y:auto;overscroll-behavior:contain}
+.cs-row{display:flex;gap:8px;padding:5px 9px;border-top:1px solid var(--line-2);min-height:36px}
+.cs-row:first-child{border-top:0}
+.cs-row .l{flex-grow:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cs-row .l .t{font-size:12.5px;font-weight:700;overflow-wrap:anywhere}
+.cs-row .l .c{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.cs-row .r{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.cs-row .r .m{font-size:13px;font-weight:800}
+.cs-row .r .b{font-size:10.5px;color:var(--muted)}
+.cs-row.other{background:var(--tint)}
+.cs-row.other .l .t{font-weight:600;color:var(--soft)}
+.cs-row.hit{background:var(--amber-bg-2);box-shadow:inset 4px 0 0 var(--teal)}
+.cs-hidden{padding:5px 9px;font-size:11.5px;color:var(--muted);font-style:italic;border-top:1px dashed var(--line)}
+.cs-total{display:flex;justify-content:space-between;gap:8px;padding:6px 9px;border-top:1px solid var(--line);
+          background:var(--tint);font-size:12.5px}
+.cs-total b{font-size:14px;font-weight:800}
+.cs-files{display:flex;gap:6px;flex-wrap:wrap}
+.cs-files .btn{flex:1 1 auto;width:auto;padding:7px 10px;font-size:13px}
+
+/* ---------------------------------------------------- 19.0.1.112.0 */
+
+/* account header: the mockup's kicker, balance word, facts and contact */
+.head.compact .facts-line{margin:0;font-size:12.5px;color:var(--head-sub)}
+.head .sub.owes{color:#f6b3aa;font-weight:700}
+.toplinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.toplnk{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border-radius:22px;
+        border:1px solid rgba(255,255,255,.3);color:var(--mint);font-weight:700;font-size:14px;text-decoration:none}
+.toplnk svg{width:18px;height:18px}
+
+/* period: quick buttons, then «Desde» / «Hasta» */
+.range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.fld{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:700;color:var(--soft);min-width:0}
+.fld .inp{font-size:16px;min-height:44px;padding:7px 10px;width:100%}
+
+/* «Compartir PDF» / «Por WhatsApp» */
+.share{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:4px}
+#app .share .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;font-weight:800;
+                 font-size:15px;text-decoration:none;padding:8px 10px}
+#app .btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--input);font-weight:700}
+#app .btn.ghost:disabled{color:#9aa6b1;background:#fff}
+#app .btn.wa{background:var(--teal);color:#fff}
+#app .btn.wa:disabled{background:#c9d1d8}
+.share-note{padding:0 2px}
+#app .btn.sm{width:auto;min-height:40px;padding:6px 12px;font-size:14px;display:inline-flex;align-items:center;gap:6px;
+             text-decoration:none}
+
+/* red invoices and the period's totals */
+.redbox{background:var(--red-bg);color:var(--red);border-radius:12px;padding:10px 12px;font-size:13.5px;font-weight:600}
+.totals{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);padding:0 2px}
+.totals b{color:var(--text)}
+
+/* «Pagos a confirmar» and «Comprobantes pendientes» */
+.card.cand{gap:8px}
+.ci{display:flex;flex-direction:column;gap:4px;padding-bottom:8px;border-bottom:1px solid var(--line-2)}
+.ci:last-of-type{border-bottom:0;padding-bottom:0}
+.ci-top{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+#app .card.cand .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;text-decoration:none}
+
+/* ---- PC: debtors table and the account beside (from 1024 px) */
+body.wide #app{max-width:none}
+.desk{min-height:100vh;display:flex;flex-direction:column;background:#f4f6f8}
+.dbar{background:var(--navy);color:#fff;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;
+      padding:10px 84px 10px 24px}
+.dbar .logo{width:36px;height:36px;border-radius:10px;background:#00d1b2;color:var(--navy);display:flex;align-items:center;
+            justify-content:center;font-weight:800;font-size:15px;flex:none}
+.dbar .dtitle{font-size:20px;font-weight:800}
+.dbar .dsub{font-size:14px;color:var(--mint);font-weight:700}
+.dbar .grow{flex-grow:1}
+.dbar .loadbtn{font-size:13px;padding:5px 12px;text-decoration:none}
+.dwrap{width:100%;max-width:1600px;margin:0 auto;padding:16px 20px 28px;display:flex;flex-direction:column;gap:14px}
+.dfilters{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.frow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.frow .fld .inp{min-width:150px}
+.frow .fld.grow .inp{min-width:220px}
+.frow #f-min{width:140px;min-width:0}
+.kpis{display:flex;gap:12px;flex-wrap:wrap}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 16px;display:flex;flex-direction:column;
+     gap:2px;min-width:180px;flex:1 1 0}
+.kpi span{font-size:13px;color:var(--muted)}
+.kpi b{font-size:24px;font-weight:800}
+.kpi.err span,.kpi.err b{color:var(--red)}
+.dcols{display:flex;gap:16px;align-items:flex-start}
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;
+       gap:10px;min-width:0}
+.dlist{flex:1 1 0;min-width:0;padding:10px 8px}
+.dacc{flex:0 0 clamp(390px,35%,560px);position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto;gap:8px;
+      background:var(--bg)}
+.dacc.empty-side{background:#fff}
+.dacc>*{flex-shrink:0}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{min-height:36px;border:1px solid var(--input);background:#fff;border-radius:99px;padding:4px 14px;font-weight:700;
+             font-size:14px;color:var(--soft);cursor:pointer}
+.tabs button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.tscroll{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;font-size:12.5px;color:var(--muted);font-weight:700;padding:6px 6px;border-bottom:1px solid var(--line);
+        white-space:nowrap}
+.tbl td{padding:6px 6px;border-bottom:1px solid var(--line-2);vertical-align:top}
+.tbl .r{text-align:right}
+.tbl .strong{font-weight:800}
+.tbl .cr{color:var(--green)}
+.dtbl td{white-space:nowrap}
+.dtbl td:nth-child(2){white-space:normal;min-width:150px}
+.dtbl .small{font-size:12px}
+.dtbl tbody tr{cursor:pointer}
+.dtbl tbody tr:hover td{background:var(--tint)}
+.dtbl tr.on td{background:var(--navy-bg)}
+.dtbl a{color:var(--text);text-decoration:none}
+.dacc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;background:#fff;
+           border:1px solid var(--line);border-radius:12px;padding:12px}
+.dacc-head .who{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dacc-head h2{margin:0;font-size:21px;font-weight:800;line-height:1.15}
+.dacc-head .bal{display:flex;flex-direction:column;align-items:flex-end;flex:none}
+.dacc-head .bal b{font-size:24px;font-weight:800}
+.owes{color:var(--red);font-weight:700}
+.clink{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:3px 10px;border-radius:99px;background:var(--teal);
+       color:#fff;font-weight:700;font-size:13px;text-decoration:none}
+.clink svg{width:16px;height:16px}
+.clink + .clink{background:var(--navy)}
+.dacc .contact{margin-top:6px}
+.stbl{background:#fff;border:1px solid var(--line);border-radius:12px;font-size:13px}
+.stbl tbody tr{cursor:pointer}
+.stbl tbody tr:hover td{background:var(--tint)}
+.stbl tr.owed td{background:var(--red-bg-2)}
+.stbl tr.prov td{background:var(--amber-bg-2)}
+.stbl tr.opening{cursor:default}
+.stbl tr.opening td{background:var(--tint)}
+.stbl td.num,.stbl td.r{white-space:nowrap}
+.stbl td:nth-child(2){overflow-wrap:anywhere}
+.stbl{table-layout:auto}
+.stbl .c{font-size:12px;color:var(--muted)}
+.stbl .owedtxt{color:var(--red);font-weight:700;font-size:12.5px}
+.stbl .pill{font-size:10.5px;padding:1px 6px}
+body.wide .overlay{align-items:center}
+body.wide .sheet{border-radius:16px;max-height:86vh}
