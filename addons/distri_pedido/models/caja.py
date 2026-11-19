@@ -18,6 +18,14 @@ its difference. All the cash of the company converges here:
   takes it.
 - Outflows (gasto, proveedor, retiro, depósito al banco) and «ajuste» (cash
   that came back later, e.g. a driver's shortage he brought the next day).
+- «Cobro cargado en Online» (19.0.1.117.0): a customer's cash payment the
+  cashier registered in Odoo Online instead of the lab. The read-only sync
+  mirrors it (distri.online.payment) and already puts it in the customer's
+  account history, so the lab never registers it again: the cashier only
+  brings that money into his session («Traer a mi caja», `take_online`),
+  once for every caja (a unique index on `online_payment_id`), and may take
+  it out while the session is open («Sacar de mi caja», `release_online`).
+  No account.payment and no history row are created.
 
 Rules: one open session per cashier; today's cannot open while a previous
 one is open; the opening float is proposed from the previous closing's «queda
@@ -49,10 +57,12 @@ import re
 from datetime import timedelta
 
 from markupsafe import Markup
+from psycopg2.errors import UniqueViolation
 
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
+from .puesta_al_dia import ONLINE_POSTED, online_cash_journals
 from .reparto import _money
 from .reparto_cliente import today_ar
 
@@ -68,8 +78,10 @@ MOVEMENT_KINDS = [
     ("retiro", "Retiro"),
     ("banco", "Depósito al banco"),
     ("ajuste", "Ajuste"),
+    # 19.0.1.117.0: a cash payment registered in Odoo Online (see above)
+    ("online", "Cobro cargado en Online"),
 ]
-INFLOW_KINDS = ("cobro", "rendicion", "recepcion")
+INFLOW_KINDS = ("cobro", "rendicion", "recepcion", "online")
 OUTFLOW_KINDS = ("gasto", "proveedor", "retiro", "banco")
 
 EXPENSE_CONCEPTS = [
@@ -103,6 +115,16 @@ NOTE_MAX = 250
 REOPEN_REASON_MAX = 500
 # 19.0.1.115.0: an identical outflow within this window is the same one
 OUTFLOW_TWIN_SECONDS = 120
+# 19.0.1.117.0: «Cobros en efectivo cargados en Online» lists the mirrored
+# cash payments dated today or up to this many days before (an older one is
+# not this week's cash any more: administración looks at it)
+ONLINE_CASH_DAYS = 7
+# ... and never before this day (ISO date): the go-live of the caja, set by
+# migrations/19.0.1.117.0 to the first session's day, so the Online cash of
+# the days before any caja existed is not brought in. Empty: no such bound.
+PARAM_ONLINE_CASH_SINCE = "distri_pedido.caja_online_desde"
+ONLINE_VOID_STATES = {"draft": "en borrador", "canceled": "cancelado", "cancel": "cancelado",
+                      "rejected": "rechazado"}
 
 
 class CajaQuestion(UserError):
@@ -279,7 +301,8 @@ class DistriCaja(models.Model):
             by_kind = {}
             for move in caja.movement_ids:
                 by_kind[move.kind] = by_kind.get(move.kind, 0.0) + move.amount
-            caja.total_cobros = by_kind.get("cobro", 0.0)
+            # 19.0.1.117.0: a cash payment of Online is a «Cobro en el local» too
+            caja.total_cobros = by_kind.get("cobro", 0.0) + by_kind.get("online", 0.0)
             caja.total_rendiciones = by_kind.get("rendicion", 0.0) + by_kind.get("recepcion", 0.0)
             caja.total_salidas = by_kind.get("gasto", 0.0) + by_kind.get("proveedor", 0.0)
             caja.total_retiros = by_kind.get("retiro", 0.0) + by_kind.get("banco", 0.0)
@@ -392,6 +415,7 @@ class DistriCaja(models.Model):
         Movement = self.env["distri.caja.movimiento"].sudo()
         for caja in self.sudo().filtered(lambda c: c.state == "open"):
             caja._drop_void_collections()
+            caja._drop_void_online()
             boxes = caja._own_boxes()
             payments = boxes.payment_ids.filtered(lambda p: p.state in ("in_process", "paid"))
             if not payments:
@@ -426,6 +450,118 @@ class DistriCaja(models.Model):
                 dict(move.payment_id._fields["state"].selection).get(
                     move.payment_id.state, move.payment_id.state)))
         void.unlink()
+
+    # ------------------------------------------------------------ Online cash
+    # 19.0.1.117.0: «Cobros en efectivo cargados en Online»
+
+    @api.model
+    def _online_cash_domain(self):
+        """The mirrored Online payments a cashier may bring into his caja:
+        an Online cash journal, posted there, of the last ONLINE_CASH_DAYS
+        days (and later: a payment dated ahead is still this week's cash),
+        not before PARAM_ONLINE_CASH_SINCE."""
+        since = today_ar() - timedelta(days=ONLINE_CASH_DAYS)
+        start = self.env["ir.config_parameter"].sudo().get_param(PARAM_ONLINE_CASH_SINCE)
+        try:
+            start = fields.Date.to_date(start) if start else None
+        except ValueError:
+            start = None
+        since = max(since, start) if start else since
+        return [("journal_online_id", "in", list(online_cash_journals(self.env))),
+                ("state", "in", ONLINE_POSTED), ("amount", ">", 0), ("date", ">=", since)]
+
+    @api.model
+    def pending_online_cash(self):
+        """The Online cash payments no caja (of any cashier) took yet, newest
+        first. Online does not say which user registered them, so every
+        cashier sees them all; each one enters a single caja."""
+        self._check_cashier()
+        payments = self.env["distri.online.payment"].sudo().search(
+            self._online_cash_domain(), order="date desc, id desc")
+        taken = self.env["distri.caja.movimiento"].sudo().search(
+            [("online_payment_id", "in", payments.ids)]).online_payment_id
+        return payments - taken
+
+    def take_online(self, online_payment):
+        """«Traer a mi caja»: the Online cash payment enters the open session
+        as a «Cobro cargado en Online». Only the money moves: the customer's
+        account already has it (the sync), so neither an account.payment nor
+        a distri.cuenta.movimiento is created."""
+        caja = self._check_mine_open()
+        pay = online_payment.sudo().exists()
+        if not pay:
+            raise UserError("Ese cobro de Online ya no está.")
+        # two clicks (or two cashiers) at once: the mirror row is written
+        # first, so the requests serialize and the later one, retried, finds
+        # the movement; the unique index is the last guard
+        self.env.cr.execute(
+            "UPDATE distri_online_payment SET write_date = write_date WHERE id = %s", [pay.id])
+        Movement = self.env["distri.caja.movimiento"].sudo()
+        taken = Movement.search([("online_payment_id", "=", pay.id)], limit=1)
+        if taken:
+            raise UserError("Ese cobro de Online ya está en %s." % (
+                "tu caja" if taken.caja_id == caja else "la caja de %s (%s)" % (
+                    taken.caja_id.user_id.name, taken.caja_id.date.strftime("%d/%m"))))
+        if not pay.filtered_domain(self._online_cash_domain()):
+            raise UserError("%s no es un cobro en efectivo de Online de estos días: no se puede "
+                            "traer a la caja." % (pay.name or pay.move_name or "Ese pago"))
+        customer = pay.partner_id.commercial_partner_id
+        who = customer.name or "Cliente %s de Online" % pay.online_partner_id
+        try:
+            with self.env.cr.savepoint():
+                movement = Movement.create({
+                    "caja_id": caja.id,
+                    "kind": "online",
+                    "amount": pay.amount,
+                    "partner_id": customer.id or False,
+                    "who": who,
+                    "online_payment_id": pay.id,
+                    "note": " · ".join(
+                        x for x in (pay.name or pay.move_name, pay.memo) if x)[:NOTE_MAX] or False,
+                })
+        except UniqueViolation:
+            raise UserError("Ese cobro de Online ya está en una caja.") from None
+        caja.message_post(body=Markup(
+            "%s trajo a la caja el cobro en efectivo cargado en Online %s del %s: %s, %s.") % (
+            self.env.user.name, pay.name or pay.move_name or "",
+            pay.date.strftime("%d/%m/%Y") if pay.date else "", who, _money(pay.amount)))
+        return movement
+
+    def release_online(self, movement):
+        """«Sacar de mi caja»: undo `take_online` while the session is open;
+        the payment is listed again for any cashier."""
+        caja = self._check_mine_open()
+        movement = movement.sudo().exists()
+        if not movement or movement.caja_id != caja or movement.kind != "online":
+            raise UserError("Ese cobro de Online no está en esta caja.")
+        if movement.statement_line_ids:
+            raise UserError("Ese cobro ya está en el cierre de la caja.")
+        caja.message_post(body=Markup(
+            "%s sacó de la caja el cobro en efectivo cargado en Online %s (%s, %s).") % (
+            self.env.user.name, movement.online_payment_id.name or movement.note or "",
+            movement.who or "", _money(movement.amount)))
+        movement.unlink()
+        return True
+
+    def _drop_void_online(self):
+        """The «Cobro cargado en Online» movements of these open sessions
+        whose Online payment was cancelled or reset to draft in Online (a
+        later sync), or whose mirror row is gone: they leave the session with
+        a note, as `_drop_void_collections` does for the lab's payments. A
+        closed session is left as is (its closing booked the money)."""
+        for caja in self.sudo().filtered(lambda c: c.state == "open"):
+            void = caja.movement_ids.filtered(
+                lambda m: m.kind == "online" and not m.statement_line_ids and (
+                    not m.online_payment_id or m.online_payment_id.state not in ONLINE_POSTED))
+            for move in void:
+                pay = move.online_payment_id
+                caja.message_post(body=Markup(
+                    "Se quitó de la caja el cobro cargado en Online %s de %s (%s): %s.") % (
+                    pay.name or move.note or "", move.who or "", _money(move.amount),
+                    "en Online quedó %s" % ONLINE_VOID_STATES.get(pay.state, "«%s»" % pay.state)
+                    if pay else "ya no está en la copia de Online"))
+            void.unlink()
+        return True
 
     def _collections_in_a_caja(self, route):
         """The cash payments of a box already counted in some session (its
@@ -881,10 +1017,29 @@ class DistriCajaMovimiento(models.Model):
                                           string="Líneas del extracto", readonly=True)
     label = fields.Char(string="Detalle", compute="_compute_label")
 
+    # 19.0.1.117.0: the Online cash payment brought in («Cobro cargado en
+    # Online»); a mirror row that disappears leaves the open caja
+    # (`_drop_void_online`), its number stays in `note`
+    online_payment_id = fields.Many2one("distri.online.payment", string="Cobro en Online",
+                                        readonly=True, index=True, ondelete="set null")
+    online_payment_label = fields.Char(string="Número en Online",
+                                       compute="_compute_online_payment_label")
+
+    _online_payment_unique = models.UniqueIndex(
+        "(online_payment_id) WHERE online_payment_id IS NOT NULL",
+        "Ese cobro de Online ya está en una caja.")
     _payment_unique = models.UniqueIndex("(payment_id) WHERE payment_id IS NOT NULL",
                                          "Ese cobro ya está en una caja.")
     _route_unique = models.UniqueIndex("(route_id) WHERE route_id IS NOT NULL",
                                        "Esa rendición ya se recibió.")
+
+    def _compute_online_payment_label(self):
+        # the cashier has no access to the mirror: its number through sudo
+        for move in self:
+            pay = move.sudo().online_payment_id
+            move.online_payment_label = ("%s del %s" % (
+                pay.name or pay.move_name or "", pay.date.strftime("%d/%m/%Y") if pay.date else "")
+                ).strip() if pay else False
 
     @api.depends("photo", "document")
     def _compute_has_receipt(self):

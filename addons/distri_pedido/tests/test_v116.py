@@ -12,8 +12,12 @@
 5. The route's remitos follow the single remito's access rule.
 6. A failed auto-invoice at packing warns every person of administración
    and gerencia (not the technical admin) and shows on /tablero.
+7. (19.0.1.117.0) A remito longer than one page starts on a new page in the
+   route's remitos, and so does the next one.
 Synthetic data only.
 """
+import re
+
 from odoo import Command, fields
 from odoo.exceptions import AccessError, UserError
 from odoo.tests import HttpCase, TransactionCase, new_test_user, tagged
@@ -230,6 +234,33 @@ class TestV116Http(PedidoAbiertoMixin, RepartoMixin, HttpCase):
                 Report.with_user(user)._get_report_values(route_may.ids)
         self.assertEqual(Report.with_user(self.admin)._get_report_values(route_may.ids)["docs"],
                          route_may)
+
+    def test_7_remito_largo_empieza_en_hoja_nueva(self):
+        """A remito over one A4 page starts on a new page, and so does the
+        next one; short remitos keep sharing the sheet with a cut line."""
+        short_a = self._order(self.direct, self.product)
+        long_order = self._order(self.direct, self.product)
+        extra = self.env["product.product"].create([{
+            "name": "Renglon largo v117 %02d" % i, "list_price": 10, "type": "consu",
+            "taxes_id": [Command.clear()]} for i in range(44)])
+        long_order.write({"order_line": [Command.create({
+            "product_id": p.id, "product_uom_qty": 1, "price_unit": 10}) for p in extra]})
+        short_b = self._order(self.direct, self.product)
+        short_c = self._order(self.direct, self.product)
+        orders = short_a | long_order | short_b | short_c
+        route = self._route(orders)
+        html = self.env["ir.actions.report"].with_user(self.admin)._render_qweb_html(
+            "distri_pedido.report_remitos_ruta", route.ids)[0].decode()
+        body = html.split('class="dr dr-remitos"', 1)[1]
+        seq = re.findall(r'class="(rm-hoja|dr-cut)"|Pedido (S\d+)', body)
+        names = [n for _sep, n in seq if n]
+        seps = [s for s, _n in seq if s]
+        self.assertEqual(sorted(names), sorted(orders.mapped("name")))
+        self.assertEqual(len(seps), len(names) - 1)
+        for i, sep in enumerate(seps):
+            pair = {names[i], names[i + 1]}
+            expected = "rm-hoja" if long_order.name in pair else "dr-cut"
+            self.assertEqual(sep, expected, (names, seps))
 
     def test_6_factura_fallida_avisa_a_las_personas(self):
         order = self._order(self.direct, self.product)

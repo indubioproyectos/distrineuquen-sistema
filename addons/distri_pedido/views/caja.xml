@@ -144,12 +144,31 @@
         <a class="dn-btn dn-btn--outline" href="/caja/salida?tipo=retiro" data-dn="down">
           <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'minus'"/></t> Retiro</a>
       </div>
+      <!-- 19.0.1.117.0: cash payments registered in Odoo Online (models/caja.py,
+           pending_online_cash): the customer's account already has them, only
+           the money enters the caja; each one goes to a single caja. -->
+      <section t-if="online" class="caja-online" id="caja-online" aria-labelledby="caja-online-h">
+        <h2 class="dn-label" id="caja-online-h">Cobros en efectivo cargados en Online (<t t-esc="len(online)"/>)</h2>
+        <p class="caja-muted caja-online__nota">Ya están en la cuenta del cliente: no los cargues de nuevo en
+          «Cobro». Traé a tu caja los que cobraste vos.</p>
+        <form t-foreach="online" t-as="o" class="dn-card caja-item" method="post"
+              t-att-action="'/caja/online/%s/traer' % o.id" data-caja-form="" data-fetch="">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <span class="caja-item__txt">
+            <b t-esc="o.partner_id.commercial_partner_id.name or 'Cliente %s de Online' % o.online_partner_id"/>
+            <span><t t-esc="o.date.strftime('%d/%m') if o.date else ''"/> · <b class="dn-num" t-esc="money(o.amount)"/></span>
+            <span><t t-esc="o.name or o.move_name"/><t t-if="o.memo"> · <t t-esc="o.memo"/></t></span>
+          </span>
+          <button type="submit" class="dn-btn caja-btn-auto">Traer a mi caja</button>
+        </form>
+      </section>
       <h2 class="dn-label">Movimientos</h2>
       <div class="dn-empty" t-if="not movimientos">
         <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'cash'"/></t>
         <p>Todavía no hay movimientos.</p>
       </div>
-      <t t-else="" t-call="distri_pedido.caja_mov_lista"><t t-set="movs" t-value="movimientos"/></t>
+      <t t-else="" t-call="distri_pedido.caja_mov_lista"><t t-set="movs" t-value="movimientos"/>
+        <t t-set="sacar_online" t-value="caja.state == 'open'"/></t>
       <t t-call="distri_pedido.caja_links"/>
     </t>
     <t t-else="">
@@ -577,7 +596,14 @@
             <t t-esc="'faltan' if m.route_difference &lt; 0 else 'sobran'"/> <t t-esc="money(abs(m.route_difference))"/></small>
           <a t-if="m.has_receipt" class="caja-mov__comp" target="_blank" rel="noopener"
              t-att-href="'/caja/movimiento/%s/comprobante' % m.id"
-             t-esc="'Ver PDF' if m.document else 'Ver foto'"/></span>
+             t-esc="'Ver PDF' if m.document else 'Ver foto'"/>
+          <!-- 19.0.1.117.0: the Online number, and «Sacar de mi caja» on /caja -->
+          <small t-if="m.kind == 'online' and m.note" class="caja-mov__nota" t-esc="m.note"/>
+          <form t-if="sacar_online and m.kind == 'online'" class="caja-mov__sacar" method="post"
+                t-att-action="'/caja/online/%s/sacar' % m.id" data-caja-form="" data-fetch="">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <button type="submit" class="dn-btn dn-btn--ghost caja-btn-auto">Sacar de mi caja</button>
+          </form></span>
         <b class="caja-mov__imp dn-num"><t t-esc="'+' if m.amount &gt;= 0 else '−'"/> <t t-esc="money(abs(m.amount))"/></b>
       </li>
     </ul>

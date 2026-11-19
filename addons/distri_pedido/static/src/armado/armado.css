@@ -149,3 +149,11 @@ label.dn-btn{user-select:none}
 .bul{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .bul__n{font-size:24px}
 .bul__mas{font-size:26px}
+
+/* 19.0.1.117.0: «Facturados sin armar» */
+.arm-fact__ped{padding:0}
+.arm-fact__top{display:flex;align-items:center;gap:10px;padding:12px 12px 12px 16px;cursor:pointer;list-style:none;min-height:72px}
+.arm-fact__top::-webkit-details-marker{display:none}
+.arm-fact__chip{flex:none}
+.arm-fact__ped[open] .arm-fact__chip{visibility:hidden}
+.arm-fact__form{padding:0 16px 16px}

@@ -383,14 +383,18 @@ class TestPlanillas(PlanningMixin, HttpCase):
         self.assertIn("PARA TRANSFERIR · ALIAS", text)
         self.assertIn("sepiko", text)
         self.assertIn("Titular: Gonzalo Granero · Distri Neuquén", text)
-        # blank columns, fixed rows, boxes; never the code nor signatures
-        for label in ("Código", "Hora", "Pagado", "Medio", "Gastos del cobrador",
+        # blank columns, fixed rows, boxes; never the code. 19.0.1.117.0: one
+        # customer «Firma» column and an «Efectivo» amount column replace
+        # Código, Hora and Pagado; still no staff signature lines (18/11)
+        for label in ("Efectivo", "Firma", "Medio", "Gastos del cobrador",
                       "Faltante o sobrante", "Flete", "Otros cobros", "Total de la ruta",
                       "E = efectivo · T = transferencia · AC = a cuenta (no pagó) · D = devolución",
                       "Efectivo entregado en caja"):
             self.assertIn(label, text)
         self.assertNotIn("7319", text, "the receipt code is never printed")
-        self.assertNotRegex(text.lower(), r"firma|aclaraci[oó]n")
+        for absent in ("Código", "Hora", "Pagado", "Controló la carga"):
+            self.assertNotIn(absent, text)
+        self.assertNotRegex(text.lower(), r"aclaraci[oó]n|firma del repartidor")
         self.assertGreaterEqual(html.count('class="dr-blank"'), 3)
         # each stop in order with what to collect and the debt breakdown
         for order in self.packed:

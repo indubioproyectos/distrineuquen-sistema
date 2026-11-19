@@ -77,6 +77,41 @@
     </t>
   </template>
 
+  <!-- 19.0.1.117.0: «Facturados sin armar» (models/factura_sin_armar.py):
+       invoiced by hand before packing, so the normal list hides them and the
+       route planning cannot take them. «Ya lo armé» asks the bultos, marks
+       the order packed and delivers it as ordered; no second invoice. -->
+  <template id="armado_facturados" name="Armado: facturados sin armar">
+    <section t-if="facturados" class="arm-zona arm-fact" id="facturados" aria-labelledby="facturados-t">
+      <h2 class="dn-label arm-zona__tit" id="facturados-t"><span>Facturados sin armar (<t t-esc="len(facturados)"/>)</span>
+        <small>Ya tienen factura: marcalos cuando estén armados</small></h2>
+      <div class="arm-lista">
+        <details t-foreach="facturados" t-as="p" class="dn-card arm-fact__ped" t-att-id="'fact%s' % p.id">
+          <summary class="arm-fact__top">
+            <span class="arm-ped__txt">
+              <span class="arm-ped__nom" t-esc="p._distri_nombre_cliente()"/>
+              <span class="arm-ped__det"><t t-esc="p.name"/> · <t t-esc="p.distri_zona_id.name or 'Sin zona'"/>
+                · <span class="dn-num" t-esc="plata(p.amount_total)"/></span>
+              <span class="arm-ped__det">Factura <t t-esc="', '.join(p._distri_factura_viva().mapped('name'))"/></span>
+            </span>
+            <span class="dn-chip dn-chip--warn arm-fact__chip">Ya lo armé</span>
+          </summary>
+          <form method="post" class="arm-form arm-fact__form"
+                t-att-action="'/armado/facturado/%s/ya-armado' % p.id">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <div class="dn-field">
+              <label t-att-for="'fact-bultos-%s' % p.id">¿En cuántos bultos quedó?</label>
+              <input class="dn-input dn-input--big dn-num" type="number" t-att-id="'fact-bultos-%s' % p.id"
+                     name="bultos" min="1" max="999" step="1" inputmode="numeric" required="required" placeholder="0"/>
+            </div>
+            <p class="arm-hint">Se entrega todo lo pedido. No se hace otra factura.</p>
+            <button type="submit" class="dn-btn dn-btn--lg">Ya lo armé</button>
+          </form>
+        </details>
+      </div>
+    </section>
+  </template>
+
   <template id="armado_lista" name="Armado: pedidos del día">&lt;!DOCTYPE html&gt;
 <html lang="es">
 <head>
@@ -101,8 +136,10 @@
     <span>Dejaste <b><t t-esc="dejado.name"/></b> para más tarde. Quedó para armar
     y lo puede tomar cualquiera.</span>
   </div>
+  <div class="dn-banner dn-banner--err" t-if="error_ya" role="alert"><span t-esc="error_ya"/></div>
   <main class="dn-main arm-main" id="lista" aria-live="polite">
     <t t-call="distri_pedido.armado_lista_cuerpo"/>
+    <t t-call="distri_pedido.armado_facturados"/>
   </main>
   <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
 </body>
@@ -260,14 +297,14 @@
   <template id="armado_pref" name="Armado: vista y orden">
     <div class="arm-pref">
       <form method="post" action="/armado/preferencias" class="arm-seg" data-aj-pref="" aria-label="Vista">
-        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
         <input type="hidden" name="volver" t-att-value="'/armado/pedido/%s' % pedido.id"/>
         <t t-foreach="vistas" t-as="v">
           <button type="submit" name="vista" t-att-value="v[0]" t-att-aria-pressed="'true' if vista == v[0] else 'false'" t-esc="v[1]"/>
         </t>
       </form>
       <form method="post" action="/armado/preferencias" class="arm-seg" data-aj-pref="" aria-label="Orden">
-        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
         <input type="hidden" name="volver" t-att-value="'/armado/pedido/%s' % pedido.id"/>
         <button type="submit" name="orden" value="alfabetico" t-att-aria-pressed="'true' if orden == 'alfabetico' else 'false'">A–Z</button>
         <button type="submit" name="orden" value="secciones" t-att-aria-pressed="'true' if orden == 'secciones' else 'false'">Secciones</button>

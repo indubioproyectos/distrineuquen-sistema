@@ -15,6 +15,14 @@ proceso». The cash reaches the cash account only through a cash statement:
   opening float against the «diferencias de caja» account; and the amount
   withdrawn at the closing against the owner's withdrawal account. The
   statement goes from the opening float to what stays for tomorrow.
+  19.0.1.117.0: a «Cobro cargado en Online» (a cash payment the cashier
+  registered in Odoo Online, kind "online") has no lab payment to reconcile.
+  Its line debits the cash account (the money IS in the box, and without it
+  the statement would not reach «queda para mañana») against the «cobros de
+  Online» account (PARAM_ACCOUNT % "online"; unset: the journal's suspense
+  account, «Cuenta transitoria»), never against the customer's receivable:
+  Online already settled that receivable and the lab books only the cash.
+  The accountant clears that account against Online's books.
 - Catch-up (`DistriCajaConciliacionInicial`, «Conciliación inicial de
   efectivo»): ONE statement with ONE line per journal reconciling every cash
   payment of CSH1 and CDEP still open in «Recibos pendientes». Run by hand,
@@ -49,6 +57,8 @@ ACCOUNTS = {
     "retiro": ("2.1.5.01.010", ("liability_non_current", "equity"), "Cuenta particular socio"),
     "banco": ("", ("asset_current",), "Transferencia de liquidez"),
     "diferencias": ("5.3.1.01.150", ("expense",), "Diferencias de caja"),
+    # 19.0.1.117.0: no default code: the suspense account unless configured
+    "online": ("", ("asset_current",), "Cobros en efectivo cargados en Online"),
 }
 
 
@@ -74,6 +84,8 @@ def caja_account(env, company, key):
     account = Account.search(domain + [("code", "=", code)], limit=1) if code else Account
     if not account and key == "banco":
         account = company.transfer_account_id
+    if not account and key == "online":
+        account = company.account_journal_suspense_account_id
     if not account and key == "diferencias":
         # the first time: «Diferencias de caja» with the default code (or
         # the configured one when it does not exist yet)
@@ -183,6 +195,13 @@ class DistriCajaAccounting(models.Model):
                     account = partner.with_company(company).property_account_payable_id or account
                 plan.append({"movement": move, "amount": move.amount, "account": account,
                              "partner": partner, "label": move.label})
+            elif move.kind == "online":
+                # 19.0.1.117.0 (see the module docstring): cash in, receivable
+                # untouched; no partner either, so no customer ledger moves
+                plan.append({"movement": move, "amount": move.amount,
+                             "account": caja_account(self.env, company, "online"),
+                             "label": "Cobro cargado en Online · %s · %s" % (
+                                 move.note or "", move.who or "")})
             elif move.kind == "ajuste":
                 plan.append({"movement": move, "amount": move.amount, "account": differences,
                              "label": "Ajuste · %s" % (move.label or "")})

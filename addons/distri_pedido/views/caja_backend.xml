@@ -96,6 +96,9 @@
                   <field name="route_difference" optional="show"/>
                   <field name="difference_mode" optional="show"/>
                   <field name="payment_id" optional="hide"/>
+                  <!-- 19.0.1.117.0: the Online cash payment brought in (read only;
+                       the mirror itself only for administración) -->
+                  <field name="online_payment_label" optional="show"/>
                   <field name="route_id" optional="hide"/>
                   <field name="user_id" optional="hide"/>
                   <field name="currency_id" column_invisible="1"/>
@@ -113,6 +116,9 @@
                     </group>
                     <group>
                       <field name="payment_id"/>
+                      <field name="online_payment_label" invisible="kind != 'online'"/>
+                      <field name="online_payment_id" invisible="kind != 'online'" readonly="1"
+                             groups="distri_pedido.grupo_administracion,base.group_system"/>
                       <field name="route_id"/>
                       <field name="route_difference"/>
                       <field name="difference_mode"/>

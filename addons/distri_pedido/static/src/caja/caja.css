@@ -41,6 +41,14 @@
 .caja-item__txt>span{color:var(--dn-muted);font-size:15px}
 .caja-btn-auto{width:auto;flex:none}
 
+/* 19.0.1.117.0: «Cobros en efectivo cargados en Online» */
+.caja-online{display:flex;flex-direction:column;gap:8px}
+.caja-online__nota{font-size:15px}
+.caja-online .caja-item{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.caja-mov__nota{display:block;color:var(--dn-muted);font-size:14px}
+.caja-mov__sacar{margin-top:6px}
+.caja-mov__sacar .dn-btn{min-height:40px;font-size:15px}
+
 /* expenses of a settlement */
 .caja-gastos{list-style:none;margin:8px 0;padding:0;display:flex;flex-direction:column;gap:8px}
 .caja-gasto{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px;border:1px solid var(--dn-line);border-radius:10px}

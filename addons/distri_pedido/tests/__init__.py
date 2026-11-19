@@ -71,3 +71,5 @@ from . import test_v113_reparto
 from . import test_v114_capacitacion
 from . import test_v115
 from . import test_v116
+from . import test_v117_caja_online
+from . import test_v117_ya_armado

@@ -217,7 +217,7 @@ class Armado(http.Controller):
     # --------------------------------------------------------------- rutas
 
     @http.route("/armado", type="http", auth="user", website=True, sitemap=False)
-    def lista(self, dejado="", terminado="", **kw):
+    def lista(self, dejado="", terminado="", error_ya="", **kw):
         self._exigir_armador()
         pedidos = self._pedidos_del_dia()
         return self._render("distri_pedido.armado_lista", self._base(
@@ -226,7 +226,34 @@ class Armado(http.Controller):
             hoy=self._hoy(),
             dejado=self._dejado(dejado),
             terminado=self._terminado(terminado),
+            # 19.0.1.117.0: «Facturados sin armar» (models/factura_sin_armar.py)
+            facturados=request.env["sale.order"]._distri_facturados_sin_armar(),
+            error_ya=(error_ya or "")[:300],
         ))
+
+    @http.route("/armado/facturado/<int:pedido_id>/ya-armado", type="http", auth="user",
+                methods=["POST"], website=True, sitemap=False)
+    def ya_armado(self, pedido_id, bultos="", **post):
+        """19.0.1.117.0: «Ya lo armé» on an order invoiced before packing.
+        The armador group (administración implies it) only."""
+        if not request.env.user.has_group(GRUPO_ARMADOR):
+            if self._por_fetch():
+                return self._json({"ok": False, "error": "No tenés permiso de armador."}, 403)
+            raise Forbidden()
+        pedido = request.env["sale.order"].sudo().browse(pedido_id).exists()
+        if not pedido or pedido.company_id != request.env.company:
+            raise NotFound()
+        cuantos = self._bultos(bultos)
+        if not 1 <= cuantos <= MAX_BULTOS:
+            error = "Poné en cuántos bultos quedó el pedido."
+        else:
+            # the user's own environment: the model checks the group too
+            error = pedido.with_env(request.env).distri_ya_armado(cuantos)
+        if error:
+            if self._por_fetch():
+                return self._json({"ok": False, "error": error}, 422)
+            return request.redirect("/armado?" + urlencode({"error_ya": error}) + "#facturados")
+        return self._ir("/armado?" + urlencode({"terminado": pedido.id}))
 
     def _terminado(self, pedido_id):
         """The order just finished, for «Imprimir etiquetas»."""

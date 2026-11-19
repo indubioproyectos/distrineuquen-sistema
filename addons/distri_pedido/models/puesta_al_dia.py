@@ -59,6 +59,13 @@ EXPORT_OWNERS = [("manager", "Gerente"), ("admin", "Denis (administrador)"),
 # Mercado Pago collections go to «Banco»; there is no MP journal in Online.
 PARAM_ONLINE_BANK = "distri_pedido.online_diario_banco"
 DEFAULT_ONLINE_BANK = 13
+# 19.0.1.117.0: Online's cash journals (ids, comma separated in the
+# parameter). The mirror only knows each payment's journal id and name, so,
+# like the bank, the ids are the source: 15 «EFECTIVO» (code EFECT, the
+# cashiers' journal), 17 and 18 (CSH1, CSH2), read on 19/11/2026. The bank
+# journal is never a cash one, whatever the parameter says.
+PARAM_ONLINE_CASH = "distri_pedido.online_diarios_efectivo"
+DEFAULT_ONLINE_CASH = (15, 17, 18)
 ONLINE_POSTED = ("in_process", "paid", "posted")
 ONLINE_DONE = ONLINE_POSTED + ("draft",)
 # the 29/09 cruce rule: the transfer between 10 days before and 3 after
@@ -110,6 +117,15 @@ def online_move_numbers(move_name):
 def online_bank_journal(env):
     raw = env["ir.config_parameter"].sudo().get_param(PARAM_ONLINE_BANK)
     return int(raw) if raw and str(raw).isdigit() else DEFAULT_ONLINE_BANK
+
+
+def online_cash_journals(env):
+    """19.0.1.117.0: the Online ids of the cash journals (PARAM_ONLINE_CASH,
+    default DEFAULT_ONLINE_CASH), the bank journal left out."""
+    raw = env["ir.config_parameter"].sudo().get_param(PARAM_ONLINE_CASH)
+    ids = [int(x) for x in re.split(r"[\s,;]+", raw or "") if x.isdigit()]
+    bank = online_bank_journal(env)
+    return tuple(i for i in (ids or DEFAULT_ONLINE_CASH) if i != bank)
 
 
 def _same_customer(card, pay, owners):
@@ -203,6 +219,9 @@ class DistriOnlinePayment(models.Model):
             self.sudo().create(new_vals)
             created = len(new_vals)
         links = self.sudo().with_context(distri_link_now=now)._distri_link_all()
+        # 19.0.1.117.0: an Online cash payment taken by an open caja and
+        # cancelled or reset in Online since then leaves that caja
+        self.env["distri.caja"].sudo().search([("state", "=", "open")])._drop_void_online()
         # «Última sincronización con Online» (models/migracion.py); rolled
         # back with everything else when the sync does not commit
         self.env["ir.config_parameter"].sudo().set_param(

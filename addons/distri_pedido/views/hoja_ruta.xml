@@ -110,6 +110,7 @@
       .dr-two td{vertical-align:top;padding:0}
       .dr-legal{font-size:10.5px;color:#4b5563;border-top:1px solid #d7dde4;padding-top:6px;margin:8px 0 0}
       .rm{page-break-inside:avoid}
+      .rm-hoja{page-break-after:always;height:0}
       .rm .dr-hdr{margin-bottom:8px}
       .rm .dr-hdr .dr-hdr__l,.rm .dr-doc{padding-bottom:6px}
       .rm .dr-kind{font-size:17px}
@@ -151,7 +152,7 @@
             </tr></table></div>
             <t t-call="distri_pedido.hoja_ruta_alias"><t t-set="acc" t-value="v['account']"/></t>
             <table class="dr-grid o_ignore_layout_styling">
-              <thead><tr><th class="c" style="width:3%">#</th><th style="width:32%">Cliente, dirección y teléfono</th><th style="width:10%">Pedido · Remito</th><th class="c" style="width:6%">Bul.</th><th class="n" style="width:17%">A cobrar</th><th class="c" style="width:8%">Código</th><th class="c" style="width:7%">Hora</th><th class="n" style="width:9%">Pagado</th><th class="c" style="width:8%">Medio</th></tr></thead>
+              <thead><tr><th class="c" style="width:3%">#</th><th style="width:32%">Cliente, dirección y teléfono</th><th style="width:10%">Pedido · Remito</th><th class="c" style="width:6%">Bul.</th><th class="n" style="width:17%">A cobrar</th><th class="n" style="width:10%">Efectivo</th><th class="c" style="width:14%">Firma</th><th class="c" style="width:8%">Medio</th></tr></thead>
               <tbody>
                 <tr t-foreach="v['rows']" t-as="r">
                   <td class="c" t-esc="r['n']"/>
@@ -159,21 +160,21 @@
                   <td><t t-esc="r['order']"/><t t-if="r['remito']"><br/><t t-esc="r['remito']"/></t></td>
                   <td class="c" t-esc="r['parcels']"/>
                   <td class="n"><t t-esc="r['amount']"/><t t-if="r['breakdown']"><br/><span class="dr-note" t-esc="r['breakdown']"/></t></td>
-                  <td class="blank"/><td class="blank"/><td class="blank"/><td/>
+                  <td class="blank"/><td class="blank"/><td/>
                 </tr>
-                <tr><td/><td colspan="5"><i>Gastos del cobrador</i></td><td/><td class="blank"/><td/></tr>
-                <tr><td/><td colspan="5"><i>Faltante o sobrante</i></td><td/><td class="blank"/><td/></tr>
-                <tr><td/><td colspan="5"><i>Flete</i></td><td/><td class="blank"/><td/></tr>
-                <tr><td colspan="9" class="dr-note"><i>Otros cobros</i></td></tr>
-                <tr t-foreach="range(v['blank_rows'])" t-as="i" class="dr-blank"><td/><td class="blank"/><td/><td/><td/><td/><td/><td/><td/></tr>
-                <tr class="tot"><td colspan="3">Total de la ruta</td><td class="c" t-esc="v['parcels']"/><td class="n" t-esc="v['total']"/><td colspan="2"/><td class="blank"/><td/></tr>
+                <tr><td/><td colspan="4"><i>Gastos del cobrador</i></td><td class="blank"/><td/><td/></tr>
+                <tr><td/><td colspan="4"><i>Faltante o sobrante</i></td><td class="blank"/><td/><td/></tr>
+                <tr><td/><td colspan="4"><i>Flete</i></td><td class="blank"/><td/><td/></tr>
+                <tr><td colspan="8" class="dr-note"><i>Otros cobros</i></td></tr>
+                <tr t-foreach="range(v['blank_rows'])" t-as="i" class="dr-blank"><td/><td class="blank"/><td/><td/><td/><td/><td/><td/></tr>
+                <tr class="tot"><td colspan="3">Total de la ruta</td><td class="c" t-esc="v['parcels']"/><td class="n" t-esc="v['total']"/><td class="blank"/><td/><td/></tr>
               </tbody>
             </table>
             <table class="dr-two o_ignore_layout_styling" style="margin-top:10px"><tr>
               <td style="width:56%;padding-right:16px"><div class="dr-box"><span class="dr-cap">Medio</span>E = efectivo · T = transferencia · AC = a cuenta (no pagó) · D = devolución</div></td>
               <td><div class="dr-box"><span class="dr-cap">Efectivo entregado en caja</span>$ ______________________</div></td>
             </tr></table>
-            <p class="dr-note" style="margin-top:10px">«A cobrar» incluye el remito del día y lo que el cliente debía de antes. El código de recibido no va impreso: lo ve solo el cliente en su pedido y se lo dicta al repartidor al recibir. Código, Hora, Pagado y Medio se anotan a mano si la app no anda o se pierde el celular.</p>
+            <p class="dr-note" style="margin-top:10px">«A cobrar» incluye el remito del día y lo que el cliente debía de antes. El código de recibido no va impreso: lo ve solo el cliente en su pedido y se lo dicta al repartidor al recibir. El cliente firma al recibir; el Efectivo y el Medio se anotan a mano si la app no anda o se pierde el celular.</p>
           </div>
         </t>
       </t>
@@ -212,8 +213,13 @@
           <t t-call="distri_pedido.hoja_ruta_estilos"/>
           <div class="dr dr-remitos">
             <t t-set="items" t-value="o._remito_values()"/>
+            <!-- A remito longer than one A4 page (about 45 rows) starts on a
+                 new page, and so does the one after it: it takes its own
+                 pages instead of starting mid-sheet and spilling onto a third. -->
             <t t-foreach="items" t-as="r">
-              <div t-if="not r_first" class="dr-cut">✂ cortar</div>
+              <t t-set="hoja_nueva" t-value="not r_first and (len(r['lines']) &gt; 40 or len(items[r_index - 1]['lines']) &gt; 40)"/>
+              <div t-if="hoja_nueva" class="rm-hoja"/>
+              <div t-elif="not r_first" class="dr-cut">✂ cortar</div>
               <t t-call="distri_pedido.remito_bloque"/>
             </t>
             <p t-if="not items" class="dr-note">La ruta no tiene pedidos.</p>

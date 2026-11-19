@@ -15,6 +15,9 @@ depot PC. Levels (back goes UP one level, dn.js):
                                  «Reabrir mi caja» (POST .../reabrir)
         /caja/historial          19.0.1.105.0: «Historial de cajas», every
                                  cashier (gerencia and the system admin)
+        POST /caja/online/<id>/traer         19.0.1.117.0: «Traer a mi caja»,
+                                 a cash payment registered in Odoo Online
+        POST /caja/online/<id>/sacar         «Sacar de mi caja» (the movement)
       /caja/<id>/etiqueta        the closing label (PDF, new tab)
 
 Every form posts plain HTML (works without JavaScript: the answer is a
@@ -202,6 +205,8 @@ class Caja(http.Controller):
             values.update({
                 "movimientos": self._movements_view(caja),
                 "pendientes": len(routes) + len(boxes),
+                # 19.0.1.117.0: «Cobros en efectivo cargados en Online»
+                "online": Caja.pending_online_cash(),
             })
         else:
             previous = Caja.last_closed()
@@ -372,6 +377,44 @@ class Caja(http.Controller):
                 caja, error=text, status=400))
         return self._done("/caja", "%s: entraron %s." % (added.label, _money(added.amount)))
 
+    # ---------------------------------------------------------------- Online cash
+    # 19.0.1.117.0: a cash payment the cashier registered in Odoo Online
+    # enters (or leaves) his open caja; models/caja.py has the rules.
+
+    @http.route("/caja/online/<int:payment_id>/traer", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def take_online(self, payment_id, **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        payment = request.env["distri.online.payment"].sudo().browse(payment_id)
+        try:
+            with request.env.cr.savepoint():
+                movement = caja.take_online(payment)
+        except (UserError, AccessError) as exc:
+            return self._refuse(exc, lambda text, field: self._home(
+                self._caja(), error=text, status=400))
+        return self._done("/caja", "%s: entraron %s a la caja." % (
+            movement.label, _money(movement.amount)))
+
+    @http.route("/caja/online/<int:movement_id>/sacar", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def release_online(self, movement_id, **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        movement = request.env["distri.caja.movimiento"].sudo().browse(movement_id)
+        label, amount = (movement.label, movement.amount) if movement.exists() else ("", 0.0)
+        try:
+            with request.env.cr.savepoint():
+                caja.release_online(movement)
+        except (UserError, AccessError) as exc:
+            return self._refuse(exc, lambda text, field: self._home(
+                self._caja(), error=text, status=400))
+        return self._done("/caja", "%s: salió de la caja (%s)." % (label, _money(amount)))
+
     # ---------------------------------------------------------------- outflow
 
     @http.route("/caja/salida", type="http", auth="user", methods=["GET"], sitemap=False)
@@ -533,6 +576,8 @@ class Caja(http.Controller):
         moves = caja.movement_ids.sorted(lambda m: (m.moment, m.id))
         grupos = [
             ("Cobros en el local", moves.filtered(lambda m: m.kind == "cobro")),
+            # 19.0.1.117.0
+            ("Cobros en efectivo cargados en Online", moves.filtered(lambda m: m.kind == "online")),
             ("Rendiciones y cobros de otros usuarios",
              moves.filtered(lambda m: m.kind in ("rendicion", "recepcion"))),
             ("Salidas de caja", moves.filtered(lambda m: m.kind in OUTFLOW_KINDS)),
