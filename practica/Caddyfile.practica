@@ -1,0 +1,24 @@
+
+# Practice environment for the staff (owner approved 19/11/2026): odoo-practica
+# (compose project /srv/odoo-lab/practica), database distri_practica, reset
+# every night. Same Cloudflare origin certificate as distrineuquen.com.
+practica.distrineuquen.com {
+	tls /etc/caddy/certs/distrineuquen-origin.pem /etc/caddy/certs/distrineuquen-origin.key
+	import odoo practica
+	header X-Robots-Tag "noindex, nofollow"
+
+	respond /web/database* 404
+
+	reverse_proxy /websocket* 127.0.0.1:8073 {
+		header_up X-Forwarded-For {client_ip}
+		header_up X-Real-IP {client_ip}
+	}
+	reverse_proxy 127.0.0.1:8070 {
+		header_up X-Forwarded-For {client_ip}
+		header_up X-Real-IP {client_ip}
+		transport http {
+			read_timeout 720s
+			write_timeout 720s
+		}
+	}
+}

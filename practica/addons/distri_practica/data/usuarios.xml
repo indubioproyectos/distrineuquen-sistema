@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Practice users, one per role of the landing (controllers/main.py ROLES).
+       Same groups as the real staff of each role (security/grupos.xml of
+       distri_pedido). No password here: post_init_hook sets a random one;
+       they only enter through the landing buttons. -->
+  <data noupdate="1">
+    <record id="user_armador" model="res.users">
+      <field name="name">Armador de práctica</field>
+      <field name="login">practica.armador</field>
+      <field name="tz">America/Argentina/Buenos_Aires</field>
+      <field name="group_ids" eval="[Command.set([ref('base.group_user'), ref('distri_pedido.grupo_armador')])]"/>
+    </record>
+    <record id="user_repartidor_1" model="res.users">
+      <field name="name">Repartidor de práctica 1</field>
+      <field name="login">practica.repartidor1</field>
+      <field name="tz">America/Argentina/Buenos_Aires</field>
+      <field name="group_ids" eval="[Command.set([ref('base.group_user'), ref('distri_pedido.grupo_reparto')])]"/>
+    </record>
+    <record id="user_repartidor_2" model="res.users">
+      <field name="name">Repartidor de práctica 2</field>
+      <field name="login">practica.repartidor2</field>
+      <field name="tz">America/Argentina/Buenos_Aires</field>
+      <field name="group_ids" eval="[Command.set([ref('base.group_user'), ref('distri_pedido.grupo_reparto')])]"/>
+    </record>
+    <record id="user_deposito" model="res.users">
+      <field name="name">Depósito de práctica</field>
+      <field name="login">practica.deposito</field>
+      <field name="tz">America/Argentina/Buenos_Aires</field>
+      <field name="group_ids" eval="[Command.set([ref('base.group_user'), ref('distri_pedido.grupo_administracion')])]"/>
+    </record>
+    <record id="user_cajero" model="res.users">
+      <field name="name">Cajero de práctica</field>
+      <field name="login">practica.cajero</field>
+      <field name="tz">America/Argentina/Buenos_Aires</field>
+      <field name="group_ids" eval="[Command.set([ref('base.group_user'), ref('distri_pedido.grupo_administracion'), ref('distri_pedido.grupo_cajero')])]"/>
+    </record>
+    <record id="user_administracion" model="res.users">
+      <field name="name">Administración de práctica</field>
+      <field name="login">practica.administracion</field>
+      <field name="tz">America/Argentina/Buenos_Aires</field>
+      <field name="group_ids" eval="[Command.set([ref('base.group_user'), ref('distri_pedido.grupo_administracion')])]"/>
+    </record>
+    <record id="user_gerencia" model="res.users">
+      <field name="name">Gerencia de práctica</field>
+      <field name="login">practica.gerencia</field>
+      <field name="tz">America/Argentina/Buenos_Aires</field>
+      <field name="group_ids" eval="[Command.set([ref('base.group_user'), ref('distri_pedido.grupo_gerencia'), ref('distri_pedido.grupo_cobros')])]"/>
+    </record>
+    <record id="user_vendedor" model="res.users">
+      <field name="name">Vendedor de práctica</field>
+      <field name="login">practica.vendedor</field>
+      <field name="tz">America/Argentina/Buenos_Aires</field>
+      <field name="group_ids" eval="[Command.set([ref('base.group_user'), ref('distri_pedido.grupo_vendedor')])]"/>
+    </record>
+  </data>
+</odoo>

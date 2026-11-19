@@ -1,0 +1,48 @@
+# Practice environment for the staff: https://practica.distrineuquen.com
+# A separate compose PROJECT (name: odoo-practica) with its own Postgres, network
+# and volumes: `docker compose up` in /srv/odoo-lab never sees it, and this
+# Odoo cannot reach the production database at all.
+#   cd /srv/odoo-lab/practica && docker compose up -d
+# Data: rebuilt every night by reiniciar.sh (see README in reiniciar.sh header).
+name: odoo-practica
+
+services:
+  db:
+    image: postgres:16
+    container_name: odoo-practica-db
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: ${PRACTICA_DB_PASSWORD:?missing .env}
+      POSTGRES_DB: postgres
+    volumes:
+      - practica-db-data:/var/lib/postgresql/data
+    shm_size: 256m
+    mem_limit: 768m
+    restart: unless-stopped
+
+  odoo:
+    # same image as production (odoo:19 pinned + Tesseract)
+    image: distri-odoo:19-ocr
+    container_name: odoo-practica
+    depends_on: [db]
+    ports:
+      - "127.0.0.1:8070:8069"   # HTTP
+      - "127.0.0.1:8073:8072"   # websocket (bus), proxied by Caddy at /websocket
+    volumes:
+      - practica-odoo-data:/var/lib/odoo
+      - ./config:/etc/odoo:ro
+      # snapshot of the production addons at the installed commit (actualizar.sh)
+      - ./addons-prod:/mnt/extra-addons:ro
+      # distri_practica (never inside /srv/odoo-lab/addons)
+      - ./addons:/mnt/practica-addons:ro
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: ${PRACTICA_DB_PASSWORD:?missing .env}
+    mem_limit: 1536m
+    cpus: 2
+    restart: unless-stopped
+
+volumes:
+  practica-db-data:
+  practica-odoo-data:

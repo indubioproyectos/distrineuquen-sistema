@@ -1,0 +1,10 @@
+# secrets, data and generated files of the practice environment
+.env
+.codigo
+golden/
+work/
+logs/
+snapshots/
+addons-prod
+e2e/out/
+config/odoo.conf

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «/» of the practice environment (controllers/main.py PracticaLanding).
+       One big button per role; each one POSTs /practica/entrar. -->
+  <template id="landing" name="Entorno de práctica: elegir rol">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <meta name="theme-color" content="#10243f"/>
+  <title>Práctica · Distri Neuquén</title>
+  <link rel="icon" href="/distri_pedido/static/src/img/iconos/app-192.png?v=95"/>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#f3f5f9;color:#14213a;
+      font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    header{background:#10243f;color:#fff;padding:20px 16px 22px}
+    header .in,main{max-width:760px;margin:0 auto}
+    header p{margin:0 0 4px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;opacity:.8}
+    h1{margin:0;font-size:26px;line-height:1.15;font-weight:800}
+    header .sub{margin-top:8px;font-size:15px;text-transform:none;letter-spacing:0;opacity:.9}
+    main{padding:16px 16px 40px}
+    .card{background:#fff;border:1px solid #d8dee8;border-radius:14px;padding:14px 16px;margin:0 0 14px}
+    .now{background:#fff4dc;border-color:#f3d08a}
+    label{display:block;font-weight:700;margin-bottom:6px}
+    .code{width:100%;max-width:220px;font-size:28px;letter-spacing:.35em;text-align:center;padding:10px 12px;
+      border:2px solid #d8dee8;border-radius:12px;font-weight:800}
+    .code:focus{outline:none;border-color:#10243f}
+    .err{color:#b42318;font-weight:700;margin:8px 0 0}
+    .muted{color:#5b6678;font-size:14px;margin:6px 0 0}
+    .roles{display:grid;grid-template-columns:1fr;gap:10px;margin:0;padding:0;list-style:none}
+    @media (min-width:600px){.roles{grid-template-columns:1fr 1fr}}
+    .role{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;width:100%;min-height:76px;
+      padding:14px 18px;border:0;border-radius:14px;background:#10243f;color:#fff;text-align:left;cursor:pointer;
+      font:inherit;box-shadow:0 2px 0 rgba(16,36,63,.25)}
+    .role b{display:block;font-size:21px;font-weight:800}
+    .role span{display:block;font-size:14px;opacity:.85;margin-top:2px}
+    .role:hover,.role:focus-visible{background:#1b3a63;outline:3px solid #f59e0b;outline-offset:2px}
+    .alt{display:inline-block;margin:6px 0 0 4px;padding:6px 12px;border:1px solid #10243f;border-radius:999px;
+      background:#fff;color:#10243f;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+    h2{font-size:17px;margin:0 0 8px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    td,th{padding:6px 4px;border-bottom:1px solid #d8dee8;text-align:left;vertical-align:top}
+    td.c{font-weight:800;font-size:18px;letter-spacing:.12em;white-space:nowrap}
+    footer{color:#5b6678;font-size:13px;text-align:center;margin-top:18px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="in">
+      <p><t t-esc="empresa"/></p>
+      <h1>Entorno de práctica de Distri Neuquén</h1>
+      <p class="sub">Elegí tu rol y entrás directo, sin clave. Nada de esto es real: los clientes son
+        inventados y todo se borra a la noche.</p>
+    </div>
+  </header>
+  <main>
+    <div t-if="current" class="card now">Ahora estás como <b t-esc="current"/>. Tocá otro rol para cambiar.</div>
+    <form method="post" action="/practica/entrar" autocomplete="off">
+      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+      <div class="card" t-if="not code_ok">
+        <label for="codigo">Código de acceso</label>
+        <input id="codigo" class="code" name="codigo" inputmode="numeric" pattern="[0-9]*" maxlength="8"
+               required="required" autocomplete="off" placeholder="····"/>
+        <p class="muted">Son 4 números. Te los pasa el encargado.</p>
+        <p t-if="error" class="err" role="alert" t-esc="error"/>
+      </div>
+      <p t-if="code_ok and error" class="err card" role="alert" t-esc="error"/>
+      <ul class="roles">
+        <li t-foreach="roles" t-as="r">
+          <button class="role" type="submit" name="rol" t-att-value="r['key']">
+            <b t-esc="r['label']"/>
+            <span t-esc="r['hint']"/>
+          </button>
+          <t t-if="r['key'] == 'repartidor'">
+            <button t-foreach="extra" t-as="x" class="alt" type="submit" name="rol" t-att-value="x['key']"
+                    formnovalidate="formnovalidate" t-if="code_ok">Entrar como <t t-esc="x['label']"/></button>
+          </t>
+        </li>
+      </ul>
+    </form>
+    <div t-if="datos and datos.get('codes')" class="card" style="margin-top:14px">
+      <h2>Códigos de recibido para practicar</h2>
+      <p class="muted" style="margin:0 0 8px">El repartidor los pide al entregar. Cada noche cambian.</p>
+      <table>
+        <tr><th>Pedido</th><th>Cliente</th><th>Código</th></tr>
+        <tr t-foreach="datos['codes']" t-as="c">
+          <td t-esc="c['order']"/><td t-esc="c['partner']"/><td class="c" t-esc="c['code']"/>
+        </tr>
+      </table>
+    </div>
+    <footer>Se reinicia todas las noches a las 4:30. Lo que cargues hoy no llega a ningún cliente.</footer>
+  </main>
+</body>
+</html>
+  </template>
+</odoo>
