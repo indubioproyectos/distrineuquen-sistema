@@ -68,3 +68,4 @@ from . import test_v110_planificacion
 from . import test_v111_asignar_agil
 from . import test_v112_estado_cuenta
 from . import test_v113_reparto
+from . import test_v114_capacitacion

@@ -54,6 +54,9 @@ FILES = {
     "ajustes.js": ("kit/ajustes.js", "text/javascript; charset=utf-8"),
     # 19.0.1.104.0: the public site (controllers/sitio.py)
     "sitio.css": ("sitio/sitio.css", "text/css; charset=utf-8"),
+    # 19.0.1.114.0: «Capacitación Distri Neuquén» (/proyecto, controllers/proyecto.py)
+    "proyecto.css": ("proyecto/proyecto.css", "text/css; charset=utf-8"),
+    "proyecto.js": ("proyecto/proyecto.js", "text/javascript; charset=utf-8"),
     # 19.0.1.95.0: the legacy pages' history fix (models/ir_http.py)
     "sin_historial.js": ("js/sin_historial.js", "text/javascript; charset=utf-8"),
 }

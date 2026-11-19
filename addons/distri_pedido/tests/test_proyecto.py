@@ -5,29 +5,6 @@ from odoo.tests import HttpCase, new_test_user, tagged
 @tagged("post_install", "-at_install")
 class TestProyecto(HttpCase):
 
-    def test_hub_lists_modules_with_stage(self):
-        response = self.url_open("/proyecto")
-        self.assertEqual(response.status_code, 200)
-        body = response.text
-        self.assertIn("Catálogo y listas de precios", body)
-        self.assertIn("Migración desde AgilPedido", body)
-        self.assertIn("/presentacion/migracion", body)
-
-    def test_hub_is_the_main_entry_point(self):
-        body = self.url_open("/proyecto").text
-        self.assertIn("un solo sistema, del pedido a la rendición", body)
-        for anchor in ('id="estado"', 'id="roles"', 'id="capacitacion"', 'id="presupuesto"'):
-            self.assertIn(anchor, body)
-        # One card per role, each linking to the section that explains it.
-        for role in ("cliente", "vendedor", "administrador", "armador", "repartidor", "gerente"):
-            self.assertIn("rolc rol-%s" % role, body)
-        for href in ("/presentacion#cliente", "/presentacion#vendedor", "/presentacion#armador",
-                     "/presentacion#administrador", "/presentacion/reparto#salida",
-                     "/presentacion/cobranza#vendedor", "/presentacion/cobranza#conexion-mp",
-                     "/presentacion/cobranza", "/presentacion/reparto",
-                     "/presentacion/migracion", "/presentacion/presupuesto"):
-            self.assertIn('href="%s"' % href, body)
-
     def test_hub_shows_new_modules(self):
         body = self.url_open("/proyecto").text
         expected = {
@@ -47,6 +24,9 @@ class TestProyecto(HttpCase):
             response = self.url_open(url)
             self.assertEqual(response.status_code, 200, url)
             self.assertIn("Volver al centro del proyecto", response.text, url)
+            # 19.0.1.114.0: the stage strip goes back to the project history
+            self.assertIn('href="/proyecto#historia"', response.text, url)
+            self.assertIn("Volver a Capacitación", response.text, url)
 
     def test_budget_page_has_no_development_price(self):
         body = self.url_open("/presentacion/presupuesto").text
@@ -67,9 +47,6 @@ class TestProyecto(HttpCase):
         self.assertIn('id="quien-hace-que"', cobranza)
         self.assertIn('href="#conciliacion"', cobranza)
         self.assertIn('id="conciliacion"', cobranza)
-        proyecto = self.url_open("/proyecto").text
-        self.assertIn("Un pedido, de punta a punta", proyecto)
-        self.assertIn('href="/presentacion/reparto#rendicion"', proyecto)
         presentacion = self.url_open("/presentacion").text
         self.assertIn('id="armador"', presentacion)
         self.assertNotIn('Etiquetas de bultos <span class="luego">Pendiente', presentacion)
@@ -99,5 +76,4 @@ class TestProyecto(HttpCase):
         body = self.url_open("/proyecto").text
         self.assertIn("Fase 2 del reporte", body)
         self.assertIn("Cobros por transferencia", body)
-        self.assertIn("Documentación técnica en preparación", body)
         self.assertNotIn("6:00", body)

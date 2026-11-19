@@ -4,7 +4,8 @@
   <!-- Shared strip on top of every presentation: the stage of that part of
        the project, read from distri.project.module (same data as /proyecto).
        Expects `franja` from the controller (project_strip); without it only
-       the link back to /proyecto is shown. Styles are self-contained so it
+       the link back to /proyecto#historia is shown
+       (19.0.1.114.0: «Volver a Capacitación», the project history). Styles are self-contained so it
        works on every page. -->
   <template id="proyecto_franja" name="Franja con la etapa del proyecto">
       <style>
@@ -26,7 +27,7 @@
       </style>
       <div class="franja">
         <div class="franja-in">
-          <a class="franja-volver" href="/proyecto">Volver al centro del proyecto</a>
+          <a class="franja-volver" href="/proyecto#historia">Volver a Capacitación</a>
           <span t-if="franja" class="franja-que">
             <span>Etapa actual</span>
             <b t-esc="franja['name']"/>
@@ -36,236 +37,702 @@
       </div>
   </template>
 
-  <!-- Project hub. Public page: only the fields returned by project_rows. -->
-  <template id="proyecto" name="Centro del proyecto">&lt;!DOCTYPE html&gt;
-<html lang="es">
+  <!-- 19.0.1.114.0: «Capacitación Distri Neuquén», the staff training page
+       approved by the owner (preview version 2), replaces the project hub.
+       Public (no login), noindex. Standalone document like the public site
+       (views/sitio.xml): no website layout; styles and script are served by
+       the kit route (/dn/proyecto.css, /dn/proyecto.js, versioned). The
+       role picker works with the hash (#armado ... #vendedores) in
+       static/src/proyecto/proyecto.js. The button labels quoted in
+       <span class="k"> / <span class="k2"> must exist in the module's
+       screens: tests/test_proyecto.py checks it. The practice access code
+       is never printed here: administration hands it out. -->
+  <template id="proyecto" name="Capacitación Distri Neuquén">&lt;!DOCTYPE html&gt;
+<html lang="es-AR">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="robots" content="noindex,nofollow"/>
-  <title>Centro del proyecto · Distri Neuquén</title>
-  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
-  <style>
-    :root{
-      --azul:#10243f; --azul2:#19334f; --claro:#f7f8f7; --blanco:#fff;
-      --texto:#42505f; --tenue:#7a8794; --turq:#00d1b2; --borde:#e2e7ec; --ambar:#b08900;
-      --verde:#1f7a4d;
-    }
-    *{box-sizing:border-box}
-    html,body{overflow-x:hidden}
-    body{margin:0;background:var(--claro);color:var(--texto);
-         font:16px/1.6 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-    .marco{max-width:44rem;margin:0 auto;padding:0 1.15rem}
-    h1,h2,h3{color:var(--azul);line-height:1.25;margin:0}
-
-    .tapa{background:var(--azul);color:#e8eef5;padding:2.5rem 0 2.2rem}
-    .tapa .rotulo{color:var(--turq);font-size:.78rem;letter-spacing:.14em;
-                  text-transform:uppercase;margin:0 0 .5rem;font-weight:700}
-    .tapa h1{color:#fff;font-size:1.95rem;font-weight:700}
-    .tapa p{color:#9fb3c8;font-size:1.02rem;margin:.75rem 0 0}
-    .tapa b{color:#fff}
-
-    .cta{display:block;background:var(--turq);color:#fff;text-align:center;font-weight:700;
-         font-size:1.05rem;padding:1rem;border-radius:10px;text-decoration:none;margin:1.5rem 0 .4rem}
-    .nota{font-size:.82rem;color:var(--tenue);text-align:center;margin:0}
-    .tapa .nota{color:#7f95ad}
-
-    section{padding:2.4rem 0;border-top:1px solid var(--borde)}
-    section.oscuro{background:var(--azul);border-top:0}
-    section.oscuro h2{color:#fff}
-    section.oscuro p{color:#c3d3e3}
-    .eyebrow{color:var(--turq);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;
-             font-weight:700;margin:0 0 .5rem}
-    h2{font-size:1.5rem}
-    .bajada{font-size:1.02rem;margin:.7rem 0 0}
-
-    .cifras{display:flex;gap:.7rem;margin-top:1.3rem}
-    .cifra{flex:1;background:var(--blanco);border:1px solid var(--borde);border-radius:12px;
-           padding:1rem .8rem;text-align:center}
-    .cifra b{display:block;font-size:1.8rem;color:var(--turq);line-height:1.1}
-    .cifra span{display:block;font-size:.8rem;margin-top:.35rem;color:var(--texto)}
-
-    /* Stage chip, same palette as the strip */
-    .etapa{display:inline-block;border-radius:99px;padding:.15rem .65rem;font-size:.74rem;
-           font-weight:700;letter-spacing:.03em;white-space:nowrap;vertical-align:.1em}
-    .e-pending{background:#eef1f4;color:var(--tenue)}
-    .e-designed{background:#fff8e1;color:#8a6b00}
-    .e-programmed{background:#e9f0f8;color:var(--azul2)}
-    .e-lab{background:#e6f4ec;color:var(--verde)}
-    .e-live{background:var(--turq);color:#fff}
-
-    /* Four-step track */
-    .pista{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.3rem;margin-top:.8rem}
-    .tramo{font-size:.7rem;line-height:1.25;color:var(--tenue);font-weight:600}
-    .tramo i{display:block;height:6px;border-radius:99px;background:#e5e9ee;margin-bottom:.35rem}
-    .tramo.hecho i{background:var(--turq)}
-    .tramo.hecho{color:var(--azul)}
-    .tramo.actual{color:var(--azul);font-weight:800}
-    .tramo.actual i{background:var(--azul)}
-
-    .leyenda{margin:1.2rem 0 0;padding:0;list-style:none}
-    .leyenda li{display:flex;gap:.7rem;align-items:baseline;padding:.55rem 0;
-                border-bottom:1px solid var(--borde);font-size:.94rem}
-    .leyenda li:last-child{border-bottom:0}
-    .leyenda .etapa{flex:none;min-width:8.6rem;text-align:center}
-
-    /* Dependency chain */
-    .cadena-dep{margin:1.3rem 0 0;padding:0;list-style:none}
-    .cadena-dep li{position:relative;background:var(--azul2);border-radius:12px;padding:.85rem 1rem;
-                   margin:0 0 1.35rem}
-    .cadena-dep li:after{content:"↓";position:absolute;left:50%;bottom:-1.3rem;transform:translateX(-50%);
-                         color:var(--turq);font-weight:700;font-size:.95rem;line-height:1.3rem}
-    .cadena-dep li:last-child{margin-bottom:0}
-    .cadena-dep li:last-child:after{display:none}
-    .cadena-dep .fila{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;flex-wrap:wrap}
-    .cadena-dep h3{color:#fff;font-size:1.02rem}
-    .cadena-dep p{margin:.2rem 0 0;font-size:.88rem;color:#c3d3e3}
-    .cadena-dep li.raiz{background:var(--turq)}
-    .cadena-dep li.raiz h3{color:var(--azul)}
-    .cadena-dep li.raiz p{color:var(--azul)}
-    .cadena-dep .sin{font-size:.74rem;color:#9fb3c8;font-weight:600}
-
-    /* Module cards */
-    .mod{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:1rem 1.05rem;
-         margin-top:.8rem}
-    .mod .cab{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem}
-    .mod .num{font-size:.74rem;font-weight:700;color:var(--turq);letter-spacing:.1em}
-    .mod h3{font-size:1.08rem;margin:.15rem 0 .35rem}
-    .mod p{margin:0;font-size:.93rem}
-    .mod .sigue{margin-top:.8rem;background:var(--claro);border-left:3px solid var(--turq);
-                border-radius:6px;padding:.55rem .7rem;font-size:.9rem}
-    .mod .sigue b{color:var(--azul);display:block;font-size:.72rem;letter-spacing:.08em;
-                  text-transform:uppercase;margin-bottom:.1rem}
-    .mod.m-pending .sigue,.mod.m-designed .sigue{border-left-color:var(--ambar)}
-    .mod .dep{font-size:.8rem;color:var(--tenue);margin-top:.55rem}
-    .mod .ver{display:block;margin-top:1rem;padding:1rem 1.2rem;border-radius:12px;background:var(--azul);
-              color:#fff;font-size:1.1rem;font-weight:800;text-align:center;text-decoration:none;min-height:44px}
-    .mod .ver:hover,.mod .ver:focus-visible{filter:brightness(1.15);color:#fff}
-    .mod.migra{border:2px solid var(--azul)}
-
-    /* What is left */
-    .resta{margin:1.2rem 0 0;padding:0;list-style:none}
-    .resta li{background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--ambar);
-              border-radius:8px;padding:.8rem 1rem;margin-bottom:.6rem;font-size:.95rem}
-    .resta li.hecho{border-left-color:var(--verde)}
-    .resta li b{color:var(--azul);display:block;margin-bottom:.15rem}
-    .resta .cuando{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.05em;
-                   text-transform:uppercase;border-radius:99px;padding:.05rem .5rem;margin-bottom:.3rem;
-                   background:#fff8e1;color:#8a6b00}
-    .resta li.hecho .cuando{background:#e6f4ec;color:var(--verde)}
-
-    .pie{background:var(--azul);color:#7f95ad;padding:2rem 0 2.6rem;text-align:center;font-size:.85rem}
-    .pie a{color:#9fb3c8;display:block;margin-top:.45rem}
-    @media (max-width:360px){.cifras{flex-direction:column}}
-    /* Hub: index, role cards, documentation links */
-    .indice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;margin:1.5rem 0 0}
-    .indice a{display:flex;align-items:center;justify-content:center;min-height:48px;padding:.6rem .7rem;
-              border:1px solid #2c4666;border-radius:10px;color:#fff;text-decoration:none;font-weight:700;
-              font-size:.92rem;text-align:center;line-height:1.25}
-    .indice a:hover,.indice a:focus-visible{border-color:var(--turq);color:var(--turq)}
-    .indice a.prim{background:var(--turq);border-color:var(--turq);color:#fff}
-    .roles-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:.8rem;margin-top:1.3rem}
-    .rolc{background:var(--blanco);border:1px solid var(--borde);border-top:5px solid var(--c);
-          border-radius:12px;padding:1rem 1.05rem}
-    .rolc h3{font-size:1.12rem;margin:0 0 .35rem;display:flex;align-items:center;gap:.45rem;color:var(--c-tx)}
-    .rolc h3 .rol-ic{width:1.25em;height:1.25em}
-    .rolc p{margin:0;font-size:.93rem}
-    .rolc .pant{margin-top:.7rem;font-size:.84rem;color:var(--tenue)}
-    .rolc .pant b{color:var(--c-tx)}
-    .rolc .links{display:flex;flex-direction:column;gap:.4rem;margin-top:.8rem}
-    .rolc .links a{display:flex;align-items:center;min-height:44px;padding:.5rem .8rem;border-radius:9px;
-                   background:var(--c-bg);color:var(--c-tx);font-weight:700;font-size:.92rem;text-decoration:none}
-    .rolc .links a:after{content:"→";margin-left:auto;padding-left:.5rem}
-    .rolc .links a:hover,.rolc .links a:focus-visible{filter:brightness(.95)}
-    .docs{list-style:none;margin:1.2rem 0 0;padding:0;display:grid;gap:.6rem}
-    .docs a{display:block;height:100%;background:var(--blanco);border:1px solid var(--borde);border-left:4px solid var(--turq);
-            border-radius:10px;padding:.85rem 1rem;text-decoration:none;color:var(--texto);font-size:.92rem}
-    .docs a b{display:block;color:var(--azul);font-size:1.02rem;margin-bottom:.15rem}
-    .docs a span.url{display:block;color:var(--tenue);font-size:.78rem;margin-top:.3rem}
-    .docs a:hover,.docs a:focus-visible{border-color:var(--turq)}
-    .presu{background:var(--blanco);border:2px solid var(--azul);border-radius:12px;padding:1.1rem;margin-top:1.2rem}
-    .presu p{margin:0;font-size:.95rem}
-    .presu .ver{display:block;margin-top:1rem;padding:1rem 1.2rem;border-radius:12px;background:var(--azul);
-                color:#fff;font-size:1.1rem;font-weight:800;text-align:center;text-decoration:none}
-    .presu .ver:hover,.presu .ver:focus-visible{filter:brightness(1.15)}
-    @media (min-width:720px){
-      .indice{grid-template-columns:repeat(4,minmax(0,1fr))}
-      .roles-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .docs{grid-template-columns:repeat(2,minmax(0,1fr))}
-    }
-  </style>
+  <meta name="theme-color" content="#10243f"/>
+  <title>Capacitación Distri Neuquén</title>
+  <meta name="description" content="Capacitación del personal de Distri Neuquén: lo que hace cada uno en un día normal, paso a paso."/>
+  <link rel="icon" type="image/svg+xml" t-att-href="logo + 'dn-logo.svg' + logo_v"/>
+  <link rel="icon" type="image/png" sizes="192x192" t-att-href="logo + 'app-192.png' + logo_v"/>
+  <link rel="apple-touch-icon" t-att-href="logo + 'app-192.png' + logo_v"/>
+  <link t-if="font" rel="preload" as="font" type="font/woff2" crossorigin="anonymous" t-att-href="font"/>
+  <link rel="stylesheet" t-att-href="css"/>
+  <script defer="defer" t-att-src="js"/>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></symbol>
+<symbol id="truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="1"/><path d="M16 10h3l2 3v4h-5"/><circle cx="7" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/></symbol>
+<symbol id="store" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v11H3z"/><path d="M8 21v-7h8v7"/></symbol>
+<symbol id="register" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M7 8V5h10v3M12 12v4M10 14h4"/></symbol>
+<symbol id="target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></symbol>
+<symbol id="chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+<symbol id="order" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+<symbol id="cash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></symbol>
+<symbol id="receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 15l2 2 4-4"/></symbol>
+<symbol id="paste" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><rect x="9" y="2" width="6" height="4" rx="1"/></symbol>
+<symbol id="alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6A2 2 0 0 0 22 18L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4 10-10"/></symbol>
+<symbol id="offline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 4.2-2.6M14.8 10.3A10 10 0 0 1 19 12.9M2 9.3a15 15 0 0 1 4.5-2.8M11 5.1A15 15 0 0 1 22 9.3M12 20h.01"/></symbol>
+<symbol id="user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.6-5.2A8.5 8.5 0 1 1 21 12z"/></symbol>
+<symbol id="camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
+<symbol id="next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></symbol>
 
-  <t t-call="distri_pedido.roles_base"/>
+</svg>
 
-  <t t-set="por_codigo" t-value="dict((m['code'], m) for m in modulos)"/>
-
-  <div class="tapa">
-    <div class="marco">
-      <p class="rotulo">Distri Neuquén · Centro del proyecto</p>
-      <h1>distrineuquen.com: un solo sistema, del pedido a la rendición</h1>
-      <p>Una sola base de datos para toda la empresa. El pedido del cliente, el armado, el remito y
-         la factura, el reparto, la cobranza y la rendición de caja quedan en el mismo lugar, sin
-         volver a tipear nada. <b>Cada rol entra con su usuario y trabaja en su propia pantalla</b>:
-         el cliente pide desde el celular, el armador arma, el repartidor entrega y cobra, y
-         administración y gerencia controlan todo desde Odoo.</p>
-      <div class="cifras">
-        <div class="cifra"><b t-esc="cuentas.get('lab', 0) + cuentas.get('live', 0)"/><span>probadas en el lab</span></div>
-        <div class="cifra"><b t-esc="cuentas.get('programmed', 0)"/><span>programadas</span></div>
-        <div class="cifra"><b t-esc="cuentas.get('designed', 0) + cuentas.get('pending', 0)"/><span>diseñadas o pendientes</span></div>
-      </div>
-      <nav class="indice" aria-label="Secciones">
-        <a class="prim" href="#estado">Estado del proyecto</a>
-        <a href="#roles">Cómo se trabaja, por rol</a>
-        <a href="#capacitacion">Capacitación</a>
-        <a href="#presupuesto">Presupuesto</a>
-      </nav>
+<header class="tapa">
+  <div class="wrap">
+    <div class="marca"><span class="logo">DN</span>Distri Neuquén</div>
+    <p class="eyebrow">Capacitación del personal · Fase 1</p>
+    <h1>Capacitación Distri Neuquén</h1>
+    <div class="para">
+      <p>Un solo sistema para toda la empresa: <b>el pedido, el armado, el reparto, la cobranza y la caja</b> quedan en el mismo lugar.</p>
+      <p>Nadie vuelve a tipear lo que ya cargó otro. Cada uno entra con su usuario y cae directo en su pantalla.</p>
+      <p>Acá está, paso a paso, lo que hace cada uno en un día normal.</p>
     </div>
+    <div class="fase"><b>Fase 1: el sistema interno.</b> Ahora nos concentramos en que todo el equipo use el sistema por dentro: armado, reparto, depósito, caja y administración. Los pedidos de los clientes <b>siguen entrando por AgilPedido</b> durante un tiempo. La página pública para clientes llega en la <b>fase 2</b>: recién ahí el cliente va a tener su enlace del pedido y su código de recibido.</div>
+    <nav class="quien" aria-label="Elegí tu rol">
+      <h2>¿Qué hacés vos?</h2>
+      <div class="roles">
+        <a class="rolbtn" href="#armado" data-rol="armado"><svg class="dn-i"><use href="#box"/></svg><span>Armado<small>Todos pueden armar</small></span></a>
+        <a class="rolbtn" href="#reparto" data-rol="reparto"><svg class="dn-i"><use href="#truck"/></svg><span>Reparto<small>Simón, Italo</small></span></a>
+        <a class="rolbtn" href="#deposito" data-rol="deposito"><svg class="dn-i"><use href="#store"/></svg><span>Depósito y Despacho<small>Denis, Gonza</small></span></a>
+        <a class="rolbtn" href="#caja" data-rol="caja"><svg class="dn-i"><use href="#register"/></svg><span>Caja<small>Denis, Gonza</small></span></a>
+        <a class="rolbtn" href="#administracion" data-rol="administracion"><svg class="dn-i"><use href="#target"/></svg><span>Administración<small>Denis</small></span></a>
+        <a class="rolbtn" href="#vendedores" data-rol="vendedores"><svg class="dn-i"><use href="#order"/></svg><span>Vendedores<small>Cada uno con su usuario</small></span></a>
+      </div>
+    </nav>
+    <div class="atajos"><a href="#circuito">El circuito del pedido</a><a href="#practica">Practicá sin miedo</a></div>
+  </div>
+</header>
+
+<main>
+<section class="sec" id="tu-rol">
+  <div class="wrap">
+
+  <div id="sin-rol">
+    <p class="eyebrow">Para empezar</p>
+    <h2>Cómo entrás al sistema</h2>
+    <div class="grid2">
+      <div class="tarjeta">
+        <h3>Tu usuario, tu pantalla</h3>
+        <ul>
+          <li>Entrá con tu usuario y tu clave desde el celular o la PC. Cada uno tiene el suyo: no lo prestes, porque todo lo que hacés queda a tu nombre.</li>
+          <li>Si tenés varias tareas, caés en <b>Inicio</b>: una pantalla con un botón por cada aplicación que podés usar. Los números rojos de cada botón son lo que tenés pendiente.</li>
+          <li>El armador y el repartidor caen directo en su aplicación.</li>
+        </ul>
+      </div>
+      <div class="tarjeta">
+        <h3>El engranaje de «Ajustes»</h3>
+        <ul>
+          <li>Arriba de cada pantalla está el engranaje: ahí agrandás la letra, instalás la aplicación en el celular como un ícono más y tocás <span class="k2">Salir</span>.</li>
+          <li>Instalala: así se abre más rápido y la app de reparto sigue andando sin señal.</li>
+          <li>Si dice «Tu sesión venció», tocá <span class="k2">Entrar de nuevo</span>. No se pierde nada.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="vacio">Elegí arriba qué hacés vos y te mostramos tu día paso a paso.</p>
   </div>
 
-  <section id="estado">
-    <div class="marco">
-      <p class="eyebrow">Estado del proyecto</p>
-      <h2>Cada parte, en qué etapa está</h2>
-      <p class="bajada">Cada parte recorre el mismo camino hasta el uso diario. La barra muestra la
-         etapa de cada una y el recuadro dice qué falta para pasar a la siguiente.</p>
-      <ul class="leyenda">
-        <li><span class="etapa e-designed">Diseñado</span><span>Relevado con el equipo y dibujado, sin código.</span></li>
-        <li><span class="etapa e-programmed">Programado</span><span>El código está hecho en el módulo.</span></li>
-        <li><span class="etapa e-lab">Probado en el lab</span><span>Funciona en el entorno de pruebas, con datos reales del catálogo.</span></li>
-        <li><span class="etapa e-live">En uso</span><span>Lo usa la empresa todos los días.</span></li>
-        <li><span class="etapa e-pending">Pendiente</span><span>Todavía no empezó.</span></li>
-      </ul>
-      <t t-foreach="modulos" t-as="m">
-        <div t-attf-class="mod m-#{m['stage']} #{'migra' if m['code'] == 'migracion' else ''}">
-          <div class="cab">
-            <span class="num" t-esc="'PARTE %s' % (m_index + 1)"/>
-            <span t-attf-class="etapa e-#{m['stage']}" t-esc="m['stage_label']"/>
-          </div>
-          <h3 t-esc="m['name']"/>
-          <p t-if="m['description']" t-esc="m['description']"/>
-          <div class="pista">
-            <t t-foreach="pasos" t-as="p">
-              <span t-attf-class="tramo #{'hecho' if p_index &lt; m['stage_index'] else ''} #{'actual' if p_index == m['stage_index'] else ''}"><i></i><t t-esc="p"/></span>
-            </t>
-          </div>
-          <div t-if="m['next_step']" class="sigue"><b>Próximo paso</b><t t-esc="m['next_step']"/></div>
-          <p t-if="m['depends_on']" class="dep">Depende de: <t t-esc="', '.join(m['depends_on'])"/></p>
-          <a t-if="m['url']" class="ver" t-att-href="m['url']"><t t-if="m['url'].startswith('/presentacion')">Ver la presentación →</t><t t-else="">Ver la página →</t></a>
-        </div>
-      </t>
+  <!-- ============ ARMADO ============ -->
+  <article class="rol" id="rol-armado" hidden="hidden">
+    <div class="rol-cab">
+      <p class="eyebrow">Armado</p>
+      <h2>Tu día en el depósito armando pedidos</h2>
+      <div class="quienes"><span class="persona"><svg class="dn-i"><use href="#user"/></svg>Facu</span><span class="persona">Y cualquiera del equipo: todos pueden armar</span></div>
+      <div class="pantallas"><span class="url">/armado</span><span class="url">/armado/faltantes</span></div>
+      <p class="bajada">Abajo de tu pantalla tenés dos pestañas: <b>Pedidos</b> y <b>Faltantes</b>. Vos no ves los clientes ni las cuentas: solo lo que hay que armar.</p>
     </div>
-  </section>
+    <ol class="dia">
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">A la mañana</span><h3>Ver qué hay para armar</h3><span class="url">/armado</span></div>
+        <ol>
+          <li>Entrá a <b>Pedidos</b>. Están separados en <b>Para armar</b>, <b>En armado</b> y <b>Armado</b>.</li>
+          <li>Ordenalos con <span class="k2">A–Z</span> o por <span class="k2">Secciones</span>, como te quede más cómodo.</li>
+          <li>Fijate las marcas: <span class="txt">Lo retira en el depósito</span>, <span class="txt">Encomienda</span> (sale a la terminal) o <span class="txt">Modificado</span> (el cliente cambió algo).</li>
+          <li>Si dice <span class="txt">No hay pedidos para armar. Actualizá en un rato.</span>, es eso: todavía no entró nada aprobado.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Durante el día</span><h3>Armar un pedido</h3><span class="url">/armado/pedido/…</span></div>
+        <ol>
+          <li>Tocá el pedido y después <span class="k">Tomar pedido</span>. Queda a tu nombre hasta que lo termines o lo dejes para más tarde.</li>
+          <li>Prepará la mercadería. <b>Solo marcás lo que falta</b>: tocá <span class="k2">Falta</span>, contestá <span class="txt">¿Cuántas faltan?</span> y tocá <span class="k">Guardar</span>.</li>
+          <li>Si el cliente pidió algo más por teléfono, tocá <span class="k2">Agregar producto</span>, buscalo y <span class="k">Agregar</span>.</li>
+          <li>Cuando está todo, tocá <span class="k">Terminar armado</span>. Lo que no marcaste como faltante se entrega completo.</li>
+          <li>Contestá <span class="txt">¿En cuántos bultos quedó?</span> y tocá <span class="k">Guardar bultos</span>.</li>
+          <li>Tocá <span class="k2">Imprimir etiquetas</span>: sale una etiqueta por bulto, con el cliente y «Bulto 2 de 3». Pegala en cada bulto.</li>
+        </ol>
+        <p class="nota">Al terminar, el sistema hace solo el remito y la factura por lo entregado. Vos no tocás nada de eso.</p>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Si te interrumpen</span><h3>Dejarlo para más tarde</h3></div>
+        <ol>
+          <li>Tocá <span class="k2">Más tarde</span>.</li>
+          <li>Te pregunta <span class="txt">¿Lo dejás para más tarde?</span>: tocá <span class="k">Sí, dejarlo</span>. Lo que ya marcaste queda guardado.</li>
+          <li>Si te equivocaste, <span class="k2">Seguir armando</span> te deja donde estabas.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Al cierre</span><h3>Revisar los faltantes del día</h3><span class="url">/armado/faltantes</span></div>
+        <ol>
+          <li>Entrá a la pestaña <b>Faltantes</b>.</li>
+          <li>Está todo lo que marcaste como faltante hoy, junto. Administración lo usa para reponer y para ocultar lo agotado del catálogo.</li>
+          <li>Si dice <span class="txt">Hoy no se anotaron faltantes.</span>, no hay nada que avisar.</li>
+        </ol>
+      </li>
+    </ol>
+    <div class="dos">
+      <div class="caja-si">
+        <h3><svg class="dn-i"><use href="#alert"/></svg>Si pasa esto…</h3>
+        <dl>
+          <dt>El pedido dice «Sin cliente asignado»</dt><dd>Armalo igual. La factura y la ruta esperan a que administración le asigne el cliente.</dd>
+          <dt>Pusiste mal los bultos</dt><dd>Tocá <span class="k2">Corregir bultos</span>, cambiá el número y <span class="k">Guardar bultos</span>. Volvé a imprimir las etiquetas.</dd>
+          <dt>Aparece «Este pedido se canceló.»</dt><dd>No lo armes. Si ya separaste mercadería, devolvela a su lugar.</dd>
+          <dt>Ves la marca «Modificado»</dt><dd>El cliente cambió el pedido. Revisá la lista de nuevo antes de terminar.</dd>
+          <dt>La etiqueta sale corrida</dt><dd>Avisale a Denis: la impresora térmica se calibra con una etiqueta de prueba.</dd>
+        </dl>
+      </div>
+      <div class="caja-ok" data-check="armado">
+        <h3><svg class="dn-i"><use href="#check"/></svg>Ya lo sé hacer</h3>
+        <ul class="check">
+          <li><label><input type="checkbox" id="ck-armado-1"/>Tomo un pedido y queda a mi nombre</label></li>
+          <li><label><input type="checkbox" id="ck-armado-2"/>Marco solo lo que falta, con la cantidad</label></li>
+          <li><label><input type="checkbox" id="ck-armado-3"/>Agrego un producto pedido por teléfono</label></li>
+          <li><label><input type="checkbox" id="ck-armado-4"/>Termino el armado y cargo los bultos</label></li>
+          <li><label><input type="checkbox" id="ck-armado-5"/>Imprimo y pego una etiqueta por bulto</label></li>
+          <li><label><input type="checkbox" id="ck-armado-6"/>Dejo un pedido para más tarde sin perder lo marcado</label></li>
+        </ul>
+        <p class="progreso" aria-live="polite"></p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============ REPARTO ============ -->
+  <article class="rol" id="rol-reparto" hidden="hidden">
+    <div class="rol-cab">
+      <p class="eyebrow">Reparto</p>
+      <h2>Tu día en la calle, entregando y cobrando</h2>
+      <div class="quienes"><span class="persona"><svg class="dn-i"><use href="#user"/></svg>Simón</span><span class="persona"><svg class="dn-i"><use href="#user"/></svg>Italo</span></div>
+      <div class="pantallas"><span class="url">/reparto</span><span class="url">/cobro</span><span class="url">/cuentas</span></div>
+      <p class="bajada">La app de reparto <b>funciona sin señal</b>. Lo que cargás queda guardado en el celular y se manda solo cuando vuelve la conexión. Solo necesitás señal para descargar la ruta y para salir.</p>
+    </div>
+    <ol class="dia">
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">A la mañana, en el depósito</span><h3>Descargar la ruta</h3><span class="url">/reparto</span></div>
+        <ol>
+          <li>Entrá a <b>Reparto</b> (en Inicio es <b>Mi reparto de hoy</b>).</li>
+          <li>En <b>Tus rutas de hoy</b> elegí la tuya y tocá <span class="k">Descargar la ruta</span>. Hacelo con wifi o con buena señal.</li>
+          <li>Si tenés dos rutas en el día, después pasás de una a otra con <span class="k2">Cambiar ›</span>.</li>
+          <li>Si te muestra <span class="txt">Cliente en rojo · reclamá lo que falta</span>, ese cliente debe de días anteriores: cobrale eso también.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">A la mañana</span><h3>Cargar la camioneta</h3><span class="url">/reparto · Control de carga</span></div>
+        <ol>
+          <li>Entrá a <b>Control de carga</b>.</li>
+          <li>Tildá cada pedido a medida que lo subís. Administración tilda lo mismo en «Despacho»: hace falta el control de los dos.</li>
+          <li>Lo que no sube queda en <span class="txt">Quedan en el depósito</span>.</li>
+          <li>Cuando todo tiene doble control, tocá <span class="k">Salir a repartir</span>.</li>
+          <li>Te pregunta <span class="txt">¿Visitás al revés de cómo cargaste?</span> Lo que cargaste primero quedó al fondo. Si no, tocá <span class="k2">No, salir con el orden de la ruta</span>.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">En cada cliente</span><h3>Entregar y cobrar</h3><span class="url">/reparto · Visitas</span></div>
+        <ol>
+          <li>En <b>Visitas</b>, tocá el cliente que vas a visitar y después <span class="k">Llegué</span>.</li>
+          <li>Controlá los bultos con el cliente. En <span class="txt">¿Devolvió algo?</span> tocá <span class="k2">No, recibió todo</span> o <span class="k2">Sí, devolvió</span> y elegí producto, cantidad y motivo.</li>
+          <li><b>En la fase 1 el cliente todavía no tiene código de recibido.</b> Tocá <span class="k2">El cliente no tiene el código · Entregar igual</span>. Desde la fase 2 el cliente te va a dictar su código.</li>
+          <li>En <span class="txt">¿Cómo pagó?</span>: <span class="k2">Efectivo</span> con el importe, o <span class="k2">¿Paga con transferencia?</span> con el importe transferido y el comprobante. Si no pagó, abrí <span class="txt">¿Algo salió distinto?</span> y tocá <span class="k2">No pagó nada</span>.</li>
+          <li>Tocá <span class="k">Guardar visita</span>. Si no hay señal, dice <span class="txt">Guardado en el celular</span>; cuando se manda, <span class="txt">Enviado</span>.</li>
+        </ol>
+        <p class="nota">Si el cliente transfiere, pedile el comprobante en el momento. Si no lo tiene, elegí <span class="k2">El cliente lo manda por WhatsApp</span> o <span class="k2">Lo manda después</span>: queda <span class="txt">Pendiente de comprobante · a tu cargo</span> hasta que llegue. Para transferir, el alias es <b>sepiko</b>; está impreso en la hoja de ruta y en los remitos.</p>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Cuando gastás</span><h3>Cargar un gasto</h3></div>
+        <ol>
+          <li>Tocá <span class="k2">Cargar gasto</span>.</li>
+          <li>Elegí el tipo: Nafta, Repuestos, Estacionamiento, Encomienda u Otro.</li>
+          <li>Poné el importe y sacale foto al comprobante.</li>
+          <li>Tocá <span class="k">Guardar gasto</span>. Se descuenta del efectivo a rendir. Guardá el papel: lo entregás en la rendición.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Si hay encomienda</span><h3>Despachar en la terminal</h3></div>
+        <ol>
+          <li>En la visita de la encomienda, tocá <span class="k">Despachar encomienda</span>.</li>
+          <li>Sacá la foto de la guía o del ticket del transportista. Es obligatoria: <span class="txt">La ruta no se cierra sin la foto de la guía.</span></li>
+          <li>Completá número de guía, costo del envío y bultos despachados.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Al cierre</span><h3>Cerrar la ruta y rendir</h3><span class="url">/reparto → /caja</span></div>
+        <ol>
+          <li>Tocá <span class="k">Cerrar la ruta</span>. Revisá el resumen: efectivo cobrado, gastos y <b>Efectivo a rendir</b>.</li>
+          <li>Revisá <b>A tu cargo</b>: transferencias sin comprobante y pedidos sin cobrar. Reclamalos con <span class="k2">Reclamar por WhatsApp</span>.</li>
+          <li>Llevá el efectivo, los papeles de los gastos y las devoluciones al depósito, hoy o mañana a primera hora.</li>
+          <li>Denis o Gonza cuentan la plata en su <b>Caja del día</b>. Esperá a que te confirmen lo que recibieron.</li>
+        </ol>
+      </li>
+    </ol>
+    <div class="dos">
+      <div class="caja-si">
+        <h3><svg class="dn-i"><use href="#alert"/></svg>Si pasa esto…</h3>
+        <dl>
+          <dt>No hay señal</dt><dd>Seguí trabajando normal. Todo queda guardado en el celular y se manda solo. No borres nada ni desinstales la app mientras haya algo sin enviar.</dd>
+          <dt>La app muestra otra ruta</dt><dd>Primero tocá <span class="k2">Cambiar ›</span> y elegí la tuya en <b>Tus rutas de hoy</b>. Si sigue mal, fijate que todo diga <span class="txt">Enviado</span> y recién ahí borrá los datos del sitio en Chrome (candado de la barra → Configuración del sitio → Borrar datos) y volvé a entrar. <b>Borrar con cosas sin enviar las pierde.</b></dd>
+          
+          <dt>No se pudo entregar</dt><dd>En <span class="txt">¿Algo salió distinto?</span> elegí <span class="k2">No se entregó</span>, poné el motivo y guardá. El pedido vuelve al depósito.</dd>
+          <dt>Te aparece «Cambios rechazados»</dt><dd>El sistema no aceptó algo que cargaste. Leé <span class="txt">Por qué se rechazó</span> y tocá <span class="k2">Corregir y guardar de nuevo</span>.</dd>
+          <dt>Un cliente que no está en tu ruta te da plata</dt><dd>Usá <span class="k2">Cobro en efectivo a cualquier cliente ›</span>.</dd>
+        </dl>
+      </div>
+      <div class="caja-ok" data-check="reparto">
+        <h3><svg class="dn-i"><use href="#check"/></svg>Ya lo sé hacer</h3>
+        <ul class="check">
+          <li><label><input type="checkbox" id="ck-reparto-1"/>Descargo la ruta con señal antes de salir</label></li>
+          <li><label><input type="checkbox" id="ck-reparto-2"/>Tildo la carga y salgo a repartir</label></li>
+          <li><label><input type="checkbox" id="ck-reparto-3"/>Entrego sin código con «Entregar igual» (fase 1)</label></li>
+          <li><label><input type="checkbox" id="ck-reparto-4"/>Registro efectivo, transferencia o «No pagó nada»</label></li>
+          <li><label><input type="checkbox" id="ck-reparto-5"/>Anoto una devolución con su motivo</label></li>
+          <li><label><input type="checkbox" id="ck-reparto-6"/>Cargo un gasto con la foto del comprobante</label></li>
+          <li><label><input type="checkbox" id="ck-reparto-7"/>Cierro la ruta y sé cuánto tengo que rendir</label></li>
+        </ul>
+        <p class="progreso" aria-live="polite"></p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============ DEPÓSITO Y DESPACHO ============ -->
+  <article class="rol" id="rol-deposito" hidden="hidden">
+    <div class="rol-cab">
+      <p class="eyebrow">Depósito y Despacho</p>
+      <h2>La salida de las camionetas y lo que se entrega en el depósito</h2>
+      <div class="quienes"><span class="persona"><svg class="dn-i"><use href="#user"/></svg>Denis</span><span class="persona"><svg class="dn-i"><use href="#user"/></svg>Gonza</span></div>
+      <div class="pantallas"><span class="url">/despacho</span><span class="url">/deposito</span><span class="url">/deposito/mostrador</span><span class="url">/deposito/caja</span></div>
+      <p class="bajada">En Depósito tenés abajo cuatro pestañas: <b>Armado</b>, <b>Despacho</b>, <b>Cobro</b> y <b>Entregas</b>.</p>
+    </div>
+    <ol class="dia">
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">A la mañana</span><h3>Controlar la carga de cada ruta</h3><span class="url">/despacho</span></div>
+        <ol>
+          <li>Entrá a <b>Despacho</b>. Aparecen las rutas asignadas esperando salir.</li>
+          <li>Elegí la ruta y entrá a <b>Control de carga</b>.</li>
+          <li>Tildá cada pedido cuando lo ves subir. El repartidor tilda lo mismo en su celular.</li>
+          <li>Si un pedido no sale, tocá <span class="k2">Dejar en el depósito</span>. Si tildaste mal, <span class="k2">Deshacer</span>.</li>
+          <li>Cuando todos los pedidos tienen los dos controles, la ruta queda <b>Controlado</b> y el repartidor puede salir.</li>
+        </ol>
+        <p class="nota">Si dice <span class="txt">Sos el repartidor de esta ruta: la carga la controla otra persona.</span>, es a propósito: nadie controla su propia carga.</p>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Cuando un cliente retira</span><h3>Entrega en depósito</h3><span class="url">/deposito</span></div>
+        <ol>
+          <li>Entrá a <b>Entrega en depósito</b> y buscá el pedido o el cliente. Tocá <span class="k">Entregar</span>.</li>
+          <li>Controlá los bultos con el cliente. En <span class="txt">¿Devolvió algo?</span> elegí <span class="k2">No, recibió todo</span> o <span class="k2">Sí, devolvió</span>.</li>
+          <li>En la fase 1 el cliente no tiene código: tocá <span class="k2">No tiene el código · Entregar igual</span>. Desde la fase 2 lo vas a pedir con <span class="k2">Ingresar el código</span>.</li>
+          <li>En <span class="txt">¿Cómo pagó?</span>: Efectivo, transferencia con su comprobante, o <span class="k2">No pagó nada</span>.</li>
+          <li>Tocá <span class="k">Registrar entrega</span>.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Cliente en el mostrador</span><h3>Venta en mostrador</h3><span class="url">/deposito/mostrador</span></div>
+        <ol>
+          <li>Entrá a <b>Venta en mostrador</b>. Con el cliente presente, se confirma, se arma y sale la factura en un solo paso.</li>
+          <li>Si el pedido ya está cargado, buscalo en <b>Presupuestos</b> y tocá <span class="k">Vender</span>.</li>
+          <li>Si no está, tocá <span class="k2">Cargar el pedido con «Tomar un pedido»</span>, cargalo y volvé.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Al cierre</span><h3>Cierre de caja depósito</h3><span class="url">/deposito/caja</span></div>
+        <ol>
+          <li>Entrá a <b>Cierre de caja depósito</b>. Muestra el <b>Efectivo a rendir</b> de hoy: entregas en depósito y cobros en efectivo.</li>
+          <li>Si sos cajero, tocá <span class="k">Recibirla en mi Caja del día</span>.</li>
+          <li>Si no, llevale el efectivo al cajero: lo cuenta en «Recibir plata» y esta caja se cierra ahí.</li>
+          <li>En <b>Devoluciones</b>, marcá cada una: <span class="k2">Recibido en el depósito</span> o <span class="k2">No volvió</span>.</li>
+        </ol>
+        <p class="nota">La caja del depósito nunca se cierra a mano: siempre pasa por un cajero.</p>
+      </li>
+    </ol>
+    <div class="dos">
+      <div class="caja-si">
+        <h3><svg class="dn-i"><use href="#alert"/></svg>Si pasa esto…</h3>
+        <dl>
+          <dt>«Este pedido no tiene código cargado.»</dt><dd>Usá <span class="k2">No tiene el código · Entregar igual</span>.</dd>
+          <dt>La ruta no queda «Controlado»</dt><dd>Falta el tilde de alguien. Mirá qué pedido no tiene los dos controles: lo tilda el repartidor o lo tildás vos.</dd>
+          <dt>La caja del depósito es de otro día</dt><dd>Dice <span class="txt">Esta caja es de un día anterior y sigue abierta.</span> Llevale ese efectivo al cajero antes de seguir.</dd>
+          <dt>No encontrás el pedido para entregar</dt><dd>Solo aparecen los pedidos <b>armados</b>. Si todavía está en armado, esperá a que lo terminen.</dd>
+        </dl>
+      </div>
+      <div class="caja-ok" data-check="deposito">
+        <h3><svg class="dn-i"><use href="#check"/></svg>Ya lo sé hacer</h3>
+        <ul class="check">
+          <li><label><input type="checkbox" id="ck-deposito-1"/>Controlo la carga de una ruta en Despacho</label></li>
+          <li><label><input type="checkbox" id="ck-deposito-2"/>Dejo un pedido en el depósito</label></li>
+          <li><label><input type="checkbox" id="ck-deposito-3"/>Registro una entrega en el depósito</label></li>
+          <li><label><input type="checkbox" id="ck-deposito-4"/>Hago una venta en mostrador</label></li>
+          <li><label><input type="checkbox" id="ck-deposito-5"/>Paso el efectivo del depósito a la Caja del día</label></li>
+        </ul>
+        <p class="progreso" aria-live="polite"></p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============ CAJA ============ -->
+  <article class="rol" id="rol-caja" hidden="hidden">
+    <div class="rol-cab">
+      <p class="eyebrow">Caja</p>
+      <h2>La plata del día: abrir, recibir, pagar y cerrar</h2>
+      <div class="quienes"><span class="persona"><svg class="dn-i"><use href="#user"/></svg>Denis</span><span class="persona"><svg class="dn-i"><use href="#user"/></svg>Gonza</span></div>
+      <div class="pantallas"><span class="url">/caja</span><span class="url">/caja/rendicion</span><span class="url">/caja/salida</span><span class="url">/caja/cierre</span><span class="url">/caja/cerradas</span></div>
+      <p class="bajada">Cada cajero tiene su propia caja. Toda la plata de los demás (repartidores, depósito, cobros sueltos) termina en una Caja del día.</p>
+    </div>
+    <ol class="dia">
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">A la mañana</span><h3>Abrir la caja</h3><span class="url">/caja</span></div>
+        <ol>
+          <li>Entrá a <b>Caja del día</b>.</li>
+          <li>Contá la plata que hay para dar vuelto. Tiene que coincidir con lo que quedó en el cierre anterior.</li>
+          <li>Tocá <span class="k">Abrir la caja</span>. Si es distinto, te pregunta <span class="txt">¿Por qué es distinto del cierre anterior?</span></li>
+          <li>Si hay <b>Clientes nuevos a confirmar</b>, revisalos: <span class="k2">Confirmar</span> o <span class="k2">Unir o editar</span> si ya existía.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Cuando vuelve un repartidor</span><h3>Recibir la rendición</h3><span class="url">/caja/rendicion</span></div>
+        <ol>
+          <li>Tocá <span class="k">Recibir plata</span> y elegí la ruta en <b>Rendiciones de los repartidores</b>.</li>
+          <li>Revisá <b>Gastos con foto</b>: si te dio el papel, tocá <span class="k2">Tengo el papel</span>.</li>
+          <li>Revisá las devoluciones, los pedidos sin entregar y las transferencias sin comprobante.</li>
+          <li>En <b>Entregó</b>, tocá <span class="k2">Contar</span>, cargá cuántos billetes hay de cada uno y <span class="k">Usar este total</span>.</li>
+          <li>Tocá <span class="k">Recibir y pasar a la caja</span>. Si hay diferencia, anotá con quién queda.</li>
+        </ol>
+        <p class="nota">En la misma pantalla están los <b>Cobros de otros usuarios</b> (efectivo que cobró otro y todavía no entregó) y los <b>Faltantes que dijeron que traen</b>: cuando llegan, tocá <span class="k2">Lo trajo</span>.</p>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Durante el día</span><h3>Pagar un gasto, un proveedor o sacar plata</h3><span class="url">/caja/salida</span></div>
+        <ol>
+          <li>Desde la caja tocá <span class="k2">Gasto</span> o <span class="k2">Retiro</span>.</li>
+          <li>Completá <b>Tipo</b>, <b>A quién</b> e <b>Importe</b>.</li>
+          <li>Si tenés el comprobante, sacale foto o subí el PDF.</li>
+          <li>Tocá <span class="k">Guardar</span>.</li>
+        </ol>
+        <p class="nota">Si un cliente paga en el local, usá <span class="k2">Cobro</span>: es la misma pantalla de «Cobro en efectivo».</p>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Al cierre</span><h3>Contar y cerrar</h3><span class="url">/caja/cierre</span></div>
+        <ol>
+          <li>Tocá <span class="k">Cerrar la caja</span>.</li>
+          <li>Contá los billetes. En la PC, escribí el número y Enter pasa al siguiente billete.</li>
+          <li>Mirá la <b>Diferencia</b>. Si no es cero, escribí el <b>Motivo de la diferencia</b>.</li>
+          <li>Decí <span class="txt">¿Qué queda para mañana?</span> y cuánto se retira.</li>
+          <li>Tocá <span class="k">Contar la plata y cerrar</span>.</li>
+        </ol>
+      </li>
+    </ol>
+    <div class="dos">
+      <div class="caja-si">
+        <h3><svg class="dn-i"><use href="#alert"/></svg>Si pasa esto…</h3>
+        <dl>
+          <dt>Cerraste la caja con un error</dt><dd>Entrá a <span class="k2">Todas mis cajas cerradas</span>, abrí la última y tocá <span class="k">Reabrir la caja</span> con el motivo. Solo se puede con la última que cerraste y antes de abrir la de hoy. Queda en el historial y lo ve gerencia.</dd>
+          <dt>Un gasto no tiene papel</dt><dd>No toques «Tengo el papel». Queda pendiente a cargo del repartidor.</dd>
+          <dt>«La caja de hoy ya está cerrada»</dt><dd>Lo que entre ahora va a la caja de mañana, o reabrí la de hoy si fue un error.</dd>
+          <dt>La plata del depósito no aparece</dt><dd>Mirá en <span class="k">Recibir plata</span>: la caja del depósito se recibe ahí, con sus devoluciones.</dd>
+        </dl>
+      </div>
+      <div class="caja-ok" data-check="caja">
+        <h3><svg class="dn-i"><use href="#check"/></svg>Ya lo sé hacer</h3>
+        <ul class="check">
+          <li><label><input type="checkbox" id="ck-caja-1"/>Abro la caja con el fondo correcto</label></li>
+          <li><label><input type="checkbox" id="ck-caja-2"/>Recibo la rendición de un repartidor contando billetes</label></li>
+          <li><label><input type="checkbox" id="ck-caja-3"/>Controlo los gastos con su papel</label></li>
+          <li><label><input type="checkbox" id="ck-caja-4"/>Registro un gasto o un retiro</label></li>
+          <li><label><input type="checkbox" id="ck-caja-5"/>Cierro la caja y explico una diferencia</label></li>
+          <li><label><input type="checkbox" id="ck-caja-6"/>Reabro mi última caja si me equivoqué</label></li>
+        </ul>
+        <p class="progreso" aria-live="polite"></p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============ ADMINISTRACIÓN ============ -->
+  <article class="rol" id="rol-administracion" hidden="hidden">
+    <div class="rol-cab">
+      <p class="eyebrow">Administración</p>
+      <h2>Que cada pedido llegue bien de la entrada a la ruta</h2>
+      <div class="quienes"><span class="persona"><svg class="dn-i"><use href="#user"/></svg>Denis</span></div>
+      <div class="pantallas"><span class="url">/tablero</span><span class="url">/revisar</span><span class="url">/agilpedido</span><span class="url">/rutas</span><span class="url">/despacho</span><span class="url">/deposito</span><span class="url">/comprobantes</span><span class="url">/cuentas</span></div>
+      <p class="bajada">Administración también puede armar, repartir y tomar pedidos. Acá está lo que es solo tuyo. Despacho y Depósito están en su propia sección.</p>
+    </div>
+    <ol class="dia">
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Al llegar</span><h3>Mirar Inicio</h3><span class="url">/tablero</span></div>
+        <ol>
+          <li>Entrá a <b>Inicio</b>. Arriba aparece el aviso de <b>pedidos en rojo</b> que esperan revisión antes de armarse.</li>
+          <li>Cada botón muestra en rojo cuánto tiene pendiente: Pedidos para revisar, AgilPedido, Armado, Despacho, Depósito, Caja.</li>
+          <li>Si aparece un aviso rojo de AgilPedido, la sincronización con AgilPedido falló: avisale a Gonza. Se cierra solo cuando la siguiente anda bien.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">A la mañana y cada tanto</span><h3>Pedidos para revisar</h3><span class="url">/revisar</span></div>
+        <ol>
+          <li>Entrá a <b>Pedidos para revisar</b>: hoy y ayer, más los retenidos. Primero los rojos.</li>
+          <li>Rojo: sin cliente, cliente nuevo o sin compras. Amarillo: sin WhatsApp o importe alto.</li>
+          <li>Si falta el cliente, tocá <span class="k">Asignar cliente</span>, elegí el correcto o <span class="k2">Cliente nuevo</span>, y tocá <span class="k">Asignar y aprobar</span> (o <span class="k2">Solo asignar</span>).</li>
+          <li>Si falta el WhatsApp, tocá <span class="k2">Pegar número</span>, revisá cómo queda y <span class="k">Guardar el WhatsApp verificado</span>.</li>
+          <li>Para hablar con el cliente: <span class="k2">Abrir chat</span>.</li>
+          <li>Si algo no cierra, <span class="k2">Retener</span> con el motivo. El armador no lo ve hasta que tocás <span class="k">Liberar</span>.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Cuando entran por WhatsApp</span><h3>Pedidos de AgilPedido</h3><span class="url">/agilpedido</span></div>
+        <ol>
+          <li>Entrá a <b>AgilPedido</b>. En <b>Para revisar</b> están los pedidos que llegaron por WhatsApp.</li>
+          <li>Tocá <span class="k">Abrir y aprobar</span>. Revisá cada renglón: <span class="k2">Está bien</span> o <span class="k2">Corregir producto</span>.</li>
+          <li>Al corregir, usá <span class="k2">Corregir y recordar</span>: la próxima vez ese producto entra solo.</li>
+          <li>Cuando no queda nada por corregir, tocá <span class="k">Aprobar el pedido</span>.</li>
+          <li>Si te pasan el mensaje a mano: <span class="k2">Cargar otro pedido</span>, pegalo tal como llegó, <span class="k">Leer el mensaje</span>, corregí y <span class="k">Crear el presupuesto</span>.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Antes de que salgan las camionetas, en la PC</span><h3>Planificación de rutas</h3><span class="url">/rutas</span></div>
+        <ol>
+          <li>Entrá a <b>Planificación de rutas</b>. A la izquierda están los pedidos armados sin ruta, por zona. Hay una columna por ruta del día.</li>
+          <li>Si falta una, tocá <span class="k2">Nueva ruta</span> y <span class="txt">Elegí el repartidor</span>.</li>
+          <li>Arrastrá cada pedido a su ruta, o usá <span class="k2">Mover a…</span>. Para cargar una zona entera: <span class="k2">Asignar pedidos armados de las zonas</span>.</li>
+          <li>Ordená las paradas arrastrando o con <span class="k2">Subir una parada</span> y <span class="k2">Bajar una parada</span>.</li>
+          <li>Tocá <span class="k2">Imprimir hoja de ruta</span> e <span class="k2">Imprimir remitos</span>, y después <span class="k">Control de carga en Despacho ›</span>.</li>
+        </ol>
+        <p class="nota">Los pedidos retenidos aparecen con candado. Un pedido se puede mover hasta que la ruta queda «Controlado» o sale. Si un repartidor tiene dos rutas en el mismo viaje, te avisa pero no lo impide.</p>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Durante el día</span><h3>Comprobantes y cuentas</h3><span class="url">/comprobantes · /cuentas</span></div>
+        <ol>
+          <li>Cuando un cliente te manda una transferencia, entrá a <b>Comprobantes</b>, tocá <span class="k">Subir comprobante</span>, elegí <span class="txt">¿De qué cliente?</span> y <span class="k">Subir</span>.</li>
+          <li>En <b>Cuentas</b> buscás cualquier cliente y ves su estado de cuenta, los comprobantes pendientes y los pagos a confirmar.</li>
+        </ol>
+      </li>
+    </ol>
+    <div class="dos">
+      <div class="caja-si">
+        <h3><svg class="dn-i"><use href="#alert"/></svg>Si pasa esto…</h3>
+        <dl>
+          
+          <dt>Armaste una ruta de prueba o por error</dt><dd>Desde el formulario de la ruta en Odoo, <b>Anular ruta</b>: si no tiene plata, se deshace y los pedidos quedan libres.</dd>
+          <dt>Un producto de AgilPedido entra siempre mal</dt><dd>Corregilo con <span class="k2">Corregir y recordar</span>. Las correcciones guardadas están en <span class="k2">Equivalencias aprendidas</span>.</dd>
+          <dt>Ya existe el número de WhatsApp en otro cliente</dt><dd>La pantalla avisa <span class="txt">Ya tienen este número</span>. Revisá si es el mismo cliente antes de guardar.</dd>
+        </dl>
+      </div>
+      <div class="caja-ok" data-check="administracion">
+        <h3><svg class="dn-i"><use href="#check"/></svg>Ya lo sé hacer</h3>
+        <ul class="check">
+          <li><label><input type="checkbox" id="ck-admin-1"/>Entiendo el semáforo rojo y amarillo</label></li>
+          <li><label><input type="checkbox" id="ck-admin-2"/>Asigno un cliente y apruebo el pedido</label></li>
+          <li><label><input type="checkbox" id="ck-admin-3"/>Retengo y libero un pedido</label></li>
+          <li><label><input type="checkbox" id="ck-admin-4"/>Apruebo un pedido de AgilPedido corrigiendo productos</label></li>
+          <li><label><input type="checkbox" id="ck-admin-5"/>Armo las rutas del día e imprimo hoja de ruta y remitos</label></li>
+          <li><label><input type="checkbox" id="ck-admin-6"/>Subo un comprobante a la cuenta del cliente</label></li>
+        </ul>
+        <p class="progreso" aria-live="polite"></p>
+      </div>
+    </div>
+  </article>
+
+  <!-- ============ VENDEDORES ============ -->
+  <article class="rol" id="rol-vendedores" hidden="hidden">
+    <div class="rol-cab">
+      <p class="eyebrow">Vendedores</p>
+      <h2>Tomar pedidos y cuidar la cartera</h2>
+      <div class="quienes"><span class="persona">Cada vendedor con su usuario</span></div>
+      <div class="pantallas"><span class="url">/pedido</span><span class="url">/comprobantes</span><span class="url">/cuentas</span><span class="url">/cobro</span></div>
+      <p class="bajada">Ves la cuenta corriente de los clientes de tu cartera, no la de todos.</p>
+    </div>
+    <ol class="dia">
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">En la visita o por teléfono</span><h3>Tomar un pedido</h3><span class="url">/pedido</span></div>
+        <ol>
+          <li>En Inicio, tocá <span class="k">Tomar un pedido</span>.</li>
+          <li>Elegí el cliente de la lista o buscalo.</li>
+          <li>Cargá los productos y tocá <span class="k">Confirmar pedido</span>.</li>
+          <li>Aparece <span class="txt">Pedido guardado</span>. Listo: el pedido ya está en el sistema.</li>
+        </ol>
+        <p class="nota">No hace falta mandarlo a la empresa. Mandarle al cliente el enlace de su pedido con «Enviar al cliente» llega en la fase 2.</p>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Cuando un cliente te transfiere</span><h3>Subir el comprobante</h3><span class="url">/comprobantes</span></div>
+        <ol>
+          <li>Entrá a <b>Comprobantes</b> y tocá <span class="k">Subir comprobante</span>.</li>
+          <li>Sacale foto o elegí el archivo. Si sale torcida, <span class="k2">Girar</span>.</li>
+          <li>Elegí <span class="txt">¿De qué cliente?</span>. El importe es opcional: el sistema lo lee solo.</li>
+          <li>Tocá <span class="k">Subir</span>. Queda en <b>Subidos hoy por vos</b> y podés ver cómo sigue.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Antes de visitar</span><h3>Mirar la cuenta del cliente</h3><span class="url">/cuentas</span></div>
+        <ol>
+          <li>Entrá a <b>Cuentas</b> y buscá el cliente.</li>
+          <li>Mirá el saldo, los comprobantes pendientes y los pagos a confirmar.</li>
+          <li>Si debe, reclamale antes de tomarle el pedido nuevo.</li>
+        </ol>
+      </li>
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Si te dan efectivo</span><h3>Cobro en efectivo</h3><span class="url">/cobro</span></div>
+        <ol>
+          <li>Entrá a <b>Cobro en efectivo</b>, buscá el cliente y tocá <span class="k2">Buscar</span>.</li>
+          <li>Poné el importe y elegí <span class="txt">¿A qué lo aplicás?</span>: <b>A cuenta</b> o una factura.</li>
+          <li>Tocá <span class="k">Registrar cobro en efectivo</span>.</li>
+          <li>Ese mismo día, entregale la plata al cajero. Le aparece en <b>Cobros de otros usuarios</b>.</li>
+        </ol>
+      </li>
+    </ol>
+    <div class="dos">
+      <div class="caja-si">
+        <h3><svg class="dn-i"><use href="#alert"/></svg>Si pasa esto…</h3>
+        <dl>
+          
+          <dt>El cliente no aparece en Cobro</dt><dd>Probá con otra parte del nombre. Si no está, <span class="k2">¿No está? Cliente nuevo</span>: el importe queda a favor del cliente.</dd>
+          <dt>Te avisa «Ojo: está en una ruta»</dt><dd>Ese cliente tiene un pedido en reparto hoy. Si el repartidor no le cobró, tocá <span class="k2">No le pagó al repartidor: registrarlo</span>.</dd>
+          <dt>«Ya estaba cargado» al subir un comprobante</dt><dd>Ese comprobante ya lo subió alguien. No hace falta nada más.</dd>
+        </dl>
+      </div>
+      <div class="caja-ok" data-check="vendedores">
+        <h3><svg class="dn-i"><use href="#check"/></svg>Ya lo sé hacer</h3>
+        <ul class="check">
+          <li><label><input type="checkbox" id="ck-vend-1"/>Tomo un pedido para un cliente de mi cartera</label></li>
+          
+          <li><label><input type="checkbox" id="ck-vend-3"/>Subo un comprobante de transferencia</label></li>
+          <li><label><input type="checkbox" id="ck-vend-4"/>Miro la cuenta de un cliente antes de visitarlo</label></li>
+          <li><label><input type="checkbox" id="ck-vend-5"/>Registro un cobro en efectivo y lo entrego en caja</label></li>
+        </ul>
+        <p class="progreso" aria-live="polite"></p>
+      </div>
+    </div>
+  </article>
+
+  </div>
+</section>
+
+<!-- ============ CIRCUITO ============ -->
+<section class="sec" id="circuito">
+  <div class="wrap">
+    <p class="eyebrow">El circuito completo</p>
+    <h2>Un pedido, de la entrada a la cuenta</h2>
+    <p class="bajada">Cada paso usa lo que cargó el anterior. Tocá un rol para ver cómo se hace su parte.</p>
+    <ol class="ciclo">
+      <li class="etapa">
+        <h3>Entra el pedido</h3>
+        <p>En la fase 1, por WhatsApp desde AgilPedido o tomado por un vendedor. La web para clientes llega en la fase 2.</p>
+        <div class="tags"><a class="tag" href="#vendedores" style="--c:var(--r-vendedor)"><i></i>Vendedor</a><a class="tag" href="#administracion" style="--c:var(--r-admin)"><i></i>Administración en /agilpedido</a></div>
+      </li>
+      <li class="etapa">
+        <h3>Revisar</h3>
+        <p>Semáforo rojo y amarillo, asignar el cliente, retener o liberar.</p>
+        <div class="tags"><a class="tag" href="#administracion" style="--c:var(--r-admin)"><i></i>Administración</a></div>
+      </li>
+      <li class="etapa">
+        <h3>Armado</h3>
+        <p>Se marca lo que falta y los bultos. Salen solos el remito y la factura.</p>
+        <div class="tags"><a class="tag" href="#armado" style="--c:var(--r-armado)"><i></i>Armado</a></div>
+      </li>
+      <li class="etapa">
+        <h3>Planificación de rutas</h3>
+        <p>Cada pedido armado a su ruta del día. Hoja de ruta y remitos impresos.</p>
+        <div class="tags"><a class="tag" href="#administracion" style="--c:var(--r-admin)"><i></i>Administración</a></div>
+      </li>
+      <li class="etapa">
+        <h3>Despacho</h3>
+        <p>Doble control de la carga: el depósito y el repartidor tildan cada pedido.</p>
+        <div class="tags"><a class="tag" href="#deposito" style="--c:var(--r-deposito)"><i></i>Depósito y Despacho</a><a class="tag" href="#reparto" style="--c:var(--r-reparto)"><i></i>Reparto</a></div>
+      </li>
+      <li class="etapa">
+        <h3>Reparto y entrega</h3>
+        <p>El cliente controla los bultos y se anotan las devoluciones. El código de recibido llega en la fase 2.</p>
+        <div class="tags"><a class="tag" href="#reparto" style="--c:var(--r-reparto)"><i></i>Reparto</a></div>
+        <p class="alt">También: el cliente retira en el depósito o compra en el mostrador (<a href="#deposito">Depósito</a>), o el pedido sale por encomienda desde la terminal (<a href="#reparto">Reparto</a>).</p>
+      </li>
+      <li class="etapa">
+        <h3>Cobro y comprobante</h3>
+        <p>Efectivo en la puerta, o transferencia con su comprobante subido a la cuenta.</p>
+        <div class="tags"><a class="tag" href="#reparto" style="--c:var(--r-reparto)"><i></i>Reparto</a><a class="tag" href="#vendedores" style="--c:var(--r-vendedor)"><i></i>Vendedor</a><a class="tag" href="#administracion" style="--c:var(--r-admin)"><i></i>Administración</a></div>
+      </li>
+      <li class="etapa">
+        <h3>Caja y rendición</h3>
+        <p>El repartidor rinde, el cajero cuenta los billetes y controla gastos y devoluciones.</p>
+        <div class="tags"><a class="tag" href="#caja" style="--c:var(--r-caja)"><i></i>Caja</a><a class="tag" href="#reparto" style="--c:var(--r-reparto)"><i></i>Reparto</a></div>
+      </li>
+      <li class="etapa">
+        <h3>Cuentas</h3>
+        <p>El saldo de cada cliente queda al día. Deudores, estado de cuenta y reclamos.</p>
+        <div class="tags"><a class="tag" href="#administracion" style="--c:var(--r-admin)"><i></i>Administración</a><a class="tag" href="#vendedores" style="--c:var(--r-vendedor)"><i></i>Vendedor</a></div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ PRÁCTICA ============ -->
+<section class="sec" id="practica">
+  <div class="wrap">
+    <p class="eyebrow">Practicá sin miedo</p>
+    <h2>Probá todo en el entorno de práctica</h2>
+    <div class="grid2">
+      <div class="tarjeta">
+        <h3>Cómo se practica</h3>
+        <ul>
+          <li>Entrá a <a href="https://practica.distrineuquen.com" rel="noopener"><b>practica.distrineuquen.com</b></a>, poné el código que te pasa administración y elegí tu rol. No hace falta usuario ni clave.</li>
+          <li>Es una copia del sistema con clientes inventados: nada llega a un cliente real ni mueve una cuenta de verdad.</li>
+          <li>Hacé el circuito entero: tomá un pedido, armalo, ponelo en una ruta, entregalo, cobralo y rendilo.</li>
+        </ul>
+      </div>
+      <div class="tarjeta">
+        <h3>Equivocate tranquilo</h3>
+        <ul>
+          <li>Arriba vas a ver siempre una franja naranja: «Entorno de práctica». Si no la ves, estás en el sistema real.</li>
+          <li>Todas las noches la práctica vuelve a empezar de cero.</li>
+          <li>Nunca practiques en el sistema real.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
 
 
-  <section id="falta">
-    <div class="marco">
-      <p class="eyebrow">Al 30 de septiembre de 2026</p>
-      <h2>Lo que falta para terminar</h2>
-      <p class="bajada">El circuito completo ya se recorrió de punta a punta en el entorno de
-         pruebas. Lo que queda depende de personas reales, de cuentas de la empresa y de
-         decisiones de la gerencia.</p>
+<!-- ============ HISTORIA ============ -->
+<!-- The former project hub, collapsed: generated from distri.project.module
+     (project_rows: public-safe fields only), as before 19.0.1.114.0. -->
+<section class="sec" id="historia">
+  <div class="wrap">
+    <p class="eyebrow">Historia del proyecto</p>
+    <h2>Cómo se construyó el sistema</h2>
+    <p class="bajada">Las partes del proyecto y la etapa en que quedó cada una. Las presentaciones originales siguen en el sitio.</p>
+    <details class="historia">
+      <summary>Partes del proyecto y presentaciones</summary>
+      <div class="hist-in">
+        <div class="leyenda"><span class="est e-designed">Diseñado</span><span class="est e-programmed">Programado</span><span class="est e-lab">Probado en el lab</span><span class="est e-live">En uso</span><span class="est e-pending">Pendiente</span></div>
+        <h3>Las presentaciones</h3>
+        <ul class="docs">
+          <li><a href="/presentacion">El sistema de pedidos</a> <span>Cliente, vendedor, armador y administración: del pedido a la factura.</span></li>
+          <li><a href="/presentacion/reparto">La app del repartidor</a> <span>Carga, despacho, visitas, encomiendas, gastos, rendición y depósito.</span></li>
+          <li><a href="/presentacion/cobranza">Registro de cobranzas</a> <span>Rutas, rendición, comprobantes por WhatsApp y Mercado Pago.</span></li>
+          <li><a href="/presentacion/migracion">La migración desde AgilPedido</a> <span>Por qué se empezó por el catálogo y cómo conviven los dos sistemas.</span></li>
+          <li><a href="/presentacion/presupuesto">Presupuesto</a> <span>Odoo Online o un Odoo propio.</span></li>
+        </ul>
+        <h3>Cada parte, en qué etapa está</h3>
+        <ul class="mods">
+          <li t-foreach="modulos" t-as="m" t-att-id="'parte-%s' % m['code']">
+            <div class="fila"><b t-esc="m['name']"/><span t-attf-class="est e-#{m['stage']}" t-esc="m['stage_label']"/></div>
+            <p t-if="m['description']" t-esc="m['description']"/>
+            <p t-if="m['next_step']">Próximo paso: <t t-esc="m['next_step']"/></p>
+            <span t-if="m['depends_on']" class="dep">Depende de: <t t-esc="', '.join(m['depends_on'])"/></span>
+            <a t-if="m['url']" class="pres" t-att-href="m['url']"><t t-if="m['url'].startswith('/presentacion')">Ver la presentación</t><t t-else="">Ver la página</t></a>
+          </li>
+        </ul>
+        <h3>Lo que faltaba al 30 de septiembre de 2026</h3>
       <ul class="resta">
         <li class="hecho"><span class="cuando">Hecho · 27/09</span><b>Prueba integral del circuito</b>Pedido,
             WhatsApp, asignación, armado, factura, ruta, app del repartidor sin señal, depósito,
@@ -300,131 +767,13 @@
             a Odoo cuando se apruebe el proyecto. Ese día se activa «Confirmar pedidos por WhatsApp»
             y los pedidos de la página pasan a esperar el mensaje del cliente.</li>
       </ul>
-    </div>
-  </section>
-
-
-  <section class="oscuro">
-    <div class="marco">
-      <p class="eyebrow">El orden</p>
-      <h2>Todo parte del catálogo</h2>
-      <p class="bajada">Cada paso usa el dato del anterior. Un producto, una unidad o un precio mal
-         cargado en el catálogo llega hasta la cobranza.</p>
-      <ol class="cadena-dep">
-        <t t-foreach="[
-            ('catalogo', 'Catálogo', 'Producto, unidad de venta y precio de cada lista.'),
-            ('pedidos', 'Pedido', 'El cliente elige productos del catálogo en la pantalla tipo AgilPedido.'),
-            ('armado', 'Armado', 'El armador prepara el pedido y carga los bultos.'),
-            (False, 'Factura', 'Sale sola al terminar el armado, por lo entregado y con los precios de la lista del cliente.'),
-            ('cuenta', 'Cuenta corriente', 'La factura y los cobros mueven el saldo del comercio.'),
-            ('reparto', 'Reparto y cobranza', 'El repartidor entrega los bultos y cobra el saldo de cada cliente.'),
-            ('conciliacion', 'Cobranza y conciliación', 'Cada cobro se compara con el saldo y con Mercado Pago.'),
-          ]" t-as="eslabon">
-          <t t-set="m" t-value="eslabon[0] and por_codigo.get(eslabon[0])"/>
-          <li t-att-class="'raiz' if eslabon[0] == 'catalogo' else None">
-            <div class="fila">
-              <h3 t-esc="eslabon[1]"/>
-              <span t-if="m" t-attf-class="etapa e-#{m['stage']}" t-esc="m['stage_label']"/>
-              <span t-if="not eslabon[0]" class="sin">Parte del armado</span>
-            </div>
-            <p t-esc="eslabon[2]"/>
-          </li>
-        </t>
-      </ol>
-    </div>
-  </section>
-
-
-  <section id="roles">
-    <div class="marco">
-      <p class="eyebrow">Cómo se trabaja, por rol</p>
-      <h2>Cada uno, en su pantalla</h2>
-      <p class="bajada">Qué hace cada rol y dónde está explicado paso a paso. Al entrar con su
-         usuario, cada uno cae directo en su pantalla.</p>
-      <div class="roles-grid">
-        <t t-foreach="[
-            ('cliente', 'Cliente', 'Pide desde el celular, confirma el pedido por WhatsApp, ve su saldo y «Cómo pagar», y deja sus horarios, su ubicación y los avisos para la entrega.', '/pedido y el enlace de su pedido', [('/presentacion#cliente', 'Lo que ve el cliente'), ('/presentacion#pagar', 'Cómo paga')]),
-            ('vendedor', 'Vendedor', 'Toma el pedido con su usuario, elige el cliente de su cartera y se lo manda con «Enviar al cliente». Los comprobantes que reenvía quedan para revisar.', '/pedido, con su usuario', [('/presentacion#vendedor', 'El vendedor toma el pedido'), ('/presentacion/cobranza#vendedor', 'Pedidos y comprobantes del vendedor')]),
-            ('administrador', 'Administración', 'Asigna el cliente a los pedidos de la página, aprueba, arma las rutas del día, controla la carga en «Despacho», rinde la caja de cada repartidor y confirma los cobros.', 'Odoo', [('/presentacion#administrador', 'Asignar cliente y aprobar'), ('/presentacion/reparto#salida', 'Despacho y control de carga'), ('/presentacion/cobranza#conciliacion', 'Tablero de cobros')]),
-            ('armador', 'Armador', 'Toma el pedido en el celular, marca solo lo que falta y carga los bultos. Al terminar salen solos el remito y la factura por lo entregado.', '/armado', [('/presentacion#armador', 'El armado, en el celular')]),
-            ('repartidor', 'Repartidor', 'Carga la camioneta tildando cada pedido, entrega, cobra, anota devoluciones y gastos, y cierra la ruta. La app funciona sin señal.', '/reparto', [('/presentacion/reparto', 'La app del repartidor'), ('/presentacion/reparto#rendicion', 'Rendición de caja')]),
-            ('gerente', 'Gerencia', 'Ve todo: saldos, créditos y cobros de Mercado Pago. Aprueba precios y cambios de productos, y hace la venta en mostrador.', 'Odoo, con todos los menús', [('/presentacion/cobranza#conexion-mp', 'Cobros y saldos'), ('/presentacion/reparto#deposito', 'Depósito y mostrador')]),
-          ]" t-as="rol">
-          <div t-attf-class="rolc rol-#{rol[0]}">
-            <h3><svg class="rol-ic" aria-hidden="true"><use t-attf-href="#rol-ic-#{rol[0]}"/></svg><t t-esc="rol[1]"/></h3>
-            <p t-esc="rol[2]"/>
-            <p class="pant">Su pantalla: <b t-esc="rol[3]"/></p>
-            <div class="links">
-              <a t-foreach="rol[4]" t-as="enlace" t-att-href="enlace[0]" t-esc="enlace[1]"/>
-            </div>
-          </div>
-        </t>
       </div>
-    </div>
-  </section>
-
-  <t t-call="distri_pedido.rol_mapa">
-    <t t-set="mapa_id" t-value="'punta-a-punta'"/>
-    <t t-set="titulo" t-value="'Un pedido, de punta a punta'"/>
-    <t t-set="bajada" t-value="'Cada etiqueta lleva a la presentación que explica ese paso.'"/>
-    <t t-set="nota" t-value="'El armador también arma pedidos sin cliente asignado; la factura y la ruta esperan esa asignación. El código de recibido se genera al terminar el armado. Hasta que exista el envío automático por WhatsApp, el administrador lo manda a mano desde el pedido. Los pasos 8b y 8c reemplazan la entrega en la calle: el cliente retira en el depósito, o el pedido del interior sale por encomienda desde la terminal. La confirmación por WhatsApp (paso 2) se activa el día que se conecte el número real de la empresa; hasta entonces el pedido de la página entra sin esperar el mensaje.'"/>
-    <t t-set="mapa_pasos" t-value="[
-        {'id': 'pp-pedido', 'n': '1', 't': 'Pedido', 'l': 'El cliente o el vendedor hace el pedido', 'href': '/presentacion#cliente', 'acts': {'cliente': 'Pide en /pedido', 'vendedor': 'Lo toma y se lo envía al cliente'}},
-        {'id': 'pp-whatsapp', 'n': '2', 't': 'WhatsApp', 'l': 'El pedido se confirma por WhatsApp', 'href': '/presentacion#falta-un-paso', 'acts': {'cliente': 'Manda el mensaje con el código', 'sistema': 'Confirma el pedido', 'administrador': 'Confirma a mano si llama'}},
-        {'id': 'pp-aprobacion', 'n': '3', 't': 'Aprobación', 'l': 'Se asigna el cliente', 'href': '/presentacion#administrador', 'acts': {'administrador': 'Asigna el cliente y aprueba'}},
-        {'id': 'pp-armado', 'n': '4', 't': 'Armado', 'l': 'Armado del pedido', 'href': '/presentacion#armador', 'acts': {'armador': 'Arma, anota faltantes y bultos', 'sistema': 'Genera el código de recibido', 'cliente': 'Recibe el código de recibido'}},
-        {'id': 'pp-factura', 'n': '5', 't': 'Factura', 'l': 'Factura por lo entregado', 'href': '/presentacion/cobranza#transferencias', 'acts': {'sistema': 'Remito y factura de lo entregado', 'cliente': 'Ve «Cómo pagar»'}},
-        {'id': 'pp-ruta', 'n': '6', 't': 'Ruta', 'l': 'Ruta del día', 'href': '/presentacion/cobranza#asignacion', 'acts': {'administrador': 'Asigna la ruta'}},
-        {'id': 'pp-carga', 'n': '7', 't': 'Carga', 'l': 'Carga de la camioneta y salida', 'href': '/presentacion/reparto#carga', 'acts': {'repartidor': 'Carga los bultos', 'administrador': 'Controla la salida'}},
-        {'id': 'pp-entrega', 'n': '8', 't': 'Entrega', 'l': 'Entrega, devoluciones y código de recibido', 'href': '/presentacion/reparto#visita', 'acts': {'repartidor': 'Entrega y anota devoluciones', 'cliente': 'Controla y dicta el código'}},
-        {'id': 'pp-retiro', 'n': '8b', 't': 'Retiro', 'l': 'Retiro en el depósito o venta en mostrador', 'href': '/presentacion/reparto#deposito', 'acts': {'cliente': 'Retira en el depósito', 'administrador': 'Registra la entrega', 'gerente': 'Venta en mostrador'}},
-        {'id': 'pp-encomienda', 'n': '8c', 't': 'Encomienda', 'l': 'Encomienda al interior', 'href': '/presentacion/reparto#encomiendas', 'acts': {'cliente': 'Descarga la guía', 'vendedor': 'Avisa al cliente', 'repartidor': 'Despacha en la terminal'}},
-        {'id': 'pp-cobro', 'n': '9', 't': 'Cobro', 'l': 'Cobro en la puerta', 'href': '/presentacion/reparto#visita', 'acts': {'cliente': 'Paga o transfiere', 'repartidor': 'Cobra y reclama el comprobante'}},
-        {'id': 'pp-cierre', 'n': '10', 't': 'Cierre', 'l': 'Gastos y cierre de la ruta', 'href': '/presentacion/reparto#gastos', 'acts': {'repartidor': 'Carga gastos y cierra'}},
-        {'id': 'pp-rendicion', 'n': '11', 't': 'Rendición', 'l': 'Rendición de caja', 'href': '/presentacion/reparto#rendicion', 'acts': {'administrador': 'Cuenta el efectivo, controla devoluciones y gastos', 'repartidor': 'Rinde el efectivo'}},
-        {'id': 'pp-mp', 'n': '12', 't': 'Cobros', 'l': 'Tablero de cobros de Mercado Pago', 'href': '/presentacion/cobranza#conciliacion', 'acts': {'administrador': 'Confirma en el tablero y cierra el día', 'sistema': 'Reporte de Mercado Pago'}},
-        {'id': 'pp-saldos', 'n': '13', 't': 'Saldos', 'l': 'Saldos y créditos', 'href': '/presentacion/cobranza#conexion-mp', 'acts': {'gerente': 'Revisa saldos y decide créditos'}},
-      ]"/>
-  </t>
-  <section id="capacitacion">
-    <div class="marco">
-      <p class="eyebrow">Capacitación y documentación</p>
-      <h2>Las presentaciones</h2>
-      <p class="bajada">Para leer antes de usar el sistema o para mostrarle a quien empieza. Cada
-         una tiene un enlace para volver acá.</p>
-      <ul class="docs">
-        <li><a href="/presentacion"><b>El sistema de pedidos</b>Cliente, vendedor, armador y administración: del pedido a la factura.<span class="url">/presentacion</span></a></li>
-        <li><a href="/presentacion/reparto"><b>La app del repartidor</b>Carga, despacho, visitas, encomiendas, gastos, rendición y depósito.<span class="url">/presentacion/reparto</span></a></li>
-        <li><a href="/presentacion/cobranza"><b>Registro de cobranzas</b>Rutas, rendición, comprobantes por WhatsApp y Mercado Pago.<span class="url">/presentacion/cobranza</span></a></li>
-        <li><a href="/presentacion/migracion"><b>La migración desde AgilPedido</b>Por qué se empezó por el catálogo y cómo conviven los dos sistemas.<span class="url">/presentacion/migracion</span></a></li>
-      </ul>
-      <p class="bajada">Documentación técnica en preparación.</p>
-    </div>
-  </section>
-
-  <section id="presupuesto">
-    <div class="marco">
-      <p class="eyebrow">Presupuesto</p>
-      <h2>Odoo Online o un Odoo propio</h2>
-      <div class="presu">
-        <p>Odoo Online (la versión alquilada de hoy) contra un Odoo Community propio, las licencias
-           por usuario y qué incluye el servicio mensual, todo junto.</p>
-        <a class="ver" href="/presentacion/presupuesto">Ver el presupuesto →</a>
-      </div>
-    </div>
-  </section>
-
-  <div class="pie">
-    <div class="marco">
-      <p>Distri Neuquén · Entorno de pruebas · Septiembre 2026</p>
-      <a href="/presentacion">El sistema de pedidos</a>
-      <a href="/presentacion/reparto">La app del repartidor</a>
-      <a href="/presentacion/cobranza">Registro de cobranzas</a>
-      <a href="/presentacion/migracion">La migración desde AgilPedido</a>
-      <a href="/presentacion/presupuesto">Presupuesto</a>
-    </div>
+    </details>
   </div>
+</section>
+</main>
 
+<footer><div class="wrap">Distri Neuquén · Capacitación del personal</div></footer>
 </body>
 </html>
   </template>

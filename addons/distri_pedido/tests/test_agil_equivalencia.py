@@ -608,8 +608,14 @@ class TestAgilEquivalencias(TransactionCase):
     def _producto_con_codigo(self, codigo, nombre, precio, unidades=None, regla=None):
         """The real product of the test store message, or the same one on an
         empty database."""
-        variante = self.env["product.product"].search([("default_code", "=", codigo)], limit=1)
+        # 19.0.1.114.0: production archived these products on 19/11/2026
+        # (AgilPedido catalog); the test reactivates them in its transaction
+        variante = self.env["product.product"].with_context(active_test=False).search(
+            [("default_code", "=", codigo)], limit=1)
         if variante:
+            if not variante.active or not variante.product_tmpl_id.active:
+                variante.product_tmpl_id.active = True
+                variante.active = True
             return variante.product_tmpl_id
         plantilla = self.env["product.template"].create({
             "name": nombre, "type": "consu", "sale_ok": True, "list_price": precio,
