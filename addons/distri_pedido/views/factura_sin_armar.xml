@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.115.0: «Crear factura» on an order not packed yet
+       (models/factura_sin_armar.py) -->
+  <record id="view_sale_advance_payment_inv_sin_armar" model="ir.ui.view">
+    <field name="name">sale.advance.payment.inv.sin.armar</field>
+    <field name="model">sale.advance.payment.inv</field>
+    <field name="inherit_id" ref="sale.view_sale_advance_payment_inv"/>
+    <field name="arch" type="xml">
+      <xpath expr="//group[1]" position="before">
+        <field name="distri_puede_forzar" invisible="1"/>
+        <div class="alert alert-warning" role="alert" invisible="not distri_sin_armar">
+          <p><b>Este pedido todavía no está armado</b> (<field name="distri_sin_armar" readonly="1" class="oe_inline"/>).
+            La factura tiene que salir al terminar el armado, para que descuente lo que faltó. ¿Facturar igual?</p>
+          <div invisible="not distri_puede_forzar">
+            <field name="distri_facturar_sin_armar" class="oe_inline"/>
+            <label for="distri_facturar_sin_armar" string="Facturar igual"/>
+          </div>
+          <p invisible="distri_puede_forzar">Solo administración o gerencia lo factura sin armar.</p>
+        </div>
+      </xpath>
+    </field>
+  </record>
+</odoo>

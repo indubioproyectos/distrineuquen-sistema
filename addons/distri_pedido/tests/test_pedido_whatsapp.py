@@ -556,9 +556,10 @@ class TestComprobantesPedido(PedidoWhatsappMixin, TransactionCase):
         self.assertEqual(card.column, "review")
 
     def test_seller_forwarded_photo_goes_to_review(self):
-        card = self._income(2000, "900000002", cuit="20999111117")
+        # an odd amount: a real receipt of a round amount in the copy would pair
+        card = self._income(2017, "900000002", cuit="20999111117")
         self.assertEqual(card.column, "confirm")
-        photo = self._message("Cliente: Almacén Comprobante WA\n$ 2.000", wa_id="5492990007788",
+        photo = self._message("Cliente: Almacén Comprobante WA\n$ 2.017", wa_id="5492990007788",
                               kind="image", media_mime_type="image/jpeg", media_id="2",
                               media_state="pending")
         self.assertEqual(photo.distri_forwarded_by_id, self.seller)

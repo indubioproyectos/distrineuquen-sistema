@@ -171,8 +171,14 @@ class TestCobroEfectivo(AccountTestInvoicingCommon):
             self.partner_b.name)])
         with self.assertRaises(UserError):
             self._cash(seller).cash_register(self.partner_b.id, 100)
-        # a driver collects from anyone
-        self.assertTrue(self._cash().cash_register(self.partner_b.id, 100, over_ok=True))
+        # 19.0.1.115.0 (owner): a driver neither; administración does
+        with self.assertRaises(UserError):
+            self._cash().cash_register(self.partner_b.id, 100, over_ok=True)
+        admin = new_test_user(
+            self.env, login="admin_efectivo",
+            groups="base.group_user,distri_pedido.grupo_administracion",
+            company_id=self.env.company.id, company_ids=[Command.set(self.env.company.ids)])
+        self.assertTrue(self._cash(admin).cash_register(self.partner_b.id, 100, over_ok=True))
 
 
 @tagged("post_install", "-at_install", "distri_cobro_efectivo")

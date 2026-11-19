@@ -94,11 +94,15 @@ from .reparto_cliente import AR_TZ, today_ar
 
 _logger = logging.getLogger(__name__)
 
+# 19.0.1.115.0: every staff role uploads receipts with his own user (the
+# drivers and the packers too: they get them on their phones)
 UPLOAD_GROUPS = (
     "distri_pedido.grupo_vendedor",
     "distri_pedido.grupo_administracion",
     "distri_pedido.grupo_gerencia",
     "distri_pedido.grupo_cajero",
+    "distri_pedido.grupo_reparto",
+    "distri_pedido.grupo_armador",
 )
 UPLOAD_KEY = "upload:%s"
 CHAT_KEY = "chat:%s"

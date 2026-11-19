@@ -123,7 +123,9 @@ class Comprobantes(http.Controller):
         partner = request.env["res.partner"].sudo().browse(partner_id).exists()
         if not partner or partner.distri_generic_partner:
             return request.env["res.partner"]
-        return partner
+        # 19.0.1.115.0: a wholesale customer, only for who sees them (the
+        # picker already hides them, lista_oculta.ve_mayoristas)
+        return request.env["distri.cash.collection"]._cash_visible(partner)
 
     # ---------------------------------------------------------------- page
 

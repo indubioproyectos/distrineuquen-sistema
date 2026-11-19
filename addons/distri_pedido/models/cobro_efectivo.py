@@ -27,7 +27,7 @@ from markupsafe import Markup
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
 
-from .lista_oculta import solo_vendedor
+from .lista_oculta import MAYORISTA_FUERA, ve_mayoristas
 from .reparto import _money
 from .reparto_cliente import today_ar
 
@@ -112,9 +112,19 @@ class DistriCashCollection(models.Model):
     def _cash_partner_domain(self):
         domain = [("parent_id", "=", False), ("distri_generic_partner", "=", False),
                   ("id", "not in", self._cash_excluded_partner_ids())]
-        if solo_vendedor(self.env.user):
-            domain.append(("distri_lista_oculta", "=", False))
+        # 19.0.1.115.0: the wholesale customers only for administración,
+        # gerencia and the system administrators (lista_oculta.ve_mayoristas)
+        if not ve_mayoristas(self.env.user):
+            domain += MAYORISTA_FUERA
         return domain
+
+    @api.model
+    def _cash_visible(self, partners):
+        """The partners without a wholesale price list, for the users that do
+        not see the wholesale customers (the rest is in the domain above)."""
+        if ve_mayoristas(self.env.user):
+            return partners
+        return partners.filtered(lambda p: not p._distri_es_distribuidora())
 
     @api.model
     def _cash_partner(self, partner_id):
@@ -127,6 +137,7 @@ class DistriCashCollection(models.Model):
         Partner = self.env["res.partner"].sudo()
         partner = Partner.search([("id", "=", wanted)] + self._cash_partner_domain(),
                                  limit=1) if wanted > 0 else Partner
+        partner = self._cash_visible(partner)
         if not partner:
             raise UserError(NOT_A_CUSTOMER)
         return partner
@@ -368,6 +379,7 @@ class DistriCashCollection(models.Model):
             terms = ["|", ("id", "in", [row[0] for row in self.env.cr.fetchall()])] + terms
         partners = self.env["res.partner"].sudo().search(
             self._cash_partner_domain() + terms, order="name", limit=SEARCH_LIMIT)
+        partners = self._cash_visible(partners)
         return [{"id": p.id, "name": p.name or "", "ref": p.ref or "",
                  "town": p.city or "", "phone": p.distri_whatsapp or p.phone or ""}
                 for p in partners]

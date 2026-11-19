@@ -91,6 +91,8 @@ DEPOT_JOURNAL_CODE = "CDEP"
 DEPOT_JOURNAL_NAME = "Caja depósito"
 # 19.0.1.109.0 (owner): nobody closes a depot box by hand any more
 DEPOT_TO_CASHIER = "Esta plata la recibe un cajero en su Caja del día."
+ROUTE_TO_CASHIER = ("La rendición la recibe un cajero en su Caja del día (/caja › Recibir "
+                    "plata): así el efectivo entra a una caja.")
 
 
 class DistriRoute(models.Model):
@@ -474,7 +476,14 @@ class DistriRoute(models.Model):
         return self.case_ids.filtered(lambda c: c.kind == "cash" and c.state == "open")[:1]
 
     def action_settle(self):
-        """Closes the settlement and registers the cash as customer payments."""
+        """Closes the settlement and registers the cash as customer payments.
+
+        19.0.1.115.0: only through a cashier's «Caja del día» (distri.caja
+        receive_route, which passes distri_caja_defer_post), so the cash
+        always enters a cash session; the backend «Cerrar rendición» button
+        is gone. Superuser code (scripts, tests) keeps calling it."""
+        if not (self.env.su or self.env.context.get("distri_caja_defer_post")):
+            raise UserError(ROUTE_TO_CASHIER)
         for route in self:
             if route.kind != "route":
                 raise UserError(DEPOT_TO_CASHIER)

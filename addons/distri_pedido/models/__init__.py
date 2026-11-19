@@ -72,3 +72,4 @@ from . import cliente_provisorio
 from . import planificacion
 from . import hoja_ruta
 from . import anular_ruta
+from . import factura_sin_armar

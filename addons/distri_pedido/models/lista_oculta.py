@@ -45,6 +45,19 @@ def ve_lista_oculta(user):
             or user.has_group("base.group_system"))
 
 
+def ve_mayoristas(user):
+    """19.0.1.115.0: who sees the wholesale customers (_distri_es_distribuidora)
+    in the staff screens (/cuentas, /pedido, /cobro, /comprobantes, remitos):
+    administración, gerencia and the system administrators, the same people
+    as the hidden list. Every other staff member sees the direct customers."""
+    return ve_lista_oculta(user)
+
+
+# the cheap part of _distri_es_distribuidora as a domain (the price list is
+# checked on the found records)
+MAYORISTA_FUERA = [("distri_lista_oculta", "=", False), ("distri_es_mayorista", "=", False)]
+
+
 def solo_vendedor(user):
     """A seller without Administración: sees the General list only."""
     return is_staff(user) and not ve_lista_oculta(user)
@@ -101,10 +114,15 @@ class ResPartnerListaOculta(models.Model):
     _inherit = "res.partner"
 
     def _distri_es_distribuidora(self):
-        """Authorized for the hidden list, or with a hidden list assigned."""
+        """Authorized for the hidden list, or with a hidden list assigned.
+        19.0.1.115.0 (owner: «los que tienen etiqueta de mayorista solo los
+        ven Denis y Gonzalo y admin»): also the customers marked «Es
+        mayorista» (revision_cliente.py). Staff without Administración never
+        see these customers (ve_mayoristas)."""
         self.ensure_one()
         socio = self.sudo()
-        return bool(socio.commercial_partner_id.distri_lista_oculta
+        comercial = socio.commercial_partner_id
+        return bool(comercial.distri_lista_oculta or comercial.distri_es_mayorista
                     or socio.property_product_pricelist._distri_es_oculta())
 
     def _distri_check_lista_vendedor(self, vals_list):

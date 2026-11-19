@@ -48,7 +48,7 @@ from .deudores import ADMIN_GROUP, SELLERS, debtor_entries, direct_customers, se
 from .ar_phone import wa_digits
 from .comprobante_pendiente import OPEN_STATES
 from .estado_cuenta import PROVISIONAL_NOTE, SOURCE_LABELS, share_token
-from .lista_oculta import solo_vendedor
+from .lista_oculta import ve_mayoristas
 from .reparto_cliente import AR_TZ, today_ar
 
 SELLER_GROUP = "distri_pedido.grupo_vendedor"
@@ -255,14 +255,17 @@ class DistriAccountApp(models.AbstractModel):
 
     @api.model
     def _app_hides_distributors(self):
-        """A seller without Administración never reaches a distributor."""
-        return self._app_check() != "all" and solo_vendedor(self.env.user)
+        """Staff without Administración (sellers and drivers) never reach a
+        wholesale customer. 19.0.1.115.0 (owner): the drivers too, and
+        «wholesale» is the whole rule of lista_oculta._distri_es_distribuidora
+        (lista oculta, «Es mayorista», a wholesale price list)."""
+        return self._app_check() != "all" and not ve_mayoristas(self.env.user)
 
     @api.model
     def _app_allowed(self, partner):
         """Whether the user may see this commercial partner's account."""
         return not partner.distri_generic_partner and not (
-            partner.distri_lista_oculta and self._app_hides_distributors())
+            self._app_hides_distributors() and partner._distri_es_distribuidora())
 
     @api.model
     def _app_customers(self):
@@ -271,7 +274,7 @@ class DistriAccountApp(models.AbstractModel):
         self._app_check()
         customers = direct_customers(self.env)
         if self._app_hides_distributors():
-            customers = customers.filtered(lambda p: not p.distri_lista_oculta)
+            customers = customers.filtered(lambda p: not p._distri_es_distribuidora())
         return customers
 
     @api.model

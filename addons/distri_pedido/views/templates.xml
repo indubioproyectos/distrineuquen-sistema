@@ -628,7 +628,10 @@
       function pintarTelefono(avisar) {
         var texto = fTel.value.trim();
         var r = texto ? revisarTelefono(texto) : { error: 'Poné un teléfono de contacto' };
-        var ok = !r.error || (texto &amp;&amp; telefonoGuardado());
+        // 19.0.1.115.0: a customer staff picked who already has a phone on
+        // file needs none typed (the server takes the one on file)
+        var ok = !r.error || (texto &amp;&amp; telefonoGuardado()) ||
+          (!texto &amp;&amp; !!fTel.dataset.guardado);
         oTel.textContent = r.nacional ? 'Te vamos a escribir al ' + telefonoVisto(r.nacional) : '';
         oTel.style.display = r.nacional ? 'block' : 'none';
         if (ok || avisar) {
@@ -812,7 +815,21 @@
           if (vacio &amp;&amp; !falla) { i.focus(); falla = true; }
         });
         if (!pintarTelefono(true) &amp;&amp; !falla) { fTel.focus(); falla = true; }
-        if (falla) { ev.preventDefault(); }
+        if (falla) { ev.preventDefault(); return; }
+        // 19.0.1.115.0: one tap, one order (the server also ignores a twin post)
+        if (this.dataset.enviando) { ev.preventDefault(); return; }
+        this.dataset.enviando = '1';
+        this.querySelectorAll('button[type=submit]').forEach(function (b) {
+          b.disabled = true; b.setAttribute('aria-busy', 'true');
+        });
+      });
+      // back from the confirmation (page cache): the form can be sent again
+      window.addEventListener('pageshow', function () {
+        var f = document.getElementById('frm');
+        delete f.dataset.enviando;
+        f.querySelectorAll('button[type=submit]').forEach(function (b) {
+          b.disabled = false; b.removeAttribute('aria-busy');
+        });
       });
 
       document.getElementById('limpiar').addEventListener('click', function () {

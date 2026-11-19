@@ -12,6 +12,10 @@ Never with money: a route that registered cash, transfers, payments, depot
 cash, a caja movement, an expense, a dispatched parcel, a charge to the
 driver or a return checked at the depot is refused with the list of what it
 has, because undoing it would hide money. That route is settled as usual.
+
+19.0.1.115.0 (owner): only a route still «Asignada» (draft) is cancelled; one
+«En reparto» or closed on the phone is refused, the driver's mistakes are
+fixed with «Reabrir para el repartidor» and the route is settled.
 """
 from markupsafe import Markup
 
@@ -69,6 +73,13 @@ class DistriRouteCancel(models.Model):
         for route in self:
             if route.kind != "route":
                 raise UserError("Solo se anulan rutas de reparto.")
+            # 19.0.1.115.0 (owner): only a route that never left the depot
+            if route.state in ("on_route", "closed"):
+                raise UserError(
+                    "No se puede anular %s: ya salió a reparto (%s). Para corregir una visita "
+                    "usá «Reabrir para el repartidor»; la ruta se rinde en la caja como "
+                    "siempre." % (route.name, dict(route._fields["state"].selection).get(
+                        route.state, route.state)))
             money = route._distri_cancel_money()
             if money:
                 raise UserError(

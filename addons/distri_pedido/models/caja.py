@@ -46,6 +46,8 @@ account), post the outflows to their accounts and the differences to the
 «diferencias de caja» account.
 """
 import re
+from datetime import timedelta
+
 from markupsafe import Markup
 
 from odoo import api, fields, models
@@ -99,6 +101,8 @@ DIFFERENCE_MODES = [
 MAX_QUANTITY = 9999  # the closing label fits four digits per row
 NOTE_MAX = 250
 REOPEN_REASON_MAX = 500
+# 19.0.1.115.0: an identical outflow within this window is the same one
+OUTFLOW_TWIN_SECONDS = 120
 
 
 class CajaQuestion(UserError):
@@ -108,6 +112,22 @@ class CajaQuestion(UserError):
     def __init__(self, message, field):
         super().__init__(message)
         self.field = field
+
+
+class DuplicateOutflow(UserError):
+    """19.0.1.115.0: the same outflow was just saved (`movement`)."""
+
+    def __init__(self, movement):
+        super().__init__(
+            "Esa salida ya se guardó recién (%s, %s). Si es otra igual, poné algo distinto en "
+            "la nota." % (movement.label, _money(-movement.amount)))
+        self.movement = movement
+
+
+def _as_bytes(value):
+    if not value:
+        return b""
+    return value.encode() if isinstance(value, str) else bytes(value)
 
 
 def is_cashier(user):
@@ -363,9 +383,15 @@ class DistriCaja(models.Model):
     def _sync_own_collections(self):
         """Every cash payment of the cashier's own boxes becomes a «Cobro en
         el local» of the open session, once (from /cobro, the depot delivery
-        or the counter sale)."""
+        or the counter sale).
+
+        19.0.1.115.0: a collection whose payment was reset to draft or
+        cancelled afterwards leaves the open session (its movement is
+        removed, the chatter says so), so the closing does not book a false
+        shortage for money that was never kept."""
         Movement = self.env["distri.caja.movimiento"].sudo()
         for caja in self.sudo().filtered(lambda c: c.state == "open"):
+            caja._drop_void_collections()
             boxes = caja._own_boxes()
             payments = boxes.payment_ids.filtered(lambda p: p.state in ("in_process", "paid"))
             if not payments:
@@ -386,6 +412,27 @@ class DistriCaja(models.Model):
                     })
         return True
 
+    def _drop_void_collections(self):
+        """The «Cobro en el local» movements of this open session whose
+        payment is no longer «en proceso» or «pagado» (reset or cancelled)."""
+        self.ensure_one()
+        void = self.movement_ids.filtered(
+            lambda m: m.kind == "cobro" and m.payment_id
+            and m.payment_id.state not in ("in_process", "paid") and not m.statement_line_ids)
+        for move in void:
+            self.message_post(body=Markup(
+                "Se quitó de la caja el cobro %s de %s (%s): el pago quedó %s.") % (
+                move.payment_id.name or "", move.partner_id.name or "", _money(move.amount),
+                dict(move.payment_id._fields["state"].selection).get(
+                    move.payment_id.state, move.payment_id.state)))
+        void.unlink()
+
+    def _collections_in_a_caja(self, route):
+        """The cash payments of a box already counted in some session (its
+        owner is a cashier and they are «Cobros en el local» of his caja)."""
+        return self.env["distri.caja.movimiento"].sudo().search(
+            [("payment_id", "in", route.payment_ids.ids)])
+
     @api.model
     def pending_receptions(self):
         """What the cashier can receive: driver routes closed on the phone
@@ -397,6 +444,10 @@ class DistriCaja(models.Model):
         boxes = Route.search([("kind", "=", "depot"), ("state", "!=", "settled"),
                               ("driver_id", "!=", user.id),
                               ("company_id", "=", self.env.company.id)], order="date, id")
+        # 19.0.1.115.0: another cashier's box whose cash is in his own caja
+        # closes with that caja, it is not received again
+        taken = self._collections_in_a_caja(boxes).payment_id
+        boxes = boxes.filtered(lambda b: not (b.payment_ids & taken))
         return routes, boxes
 
     def receive_route(self, route, counted, papers=(), no_paper_ok=False, difference_mode="",
@@ -413,6 +464,13 @@ class DistriCaja(models.Model):
                             % route.name)
         if route.kind == "depot" and (route.state == "settled" or route.driver_id == caja.user_id):
             raise UserError("Esa caja no se puede recibir.")
+        if route.kind == "depot":
+            counted_in = self._collections_in_a_caja(route)
+            if counted_in:
+                raise UserError(
+                    "Esos cobros ya están en la caja de %s (%s): se cierran con esa caja, no se "
+                    "reciben de nuevo." % (", ".join(counted_in.caja_id.user_id.mapped("name")),
+                                           ", ".join(counted_in.caja_id.mapped("name"))))
         amount = parse_amount(self.env, counted, allow_zero=True)
         note = " ".join((note or "").split())[:NOTE_MAX]
         papers = {int(x) for x in papers or ()}
@@ -541,6 +599,26 @@ class DistriCaja(models.Model):
             raise UserError("Escribí a qué proveedor le pagaste.")
         if kind == "gasto" and not (who or note):
             raise UserError("Escribí a quién le pagaste o qué se compró.")
+        # 19.0.1.115.0: the same «Guardar» twice (a double tap, a resent
+        # form) is one outflow. The session row is written first, so two
+        # requests at once serialize (the later one is retried and finds it).
+        self.env.cr.execute("UPDATE distri_caja SET write_date = write_date WHERE id = %s",
+                            [caja.id])
+        Movement = self.env["distri.caja.movimiento"].sudo()
+        twins = Movement.search([
+            ("caja_id", "=", caja.id), ("kind", "=", kind), ("concept", "=", concept or False),
+            ("amount", "=", -value), ("who", "=", who or partner.name or False),
+            ("note", "=", note or False), ("user_id", "=", self.env.user.id),
+            ("moment", ">=", fields.Datetime.now() - timedelta(seconds=OUTFLOW_TWIN_SECONDS)),
+        ])
+        if twins:
+            # the same receipt too (another ticket is another outflow)
+            stored_photo = _as_bytes(photo and Movement._fields["photo"]._image_process(
+                photo, self.env))
+            for twin in twins:
+                if (_as_bytes(twin.photo) == stored_photo
+                        and _as_bytes(twin.document) == _as_bytes(document)):
+                    raise DuplicateOutflow(twin)
         if self.currency_id.compare_amounts(value, caja.expected) > 0:
             raise UserError("No alcanza: en la caja tiene que haber %s y querés sacar %s."
                             % (_money(caja.expected), _money(value)))

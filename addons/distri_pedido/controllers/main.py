@@ -1645,6 +1645,10 @@ class TomaDePedidos(http.Controller):
             if cliente and self._solo_vendedor() and cliente._distri_es_distribuidora():
                 # never repriced with a list the seller cannot see
                 return self._error_simple(MENSAJE_DISTRIBUIDORA, status=403)
+            if cliente and not telefono:
+                # 19.0.1.115.0 (owner): a customer with a phone on file needs
+                # none typed; a new one or one without a phone still does
+                telefono = self._telefono_en_ficha(cliente)
         como_llega = "LO RETIRA EN EL DEPOSITO" if entrega == "retira" else "ENVIO A DOMICILIO"
 
         encomienda, error_encomienda = self._datos_encomienda(post)
@@ -1897,6 +1901,14 @@ class TomaDePedidos(http.Controller):
         if telefono in self._telefonos_guardados(cliente, pedido):
             return telefono, telefono, ""
         return telefono, telefono, error
+
+    @staticmethod
+    def _telefono_en_ficha(cliente):
+        """The phone on file of the customer staff picked (his WhatsApp or
+        phone, or his company's), or ""."""
+        socio = cliente.sudo()
+        return (socio._distri_whatsapp_shown()
+                or socio.commercial_partner_id._distri_whatsapp_shown() or "").strip()
 
     @staticmethod
     def _telefonos_guardados(cliente, pedido):

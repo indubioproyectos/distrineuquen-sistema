@@ -39,6 +39,7 @@ from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
 from ..models.caja import (CHIPS, DIFFERENCE_MODES, OUTFLOW_CHIPS, OUTFLOW_KINDS, CajaQuestion,
+                           DuplicateOutflow,
                            can_reopen, is_cashier)
 from ..models.cliente_provisorio import can_confirm
 from ..models.gasto import MAX_PHOTO_BYTES, decode_outflow_receipt
@@ -408,6 +409,9 @@ class Caja(http.Controller):
             with request.env.cr.savepoint():
                 movement = caja.add_outflow(tipo, importe, who=quien, partner_id=partner.id,
                                             note=nota, **receipt)
+        except DuplicateOutflow as exc:
+            # the second «Guardar» of the same outflow: the first one counts
+            return self._done("/caja", str(exc.args[0]))
         except (UserError, AccessError) as exc:
             return self._refuse(exc, lambda text, field: self._outflow(
                 caja, error=text, form=self._form(), status=400))

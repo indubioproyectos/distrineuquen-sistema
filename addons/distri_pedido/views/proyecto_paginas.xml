@@ -293,6 +293,7 @@
           <dt>No se pudo entregar</dt><dd>En <span class="txt">¿Algo salió distinto?</span> elegí <span class="k2">No se entregó</span>, poné el motivo y guardá. El pedido vuelve al depósito.</dd>
           <dt>Te aparece «Cambios rechazados»</dt><dd>El sistema no aceptó algo que cargaste. Leé <span class="txt">Por qué se rechazó</span> y tocá <span class="k2">Corregir y guardar de nuevo</span>.</dd>
           <dt>Un cliente que no está en tu ruta te da plata</dt><dd>Usá <span class="k2">Cobro en efectivo a cualquier cliente ›</span>.</dd>
+          <dt>La app te pide el GPS</dt><dd>El GPS es obligatorio: activá la ubicación del celular y dale permiso a Chrome. Si no hay forma, pedile a administración que marque la ruta <span class="k2">Sin GPS – autorizado</span>.</dd>
         </dl>
       </div>
       <div class="caja-ok" data-check="reparto">
@@ -490,6 +491,15 @@
           <li>Si algo no cierra, <span class="k2">Retener</span> con el motivo. El armador no lo ve hasta que tocás <span class="k">Liberar</span>.</li>
         </ol>
       </li>
+      <!-- 19.0.1.115.0: seller orders stay quotations after packing -->
+      <li class="paso">
+        <div class="paso-cab"><span class="cuando">Después del armado</span><h3>Confirmar los pedidos de los vendedores</h3><span class="url">Odoo › Ventas</span></div>
+        <ol>
+          <li>Los pedidos que toma un vendedor quedan como <b>presupuesto</b> aunque el armador ya los haya terminado: la factura no sale hasta que los confirmás.</li>
+          <li>En Odoo entrá a <b>Ventas</b>, abrí los presupuestos armados, revisá el cliente y tocá <span class="k">Confirmar</span>.</li>
+          <li>Si el cliente no tiene WhatsApp, cargalo y tocá <span class="k">Guardar y confirmar</span> (o <span class="k2">Confirmar sin WhatsApp</span>). Al confirmar, la factura de lo armado sale sola.</li>
+        </ol>
+      </li>
       <li class="paso">
         <div class="paso-cab"><span class="cuando">Cuando entran por WhatsApp</span><h3>Pedidos de AgilPedido</h3><span class="url">/agilpedido</span></div>
         <ol>
@@ -524,7 +534,7 @@
         <h3><svg class="dn-i"><use href="#alert"/></svg>Si pasa esto…</h3>
         <dl>
           
-          <dt>Armaste una ruta de prueba o por error</dt><dd>Desde el formulario de la ruta en Odoo, <b>Anular ruta</b>: si no tiene plata, se deshace y los pedidos quedan libres.</dd>
+          <dt>Armaste una ruta de prueba o por error</dt><dd>Desde el formulario de la ruta en Odoo, <b>Anular ruta</b>: solo antes de que salga y si no tiene plata; se deshace y los pedidos quedan libres. Si ya salió, usá <b>Reabrir para el repartidor</b> o rendila en la caja.</dd>
           <dt>Un producto de AgilPedido entra siempre mal</dt><dd>Corregilo con <span class="k2">Corregir y recordar</span>. Las correcciones guardadas están en <span class="k2">Equivalencias aprendidas</span>.</dd>
           <dt>Ya existe el número de WhatsApp en otro cliente</dt><dd>La pantalla avisa <span class="txt">Ya tienen este número</span>. Revisá si es el mismo cliente antes de guardar.</dd>
         </dl>

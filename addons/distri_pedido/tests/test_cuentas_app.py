@@ -239,7 +239,7 @@ class TestCuentasApp(HttpCase):
     def test_plain_seller_never_reaches_a_distributor(self):
         """The hidden-list policy (models/lista_oculta.py) still holds: a
         seller without Administración does not see a distributor's account;
-        administración and a driver do."""
+        administración does. 19.0.1.115.0 (owner): a driver no longer does."""
         self.pb.distri_lista_oculta = True
         with self.assertRaises(AccessError):
             self._app(self.seller_a).app_account(self.pb.id)
@@ -250,7 +250,8 @@ class TestCuentasApp(HttpCase):
         self.assertNotIn(self.pb.id, {d["id"] for d in self._app(self.seller_a).app_debtors(
             settled=True)["debtors"]})
         self.assertTrue(self._app(self.admin_u).app_account(self.pb.id))
-        self.assertTrue(self._app(self.driver_u).app_account(self.pb.id))
+        with self.assertRaises(AccessError):
+            self._app(self.driver_u).app_account(self.pb.id)
         self.authenticate(self.seller_a.login, self.seller_a.login)
         self.assertEqual(self._get("/cuentas/api/account?id=%d" % self.pb.id).status_code, 403)
 

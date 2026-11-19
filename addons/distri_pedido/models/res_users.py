@@ -110,6 +110,12 @@ class ResUsers(models.Model):
         if user.share or user.has_group("distri_pedido.grupo_administracion") \
                 or user.has_group("base.group_system"):
             return ""
+        # 19.0.1.115.0: a user with more than one role (a seller who also
+        # delivers) lands on Inicio (/tablero), with a tile for each screen
+        roles = [g for g in ("distri_pedido.grupo_vendedor", "distri_pedido.grupo_reparto",
+                             "distri_pedido.grupo_armador") if user.has_group(g)]
+        if len(roles) > 1:
+            return ""
         if user.has_group("distri_pedido.grupo_reparto"):
             return "/reparto"
         if user.has_group("distri_pedido.grupo_armador"):

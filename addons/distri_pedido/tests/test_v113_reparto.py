@@ -123,7 +123,7 @@ class TestRepartoV113(RepartoMixin, HttpCase):
         self.authenticate(self.driver.login, self.driver.login)
         page = self.url_open("/reparto").text
         self.assertIn('data-uid="%s"' % self.driver.id, page)
-        self.assertIn("app2.js?v=", page)
+        self.assertIn("app3.js?v=", page)  # 19.0.1.115.0
         self.assertIn("app2.js", reparto_controller.ASSETS)
         self.assertEqual(self._get("/reparto/api/route")["user_id"], self.driver.id)
         event = self._event(route, "visit", self._visit(route.stop_ids, outcome="not_delivered",
@@ -217,6 +217,10 @@ class TestRepartoV113(RepartoMixin, HttpCase):
         name, route_id = route.name, route.id
         with self.assertRaisesRegex(UserError, "administración o gerencia"):
             route.with_user(self.seller).action_distri_cancel_route()
+        # 19.0.1.115.0: a route «En reparto» is refused (reopen or settle it)
+        with self.assertRaisesRegex(UserError, "ya salió a reparto.*Reabrir para el repartidor"):
+            route.with_user(self.admin).action_distri_cancel_route()
+        route.sudo().state = "draft"
         action = route.with_user(self.admin).action_distri_cancel_route()
         self.assertEqual(action["res_model"], "distri.route")
         self.assertFalse(route.exists())
@@ -239,6 +243,9 @@ class TestRepartoV113(RepartoMixin, HttpCase):
         route = self._route(self.o1, on_road=True)
         res = self._sync([self._event(route, "visit", self._visit(route.stop_ids, cash=300))])
         self.assertEqual(res[0]["status"], "ok", res)
+        with self.assertRaisesRegex(UserError, "ya salió a reparto"):
+            route.with_user(self.admin).action_distri_cancel_route()
+        route.sudo().state = "draft"
         with self.assertRaisesRegex(UserError, "tiene plata .*efectivo cobrado"):
             route.with_user(self.admin).action_distri_cancel_route()
         self.assertTrue(route.exists())

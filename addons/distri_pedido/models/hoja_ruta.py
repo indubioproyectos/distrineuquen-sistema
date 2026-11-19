@@ -21,7 +21,8 @@ variables, flex or grid.
 """
 from zoneinfo import ZoneInfo
 
-from odoo import models
+from odoo import api, models
+from odoo.exceptions import AccessError
 
 from .ar_phone import ar_national, format_local, split_ar_national
 from .despacho import AR_TZ, first_name
@@ -38,6 +39,10 @@ DEFAULT_ALIAS = "sepiko"
 DEFAULT_HOLDER = "Gonzalo Granero"
 COMPANY = "Distri Neuquén"
 UTC = ZoneInfo("UTC")
+# 19.0.1.115.0: besides administración/gerencia and the route's driver
+REMITO_GROUPS = ("distri_pedido.grupo_cajero", "distri_pedido.grupo_armador")
+REMITO_DENIED = ("El remito lo imprimen administración, el cajero, el armador o el repartidor "
+                 "de la ruta.")
 
 # «Otros cobros»: blank rows that fill the rest of the first page (measured
 # on the real PDF): about BLANK_ROWS_PAGE fit under the fixed parts, and a
@@ -278,7 +283,42 @@ class SaleOrderRemitoPrint(models.Model):
         return " · ".join(b for b in bits if b)
 
     def action_distri_print_remito(self):
+        self._distri_check_remito_access()
         return self.env.ref("distri_pedido.report_remito_pedido").report_action(self, config=False)
+
+    def _distri_check_remito_access(self):
+        """19.0.1.115.0: who prints an order's remito: administración and
+        gerencia, the cashier, the packer and the driver of the order's
+        route; a wholesale customer's (lista oculta, «Es mayorista») only
+        administración, gerencia and the system administrators."""
+        from .lista_oculta import ve_lista_oculta
+        if self.env.su:
+            return
+        user = self.env.user
+        if user.share:
+            raise AccessError(REMITO_DENIED)
+        sees_wholesale = ve_lista_oculta(user)
+        by_role = sees_wholesale or any(user.has_group(g) for g in REMITO_GROUPS)
+        for order in self.sudo():
+            driver = user in order.distri_stop_ids.route_id.driver_id
+            if not (by_role or driver):
+                raise AccessError(REMITO_DENIED)
+            if not sees_wholesale and (order.partner_id._distri_es_distribuidora()
+                                       or order._distri_de_distribuidora()):
+                raise AccessError("El remito de %s es de un cliente mayorista: lo imprime "
+                                  "administración." % order.name)
+
+
+class ReportRemitoPedido(models.AbstractModel):
+    """The order's remito checks who prints it (/report/pdf included)."""
+    _name = "report.distri_pedido.remito_pedido_documento"
+    _description = "Remito del pedido"
+
+    @api.model
+    def _get_report_values(self, docids, data=None):
+        orders = self.env["sale.order"].browse(docids)
+        orders._distri_check_remito_access()
+        return {"doc_ids": docids, "doc_model": "sale.order", "docs": orders.sudo()}
 
 
 def _ar_date(moment):

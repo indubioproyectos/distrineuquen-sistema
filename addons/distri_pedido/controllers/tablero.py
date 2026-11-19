@@ -38,6 +38,10 @@ TILES = [
     # 19.0.1.108.0: controllers/revisar.py, administración and gerencia
     ("revisar", "revisar", "Pedidos para revisar", "Semáforo, retener y liberar",
      IMG + "cuentas.png", "target", "/revisar"),
+    # 19.0.1.115.0: the driver's app, for a driver with another role too
+    # (res.users._distri_landing sends him to Inicio)
+    ("mireparto", "repartidor", "Mi reparto", "La app del repartidor: tu ruta del día",
+     IMG + "reparto.png", "truck", "/reparto"),
     ("armado", "distri_pedido.menu_armado_app", "Armado", "Pantalla del armador",
      IMG + "armado.png", "box", "/armado"),
     ("despacho", "distri_pedido.menu_reparto_despacho", "Despacho", "Salida de los repartos",
@@ -94,6 +98,8 @@ def _special_visible(env, key):
     if key == "comprobantes":
         from ..models.comprobante_subir import can_upload
         return can_upload(user)
+    if key == "repartidor":
+        return not user.share and user.has_group("distri_pedido.grupo_reparto")
     return False
 
 

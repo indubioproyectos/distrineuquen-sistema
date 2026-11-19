@@ -48,6 +48,11 @@ NOT_DEPARTED = ("La ruta todavía no salió a repartir: cargá los pedidos y toc
 UUID_RE = re.compile(r"^[0-9a-fA-F-]{16,64}$")
 MAX_EVENTS = 200
 MAX_CASH = 1e9
+# 19.0.1.115.0: a visit never collects more than this many times the order
+# plus the previous debt, above this floor (_check_visit_amounts)
+PAID_FACTOR = 10
+PAID_FLOOR = 200000.0
+PARAM_PAID_FLOOR = "distri_pedido.reparto_tope_minimo"
 
 # 19.0.1.93.0 (E2E-C C14): an edit older than the one the server has is not
 # applied, and the phone is told so (status «discarded»), not «ok»
@@ -516,6 +521,7 @@ class DistriSyncEvent(models.Model):
         cash = _number(payload.get("cash"))
         transfer, transfer_amount, answer_receipt = self._transfer_values(
             stop, payload, cash, returns)
+        self._check_visit_amounts(stop, cash + transfer_amount)
 
         if payload.get("no_payment"):
             if cash or transfer != "no":
@@ -540,6 +546,31 @@ class DistriSyncEvent(models.Model):
             "comment": _text(payload.get("comment"), 250) or False,
             "_returns": returns,
         }
+
+    def _check_visit_amounts(self, stop, paid):
+        """19.0.1.115.0: a sanity bound on what a visit collects (cash plus
+        transfer). An amount read wrong on the phone («14.307.60» as
+        1.430.760) is refused instead of reaching the settlement: more than
+        PAID_FACTOR times the order plus the previous debt, and more than the
+        floor (parameter distri_pedido.reparto_tope_minimo)."""
+        if not paid:
+            return
+        order = stop.order_id
+        try:
+            floor = float(self.env["ir.config_parameter"].sudo().get_param(
+                PARAM_PAID_FLOOR) or PAID_FLOOR)
+        except ValueError:
+            floor = PAID_FLOOR
+        reference = stop.order_amount or 0.0
+        if paid <= max(PAID_FACTOR * reference, floor):
+            return
+        # the previous debt (slower) only when the order alone is exceeded
+        reference += max(order._distri_previous_debt() or 0.0, 0.0)
+        if paid > max(PAID_FACTOR * reference, floor):
+            raise UserError(
+                "El cobro de %s (%s) es demasiado: el pedido y la deuda suman %s. Revisá el "
+                "importe: los miles van con punto y los centavos con coma (ej.: 14.307,60)." % (
+                    order.name, _money_text(paid), _money_text(reference)))
 
     def _transfer_values(self, stop, payload, cash, returns):
         """«¿Paga con transferencia?»: (transfer, amount, receipt answer).

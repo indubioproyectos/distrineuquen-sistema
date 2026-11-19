@@ -178,8 +178,16 @@ class SaleOrderPackages(models.Model):
 
     def _distri_packages(self):
         """The packages 1..N of the packed order (N = distri_bultos): the
-        missing ones are created, the extra ones archived. Returns them."""
+        missing ones are created, the extra ones archived. Returns them.
+
+        19.0.1.115.0: two «Imprimir etiquetas» at once (a double tap, the
+        browser asking the PDF twice) used to create the same packages twice
+        and the second request failed with «Ese código de bulto ya existe».
+        The orders' rows are written first: a concurrent request waits on
+        them and then fails with a serialization error, which the HTTP layer
+        retries in a new transaction that already sees these packages."""
         Package = self.env["distri.package"].sudo().with_context(active_test=False)
+        self._distri_lock_for_packages()
         result = Package.browse()
         for order in self.sudo():
             if order.distri_armado != "armado" or not order.distri_bultos:
@@ -198,6 +206,13 @@ class SaleOrderPackages(models.Model):
             existing.filtered(lambda p: p.number > order.distri_bultos and p.active).write(
                 {"active": False})
         return result.with_context(active_test=True)
+
+    def _distri_lock_for_packages(self):
+        """A no-op UPDATE of the orders' rows: concurrent package builders of
+        the same orders serialize (the later one is retried, see above)."""
+        if self.ids:
+            self.env.cr.execute("UPDATE sale_order SET write_date = write_date WHERE id IN %s",
+                                [tuple(self.ids)])
 
     def action_distri_print_labels(self):
         """«Imprimir etiquetas» (order form): one page per package."""

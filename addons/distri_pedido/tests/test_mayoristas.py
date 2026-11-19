@@ -174,7 +174,8 @@ class TestMayoristas(AccountTestInvoicingCommon):
 
     def test_default_board_hides_unknown_and_set_aside(self):
         known = self._income(CUIT_RETAIL, amount=1000)
-        unknown = self._income(CUIT_REV, amount=2000)
+        # an odd amount: a real receipt of a round amount in the copy would pair
+        unknown = self._income(CUIT_REV, amount=2017)
         apart = self._income(CUIT_REV2, amount=4000)
         self._mark(apart)
         self.assertEqual(known.column, "confirm")

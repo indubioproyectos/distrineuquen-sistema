@@ -16,6 +16,9 @@ another driver's, settled) is answered with "reset" and the current route,
 never a 404, so the phone moves on and keeps its pending changes. The sync
 refuses a batch whose user_id is not the session's (another user logged in
 on the same phone).
+
+19.0.1.115.0: the page loads app3.js (amounts in the Argentine format,
+a reopened route opens again); app2.js stays for the cached older page.
 """
 import hashlib
 import json
@@ -32,7 +35,7 @@ from .main import FICHA
 GROUP_DRIVER = "distri_pedido.grupo_reparto"
 STATIC = "/distri_pedido/static/src/reparto/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "reparto")
-ASSETS = ("claim.js", "app.js", "app2.js", "app.css", "icon-192.png", "icon-512.png")
+ASSETS = ("claim.js", "app.js", "app2.js", "app3.js", "app.css", "icon-192.png", "icon-512.png")
 # The look shared with the packing screen (/armado)
 SHARED_CSS = "/distri_pedido/static/src/css/distri_ui.css"
 # Figtree, self-hosted by the theme; distri_ui.css points at these files

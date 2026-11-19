@@ -104,8 +104,9 @@ class TestSubirComprobante(HttpCase):
         self.assertIn("Elegí al menos una foto", res.json()["error"])
 
     def test_only_staff_that_handles_collections(self):
+        # 19.0.1.115.0: every staff role uploads, the packer too
         self.authenticate("armador_comp_v99", "armador_comp_v99")
-        self.assertEqual(self.url_open("/comprobantes").status_code, 403)
+        self.assertEqual(self.url_open("/comprobantes").status_code, 200)
         self.authenticate(None, None)
         res = self.url_open("/comprobantes", allow_redirects=False)
         self.assertIn(res.status_code, (302, 303))
@@ -168,8 +169,9 @@ class TestSubirComprobante(HttpCase):
         from odoo.addons.distri_pedido.controllers.tablero import staff_tiles
         titles = [t["title"] for t in staff_tiles(self.env(user=self.seller))]
         self.assertIn("Comprobantes", titles)
-        self.assertNotIn("Comprobantes",
-                         [t["title"] for t in staff_tiles(self.env(user=self.packer))])
+        # 19.0.1.115.0: the packer uploads receipts too
+        self.assertIn("Comprobantes",
+                      [t["title"] for t in staff_tiles(self.env(user=self.packer))])
 
     def test_kinds(self):
         self.assertEqual(receipt_kind(PDF)[0], "application/pdf")
