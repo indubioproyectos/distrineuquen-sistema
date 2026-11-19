@@ -39,7 +39,7 @@ services:
       HOST: db
       USER: odoo
       PASSWORD: ${PRACTICA_DB_PASSWORD:?missing .env}
-    mem_limit: 1536m
+    mem_limit: 2560m
     cpus: 2
     restart: unless-stopped
 
