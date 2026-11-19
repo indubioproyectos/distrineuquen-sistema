@@ -454,6 +454,9 @@ class TestDepositoApp(RepartoMixin, AccountTestInvoicingHttpCommon):
         self.assertNotIn("entregas", [i["key"] for i in staff_nav(self.env(user=self.admin),
                                                                      "armado")])
         self._packed()
+        # one order waiting for the packer, so the badge does not depend on
+        # the copy's own orders (19.0.1.111.0: a copy taken at night had none)
+        self._quotation().action_confirm()
         self._login(self.admin)
         hub = self.url_open("/deposito").text
         nav = re.search(r'<nav class="dn-nav".*?</nav>', hub, re.S).group(0)

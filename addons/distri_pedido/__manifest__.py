@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.110.0",
+    "version": "19.0.1.111.0",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -144,6 +144,22 @@
     # (models/hoja_ruta.py, views/hoja_ruta.xml), from the board, the route
     # form and the order's Print menu; the alias holder is the new parameter
     # distri_pedido.alias_titular. No new stored fields, no migration.
+    # 19.0.1.111.0 (owner-approved mockups «03 Asignar cliente», «04 Pedidos
+    # de AgilPedido», «04 Cargar pedido de AgilPedido» and «pc-agil-corregir»):
+    # «Asignar cliente» as a kit screen (/revisar/<id>/asignar,
+    # controllers/asignar.py, views/asignar_app.xml, static/src/asignar/) on
+    # the backend wizard's rules (candidates and marks, «Pegar número», the
+    # verified WhatsApp, «Cliente nuevo», «Asignar y aprobar» / «Solo
+    # asignar»); /revisar links to it and the v108 bridge (the server action
+    # action_revisar_asignar_cliente) is gone. «Pedidos de AgilPedido» on the
+    # kit (/agilpedido, controllers/agilpedido.py, views/agilpedido_app.xml,
+    # static/src/agilpedido/): the orders that came by WhatsApp, an order's
+    # lines with «Está bien» / «Corregir producto» and «Aprobar», and «Cargar
+    # un pedido de AgilPedido» (paste, read, correct and remember, add by
+    # hand, create the quotation only when nothing is left to fix); from
+    # 1024 px the lines are a table with the correction panel beside it.
+    # «AgilPedido» tile on /tablero with today's orders. No new stored
+    # fields, no migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml",
@@ -151,7 +167,8 @@
              "views/comprobantes.xml", "views/errores.xml",
              "views/pegar_numero.xml", "views/comprobante_cliente.xml",
              "views/cliente_provisorio.xml", "views/revisar_app.xml", "views/deposito_app.xml",
-             "views/rutas_app.xml", "views/hoja_ruta.xml"],
+             "views/rutas_app.xml", "views/hoja_ruta.xml", "views/asignar_app.xml",
+             "views/agilpedido_app.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare

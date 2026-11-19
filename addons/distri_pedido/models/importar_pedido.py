@@ -651,3 +651,131 @@ class ImportarPedidoLinea(models.TransientModel):
     def _compute_display_name(self):
         for linea in self:
             linea.display_name = linea.nombre_mensaje or ""
+
+    # ------------------------------------------------------------ kit (19.0.1.111.0)
+    # «Cargar un pedido de AgilPedido» on the kit (controllers/agilpedido.py):
+    # «Está bien», «Corregir y recordar» and «Agregar renglón a mano» on these
+    # lines, and what the screen shows of each one. No new fields: a line
+    # still to check is one without product, or a similar name (under 100 %)
+    # nobody confirmed (no equivalence).
+
+    def _distri_nombre_limpio(self):
+        self.ensure_one()
+        return PREFIJO_MAYORISTA.sub("", self.nombre_mensaje or "").strip()
+
+    def _distri_cantidad_agil(self):
+        """The quantity AgilPedido sent (the line's is multiplied by the
+        learned factor)."""
+        self.ensure_one()
+        factor = self.equivalencia_id.factor if self.equivalencia_id else 1.0
+        return self.cantidad / factor if factor else self.cantidad
+
+    def _distri_para_corregir(self):
+        self.ensure_one()
+        if not self.product_tmpl_id:
+            return True
+        return bool(self.nombre_mensaje) and self.parecido < 100 and not self.equivalencia_id
+
+    def _distri_motivo(self):
+        """«Qué revisar», or "" for a line that is fine."""
+        self.ensure_one()
+        if not self.product_tmpl_id:
+            if self.nombre_mensaje and self.parecido:
+                return "No se encontró el producto (lo más parecido, al %s %%, no alcanza)" % (
+                    self.parecido)
+            return "No se encontró el producto"
+        if self._distri_para_corregir():
+            return "Parecido al %s %%: confirmá el producto" % self.parecido
+        return ""
+
+    def action_distri_ok(self):
+        """«Está bien»: the proposed product is right. It is learned, like
+        the same button on an order that came by WhatsApp."""
+        for linea in self:
+            if not linea.product_tmpl_id:
+                raise UserError(_("Este renglón no tiene producto: elegí el producto correcto."))
+            if not linea.nombre_mensaje:
+                continue
+            agil = linea._distri_cantidad_agil()
+            variante = linea.product_tmpl_id.product_variant_id
+            unidad = linea.product_uom_id
+            if unidad not in unidades_de_venta(linea.product_tmpl_id):
+                unidad = unidad_de_venta(linea.product_tmpl_id)[0]
+            equivalencia = self.env["distri.agil.equivalencia"]._distri_aprender(
+                linea._distri_nombre_limpio(), variante, unidad)
+            valores = {"product_uom_id": unidad.id}
+            if equivalencia:
+                valores.update(equivalencia_id=equivalencia.id,
+                               cantidad=agil * (equivalencia.factor or 1.0))
+            linea.write(valores)
+        return True
+
+    def _distri_corregir(self, variante, unidad, factor=1.0):
+        """«Corregir y recordar»: the product of Odoo, how it comes in
+        AgilPedido (its unit of sale) and, only when that unit does not
+        exist in Odoo, how many of it is 1 of AgilPedido. Learned for the
+        next message (agil_equivalencia.py)."""
+        self.ensure_one()
+        plantilla = variante.product_tmpl_id
+        # «PRODUCTO A CORREGIR» is not sold either (agilpedido_wa.py)
+        if not variante or not plantilla.sale_ok:
+            raise UserError(_("Elegí el producto de Odoo."))
+        if unidad not in unidades_de_venta(plantilla):
+            raise UserError(_("%(p)s no se vende en %(u)s.", p=variante.display_name, u=unidad.name))
+        if not factor or factor <= 0:
+            raise UserError(_("La cantidad por 1 de AgilPedido tiene que ser más que cero."))
+        agil = self._distri_cantidad_agil()
+        valores = {"product_tmpl_id": plantilla.id, "product_uom_id": unidad.id,
+                   "cantidad": agil * factor}
+        if self.nombre_mensaje:
+            equivalencia = self.env["distri.agil.equivalencia"]._distri_aprender(
+                self._distri_nombre_limpio(), variante, unidad, factor=factor)
+            if equivalencia:
+                valores["equivalencia_id"] = equivalencia.id
+        self.write(valores)
+        return True
+
+
+class ImportarPedidoKit(models.TransientModel):
+    _inherit = "distri.importar.pedido"
+
+    def _distri_lista(self):
+        """The list that prices the quotation: the chosen one, the
+        customer's, or the public one."""
+        self.ensure_one()
+        return self.pricelist_id or self.partner_id.property_product_pricelist or \
+            lista_general(self.env)
+
+    def _distri_precio_unidad(self, linea):
+        """Odoo's price of ONE unit of the line (the pack when it goes by
+        pack), with the rules of action_crear_presupuesto; None without
+        product."""
+        variante = linea.product_tmpl_id.product_variant_id
+        if not variante:
+            return None
+        unidad = linea.product_uom_id
+        if unidad not in unidades_de_venta(linea.product_tmpl_id):
+            unidad = unidad_de_venta(linea.product_tmpl_id)[0]
+        precio, _sin_regla = precio_renglon(linea.product_tmpl_id, linea.cantidad,
+                                            linea.es_mayorista, lista_mayorista(self.env), unidad)
+        if "price_unit" in precio:
+            return precio["price_unit"]
+        lista = self._distri_lista()
+        if lista:
+            return precio_en_unidad(lista, variante, linea.cantidad, unidad)
+        return variante.lst_price
+
+    def _distri_agregar(self, variante, unidad, cantidad):
+        """«Agregar renglón a mano» (the resellers' cigarettes never come in
+        the message)."""
+        self.ensure_one()
+        plantilla = variante.product_tmpl_id
+        if not variante or not plantilla.sale_ok:
+            raise UserError(_("Elegí el producto de Odoo."))
+        if unidad not in unidades_de_venta(plantilla):
+            unidad = unidad_de_venta(plantilla)[0]
+        if not cantidad or cantidad <= 0:
+            raise UserError(_("La cantidad tiene que ser más que cero."))
+        return self.env["distri.importar.pedido.linea"].create({
+            "importacion_id": self.id, "cantidad": cantidad, "product_tmpl_id": plantilla.id,
+            "product_uom_id": unidad.id, "parecido": 100})

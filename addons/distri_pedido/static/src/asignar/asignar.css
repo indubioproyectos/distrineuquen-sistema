@@ -1,0 +1,43 @@
+/* «Asignar cliente» (19.0.1.111.0, views/asignar_app.xml): the owner-approved
+   mockup «03 Asignar cliente» on the kit tokens (../kit/dn.css). The top bar
+   reuses «Pedidos para revisar» (../revisar/revisar.css). */
+.as-origen{background:var(--dn-info-bg);color:var(--dn-navy)}
+.as-main{padding-bottom:32px}
+.as-seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);border:1px solid var(--dn-input);
+  border-radius:var(--dn-r);overflow:hidden;background:#fff}
+.as-seg a{display:flex;align-items:center;justify-content:center;min-height:52px;padding:0 8px;background:#fff;
+  color:var(--dn-ink);font-weight:700;font-size:15px;text-decoration:none;text-align:center}
+.as-seg a+a{border-left:1px solid var(--dn-input)}
+.as-seg a.on{background:var(--dn-navy);color:#fff}
+.as-web{background:var(--dn-tint);border-color:var(--dn-tint);display:flex;flex-direction:column;gap:4px;font-size:15px}
+.as-web .dn-label{margin:0}
+.as-web__name{font-size:17px}
+.as-may{font-weight:700;color:var(--dn-amber-text)}
+.as-pane{display:flex;flex-direction:column;gap:12px}
+.as-btn-sq{width:auto;flex:none;min-height:52px;padding:6px 14px;font-size:15px;border-color:var(--dn-input)}
+.as-btn-sq .dn-i{width:20px;height:20px}
+.as-ok{font-size:14px;font-weight:700;color:var(--dn-green-text)}
+.as-err{font-size:14px;font-weight:700;color:var(--dn-red-text)}
+.as-aviso{font-size:14px;color:var(--dn-amber-text);background:var(--dn-amber-bg);border:1px solid var(--dn-amber-line);
+  border-radius:10px;padding:8px 10px}
+.as-chk{display:flex;align-items:center;gap:12px;min-height:48px;font-size:15px;font-weight:600}
+.as-chk input{width:24px;height:24px;accent-color:var(--dn-primary);flex:none}
+.as-mut{color:var(--dn-muted)}
+.as-small{font-size:14px}
+.as-legend{margin:0;font-size:14px}
+.as-list{display:flex;flex-direction:column;gap:12px}
+.as-list.as-busy{opacity:.55}
+.as-cand{display:flex;flex-direction:column;gap:10px}
+.as-cand--on{border:2px solid var(--dn-navy)}
+.as-cand__head{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.as-cand__name{font-size:18px;flex:1;min-width:0}
+.as-cand__on{display:none}
+.as-cand--on .as-cand__on{display:inline-flex}
+.as-cand--on .as-cand__pick{display:none}
+.as-m{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;font-size:15px}
+.as-m .dn-chip{min-height:26px;padding:0 9px}
+.as-cand__acts{display:flex;align-items:center;gap:8px}
+.as-btn-sm{width:auto;flex:none;min-height:44px;padding:6px 14px;font-size:15px}
+.as-empty p{font-size:15px}
+.as-acts{display:flex;flex-direction:column;gap:8px;padding-top:4px}
+.as-center{align-self:center;justify-content:center;font-size:15px}

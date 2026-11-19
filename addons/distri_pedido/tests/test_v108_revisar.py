@@ -248,25 +248,20 @@ class TestRevisarApp(HttpCase):
         self.assertEqual(res.status_code, 403)
 
     def test_order_without_customer_continues_to_asignar_cliente(self):
+        """19.0.1.111.0: «Asignar cliente» is the kit screen (test_v111)."""
         self._login(self.admin)
         text = self.url_open("/revisar").text
-        self.assertRegex(text, r'action="/revisar/%s/asignar"' % self.web.id)
+        self.assertIn('href="/revisar/%s/asignar"' % self.web.id, text)
         data = self.url_open("/revisar/%s/numero?pegado=%s" % (self.web.id, PASTED)).json()
         self.assertTrue(data["generic"])
         res = self._post("/revisar/%s/asignar" % self.web.id, {"pegado": PASTED})
         self.assertEqual(res.status_code, 200, res.text)
         url = res.json()["url"]
-        self.assertEqual(url, "/odoo/sale.order/%s/action-distri_pedido.action_revisar_asignar_cliente"
-                         % self.web.id)
-        # the backend's server action reopens the wizard the page prepared
-        action = self.env.ref("distri_pedido.action_revisar_asignar_cliente").with_user(
-            self.admin).run()
-        self.assertEqual(action["res_model"], "distri.asignar.cliente")
-        self.assertEqual(action["target"], "new")
-        wizard = self.env["distri.asignar.cliente"].browse(action["res_id"])
-        self.assertEqual(wizard.order_id, self.web)
-        self.assertEqual(wizard.pegado, "+54 9 299 000-1081")
-        self.assertEqual(wizard.partner_id, self.holder, "the only customer with it is chosen")
+        self.assertEqual(url, "/revisar/%s/asignar?pegado=%%2B54+9+299+000-1081" % self.web.id)
+        page = self.url_open(url)
+        self.assertEqual(page.status_code, 200)
+        self.assertRegex(page.text, r'as-cand as-cand--on" data-id="%s"' % self.holder.id,
+                         "the only customer with it is chosen")
         # an order with its customer has no «Asignar cliente»
         res = self._post("/revisar/%s/asignar" % self.rojo.id)
         self.assertEqual(res.status_code, 400)

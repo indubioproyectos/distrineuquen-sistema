@@ -404,9 +404,14 @@ class SaleOrderRevisar(models.Model):
     @api.model
     def action_distri_revisar_asignar(self):
         """«Asignar cliente» opened from the phone's «Pedidos para revisar»
-        (controllers/revisar.py, server action action_revisar_asignar_cliente,
-        opened by URL: no active record). The wizard the page just prepared
-        for this user, with the pasted number already searched."""
+        (the v108 bridge: server action action_revisar_asignar_cliente,
+        opened by URL, no active record). The wizard the page just prepared
+        for this user, with the pasted number already searched.
+
+        19.0.1.111.0 replaces the bridge with the kit screen
+        (controllers/asignar.py) and drops the server action; this method
+        stays only for a database still on 19.0.1.110.0 (the page uses the
+        bridge until the module is updated). Remove it in the next version."""
         _exigir_revisar(self.env)
         wizard = self.env["distri.asignar.cliente"].search([
             ("create_uid", "=", self.env.uid),

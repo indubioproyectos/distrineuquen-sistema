@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Pedidos de AgilPedido» on the kit (19.0.1.111.0, controllers/agilpedido.py,
+       static/src/agilpedido/): the owner-approved mockups «04 Pedidos de
+       AgilPedido», «04 Cargar pedido de AgilPedido» and, from 1024 px,
+       «pc-agil-corregir». The backend screens (views/agilpedido_wa.xml,
+       views/importar.xml, views/agil_equivalencia.xml) stay. -->
+
+  <!-- The PC top bar (from 1024 px; the phone keeps the kit's). -->
+  <template id="agil_bar" name="AgilPedido: barra de la PC">
+    <header class="ag-bar">
+      <a class="ag-logo" t-att-href="inicio" aria-label="Inicio">DN</a>
+      <span class="ag-bar__app">Pedidos</span>
+      <span class="ag-bar__sub" t-esc="bar_sub"/>
+      <span class="ag-bar__grow"/>
+      <nav class="ag-nav" aria-label="Apps">
+        <a t-att-href="inicio">Inicio</a>
+        <a href="/revisar">Para revisar</a>
+        <a href="/agilpedido" class="on" aria-current="page">AgilPedido</a>
+        <a href="/odoo/action-distri_pedido.action_agil_equivalencias">Equivalencias aprendidas</a>
+      </nav>
+    </header>
+  </template>
+
+  <!-- ============================================ list -->
+
+  <!-- One order; `c` is controllers/agilpedido.py tarjeta(). -->
+  <template id="agil_tarjeta" name="AgilPedido: tarjeta">
+    <article t-att-class="'ag-card' + (' ag-card--fix' if c['fix'] else '') + (' ag-card--off' if c['cancel'] else '')"
+             t-att-data-fix="'1' if c['fix'] else None" t-att-data-total="'1' if c['no_coincide'] else None">
+      <div class="ag-card__head">
+        <b class="ag-card__name" t-esc="c['name']"/>
+        <span class="ag-mut ag-small" t-esc="c['cuando']"/>
+        <span t-att-class="'dn-chip ag-push dn-chip--%s' % c['chip'][1]" t-esc="c['chip'][0]"/>
+      </div>
+      <div class="ag-card__who">
+        <b t-esc="c['cliente']"/>
+        <span t-if="c['sub']" class="ag-mut ag-small" t-esc="c['sub']"/>
+        <span t-if="c['sugerido']" class="ag-mut ag-small">Cliente sugerido por el teléfono: <t t-esc="c['sugerido']"/></span>
+      </div>
+      <t t-if="not c['cancel']">
+        <div class="ag-chips">
+          <span t-if="c['generic']" class="dn-chip dn-chip--warn">Cliente: a asignar</span>
+          <span t-else="" class="dn-chip dn-chip--ok">Cliente asignado</span>
+          <span class="dn-chip dn-chip--neutral" t-esc="c['estado']"/>
+        </div>
+        <div class="ag-tot">
+          <span>Total AgilPedido<b t-esc="c['total_agil']"/></span>
+          <span>Total Odoo<b t-esc="c['total_odoo']"/></span>
+          <span t-att-class="'ag-tot--warn' if c['dif_warn'] else None">Diferencia<b t-esc="c['dif']"/></span>
+        </div>
+        <div t-if="c['can_fix'] and c['can_asignar']" class="dn-grid2">
+          <a class="dn-btn ag-btn-sm" t-att-href="c['url']" data-dn="down">Corregir productos</a>
+          <a class="dn-btn dn-btn--ghost ag-btn-sm" t-att-href="c['asignar_url']" data-dn="down">Asignar cliente</a>
+        </div>
+        <a t-elif="c['can_fix']" class="dn-btn ag-btn-sm" t-att-href="c['url']" data-dn="down">Corregir productos</a>
+        <a t-elif="c['can_asignar']" class="dn-btn dn-btn--ghost ag-btn-sm" t-att-href="c['asignar_url']" data-dn="down">Asignar cliente</a>
+        <a t-elif="c['can_abrir']" class="dn-btn dn-btn--ghost ag-btn-sm" t-att-href="c['url']" data-dn="down">Abrir y aprobar</a>
+        <a t-else="" class="dn-link ag-center" t-att-href="c['url']" data-dn="down">Ver el pedido</a>
+      </t>
+      <span t-else="" class="ag-mut ag-small dn-num">Total AgilPedido <t t-esc="c['total_agil']"/></span>
+    </article>
+  </template>
+
+  <template id="agil_lista" name="Pedidos de AgilPedido">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Pedidos de AgilPedido · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="ag ag--lista" t-att-data-parent="inicio" data-page="agilpedido">
+  <header class="dn-top ag-top">
+    <div class="dn-top__row ag-top__row">
+      <a class="ag-back" t-att-href="inicio" data-dn-back="">‹ Volver</a>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+    <div class="ag-top__txt">
+      <span class="dn-top__kicker">Administración</span>
+      <h1 class="ag-title">Pedidos de AgilPedido</h1>
+      <p class="ag-sub">Entran solos por WhatsApp como presupuesto, a nombre de «a asignar». Al cliente no se le
+        responde nada.</p>
+    </div>
+  </header>
+  <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
+  <div t-if="ok" class="dn-banner dn-banner--ok" role="status"><span t-esc="ok"/></div>
+  <main class="dn-main ag-main" t-att-data-ver="ver">
+    <a class="dn-btn" href="/agilpedido/cargar" data-dn="down">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'paste'"/></t>Cargar pedido de AgilPedido</a>
+    <nav class="ag-tabs" aria-label="Filtrar">
+      <a t-foreach="tabs" t-as="tab" t-att-href="'/agilpedido?ver=%s' % tab[0]"
+         t-att-class="'ag-tab' + (' on' if tab[0] == ver else '')" t-att-data-ver="tab[0]"
+         t-att-aria-current="'true' if tab[0] == ver else None">
+        <t t-esc="tab[1]"/> · <span class="dn-num" t-esc="counts[tab[0]]"/></a>
+    </nav>
+    <div class="dn-empty" data-ag-empty="" t-att-hidden="None if not cards else 'hidden'">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
+      <p>No entraron pedidos de AgilPedido en los últimos días.</p>
+    </div>
+    <t t-foreach="cards" t-as="c"><t t-call="distri_pedido.agil_tarjeta"/></t>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================ the lines (load and order) -->
+
+  <!-- Totals, lines and the final button; `b` is _tablero_carga() or
+       _tablero_pedido(). Rendered with the page and after every action. -->
+  <template id="agil_board" name="AgilPedido: renglones">
+    <div class="ag-board" t-att-data-pendientes="b['pendientes']" t-att-data-base="b['base']" t-att-data-kind="b['kind']">
+      <div class="ag-tot ag-tot--big">
+        <span>Total AgilPedido<b t-esc="b['total_agil']"/></span>
+        <span>Total Odoo<b t-esc="b['total_odoo']"/></span>
+        <span t-att-class="'ag-tot--err' if b['dif_warn'] else None">Diferencia<b t-esc="b['dif']"/></span>
+      </div>
+      <p class="dn-label ag-only-phone">Renglones</p>
+      <div class="ag-scroll"><table class="ag-tbl">
+        <thead><tr><th>Como vino en AgilPedido</th><th>Producto de Odoo</th><th class="ag-r">Cant.</th>
+          <th class="ag-r">Subtotal AgilPedido</th><th class="ag-r">Subtotal Odoo</th><th>Qué revisar</th><th><span class="dn-sr">Acciones</span></th></tr></thead>
+        <tbody>
+          <tr t-foreach="b['filas']" t-as="f" t-att-class="'ag-row ag-row--%s%s' % (f['estado'], ' ag-row--none' if f['sin_producto'] else '')"
+              t-att-data-id="f['id']" t-att-data-texto="f['texto']" t-att-data-motivo="f['motivo']"
+              t-att-data-cant="f['cantidad_agil']" t-att-data-importe="f['importe']" t-att-data-sub="f['sub_agil']"
+              t-att-data-may="'1' if f['may'] else '0'" t-att-data-product="f['product_id']" t-att-data-uom="f['uom_id']"
+              t-att-data-factor="f['factor']" t-att-data-buscar="f['buscar']" t-att-data-producto="f['producto']">
+            <td class="ag-c-raw"><span t-if="f['texto'] and (f['distinto'] or not f['producto'])" class="ag-mono" t-esc="f['texto']"/>
+              <span t-elif="not f['texto']" class="ag-mut ag-small">(agregado a mano)</span>
+              <span t-else="" class="ag-only-pc" t-esc="f['texto']"/></td>
+            <td class="ag-c-prod">
+              <b t-if="f['producto']" t-esc="f['producto']"/>
+              <b t-else="" class="ag-red">No se encontró el producto</b>
+              <span t-if="f['unidad']" class="ag-mut ag-small"><t t-esc="f['unidad']"/></span>
+            </td>
+            <td class="ag-c-q ag-r dn-num" t-esc="f['cantidad']"/>
+            <td class="ag-c-sa ag-r dn-num"><b t-esc="f['sub_agil']"/></td>
+            <td class="ag-c-so ag-r dn-num" t-esc="f['sub_odoo']"/>
+            <td class="ag-c-why">
+              <span t-if="f['chips']" class="ag-chips"><t t-foreach="f['chips']" t-as="ch"><span t-att-class="'dn-chip' + (' dn-chip--%s' % ch[1] if ch[1] else '')" t-esc="ch[0]"/></t></span>
+              <span t-if="f['motivo']" class="ag-why" t-esc="f['motivo']"/>
+            </td>
+            <td class="ag-c-acts">
+              <div t-if="f['fix'] and b.get('editable', True)" class="ag-acts">
+                <button t-if="f['puede_ok']" type="button" class="dn-btn ag-btn-sm" data-ag-ok="">Está bien</button>
+                <button type="button" class="dn-btn dn-btn--ghost ag-btn-sm" data-ag-corregir="">
+                  <t t-if="f['sin_producto']">Elegir producto</t><t t-else="">Corregir producto</t></button>
+              </div>
+              <button t-elif="b['kind'] == 'carga'" type="button" class="ag-x" data-ag-quitar=""
+                      aria-label="Quitar el renglón" title="Quitar el renglón">
+                <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'close'"/></t></button>
+            </td>
+          </tr>
+        </tbody>
+      </table></div>
+      <div t-if="b['kind'] == 'carga'" class="ag-add">
+        <button type="button" class="dn-btn dn-btn--ghost" data-ag-agregar="">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'plus'"/></t>Agregar renglón a mano</button>
+        <p class="ag-mut ag-small">Los cigarrillos de los revendedores no vienen en el mensaje: agregalos a mano.</p>
+      </div>
+      <div class="ag-final">
+        <a t-if="b.get('asignar_url')" class="dn-btn dn-btn--outline" t-att-href="b['asignar_url']" data-dn="down">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>Asignar cliente</a>
+        <button type="button" class="dn-btn dn-btn--lg" data-ag-final="" t-att-disabled="None if b['accion_ok'] else 'disabled'"
+                t-esc="b['accion']"/>
+        <span t-if="b['bloqueo']" class="ag-mut ag-small ag-final__why" t-esc="b['bloqueo']"/>
+      </div>
+    </div>
+  </template>
+
+  <!-- «Corregir producto»: a bottom sheet on the phone, the right column
+       from 1024 px. Filled by agilpedido.js from the chosen line. -->
+  <template id="agil_panel" name="AgilPedido: corregir producto">
+    <aside id="ag-panel" class="dn-sheet ag-panel" role="dialog" aria-labelledby="ag-panel-t" data-ag-panel="">
+      <div class="ag-panel__head">
+        <h2 id="ag-panel-t" data-ag-panel-t="">Corregir producto de AgilPedido</h2>
+        <button type="button" class="dn-icon-btn ag-panel__x" data-dn-close="" aria-label="Cerrar">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'close'"/></t></button>
+      </div>
+      <p class="ag-mut ag-panel__empty" data-ag-vacio="">Tocá «Corregir producto» en un renglón para elegir el producto
+        correcto. Lo que corrijas queda aprendido para los próximos pedidos.</p>
+      <div class="ag-panel__form" data-ag-form="" hidden="hidden">
+        <dl class="ag-ro" data-ag-ro="">
+          <dt>Como vino en AgilPedido</dt><dd data-ag-ro-texto=""/>
+          <dt>Cantidad en AgilPedido</dt><dd class="dn-num" data-ag-ro-cant=""/>
+          <dt>Importe</dt><dd class="dn-num" data-ag-ro-importe=""/>
+          <dt data-ag-ro-why-t="">Qué revisar</dt><dd class="ag-red" data-ag-ro-why=""/>
+        </dl>
+        <div class="dn-field">
+          <label for="ag-q">Producto de Odoo</label>
+          <input id="ag-q" class="dn-input" type="search" autocomplete="off" maxlength="100"
+                 placeholder="Buscá por nombre o código" data-ag-q=""/>
+        </div>
+        <div class="ag-res" data-ag-res="" role="listbox" aria-label="Productos"/>
+        <div class="dn-field" data-ag-uom-box="" hidden="hidden">
+          <label for="ag-uom" data-ag-uom-l="">¿Cómo viene en AgilPedido?</label>
+          <select id="ag-uom" class="dn-input" data-ag-uom=""/>
+        </div>
+        <label class="ag-chk" data-ag-otra-box="" hidden="hidden"><input type="checkbox" data-ag-otra=""/>La unidad no está en Odoo</label>
+        <div class="dn-field" data-ag-factor-box="" hidden="hidden">
+          <label for="ag-factor">¿Cuántas unidades de Odoo es 1 de AgilPedido?</label>
+          <input id="ag-factor" class="dn-input dn-num ag-factor" type="text" inputmode="decimal" value="1" data-ag-factor=""/>
+        </div>
+        <div class="dn-field" data-ag-cant-box="" hidden="hidden">
+          <label for="ag-cant">Cantidad</label>
+          <input id="ag-cant" class="dn-input dn-num ag-factor" type="text" inputmode="decimal" value="1" data-ag-cant=""/>
+        </div>
+        <div class="ag-queda" data-ag-queda="" hidden="hidden">
+          <span class="ag-queda__k">Queda en el pedido</span>
+          <b class="dn-num" data-ag-queda-txt=""/>
+          <span data-ag-queda-nota=""/>
+        </div>
+        <div class="dn-grid2">
+          <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</button>
+          <button type="button" class="dn-btn" data-ag-guardar="" disabled="disabled">Corregir y recordar</button>
+        </div>
+      </div>
+    </aside>
+  </template>
+
+  <!-- ============================================ «Cargar un pedido de AgilPedido» -->
+
+  <template id="agil_carga" name="Cargar un pedido de AgilPedido">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Cargar pedido de AgilPedido · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="ag ag--lineas" data-parent="/agilpedido" data-page="agilpedido-cargar"
+      t-att-data-imp="imp.id if imp else None">
+  <t t-call="distri_pedido.agil_bar"><t t-set="bar_sub" t-value="'AgilPedido · cargar un pedido'"/></t>
+  <header class="dn-top ag-top">
+    <div class="dn-top__row ag-top__row">
+      <a class="ag-back" href="/agilpedido" data-dn-back="">‹ Volver</a>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+    <div class="ag-top__txt">
+      <span class="dn-top__kicker">Pedidos de AgilPedido</span>
+      <h1 class="ag-title">Cargar un pedido de AgilPedido</h1>
+    </div>
+  </header>
+  <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
+  <main class="ag-wrap">
+    <section class="ag-col ag-col--side" aria-label="Mensaje">
+      <form class="ag-stack" method="post" t-att-action="'/agilpedido/cargar/%s/leer' % imp.id if imp else '/agilpedido/cargar'"
+            data-ag-leer="">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <div class="dn-field">
+          <label for="ag-msg">Mensaje de WhatsApp</label>
+          <textarea id="ag-msg" name="mensaje" class="dn-input ag-mono ag-msg" rows="7" maxlength="20000"
+                    placeholder="Pegá acá el mensaje de AgilPedido, tal como llegó." t-esc="imp.mensaje if imp else ''"/>
+        </div>
+        <button type="submit" class="dn-btn dn-btn--navy">Leer el mensaje</button>
+      </form>
+      <t t-if="b">
+        <div class="ag-resumen" data-ag-resumen="" t-esc="resumen"/>
+        <div class="dn-field ag-cli">
+          <label for="ag-cli">Cliente</label>
+          <input id="ag-cli" class="dn-input" type="search" autocomplete="off" maxlength="100"
+                 placeholder="Buscá por nombre, CUIT o teléfono" t-att-value="imp.partner_id.display_name or ''"
+                 t-att-data-actual="imp.partner_id.display_name or ''" data-ag-cli=""/>
+          <div class="ag-cli__res" data-ag-cli-res="" hidden="hidden"/>
+          <div t-if="sugeridos" class="ag-sug" data-ag-sug="">
+            <span class="ag-mut ag-small">Por el nombre del mensaje puede ser:</span>
+            <button t-foreach="sugeridos" t-as="s" type="button" class="ag-sug__it" t-att-data-ag-cliente="s['id']"
+                    t-att-data-name="s['name']"><b t-esc="s['name']"/><span class="ag-mut ag-small" t-esc="s['detail']"/></button>
+          </div>
+        </div>
+        <div class="dn-field">
+          <label for="ag-lp">Lista de precios</label>
+          <select id="ag-lp" class="dn-input" data-ag-lista="">
+            <option value="">La del cliente (<t t-esc="lista_cliente"/>)</option>
+            <option t-foreach="listas" t-as="l" t-att-value="l[0]" t-att-selected="'selected' if imp.pricelist_id.id == l[0] else None" t-esc="l[1]"/>
+          </select>
+        </div>
+      </t>
+    </section>
+    <section t-if="b" class="ag-col ag-col--main" aria-label="Renglones">
+      <div data-ag-board=""><t t-call="distri_pedido.agil_board"/></div>
+      <a class="dn-btn dn-btn--ghost ag-only-phone" href="/agilpedido" data-dn-back="">Cancelar</a>
+    </section>
+    <t t-if="b" t-call="distri_pedido.agil_panel"/>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================ an order that came by WhatsApp -->
+
+  <template id="agil_pedido" name="Pedido de AgilPedido">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title><t t-esc="o.name"/> · Pedidos de AgilPedido</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="ag ag--lineas ag--pedido" data-parent="/agilpedido" data-page="agilpedido-pedido" t-att-data-order="o.id">
+  <t t-call="distri_pedido.agil_bar"><t t-set="bar_sub" t-value="'AgilPedido · productos para corregir'"/></t>
+  <header class="dn-top ag-top">
+    <div class="dn-top__row ag-top__row">
+      <a class="ag-back" href="/agilpedido" data-dn-back="">‹ Volver</a>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+    <div class="ag-top__txt">
+      <span class="dn-top__kicker">Presupuesto <t t-esc="o.name"/></span>
+      <h1 class="ag-title" t-esc="cliente"/>
+    </div>
+  </header>
+  <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
+  <main class="ag-wrap">
+    <section class="ag-col ag-col--side ag-only-pc" aria-label="Pedidos de AgilPedido">
+      <div class="ag-row-b"><h2 class="ag-h2">Pedidos de AgilPedido</h2></div>
+      <a t-foreach="lateral" t-as="c" t-att-href="c['url']" data-dn="side"
+         t-att-class="'ag-it' + (' on' if c['id'] == o.id else '')" t-att-aria-current="'page' if c['id'] == o.id else None">
+        <span class="ag-it__l1"><b t-esc="'Sin cliente' if c['generic'] else c['cliente']"/>
+          <span t-att-class="'dn-chip dn-chip--%s' % c['chip'][1]" t-esc="c['chip'][0]"/></span>
+        <span class="ag-mut ag-small"><t t-esc="c['cuando']"/> · <t t-esc="c['name']"/><t t-if="c['generic']"> · «<t t-esc="c['cliente']"/>»</t></span>
+        <span t-if="c['dif_warn'] and not c['cancel']" class="ag-small ag-red dn-num">Diferencia <t t-esc="c['dif']"/></span>
+        <span t-if="c['sugerido']" class="ag-mut ag-small">Cliente sugerido por el teléfono: <t t-esc="c['sugerido']"/></span>
+      </a>
+      <a href="/odoo/action-distri_pedido.action_agil_equivalencias" class="dn-link">Equivalencias aprendidas</a>
+    </section>
+    <section class="ag-col ag-col--main" aria-label="Renglones">
+      <div class="ag-head">
+        <div class="ag-head__txt">
+          <span class="dn-label ag-only-pc">Presupuesto <t t-esc="o.name"/></span>
+          <h2 class="ag-h2 ag-only-pc" t-esc="cliente"/>
+          <span class="ag-mut ag-small" t-esc="info"/>
+          <span t-if="sugerido" class="ag-mut ag-small">Cliente sugerido por el teléfono: <b t-esc="sugerido"/></span>
+        </div>
+        <details class="ag-msj">
+          <summary class="dn-btn dn-btn--ghost ag-btn-sm">Mensaje original</summary>
+          <pre class="ag-mono ag-msj__txt" t-esc="o.distri_agil_texto or ''"/>
+        </details>
+      </div>
+      <div data-ag-board=""><t t-call="distri_pedido.agil_board"/></div>
+      <a class="dn-link ag-center" t-att-href="'/odoo/sale.order/%s' % o.id">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en Odoo</a>
+    </section>
+    <t t-call="distri_pedido.agil_panel"/>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================ the quotation just created -->
+
+  <template id="agil_creado" name="Presupuesto de AgilPedido creado">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Presupuesto creado · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="ag" data-parent="/agilpedido" data-page="agilpedido-creado">
+  <header class="dn-top ag-top">
+    <div class="dn-top__row ag-top__row">
+      <a class="ag-back" href="/agilpedido" data-dn-back="">‹ Volver</a>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+    <div class="ag-top__txt">
+      <span class="dn-top__kicker">Pedidos de AgilPedido</span>
+      <h1 class="ag-title">Presupuesto creado</h1>
+    </div>
+  </header>
+  <main class="dn-main ag-main">
+    <div class="ag-done">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t>
+      <div><b>Listo: se creó el presupuesto <t t-esc="o.name"/>.</b>
+        <span>Lo que corregiste quedó aprendido para los próximos pedidos.</span></div>
+    </div>
+    <div class="dn-card ag-card">
+      <div class="ag-card__head"><b class="ag-card__name" t-esc="o.name"/><span class="dn-chip dn-chip--neutral ag-push">Presupuesto</span></div>
+      <div class="ag-card__who"><b t-esc="o.partner_id.display_name"/>
+        <span class="ag-mut ag-small">Lista <t t-esc="o.pricelist_id.name or '-'"/></span></div>
+      <div class="ag-lines">
+        <div t-foreach="lineas" t-as="l" class="ag-line">
+          <span class="dn-num ag-line__q" t-esc="l['q']"/>
+          <span><t t-esc="l['name']"/><span t-if="l['unidad']" class="ag-mut ag-small"> · <t t-esc="l['unidad']"/></span></span>
+          <b class="dn-num" t-esc="l['sub']"/>
+        </div>
+      </div>
+      <div class="ag-line ag-line--tot"><span/><b>Total</b><b class="dn-num" t-esc="total"/></div>
+    </div>
+    <a class="dn-btn" t-att-href="'/odoo/sale.order/%s' % o.id">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en Odoo para aprobarlo</a>
+    <a class="dn-btn dn-btn--ghost" href="/agilpedido/cargar" data-dn="side">Cargar otro pedido</a>
+    <a class="dn-link ag-center" href="/agilpedido" data-dn-back="">Volver a Pedidos de AgilPedido</a>
+  </main>
+</body>
+</html>
+  </template>
+</odoo>

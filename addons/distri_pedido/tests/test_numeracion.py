@@ -65,7 +65,10 @@ class TestNumeracionFactura(TransactionCase):
 
     def test_sigue_despues_del_ultimo_de_online(self):
         ultimos = self.env["account.move"].search(
-            [("journal_id", "=", self.diario.id), ("state", "=", "posted")]).mapped("sequence_number")
+            [("journal_id", "=", self.diario.id), ("state", "in", ("posted", "cancel"))]
+        ).mapped("sequence_number")
+        # 19.0.1.111.0: cancelled invoices keep their number too (a copy whose
+        # journal only had cancelled ones went on after them)
         piso = max(ultimos + [0]) + 5000
         self.env["ir.config_parameter"].sudo().set_param(PARAMETRO, self._serie(piso))
         factura = self._factura()

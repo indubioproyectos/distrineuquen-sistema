@@ -43,6 +43,12 @@ FILES = {
     # 19.0.1.110.0: «Planificación de rutas» on the PC (controllers/rutas.py)
     "rutas.css": ("rutas/rutas.css", "text/css; charset=utf-8"),
     "rutas.js": ("rutas/rutas.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.111.0: «Asignar cliente» (controllers/asignar.py) and «Pedidos de
+    # AgilPedido» (controllers/agilpedido.py)
+    "asignar.css": ("asignar/asignar.css", "text/css; charset=utf-8"),
+    "asignar.js": ("asignar/asignar.js", "text/javascript; charset=utf-8"),
+    "agilpedido.css": ("agilpedido/agilpedido.css", "text/css; charset=utf-8"),
+    "agilpedido.js": ("agilpedido/agilpedido.js", "text/javascript; charset=utf-8"),
     # 19.0.1.98.0: the «Ajustes» gear of every page (views/kit.xml dn_ajustes)
     "ajustes.css": ("kit/ajustes.css", "text/css; charset=utf-8"),
     "ajustes.js": ("kit/ajustes.js", "text/javascript; charset=utf-8"),

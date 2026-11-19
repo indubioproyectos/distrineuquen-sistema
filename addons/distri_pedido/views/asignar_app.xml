@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Asignar cliente» on the phone (19.0.1.111.0, controllers/asignar.py,
+       static/src/asignar/): the owner-approved mockup «03 Asignar cliente»,
+       on the kit. The backend wizard (views/socio_generico.xml) stays. -->
+
+  <!-- One candidate; `f` is controllers/asignar.py _fila(). -->
+  <template id="asignar_candidato" name="Asignar cliente: candidato">
+    <article t-att-class="'dn-card as-cand' + (' as-cand--on' if f['elegido'] else '')" t-att-data-id="f['id']"
+             t-att-data-name="f['name']">
+      <div class="as-cand__head">
+        <b class="as-cand__name" t-esc="f['name']"/>
+        <span t-if="f['nombre']" t-att-class="'dn-chip dn-chip--%s' % f['nombre']['kind']" t-esc="f['nombre']['text']"/>
+        <span class="dn-chip dn-chip--ok as-cand__on">Elegido</span>
+      </div>
+      <div class="as-m">
+        <t t-if="f['telefono']"><span class="dn-num" t-esc="f['telefono']"/></t>
+        <t t-else=""><span class="as-mut">Sin teléfono</span></t>
+        <span t-att-class="'dn-chip dn-chip--%s' % f['telefono_chip']['kind']" t-esc="f['telefono_chip']['text']"/>
+        <t t-if="f['domicilio']">
+          <span t-esc="f['domicilio']"/>
+          <span t-att-class="'dn-chip dn-chip--%s' % f['domicilio_chip']['kind']" t-esc="f['domicilio_chip']['text']"/>
+        </t>
+        <t t-if="f['ciudad']">
+          <span t-esc="f['ciudad']"/>
+          <span t-att-class="'dn-chip dn-chip--%s' % f['ciudad_chip']['kind']" t-esc="f['ciudad_chip']['text']"/>
+        </t>
+      </div>
+      <span class="as-mut as-small dn-num"><t t-esc="f['detalle']"/><br/><t t-esc="f['saldo']"/></span>
+      <div class="as-cand__acts">
+        <button type="submit" name="elegido" t-att-value="f['id']" formmethod="get"
+                t-att-formaction="'/revisar/%s/asignar' % o.id" class="dn-btn dn-btn--outline as-btn-sm as-cand__pick"
+                t-att-data-as-elegir="f['id']">Elegir este</button>
+        <a class="dn-link" t-att-href="f['ficha']" target="_blank" rel="noopener">Ver ficha</a>
+      </div>
+    </article>
+  </template>
+
+  <template id="asignar_candidatos" name="Asignar cliente: candidatos">
+    <t t-foreach="filas" t-as="f"><t t-call="distri_pedido.asignar_candidato"/></t>
+    <div t-if="not filas" class="dn-empty as-empty">
+      <p>No hay clientes que coincidan. Probá con otra parte del nombre, el CUIT o el teléfono, o creá
+        el cliente nuevo.</p>
+    </div>
+  </template>
+
+  <template id="asignar_page" name="Asignar cliente">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Asignar cliente · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="as" t-att-data-parent="parent" data-page="asignar" t-att-data-order="o.id">
+  <header class="dn-top rv-top">
+    <div class="dn-top__row rv-top__row">
+      <a class="rv-back" t-att-href="parent" data-dn-back="">‹ Volver</a>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+    <div class="rv-top__txt">
+      <span class="dn-top__kicker">Pedido <t t-esc="o.name"/> · <t t-esc="amount"/></span>
+      <h1 class="rv-title">Asignar cliente</h1>
+      <p class="rv-sub">El pedido entró a nombre del contacto genérico. Elegí el cliente real.</p>
+    </div>
+  </header>
+  <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
+  <div t-if="web['agil'] and web['sugerido']" class="dn-banner as-origen">
+    <span>Entró por WhatsApp (AgilPedido). Por el teléfono parece ser <b t-esc="web['sugerido']"/>: quedó
+      elegido, confirmalo o elegí otro.</span>
+  </div>
+  <div t-elif="web['agil']" class="dn-banner as-origen"><span>Entró por WhatsApp (AgilPedido).</span></div>
+  <div t-else="" class="dn-banner as-origen"><span>Entró por la página sin cliente.</span></div>
+
+  <form class="dn-main as-main" method="post" t-att-action="'/revisar/%s/asignar' % o.id" data-as-form=""
+        t-att-data-modo="modo">
+    <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+    <input type="hidden" name="volver" t-att-value="volver"/>
+    <input type="hidden" name="modo" t-att-value="modo" data-as-modo=""/>
+    <input type="hidden" name="partner_id" t-att-value="elegido" data-as-elegido=""/>
+
+    <div class="as-seg" role="tablist" aria-label="Asignar a">
+      <a role="tab" t-att-href="'/revisar/%s/asignar?modo=existente%s' % (o.id, '&amp;volver=' + volver if volver else '')"
+         t-att-class="'on' if modo == 'existente' else None" data-dn="side"
+         t-att-aria-selected="'true' if modo == 'existente' else 'false'" data-as-tab="existente">Cliente existente</a>
+      <a role="tab" t-att-href="'/revisar/%s/asignar?modo=nuevo%s' % (o.id, '&amp;volver=' + volver if volver else '')"
+         t-att-class="'on' if modo == 'nuevo' else None" data-dn="side"
+         t-att-aria-selected="'true' if modo == 'nuevo' else 'false'" data-as-tab="nuevo">Crear cliente nuevo</a>
+    </div>
+
+    <div class="dn-card as-web">
+      <span class="dn-label">Lo que escribió el comprador</span>
+      <b class="as-web__name" t-esc="web['nombre']"/>
+      <span t-if="web['telefono']">Teléfono: <span class="dn-num" t-esc="web['telefono']"/></span>
+      <span t-if="web['domicilio']">Domicilio: <t t-esc="web['domicilio']"/></span>
+      <span t-if="mayorista" class="as-may">Pedido de la lista Distribuidoras.</span>
+    </div>
+
+    <!-- ============================================ existing customer -->
+    <div class="as-pane" data-as-pane="existente" t-att-hidden="None if modo == 'existente' else 'hidden'">
+      <div class="dn-field">
+        <label for="as-pn">Pegar número</label>
+        <div class="dn-row">
+          <input id="as-pn" name="pegado" class="dn-input dn-num" type="text" inputmode="tel" autocomplete="off"
+                 maxlength="200" placeholder="+54 9 299 555-1234" t-att-value="pegado" data-as-pegado=""/>
+          <button type="submit" formmethod="get" t-att-formaction="'/revisar/%s/asignar' % o.id"
+                  class="dn-btn dn-btn--ghost as-btn-sq" data-as-buscar-pegado="">
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'chat'"/></t>Buscar</button>
+        </div>
+        <span class="as-ok" data-as-preview="" t-att-hidden="None if pegado_lectura['preview'] else 'hidden'">Queda así: <span data-as-preview-txt="" t-esc="pegado_lectura['preview']"/></span>
+        <span class="as-err" data-as-perror="" role="alert" t-att-hidden="None if pegado_lectura['error'] else 'hidden'" t-esc="pegado_lectura['error']"/>
+        <span class="as-aviso" data-as-aviso="" t-att-hidden="None if pegado_lectura['aviso'] else 'hidden'" t-esc="pegado_lectura['aviso']"/>
+        <label class="as-chk" data-as-guardar="" t-att-hidden="None if pegado_lectura['preview'] else 'hidden'">
+          <input type="checkbox" name="pegado_guardar" value="1" checked="checked"/>Guardar como WhatsApp verificado del cliente</label>
+      </div>
+
+      <div class="dn-row">
+        <label for="as-bo" class="dn-sr">Buscar otro</label>
+        <input id="as-bo" name="busqueda" class="dn-input" type="search" autocomplete="off" maxlength="200"
+               placeholder="Buscar otro: nombre, CUIT o teléfono" t-att-value="busqueda" data-as-busqueda=""/>
+        <button type="submit" formmethod="get" t-att-formaction="'/revisar/%s/asignar' % o.id"
+                class="dn-btn dn-btn--ghost as-btn-sq" data-as-buscar="">Buscar</button>
+      </div>
+
+      <p class="as-mut as-legend">Ordenados por coincidencias. ✓ coincide · ≈ parecido · ✗ distinto.</p>
+      <div class="as-list" data-as-list="" aria-live="polite"><t t-call="distri_pedido.asignar_candidatos"/></div>
+    </div>
+
+    <!-- ============================================ new customer -->
+    <div class="as-pane" data-as-pane="nuevo" t-att-hidden="None if modo == 'nuevo' else 'hidden'">
+      <p class="as-mut as-small">Se crea con lo que escribió el comprador: corregí lo que haga falta.</p>
+      <div class="dn-field"><label for="as-nn">Nombre del comercio</label>
+        <input id="as-nn" name="nuevo_nombre" class="dn-input" maxlength="200" autocomplete="off" t-att-value="nuevo['nuevo_nombre']"/></div>
+      <div class="dn-field"><label for="as-nt">Teléfono</label>
+        <input id="as-nt" name="nuevo_telefono" class="dn-input dn-num" inputmode="tel" maxlength="200" autocomplete="off"
+               t-att-value="nuevo['nuevo_telefono']" data-as-nuevo-tel=""/></div>
+      <div class="dn-field"><label for="as-nd">Domicilio</label>
+        <input id="as-nd" name="nuevo_domicilio" class="dn-input" maxlength="200" autocomplete="off" t-att-value="nuevo['nuevo_domicilio']"/></div>
+      <div class="dn-field"><label for="as-nc">Ciudad</label>
+        <input id="as-nc" name="nuevo_ciudad" class="dn-input" maxlength="200" autocomplete="off" t-att-value="nuevo['nuevo_ciudad']"/></div>
+      <div class="dn-field"><label for="as-nv">CUIT</label>
+        <input id="as-nv" name="nuevo_cuit" class="dn-input dn-num" inputmode="numeric" maxlength="20" autocomplete="off"
+               t-att-value="nuevo['nuevo_cuit']"/></div>
+      <div class="dn-field"><label for="as-nl">Lista de precios</label>
+        <select id="as-nl" name="nuevo_lista_id" class="dn-input">
+          <option value="">La lista por defecto</option>
+          <option t-foreach="listas" t-as="l" t-att-value="l[0]" t-att-selected="'selected' if l[0] == lista_id else None" t-esc="l[1]"/>
+        </select></div>
+    </div>
+
+    <div class="as-acts">
+      <button t-if="puede_aprobar" type="submit" name="accion" value="aprobar" class="dn-btn dn-btn--lg" data-as-accion="aprobar">Asignar y aprobar</button>
+      <button type="submit" name="accion" value="asignar" t-att-class="'dn-btn dn-btn--outline' if puede_aprobar else 'dn-btn dn-btn--lg'"
+              data-as-accion="asignar"><t t-if="puede_aprobar">Solo asignar</t><t t-else="">Asignar cliente</t></button>
+      <a class="dn-link as-center" t-att-href="parent" data-dn-back="">Cancelar</a>
+    </div>
+  </form>
+</body>
+</html>
+  </template>
+</odoo>

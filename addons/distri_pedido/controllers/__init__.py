@@ -19,3 +19,5 @@ from . import sitio
 from . import revisar
 from . import deposito
 from . import rutas
+from . import asignar
+from . import agilpedido

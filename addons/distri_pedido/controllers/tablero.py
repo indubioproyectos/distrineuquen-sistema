@@ -45,6 +45,9 @@ TILES = [
     # 19.0.1.110.0: controllers/rutas.py, administración and gerencia (PC)
     ("rutas", "rutas", "Planificación de rutas", "Pedidos armados a cada ruta del día",
      IMG + "reparto.png", "pin", "/rutas"),
+    # 19.0.1.111.0: controllers/agilpedido.py, administración and gerencia
+    ("agilpedido", "agilpedido", "AgilPedido", "Pedidos que entran por WhatsApp y cargar uno",
+     IMG + "transicion.png", "paste", "/agilpedido"),
     # 19.0.1.109.0: controllers/deposito.py, administración and gerencia
     ("deposito", "deposito", "Depósito", "Entregas, venta en mostrador y caja",
      IMG + "despacho.png", "store", "/deposito"),
@@ -85,6 +88,9 @@ def _special_visible(env, key):
     if key == "rutas":
         from .rutas import installed as rutas_installed, is_planner
         return is_planner(user) and rutas_installed(env)
+    if key == "agilpedido":
+        from .agilpedido import installed as agil_installed, puede_agil
+        return puede_agil(env) and agil_installed(env)
     if key == "comprobantes":
         from ..models.comprobante_subir import can_upload
         return can_upload(user)
@@ -171,6 +177,13 @@ def _badge_deposito(env):
     return {"text": "%s para retirar" % n, "kind": "", "n": n} if n else None
 
 
+def _badge_agilpedido(env):
+    """AgilPedido orders that came by WhatsApp today."""
+    from .agilpedido import pedidos_de_hoy
+    n = pedidos_de_hoy(env)
+    return {"text": "%s hoy" % n, "kind": "", "n": n} if n else None
+
+
 def _badge_caja(env):
     if env["distri.caja"].current_for(env.user):
         return {"text": "Abierta", "kind": "warn", "n": 1}
@@ -210,6 +223,7 @@ TILE_BADGES = {
     "armado": _badge_armado,
     "despacho": _badge_despacho,
     "deposito": _badge_deposito,
+    "agilpedido": _badge_agilpedido,
     "reparto": _badge_reparto,
     "caja": _badge_caja,
     "historial": _badge_historial,

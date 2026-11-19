@@ -12,9 +12,9 @@
                                      reads as, the warnings and «Ya tienen
                                      este número» (JSON)
       /revisar/<id>/numero    POST   saves it as the verified WhatsApp
-      /revisar/<id>/asignar   POST   «Asignar cliente» of an order without
-                                     customer: opens the backend wizard with
-                                     the pasted number already searched
+      /revisar/<id>/asignar          «Asignar cliente» of an order without
+                                     customer: the kit screen since
+                                     19.0.1.111.0 (controllers/asignar.py)
 
 Same access as the backend action «Pedidos para revisar»: administración
 (gerencia implies it). The rules are the model's (models/revisar.py,
@@ -130,6 +130,8 @@ def card(order):
         "can_retener": vivo and not retenido,
         "can_pegar": vivo and bool(o.partner_id),
         "can_asignar": vivo and generic and bool(o.partner_id) and puede_asignar(env),
+        # 19.0.1.111.0: the kit screen (controllers/asignar.py)
+        "asignar_url": "/revisar/%s/asignar" % o.id,
         # the green ones fold to one line, as in the mockup
         "compact": color == GREEN and not retenido and vivo,
         "odoo_url": "/odoo/sale.order/%s" % o.id,
@@ -183,7 +185,8 @@ class Revisar(http.Controller):
             return self._json({"ok": False, "error": text}, status=status)
         return self._page(error=text, status=status)
 
-    def _page(self, ver="todos", retener="", error="", ok="", status=200):
+    def _page(self, ver="todos", retener="", error="", ok="", status=200, asignado="",
+              sin_wa=""):
         user = request.env.user
         orders = request.env["sale.order"].search(
             [("distri_revisar_en_lista", "=", True)],
@@ -217,17 +220,32 @@ class Revisar(http.Controller):
             "inicio": "/tablero" if wants_tablero(user) else (user._distri_landing() or "/tablero"),
             "csrf_token": request.csrf_token(),
             "error": error,
-            "ok": "Listo." if ok else "",
+            "ok": self._ok_text(ok, asignado, sin_wa),
         })
         return request.make_response(html, status=status, headers=[
             ("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")])
 
+    def _ok_text(self, ok, asignado="", sin_wa=""):
+        """«Listo.», or what «Asignar cliente» did (19.0.1.111.0)."""
+        if not ok:
+            return ""
+        if asignado:
+            from .asignar import asignado_texto
+            try:
+                order = request.env["sale.order"].browse(int(asignado)).exists()
+            except ValueError:
+                order = None
+            if order and not order.distri_partner_generic:
+                return asignado_texto(order, quiso_aprobar=bool(sin_wa))
+        return "Listo."
+
     # ---------------------------------------------------------------- page
 
     @http.route("/revisar", type="http", auth="user", methods=["GET"], sitemap=False)
-    def page(self, ver="todos", retener="", ok="", **kw):
+    def page(self, ver="todos", retener="", ok="", asignado="", sin_wa="", aviso="", **kw):
         self._check()
-        return self._page(ver=ver, retener=retener, ok=ok)
+        return self._page(ver=ver, retener=retener, ok=ok, asignado=asignado, sin_wa=sin_wa,
+                          error=(aviso or "")[:300])
 
     # ---------------------------------------------------------------- hold
 
@@ -317,25 +335,30 @@ class Revisar(http.Controller):
             return self._refuse(_error_text(exc))
         return self._done(order, "Listo: quedó como WhatsApp verificado del cliente.")
 
-    @http.route("/revisar/<int:order_id>/asignar", type="http", auth="user", methods=["POST"],
-                sitemap=False)
-    def asignar(self, order_id, pegado="", **kw):
-        """«Asignar cliente» (the backend wizard until it moves to the kit):
-        with a pasted number, the wizard opens with it already searched."""
-        self._check()
-        order = self._order(order_id)
-        try:
-            with request.env.cr.savepoint():
-                if (pegado or "").strip():
-                    wizard = self._wizard_model().new(self._wizard_values(order, pegado))
-                    action = wizard.action_pegado_asignar()
-                else:
-                    action = order.action_distri_asignar_cliente()
-        except (UserError, AccessError) as exc:
-            return self._refuse(_error_text(exc))
-        if not action.get("res_id"):
-            return self._refuse("No se pudo abrir «Asignar cliente».")
-        url = "/odoo/sale.order/%s/action-distri_pedido.action_revisar_asignar_cliente" % order.id
-        if self._by_fetch():
-            return self._json({"ok": True, "url": url})
-        return request.redirect(url, local=True)
+
+def asignar_backend(order, pegado, by_fetch):
+    """«Asignar cliente» in the backend wizard (the v108 bridge): only until
+    19.0.1.111.0 is installed, when the page goes to the kit screen
+    (controllers/asignar.py). With a pasted number, the wizard opens with it
+    already searched."""
+    try:
+        with request.env.cr.savepoint():
+            if (pegado or "").strip():
+                wizard = request.env["distri.wa.confirm.wizard"].with_context(
+                    distri_wa_pegar=True).new({
+                        "order_id": order.id, "then": "verify", "pegado": pegado.strip(),
+                        "area": "", "number": ""})
+                action = wizard.action_pegado_asignar()
+            else:
+                action = order.action_distri_asignar_cliente()
+    except (UserError, AccessError) as exc:
+        if by_fetch:
+            return request.make_json_response({"ok": False, "error": _error_text(exc)},
+                                              status=400)
+        return request.redirect("/revisar", local=True)
+    url = "/odoo/sale.order/%s/action-distri_pedido.action_revisar_asignar_cliente" % order.id
+    if not action.get("res_id"):
+        url = "/odoo/sale.order/%s" % order.id
+    if by_fetch:
+        return request.make_json_response({"ok": True, "url": url})
+    return request.redirect(url, local=True)

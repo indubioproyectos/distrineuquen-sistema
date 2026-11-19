@@ -5,19 +5,6 @@
        revisar» and «Pegar número», on the kit. The backend action
        (views/revisar.xml) stays for the PC. -->
 
-  <!-- «Asignar cliente» from the phone: /odoo/sale.order/<id>/action-...
-       opens the order with the wizard the page prepared on top (the
-       wizard's own buttons only work in a dialog; a server action opened
-       by URL gets no active record, so it reopens the user's latest
-       wizard). Batch 3 moves it to the kit. -->
-  <record id="action_revisar_asignar_cliente" model="ir.actions.server">
-    <field name="name">Asignar cliente</field>
-    <field name="model_id" ref="sale.model_sale_order"/>
-    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion'))]"/>
-    <field name="state">code</field>
-    <field name="code">action = model.action_distri_revisar_asignar()</field>
-  </record>
-
   <!-- One card; `c` is controllers/revisar.py card(). Also rendered alone
        for the JSON answer of every action (the page swaps it). -->
   <template id="revisar_card" name="Pedidos para revisar: tarjeta">
@@ -72,12 +59,10 @@
                   t-att-data-rv-copiar="c['code_line']">
             <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'copy'"/></t><span>Copiar código</span></button>
         </div>
-        <form t-if="c['can_asignar']" method="post" t-att-action="'/revisar/%s/asignar' % c['id']" data-fetch=""
-              data-rv-asignar="">
-          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
-          <button type="submit" class="dn-btn dn-btn--outline">
-            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>Asignar cliente</button>
-        </form>
+        <!-- 19.0.1.111.0: «Asignar cliente» is a kit screen (views/asignar_app.xml) -->
+        <a t-if="c['can_asignar']" class="dn-btn dn-btn--outline" t-att-href="c['asignar_url']" data-dn="down"
+           data-rv-asignar-kit="">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>Asignar cliente</a>
         <a t-if="c['can_retener']" class="dn-btn dn-btn--warn" t-att-href="'/revisar?retener=%s#rv-retener' % c['id']"
            t-att-data-rv-retener="c['id']">
           <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'pause'"/></t>Retener</a>
