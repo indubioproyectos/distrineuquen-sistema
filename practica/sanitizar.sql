@@ -163,7 +163,8 @@ UPDATE distri_mp_collection SET payer_name = 'Pagador ' || id, payer_cuit = NULL
   proposal_note = NULL, ignore_note = NULL, conflict_note = NULL, evidence_note = NULL,
   candidate_note = NULL, customer_sources = NULL, sale_detail = NULL, external_reference = NULL,
   online_label = NULL, authorized_conflict = NULL, wholesale_label = NULL;
-UPDATE distri_mp_wholesale_rule SET label = 'Mayorista ' || id, note = NULL;
+UPDATE distri_mp_wholesale_rule SET label = 'Mayorista ' || id, note = NULL, conflict_note = NULL,
+  cuit = pg_temp.cuit('27' || lpad((80000000 + id)::text, 8, '0'));
 UPDATE distri_mp_outgoing SET payer_name = 'Destinatario ' || id, payer_cuit = NULL;
 UPDATE distri_payer_identity SET value = 'practica-' || id, holder = NULL;
 UPDATE distri_mp_day SET note = NULL, incomplete_reason = NULL;
