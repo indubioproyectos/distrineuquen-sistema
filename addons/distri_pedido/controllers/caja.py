@@ -576,6 +576,8 @@ class Caja(http.Controller):
         moves = caja.movement_ids.sorted(lambda m: (m.moment, m.id))
         grupos = [
             ("Cobros en el local", moves.filtered(lambda m: m.kind == "cobro")),
+            # 19.0.1.118.0
+            ("Cobros registrados en la factura", moves.filtered(lambda m: m.kind == "factura")),
             # 19.0.1.117.0
             ("Cobros en efectivo cargados en Online", moves.filtered(lambda m: m.kind == "online")),
             ("Rendiciones y cobros de otros usuarios",

@@ -598,7 +598,8 @@
              t-att-href="'/caja/movimiento/%s/comprobante' % m.id"
              t-esc="'Ver PDF' if m.document else 'Ver foto'"/>
           <!-- 19.0.1.117.0: the Online number, and «Sacar de mi caja» on /caja -->
-          <small t-if="m.kind == 'online' and m.note" class="caja-mov__nota" t-esc="m.note"/>
+          <!-- 19.0.1.118.0: also the payment number of «Cobro registrado en la factura» -->
+          <small t-if="m.kind in ('online', 'factura') and m.note" class="caja-mov__nota" t-esc="m.note"/>
           <form t-if="sacar_online and m.kind == 'online'" class="caja-mov__sacar" method="post"
                 t-att-action="'/caja/online/%s/sacar' % m.id" data-caja-form="" data-fetch="">
             <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>

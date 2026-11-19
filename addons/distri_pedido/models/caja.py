@@ -26,6 +26,14 @@ its difference. All the cash of the company converges here:
   once for every caja (a unique index on `online_payment_id`), and may take
   it out while the session is open («Sacar de mi caja», `release_online`).
   No account.payment and no history row are created.
+- «Cobro registrado en la factura» (19.0.1.118.0): a cash payment the cashier
+  registered himself with Odoo's «Registrar pago» on the invoice, in the
+  caja's own cash journal (CSH1). It enters his open caja by itself, once
+  (`_sync_invoice_collections`), unless it reaches a caja another way (a
+  route or depot box payment: the settlement or the box brings it), it is
+  not plain cash (Mercado Pago, linked to an Online history row), or it is
+  dated before PARAM_INVOICE_CASH_SINCE. Reset, cancelled or later linked to
+  a route, it leaves the open caja again.
 
 Rules: one open session per cashier; today's cannot open while a previous
 one is open; the opening float is proposed from the previous closing's «queda
@@ -80,8 +88,12 @@ MOVEMENT_KINDS = [
     ("ajuste", "Ajuste"),
     # 19.0.1.117.0: a cash payment registered in Odoo Online (see above)
     ("online", "Cobro cargado en Online"),
+    # 19.0.1.118.0: a cash payment registered on the invoice (see above)
+    ("factura", "Cobro registrado en la factura"),
 ]
-INFLOW_KINDS = ("cobro", "rendicion", "recepcion", "online")
+INFLOW_KINDS = ("cobro", "rendicion", "recepcion", "online", "factura")
+# the movements that hold one lab payment of their own (`payment_id`)
+PAYMENT_KINDS = ("cobro", "factura")
 OUTFLOW_KINDS = ("gasto", "proveedor", "retiro", "banco")
 
 EXPENSE_CONCEPTS = [
@@ -123,6 +135,10 @@ ONLINE_CASH_DAYS = 7
 # migrations/19.0.1.117.0 to the first session's day, so the Online cash of
 # the days before any caja existed is not brought in. Empty: no such bound.
 PARAM_ONLINE_CASH_SINCE = "distri_pedido.caja_online_desde"
+# 19.0.1.118.0: the cash payments registered on the invoice enter the caja
+# from this day on (ISO date, set by migrations/19.0.1.118.0), so the
+# history before the rule is not pulled in. Empty: no such bound.
+PARAM_INVOICE_CASH_SINCE = "distri_pedido.caja_factura_desde"
 ONLINE_VOID_STATES = {"draft": "en borrador", "canceled": "cancelado", "cancel": "cancelado",
                       "rejected": "rechazado"}
 
@@ -301,8 +317,9 @@ class DistriCaja(models.Model):
             by_kind = {}
             for move in caja.movement_ids:
                 by_kind[move.kind] = by_kind.get(move.kind, 0.0) + move.amount
-            # 19.0.1.117.0: a cash payment of Online is a «Cobro en el local» too
-            caja.total_cobros = by_kind.get("cobro", 0.0) + by_kind.get("online", 0.0)
+            # 19.0.1.117.0: a cash payment of Online is a «Cobro en el local»
+            # too, and (19.0.1.118.0) one registered on the invoice
+            caja.total_cobros = sum(by_kind.get(k, 0.0) for k in ("cobro", "online", "factura"))
             caja.total_rendiciones = by_kind.get("rendicion", 0.0) + by_kind.get("recepcion", 0.0)
             caja.total_salidas = by_kind.get("gasto", 0.0) + by_kind.get("proveedor", 0.0)
             caja.total_retiros = by_kind.get("retiro", 0.0) + by_kind.get("banco", 0.0)
@@ -416,10 +433,9 @@ class DistriCaja(models.Model):
         for caja in self.sudo().filtered(lambda c: c.state == "open"):
             caja._drop_void_collections()
             caja._drop_void_online()
+            caja._drop_routed_invoice_collections()
             boxes = caja._own_boxes()
             payments = boxes.payment_ids.filtered(lambda p: p.state in ("in_process", "paid"))
-            if not payments:
-                continue
             taken = Movement.search([("payment_id", "in", payments.ids)]).payment_id
             for box in boxes:
                 for payment in box.payment_ids.filtered(
@@ -434,14 +450,18 @@ class DistriCaja(models.Model):
                         "moment": payment.create_date,
                         "note": payment.memo or False,
                     })
+            # 19.0.1.118.0: after the boxes, so a payment of his own box is
+            # always a «Cobro en el local»
+            caja._sync_invoice_collections()
         return True
 
     def _drop_void_collections(self):
-        """The «Cobro en el local» movements of this open session whose
-        payment is no longer «en proceso» or «pagado» (reset or cancelled)."""
+        """The «Cobro en el local» (and, 19.0.1.118.0, «Cobro registrado en
+        la factura») movements of this open session whose payment is no
+        longer «en proceso» or «pagado» (reset or cancelled)."""
         self.ensure_one()
         void = self.movement_ids.filtered(
-            lambda m: m.kind == "cobro" and m.payment_id
+            lambda m: m.kind in PAYMENT_KINDS and m.payment_id
             and m.payment_id.state not in ("in_process", "paid") and not m.statement_line_ids)
         for move in void:
             self.message_post(body=Markup(
@@ -449,6 +469,103 @@ class DistriCaja(models.Model):
                 move.payment_id.name or "", move.partner_id.name or "", _money(move.amount),
                 dict(move.payment_id._fields["state"].selection).get(
                     move.payment_id.state, move.payment_id.state)))
+        void.unlink()
+
+    # ------------------------------------------------------------ invoice cash
+    # 19.0.1.118.0: «Cobro registrado en la factura»
+
+    def _invoice_cash_domain(self):
+        """The cash payments this session's cashier registered himself in
+        its cash journal (Odoo's «Registrar pago» on the invoice), not
+        before PARAM_INVOICE_CASH_SINCE."""
+        self.ensure_one()
+        domain = [("journal_id", "=", self.journal_id.id), ("journal_id.type", "=", "cash"),
+                  ("company_id", "=", self.company_id.id), ("payment_type", "=", "inbound"),
+                  ("amount", ">", 0), ("state", "in", ("in_process", "paid")),
+                  ("create_uid", "=", self.user_id.id)]
+        start = self.env["ir.config_parameter"].sudo().get_param(PARAM_INVOICE_CASH_SINCE)
+        try:
+            start = fields.Date.to_date(start) if start else None
+        except ValueError:
+            start = None
+        if start:
+            domain.append(("date", ">=", start))
+        return domain
+
+    @api.model
+    def _routed_payments(self, payments):
+        """Of `payments`, the ones of a driver's route or a depot box: the
+        settlement or the box brings them to a caja."""
+        if not payments:
+            return payments
+        return self.env["distri.route"].sudo().search(
+            [("payment_ids", "in", payments.ids)]).payment_ids & payments
+
+    @api.model
+    def _not_plain_cash(self, payments):
+        """Of `payments`, the ones that are not plain cash of the lab: a
+        Mercado Pago income's payment, or the same money as a row of the
+        Online account history (that money is Online's)."""
+        if not payments:
+            return payments
+        cards = self.env["distri.mp.collection"].sudo().with_context(active_test=False).search(
+            [("payment_id", "in", payments.ids)])
+        history = self.env["distri.cuenta.movimiento"].sudo().with_context(
+            active_test=False).search([("lab_payment_id", "in", payments.ids)])
+        return (cards.payment_id | history.lab_payment_id) & payments
+
+    def _pending_invoice_cash(self):
+        """The invoice cash payments this open session takes: neither
+        routed, nor in any caja, nor anything but plain cash."""
+        self.ensure_one()
+        payments = self.env["account.payment"].sudo().search(
+            self._invoice_cash_domain(), order="id")
+        if not payments:
+            return payments
+        payments -= self.env["distri.caja.movimiento"].sudo().search(
+            [("payment_id", "in", payments.ids)]).payment_id
+        return payments - self._routed_payments(payments) - self._not_plain_cash(payments)
+
+    def _sync_invoice_collections(self):
+        """Every pending invoice cash payment becomes a «Cobro registrado en
+        la factura» of the open session, once (the unique index on
+        `payment_id` settles two syncs at the same time)."""
+        Movement = self.env["distri.caja.movimiento"].sudo()
+        for caja in self.sudo().filtered(lambda c: c.state == "open"):
+            for payment in caja._pending_invoice_cash():
+                try:
+                    with self.env.cr.savepoint():
+                        Movement.create({
+                            "caja_id": caja.id,
+                            "kind": "factura",
+                            "amount": payment.amount,
+                            "partner_id": payment.partner_id.commercial_partner_id.id or False,
+                            "payment_id": payment.id,
+                            "moment": payment.create_date,
+                            "note": " · ".join(
+                                x for x in (payment.name, payment.memo) if x)[:NOTE_MAX] or False,
+                            "user_id": caja.user_id.id,
+                        })
+                except UniqueViolation:
+                    continue
+        return True
+
+    def _drop_routed_invoice_collections(self):
+        """The «Cobro registrado en la factura» movements of this open
+        session whose payment was linked to a route or a box afterwards: the
+        settlement or the box brings that money now."""
+        self.ensure_one()
+        moves = self.movement_ids.filtered(
+            lambda m: m.kind == "factura" and m.payment_id and not m.statement_line_ids)
+        routed = self._routed_payments(moves.payment_id)
+        void = moves.filtered(lambda m: m.payment_id in routed)
+        Route = self.env["distri.route"].sudo()
+        for move in void:
+            route = Route.search([("payment_ids", "in", move.payment_id.ids)], limit=1)
+            self.message_post(body=Markup(
+                "Se quitó de la caja el cobro %s de %s (%s): ahora es de %s.") % (
+                move.payment_id.name or "", move.partner_id.name or "", _money(move.amount),
+                route.name or "una ruta"))
         void.unlink()
 
     # ------------------------------------------------------------ Online cash

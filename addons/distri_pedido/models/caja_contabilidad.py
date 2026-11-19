@@ -23,6 +23,14 @@ proceso». The cash reaches the cash account only through a cash statement:
   account, «Cuenta transitoria»), never against the customer's receivable:
   Online already settled that receivable and the lab books only the cash.
   The accountant clears that account against Online's books.
+  19.0.1.118.0: a «Cobro registrado en la factura» (kind "factura": a
+  payment the cashier registered on the invoice directly in CSH1) is booked
+  exactly like a «Cobro en el local». Being in the cash journal does NOT put
+  it in the cash account: CSH1's method lines have no account of their own,
+  so the payment waits in «Recibos pendientes» like a CDEP one. Its closing
+  line reconciles that open line, so the cash is booked once; a payment
+  whose «Recibos pendientes» line is already reconciled (an earlier
+  statement, the catch-up) gets no line, so it is never booked twice.
 - Catch-up (`DistriCajaConciliacionInicial`, «Conciliación inicial de
   efectivo»): ONE statement with ONE line per journal reconciling every cash
   payment of CSH1 and CDEP still open in «Recibos pendientes». Run by hand,
@@ -159,7 +167,9 @@ class DistriCajaAccounting(models.Model):
         differences = caja_account(self.env, company, "diferencias")
         plan = []
         for move in self.movement_ids.sorted(lambda m: (m.moment, m.id)):
-            if move.kind == "cobro":
+            if move.kind in ("cobro", "factura"):
+                # 19.0.1.118.0 (see the module docstring): a payment
+                # registered on the invoice is reconciled like a collection
                 self._payment_lines(move.payment_id, move, plan)
             elif move.kind in ("rendicion", "recepcion"):
                 route = move.route_id
