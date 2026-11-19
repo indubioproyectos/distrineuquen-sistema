@@ -426,6 +426,17 @@ class SaleOrderRevisar(models.Model):
         tecnicos = self.env.ref("base.user_root") | self.env.ref("base.user_admin")
         return (usuarios - tecnicos) or usuarios
 
+    def _action_cancel(self):
+        """19.0.1.113.0: a cancelled order needs no review: its «Pedido para
+        revisar (rojo)» activities are marked done (with the note in the
+        chatter, like the other alerts of the module)."""
+        res = super()._action_cancel()
+        actividades = self.sudo().activity_ids.filtered(
+            lambda a: a.summary == RESUMEN_ALERTA)
+        if actividades:
+            actividades.action_feedback(feedback="Pedido cancelado: ya no hay nada que revisar.")
+        return res
+
     def _distri_revisar_alertar(self):
         """One activity per gerencia user for a red order, once per order."""
         rojos = self.sudo().filtered(

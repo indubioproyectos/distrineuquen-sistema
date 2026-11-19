@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.112.0",
+    "version": "19.0.1.113.0",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -180,6 +180,30 @@
     # labels print the customer's own city when it is loaded, the name
     # prefix only when the city is empty; depot panel rows. No new stored
     # fields, no migration.
+    # 19.0.1.113.0 (owner's tests of 18-19/11/2026): the driver app is
+    # static/src/reparto/app2.js (app.js stays until the next version, static
+    # files are served live): its state on the phone is kept per user and per
+    # route (IndexedDB «reparto»: another user's route is never shown and
+    # their pending changes are never sent as someone else; /reparto/api/sync
+    # refuses a batch of another user), «Tus rutas de hoy» opens a second
+    # route of the day without settling the first, and a route that is gone
+    # (/reparto/api/route?id=…) answers "reset" with the current route instead
+    # of a 404, keeping its pending changes. «Anular ruta» in the route form
+    # (administración, gerencia; models/anular_ruta.py): a test or mistaken
+    # route without money is undone (visits dropped, orders free, chatter on
+    # each order) and deleted. Planning warns (never blocks) when a driver has
+    # two routes of the same date and trip. A cancelled order closes its
+    # «Pedido para revisar (rojo)» activities. AgilPedido: an aborted live sync
+    # opens one incident (activities for administración and gerencia, a red
+    # banner on /tablero) that the next good sync closes; the state lives in
+    # the parameter distri_pedido.agil_incidente; a run without changes leaves
+    # no record. cuentas.js / cuentas.css are no longer referenced (the files
+    # are removed with the install). The pasted AgilPedido message
+    # (models/importar_pedido.py): an exact full name with a pack text sold per
+    # unit («… Display x 12 u.») takes its own unit; among same-name products the
+    # temporary AgilPedido copy wins while the switch is on; «Corregir y
+    # recordar» with the product and unit it already had learns nothing.
+    # No new stored fields, no migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml",

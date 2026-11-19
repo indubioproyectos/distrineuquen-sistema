@@ -23,7 +23,7 @@
   --dn-input:#b9c6d6;--dn-tint:#eef2f6;--dn-off:#9fb1aa;--dn-on-navy:#c9d4e3;
   --dn-r:12px;--dn-shadow:0 2px 8px rgba(16,36,63,.12);
   --dn-safe-b:env(safe-area-inset-bottom,0px);
-  /* legacy names (distri_ui.css), so app.css, despacho.css and cuentas.css
+  /* legacy names (distri_ui.css), so app.css, despacho.css and cuentas_app.css
      keep working when their page moves to the kit */
   --navy:var(--dn-navy);--navy-2:var(--dn-navy-2);--navy-bg:var(--dn-info-bg);--mint:var(--dn-mint);
   --teal:var(--dn-primary);--teal-dark:var(--dn-primary-press);--teal-bg:var(--dn-green-bg);

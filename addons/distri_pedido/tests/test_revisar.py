@@ -465,6 +465,21 @@ class TestRevisar(RepartoMixin, AccountTestInvoicingCommon):
         order._distri_revisar_alertar()
         self.assertFalse(self._alertas(order))
 
+    def test_v113_cancelar_cierra_las_alertas(self):
+        """19.0.1.113.0 (B): a cancelled order closes its «Pedido para revisar
+        (rojo)» activities (done, with the note in the chatter); other
+        activities of the order stay."""
+        order = self._pedido(self.generico)
+        self.assertTrue(self._alertas(order))
+        otra = order.activity_schedule("mail.mail_activity_data_todo", summary="Llamar al cliente",
+                                       user_id=self.gerente.id)
+        order.action_cancel()
+        self.assertEqual(order.state, "cancel")
+        self.assertFalse(self._alertas(order))
+        self.assertTrue(otra.exists(), "only the review alerts are closed")
+        self.assertTrue(any("ya no hay nada que revisar" in (m.body or "")
+                            for m in order.message_ids))
+
     def test_sin_alerta_si_no_es_rojo_o_esta_apagada(self):
         self.assertFalse(self._alertas(self._pedido()))
         self.env["ir.config_parameter"].sudo().set_param(PARAM_ALERTA_ROJOS, "0")

@@ -584,7 +584,7 @@ class TestRepartoHttp(RepartoMixin, HttpCase):
         self.assertEqual(self.url_open("/cuentas").status_code, 200)
 
     def test_app_links_to_the_account_and_the_cash_page(self):
-        source = self.url_open("/distri_pedido/static/src/reparto/app.js").text
+        source = self.url_open("/distri_pedido/static/src/reparto/app2.js").text
         self.assertIn("/reparto/api/account", source)
         self.assertIn('"/cobro"', source)
         self.assertIn('"/cuentas"', source)

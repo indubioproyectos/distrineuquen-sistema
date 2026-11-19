@@ -7,6 +7,15 @@ as events with a UUID generated on the phone (see models/reparto_sync.py).
 
 Like the packing screen (/armado), everything runs with sudo(): each route
 checks the group, and a route is read and written only by its driver.
+
+19.0.1.113.0: the page loads app2.js (app.js stays one version for the
+19.0.1.112.0 template: static files are served live). /reparto/api/route
+names the user (user_id) and lists the driver's open routes for «Tus rutas
+de hoy», the one «En reparto» first; a route asked for that is gone (deleted,
+another driver's, settled) is answered with "reset" and the current route,
+never a 404, so the phone moves on and keeps its pending changes. The sync
+refuses a batch whose user_id is not the session's (another user logged in
+on the same phone).
 """
 import hashlib
 import json
@@ -23,7 +32,7 @@ from .main import FICHA
 GROUP_DRIVER = "distri_pedido.grupo_reparto"
 STATIC = "/distri_pedido/static/src/reparto/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "reparto")
-ASSETS = ("claim.js", "app.js", "app.css", "icon-192.png", "icon-512.png")
+ASSETS = ("claim.js", "app.js", "app2.js", "app.css", "icon-192.png", "icon-512.png")
 # The look shared with the packing screen (/armado)
 SHARED_CSS = "/distri_pedido/static/src/css/distri_ui.css"
 # Figtree, self-hosted by the theme; distri_ui.css points at these files
@@ -78,6 +87,9 @@ class Reparto(http.Controller):
         version = asset_version()
         html = request.env["ir.qweb"]._render("distri_pedido.reparto_app", {
             "version": version,
+            # whose state the app opens (app2.js); the cached shell keeps the
+            # last user online
+            "uid": request.env.user.id,
             "static": STATIC,
             "shared_css": SHARED_CSS,
             "empresa": FICHA["nombre"],
@@ -130,11 +142,30 @@ class Reparto(http.Controller):
     # ------------------------------------------------------------------ API
 
     def _routes(self):
-        return request.env["distri.route"].sudo().search([
+        """The driver's open routes: the one «En reparto» first, then by date,
+        trip and id («Tus rutas de hoy»)."""
+        routes = request.env["distri.route"].sudo().search([
             ("driver_id", "=", request.env.user.id),
             ("kind", "=", "route"),
             ("state", "in", ("draft", "on_route")),
         ], order="date, trip, id")
+        return routes.sorted(lambda r: r.state != "on_route")
+
+    def _wanted_route(self, id):
+        """(route, gone): the route asked for when it is still this driver's to
+        show, else an empty recordset and gone=True. A route closed by the
+        driver and not settled is still shown («Ruta cerrada», the cash to
+        hand in); a settled one, another driver's or a deleted one is gone."""
+        Route = request.env["distri.route"].sudo()
+        try:
+            wanted = int(id)
+        except (TypeError, ValueError):
+            wanted = 0
+        route = Route.browse(wanted).exists() if wanted > 0 else Route
+        if (not route or route.driver_id != request.env.user or route.kind != "route"
+                or route.state == "settled"):
+            return Route, True
+        return route, False
 
     @http.route("/reparto/api/route", type="http", auth="user", methods=["GET"],
                 sitemap=False)
@@ -142,21 +173,23 @@ class Reparto(http.Controller):
         if not self._is_driver():
             return self._json({"ok": False, "error": "No tenés permiso de reparto."}, 403)
         routes = self._routes()
-        chosen = routes[:1]
+        chosen, gone = routes[:1], False
         if id:
-            try:
-                wanted = int(id)
-            except ValueError:
-                wanted = 0
-            chosen = request.env["distri.route"].sudo().browse(wanted).exists()
-            if not chosen or chosen.driver_id != request.env.user or chosen.kind != "route":
-                return self._json({"ok": False, "error": "Esa ruta no es tuya."}, 404)
-        return self._json({
+            route, gone = self._wanted_route(id)
+            if not gone:
+                chosen = route
+        data = {
             "ok": True,
             "user": request.env.user.name,
-            "routes": [{"id": r.id, "name": r.name, "state": r.state} for r in routes],
+            "user_id": request.env.user.id,
+            "routes": [r._app_pick_payload() for r in routes],
             "route": chosen._app_payload() if chosen else None,
-        })
+        }
+        if gone:
+            # the phone drops the route asked for and shows `route`; its
+            # pending changes stay and are still sent (sync)
+            data.update({"reset": True, "gone_id": int(id) if str(id).isdigit() else 0})
+        return self._json(data)
 
     @http.route("/reparto/api/load", type="http", auth="user", methods=["GET"],
                 sitemap=False)
@@ -213,6 +246,17 @@ class Reparto(http.Controller):
         events = body.get("events") if isinstance(body, dict) else None
         if not isinstance(events, list):
             return self._json({"ok": False, "error": "Faltan los eventos."}, 400)
+        # 19.0.1.113.0: the outbox of another user of this phone is never
+        # applied as this one (app2.js sends whose events these are; the
+        # older app sends nothing and keeps working as before)
+        sender = body.get("user_id")
+        try:
+            sender = int(sender) if sender is not None else None
+        except (TypeError, ValueError):
+            sender = 0
+        if sender is not None and sender != request.env.user.id:
+            return self._json({"ok": False, "user_mismatch": True,
+                               "error": "Estos cambios son de otro usuario."}, 409)
         results = request.env["distri.sync.event"].sudo().process_batch(
             request.env.user, events)
         return self._json({"ok": True, "results": results})

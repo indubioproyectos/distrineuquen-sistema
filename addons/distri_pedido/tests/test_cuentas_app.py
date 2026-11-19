@@ -155,8 +155,9 @@ class TestCuentasApp(HttpCase):
             self.authenticate(user.login, user.login)
             page = self._get("/cuentas")
             self.assertEqual(page.status_code, 200, user.login)
-            # 19.0.1.112.0: cuentas_app.js (cuentas.js stays one version)
+            # 19.0.1.112.0: cuentas_app.js; 19.0.1.113.0: the old cuentas.js is gone
             self.assertIn("cuentas_app.js", page.text)
+            self.assertNotIn("cuentas.js", page.text)
             self.assertTrue(self._get("/cuentas/api/debtors").json()["ok"], user.login)
         for user in (self.plain_u, self.packer_u):
             self.authenticate(user.login, user.login)

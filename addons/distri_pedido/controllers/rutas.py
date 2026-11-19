@@ -143,7 +143,9 @@ class Rutas(http.Controller):
         if action == "nueva":
             driver = env["res.users"].browse(_int(form.get("driver_id"))).exists()
             route = Route.planning_create(day, form.get("trip") or "1", driver)
-            return "Listo: %s." % route._planning_title()
+            # 19.0.1.113.0: a second route of the same day and trip is warned
+            return " ".join(filter(None, ["Listo: %s." % route._planning_title(),
+                                          route._planning_twin_warning()]))
         if action == "mover":
             order = env["sale.order"].browse(_int(form.get("order_id"))).exists()
             if not order:
@@ -162,8 +164,10 @@ class Rutas(http.Controller):
         if action == "repartidor":
             driver = env["res.users"].browse(_int(form.get("driver_id"))).exists()
             route.planning_set_driver(driver)
-            return "Repartidor de la %s: %s." % (route._planning_title(),
-                                                 driver.name or "sin repartidor")
+            return " ".join(filter(None, [
+                "Repartidor de la %s: %s." % (route._planning_title(),
+                                              driver.name or "sin repartidor"),
+                route._planning_twin_warning()]))
         if action == "zonas":
             ids = [_int(x) for x in (form.get("zone_ids") or "").split(",") if _int(x)]
             route.planning_set_zones(env["distri.zona"].sudo().browse(ids).exists())

@@ -31,6 +31,10 @@ controllers/reparto.py and static/src/reparto/app.js):
   downloaded again right after the departure.
 - The driver of a route can be picked while nobody ticked any of its orders
   (an empty route waits for its driver).
+- 19.0.1.113.0: the same driver on two routes of the same date and trip is
+  allowed (a second route of the day) but warned: in the toast of the change,
+  in the column («Ojo: …») and in the backend form (onchange). Before, «Nueva
+  ruta» refused it.
 """
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -129,6 +133,36 @@ class DistriRoutePlanning(models.Model):
                 raise UserError("La carga de la %s ya se controló: sus pedidos quedan fijos."
                                 % route._planning_title())
 
+    def _planning_twins(self):
+        """The driver's other routes of the same date and trip."""
+        self.ensure_one()
+        if self.kind != "route" or not self.driver_id or not self.date:
+            return self.browse()
+        return self.sudo().search([
+            ("kind", "=", "route"), ("driver_id", "=", self.driver_id.id),
+            ("date", "=", self.date), ("trip", "=", self.trip),
+            ("id", "!=", self._origin.id or 0)], order="id")
+
+    def _planning_twin_warning(self):
+        """«Ojo: …» when the driver has another route of the same date and
+        trip, else "". Never blocks (19.0.1.113.0)."""
+        self.ensure_one()
+        twins = self._planning_twins()
+        if not twins:
+            return ""
+        names = ", ".join(t._planning_title() for t in twins)
+        return ("Ojo: %s ya tiene %s del mismo día y viaje (%s). Revisá que no sea un error." % (
+            first_name(self.driver_id) or self.driver_id.name,
+            "otra ruta" if len(twins) == 1 else "otras %s rutas" % len(twins), names))
+
+    @api.onchange("driver_id", "date", "trip")
+    def _onchange_planning_twin(self):
+        if self.kind == "route" and self.driver_id and self.date:
+            text = self._planning_twin_warning()
+            if text:
+                return {"warning": {"title": "Repartidor con dos rutas", "message": text}}
+        return None
+
     def _planning_zones(self):
         """The zones of its stops, else the zones chosen for the route."""
         self.ensure_one()
@@ -183,12 +217,8 @@ class DistriRoutePlanning(models.Model):
         driver = driver or self.env["res.users"]
         if driver:
             self._planning_check_driver(driver)
-            twin = self.search([("kind", "=", "route"), ("date", "=", day), ("trip", "=", trip),
-                                ("driver_id", "=", driver.id), ("state", "!=", "settled")],
-                               limit=1)
-            if twin:
-                raise UserError("%s ya tiene el viaje %s de ese día (%s)." % (
-                    driver.name, trip, twin._planning_title()))
+        # 19.0.1.113.0: a second route of the same day and trip is allowed,
+        # with a warning (_planning_twin_warning) instead of an error
         route = self.create({"kind": "route", "date": day, "trip": trip,
                              "driver_id": driver.id or False})
         route.message_post(body="Ruta creada en Planificación por %s." % self.env.user.name)
@@ -522,6 +552,8 @@ class DistriRoutePlanning(models.Model):
             "left": [{"order": l.order_id.name, "client": l.partner_id._distri_app_name(),
                       "reason": l.reason} for l in self.left_order_ids],
             "can_delete": editable and not self.stop_ids and not self.left_order_ids,
+            # 19.0.1.113.0: the same driver, date and trip on another route
+            "twin": self._planning_twin_warning(),
             "next_trip": next((t for t, _ in TRIPS if t > (self.trip or "1")), None)
             if self.state != "draft" and self.driver_id and self.date == today_ar() else None,
             "sheet_url": "/report/pdf/distri_pedido.hoja_ruta_documento/%s" % self.id,

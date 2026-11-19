@@ -460,4 +460,8 @@ class TestManagersAsDrivers(RepartoMixin, HttpCase):
             self.assertEqual(data["route"]["id"], route.id)
             self.assertEqual([r["id"] for r in data["routes"]], [route.id])
             self.assertEqual(len(data["route"]["stops"]), 1)
-            self.assertEqual(self.url_open("/reparto/api/route?id=%s" % depot.id).status_code, 404)
+            # the depot box is not a route of the app: 19.0.1.113.0 answers
+            # "reset" with the current route (before, a 404)
+            gone = self.url_open("/reparto/api/route?id=%s" % depot.id).json()
+            self.assertTrue(gone["reset"])
+            self.assertEqual(gone["route"]["id"], route.id)

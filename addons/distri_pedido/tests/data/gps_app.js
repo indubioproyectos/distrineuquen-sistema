@@ -1,4 +1,4 @@
-// Runs the driver app (static/src/reparto/app.js) in a Node vm with a fake
+// Runs the driver app (static/src/reparto/app2.js) in a Node vm with a fake
 // GPS and a fake phone storage, and prints what happened in each scenario as
 // JSON. Used by tests/test_reparto_gps.py.
 //   node gps_app.js <module root>
@@ -8,7 +8,8 @@ const path = require("path");
 const vm = require("vm");
 
 const root = process.argv[2];
-let src = fs.readFileSync(path.join(root, "static/src/reparto/app.js"), "utf8");
+// 19.0.1.113.0: the page loads app2.js (app.js stays one version)
+let src = fs.readFileSync(path.join(root, "static/src/reparto/app2.js"), "utf8");
 const MARK = "  // --------------------------------------------------------------- start";
 if (!src.includes(MARK)) throw new Error("start mark not found");
 src = src.replace(MARK, [

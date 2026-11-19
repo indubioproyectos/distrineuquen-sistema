@@ -71,3 +71,4 @@ from . import comprobante_cliente
 from . import cliente_provisorio
 from . import planificacion
 from . import hoja_ruta
+from . import anular_ruta

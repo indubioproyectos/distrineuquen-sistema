@@ -16,13 +16,15 @@
   <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
   <link rel="stylesheet" t-att-href="static + 'app.css?v=' + version"/>
 </head>
-<body>
+<!-- 19.0.1.113.0: data-uid tells app2.js whose state to open (per-user
+     state on the phone); app.js stays one version for the old template -->
+<body t-att-data-uid="uid">
   <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
   <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div id="app"><div class="cargando">Cargando…</div></div>
   <div id="toast" hidden="hidden"></div>
   <script t-att-src="static + 'claim.js?v=' + version" defer="defer"></script>
-  <script t-att-src="static + 'app.js?v=' + version" defer="defer"></script>
+  <script t-att-src="static + 'app2.js?v=' + version" defer="defer"></script>
 </body>
 </html>
   </template>

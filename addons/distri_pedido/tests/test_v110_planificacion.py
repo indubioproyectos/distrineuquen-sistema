@@ -150,9 +150,11 @@ class TestPlanificacion(PlanningMixin, HttpCase):
             route.with_user(self.admin).action_mark_controlled()
         route.with_user(self.admin).planning_set_driver(self.driver)
         self.assertEqual(route.driver_id, self.driver)
-        # the same driver, day and trip twice is refused; trip 2 is fine
-        with self.assertRaisesRegex(UserError, "ya tiene el viaje 1"):
-            self._new_route(self.driver)
+        # 19.0.1.113.0: the same driver, day and trip twice is warned, not
+        # refused (test_v113_reparto); trip 2 is fine
+        twin = self._new_route(self.driver)
+        self.assertIn("Ojo", twin._planning_twin_warning())
+        twin.sudo().unlink()
         self.assertEqual(self._new_route(self.driver, trip="2")._planning_title(), "Ruta 1 · Viaje 2")
         with self.assertRaisesRegex(UserError, "de hoy en adelante"):
             self._planner().planning_create(fields.Date.subtract(today_ar(), days=1), "1")
@@ -471,7 +473,7 @@ class TestNoApproveDriverExpenses(HttpCase):
             arch = view.arch_db or ""
             self.assertNotIn("Aprobar", arch, view.xml_id)
             self.assertNotIn("action_approve", arch, view.xml_id)
-        for path in ("rutas/rutas.js", "reparto/app.js"):
+        for path in ("rutas/rutas.js", "reparto/app.js", "reparto/app2.js"):
             from odoo.tools.misc import file_open
             with file_open("distri_pedido/static/src/%s" % path) as handle:
                 self.assertNotIn("Aprobar", handle.read(), path)

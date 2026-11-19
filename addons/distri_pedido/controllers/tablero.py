@@ -249,6 +249,17 @@ def tile_badges(env, tiles):
     return banner
 
 
+def agil_banner(env):
+    """19.0.1.113.0: the red «Se frenó la sincronización con AgilPedido» banner
+    for administración and gerencia while the incident is open
+    (models/catalogo_agil.py), else None."""
+    user = env.user
+    if not (user.has_group("distri_pedido.grupo_administracion")
+            or user.has_group("base.group_system")):
+        return None
+    return env["distri.agil.sincronizacion"].sudo()._distri_banner_incidente()
+
+
 def my_route_today(env):
     """«Mi reparto de hoy» for a user that also drives (administración
     implies the driver group, so only with a route of today)."""
@@ -316,6 +327,7 @@ class Tablero(http.Controller):
         html = env["ir.qweb"]._render("distri_pedido.tablero_page", {
             "tiles": tiles,
             "banner": banner,
+            "agil_banner": agil_banner(env),
             "mi_ruta": my_route_today(env),
             "apps": other_apps(env, taken),
             "user": user,

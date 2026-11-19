@@ -146,6 +146,8 @@
           </select>
           <b t-else="" t-att-id="'rt-drv-%s' % c['id']" t-esc="c['driver'] or 'Sin repartidor'"/>
         </div>
+        <!-- 19.0.1.113.0: the same driver, date and trip on another route (never blocks) -->
+        <p t-if="c.get('twin')" class="rt-left rt-small rt-twin" role="status" t-esc="c['twin']"/>
         <div class="rt-kpis dn-num">
           <span><b t-esc="c['stop_count']"/> pedidos</span>
           <span><b t-esc="c['parcel_count']"/> bultos</span>

@@ -37,6 +37,11 @@
                   confirm="Se registran los cobros en efectivo en la contabilidad. ¿Cerrar la rendición?"/>
           <button name="action_reopen" type="object" string="Reabrir para el repartidor"
                   invisible="state != 'closed'"/>
+          <!-- 19.0.1.113.0: a mistaken or test route without money (models/anular_ruta.py) -->
+          <button name="action_distri_cancel_route" type="object" string="Anular ruta"
+                  invisible="state == 'settled' or kind != 'route'"
+                  groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia"
+                  confirm="Se deshacen las visitas de esta ruta, los pedidos quedan libres para otra ruta y la ruta se borra. Si la ruta tiene plata no se anula. ¿Anular la ruta?"/>
           <field name="state" widget="statusbar"/>
         </header>
         <sheet>

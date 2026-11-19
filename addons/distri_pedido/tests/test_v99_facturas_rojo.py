@@ -217,8 +217,9 @@ class TestCuentasRed(TransactionCase):
         self.assertEqual((line["owed"], line["review_note"]), (500.0, "revisada en noviembre"))
 
     def test_heading_text(self):
+        # 19.0.1.113.0: the page's script is cuentas_app.js (cuentas.js is retired)
         path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "cuentas",
-                            "cuentas.js")
+                            "cuentas_app.js")
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
         self.assertNotIn("(revisadas)", source)

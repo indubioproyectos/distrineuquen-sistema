@@ -247,7 +247,7 @@ def identificar(renglon, catalogo):
         envase = leer_envase(nombre)
         contiene = envase and envase["contiene"]
         for buscado, por_envase in ((nombre, False), (envase and envase["base"], True)):
-            iguales = exactos(buscado, catalogo) if buscado else []
+            iguales = preferir_temporal(exactos(buscado, catalogo) if buscado else [], buscado)
             if iguales:
                 iguales = elegir_por_unidad(iguales, contiene)
                 return {"producto": iguales[0], "parecido": 1.0, "envase": envase,
@@ -270,6 +270,22 @@ def exactos(nombre, catalogo):
     if acortado:
         return [producto for producto, clave in catalogo.items() if clave.startswith(buscado)]
     return [producto for producto, clave in catalogo.items() if clave == buscado]
+
+
+def preferir_temporal(productos, nombre=None):
+    """19.0.1.113.0: among products with the same (normalized) name, the
+    temporary AgilPedido copy (catalogo_agil.py) when there is one: they are
+    only in the catalog while /pedido sells them (catalogo_normalizado), so
+    the quotation takes the price of the message, not the old definitive
+    product's («Red Point On 20 "convertible"» vs «Red Point ON 20
+    "Convertible"»). Among the temporary ones, those with the exact original
+    name of the message (case and accents included) first."""
+    temporales = [p for p in productos if p.distri_agil_temporal]
+    if not temporales:
+        return productos
+    texto = " ".join((nombre or "").split())
+    exactos_texto = [p for p in temporales if " ".join((p.name or "").split()) == texto]
+    return exactos_texto or temporales
 
 
 def elegir_por_unidad(productos, contiene=None):
@@ -395,9 +411,9 @@ def buscar_producto(nombre, catalogo):
     buscado = normalizar(nombre)
     if not buscado:
         return False, 0.0
-    for producto, clave in catalogo.items():
-        if clave == buscado:
-            return producto, 1.0
+    iguales = preferir_temporal([p for p, clave in catalogo.items() if clave == buscado], nombre)
+    if iguales:
+        return iguales[0], 1.0
     mejor, puntaje = False, 0.0
     for producto, clave in catalogo.items():
         comparador = difflib.SequenceMatcher(None, buscado, clave)
@@ -510,6 +526,11 @@ class ImportarPedido(models.TransientModel):
             unidad = False
             if producto and parecido >= PARECIDO_MINIMO:
                 unidad, coincide = unidad_de_venta(producto, envase and envase["contiene"])
+                if not coincide and parecido >= 1.0 and not identificado["por_envase"]:
+                    # 19.0.1.113.0: the exact FULL name carries the pack text
+                    # («Pipas Gigantes 50g. Display x 12 u.» sold per unit):
+                    # it is the product's own name, so its own sale unit
+                    unidad, coincide = unidad_de_venta(producto)
                 if not coincide:
                     # el envase del nombre no es ninguna unidad del producto
                     parecido = min(parecido, PARECIDO_MINIMO - 0.01)
@@ -727,7 +748,11 @@ class ImportarPedidoLinea(models.TransientModel):
         agil = self._distri_cantidad_agil()
         valores = {"product_tmpl_id": plantilla.id, "product_uom_id": unidad.id,
                    "cantidad": agil * factor}
-        if self.nombre_mensaje:
+        # 19.0.1.113.0: the same product and unit it already had is nothing to
+        # learn (no equivalence for what the reading already got right)
+        igual = (plantilla == self.product_tmpl_id and unidad == self.product_uom_id
+                 and factor == 1.0 and not self.equivalencia_id)
+        if self.nombre_mensaje and not igual:
             equivalencia = self.env["distri.agil.equivalencia"]._distri_aprender(
                 self._distri_nombre_limpio(), variante, unidad, factor=factor)
             if equivalencia:

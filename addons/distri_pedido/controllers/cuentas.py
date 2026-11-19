@@ -10,8 +10,7 @@ Read-only: the only writes are adding and deleting a comment
 date_to), /cuentas/api/statement_pdf prints the existing statement report
 («Compartir PDF», «Imprimir») and the debtors take the PC filters (zone,
 min_balance, min_age). The page loads cuentas_app.js / cuentas_app.css;
-cuentas.js / cuentas.css stay one version for the 19.0.1.111.0 template
-(static files are served live).
+the old cuentas.js / cuentas.css are no longer loaded (19.0.1.113.0).
 """
 import hashlib
 import json
@@ -31,7 +30,7 @@ from .reparto import SHARED_CSS, _disk
 STATIC = "/distri_pedido/static/src/cuentas/"
 ICONS = "/distri_pedido/static/src/img/iconos/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "cuentas")
-ASSETS = ("cuentas.js", "cuentas.css", "cuentas_app.js", "cuentas_app.css")
+ASSETS = ("cuentas_app.js", "cuentas_app.css")
 
 
 def asset_version():

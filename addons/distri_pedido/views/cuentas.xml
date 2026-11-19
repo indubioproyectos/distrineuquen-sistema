@@ -16,8 +16,8 @@
   <link rel="apple-touch-icon" t-att-href="icons + 'app-192.png?v=95'"/>
   <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
   <!-- 19.0.1.112.0: cuentas_app.* (phone statement with dates and sharing,
-       PC «Deudores y estado de cuenta» from 1024 px); cuentas.* stay one
-       version for the 19.0.1.111.0 template -->
+       PC «Deudores y estado de cuenta» from 1024 px); the old cuentas.* are
+       no longer loaded (19.0.1.113.0) -->
   <link rel="stylesheet" t-att-href="static + 'cuentas_app.css?v=' + version"/>
 </head>
 <body>

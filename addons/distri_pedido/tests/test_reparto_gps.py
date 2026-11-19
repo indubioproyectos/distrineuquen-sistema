@@ -1,5 +1,5 @@
 """19.0.1.35.0: location of the driver's app at the key moments of a route
-(models/reparto_gps.py, static/src/reparto/app.js)."""
+(models/reparto_gps.py, static/src/reparto/app2.js)."""
 import json
 import os
 import shutil

@@ -10,8 +10,22 @@ product.
 
 The switch is the parameter distri_pedido.catalogo_agil (models/agil_tienda.py):
 '1' shows only the temporary products, '0' the usual catalog without them.
+
+19.0.1.113.0 (the cron runs every 15 minutes now):
+- An aborted sync of the live storefront (no products, fewer than
+  MINIMO_PROPORCION of today's visible ones, a page that cannot be read or
+  downloaded) opens ONE incident: an activity for every administración and
+  gerencia user on that run, and a red banner on /tablero. While it lasts the
+  later aborted runs only leave their record. The next good sync of the live
+  storefront closes it: the activities are marked done and the run that opened
+  it says so in its chatter. The incident lives in the parameter
+  distri_pedido.agil_incidente (JSON), not in a stored field. An uploaded file
+  never opens or closes an incident.
+- A run that changed nothing leaves no record (only the server log): the
+  history keeps the runs that changed something, failed or aborted.
 """
 import base64
+import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
@@ -31,6 +45,24 @@ _logger = logging.getLogger(__name__)
 
 # How many names the summary lists per kind; the counts are always complete.
 DETALLE_MAXIMO = 40
+
+# 19.0.1.113.0: the open incident of the live sync (JSON), see the docstring
+PARAM_INCIDENTE = "distri_pedido.agil_incidente"
+RESUMEN_INCIDENTE = "Se frenó la sincronización con AgilPedido"
+GRUPOS_ALERTA = ("distri_pedido.grupo_administracion", "distri_pedido.grupo_gerencia")
+# what a run counts as a change (sin_imagen is only a count)
+CAMBIOS = ("creados", "precios", "renombrados", "despublicados", "republicados", "fallidos",
+           "imagenes", "imagenes_fallidas", "ajustes")
+
+
+class AgilAbortado(UserError):
+    """The feed was read but must not be applied (motivo_para_abortar): carries
+    how many products came and how many are visible today."""
+
+    def __init__(self, mensaje, leidos, visibles):
+        super().__init__(mensaje)
+        self.leidos = leidos
+        self.visibles = visibles
 
 
 class ProductTemplateAgil(models.Model):
@@ -71,7 +103,8 @@ class AgilSincronizacion(models.Model):
     """One run of «Actualizar desde AgilPedido»: what changed, or why nothing did."""
     _name = "distri.agil.sincronizacion"
     _description = "Actualización del catálogo temporal desde AgilPedido"
-    _inherit = ["mail.thread"]
+    # 19.0.1.113.0: activities for the incident alert (no stored column added)
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "id desc"
 
     name = fields.Char(string="Actualización", required=True, readonly=True)
@@ -110,14 +143,18 @@ class AgilSincronizacion(models.Model):
     @api.model
     def _distri_ejecutar(self, contenido=None, origen=None):
         """Download (or read `contenido`, an uploaded HTML/JSON) and apply.
-        Always leaves a run record; on any error nothing is changed."""
+        Leaves a run record when something changed or on any error (nothing
+        is changed then); a run without changes returns an empty recordset.
+        Only the live storefront opens or closes the incident."""
+        vivo = contenido is None
         if not origen:
-            origen = "Archivo subido" if contenido is not None else "Tienda de AgilPedido"
+            origen = "Archivo subido" if not vivo else "Tienda de AgilPedido"
+        resultado = {}
         try:
             with self.env.cr.savepoint():
                 if contenido is None:
                     contenido = self._distri_descargar()
-                return self._distri_aplicar(leer_feed(contenido), origen)
+                corrida = self._distri_aplicar(leer_feed(contenido), origen, resultado)
         except (FeedInvalido, UserError) as exc:
             mensaje = str(exc.args[0] if exc.args else exc)
             _logger.warning("AgilPedido catalog sync aborted: %s", mensaje)
@@ -126,7 +163,99 @@ class AgilSincronizacion(models.Model):
                 "error": mensaje,
             })
             corrida.message_post(body=Markup("<b>No se aplicó.</b> %s") % mensaje)
+            if vivo:
+                corrida._distri_abrir_incidente(getattr(exc, "leidos", None),
+                                                getattr(exc, "visibles", None))
             return corrida
+        if vivo:
+            self._distri_cerrar_incidente(resultado.get("leidos", 0))
+        return corrida
+
+    # ------------------------------------------------------------ incidente
+
+    @api.model
+    def _distri_incidente(self):
+        """The open incident ({corrida, leidos, visibles, desde}) or {}."""
+        valor = self.env["ir.config_parameter"].sudo().get_param(PARAM_INCIDENTE) or ""
+        try:
+            datos = json.loads(valor) if valor else {}
+        except ValueError:
+            datos = {}
+        return datos if isinstance(datos, dict) and datos.get("corrida") else {}
+
+    @api.model
+    def _distri_usuarios_alerta(self):
+        """Administración and gerencia (Denis, Gonzalo and the shared accounts);
+        the technical accounts only when nobody else is there."""
+        grupos = self.env["res.groups"]
+        for xmlid in GRUPOS_ALERTA:
+            grupos |= self.env.ref(xmlid, raise_if_not_found=False) or self.env["res.groups"]
+        if not grupos:
+            return self.env["res.users"]
+        usuarios = self.env["res.users"].sudo().search([
+            ("all_group_ids", "in", grupos.ids), ("share", "=", False)], order="id")
+        tecnicos = self.env.ref("base.user_root") | self.env.ref("base.user_admin")
+        return (usuarios - tecnicos) or usuarios
+
+    def _distri_abrir_incidente(self, leidos, visibles):
+        """ONE alert per incident: activities on this run for administración
+        and gerencia. A later aborted run while it lasts only logs."""
+        self.ensure_one()
+        abierto = self._distri_incidente()
+        if abierto:
+            _logger.warning("AgilPedido catalog sync still stopped (incident of run %s)",
+                            abierto["corrida"])
+            return False
+        datos = {"corrida": self.id, "leidos": leidos, "visibles": visibles,
+                 "desde": fields.Datetime.to_string(fields.Datetime.now())}
+        self.env["ir.config_parameter"].sudo().set_param(PARAM_INCIDENTE, json.dumps(datos))
+        texto = self._distri_texto_incidente(datos)
+        usuarios = self._distri_usuarios_alerta()
+        for usuario in usuarios:
+            self.sudo().activity_schedule(
+                "mail.mail_activity_data_todo", summary=RESUMEN_INCIDENTE,
+                note=texto + " Avisá a AgilPedido o reintentá con «Actualizar desde AgilPedido».",
+                user_id=usuario.id)
+        self.sudo().message_post(body=escape("%s Alerta para: %s." % (
+            texto, ", ".join(usuarios.mapped("name")) or "nadie")))
+        return True
+
+    @api.model
+    def _distri_cerrar_incidente(self, leidos):
+        """The good sync after an incident: activities done, a note on the
+        run that opened it, the banner gone."""
+        datos = self._distri_incidente()
+        if not datos:
+            return False
+        self.env["ir.config_parameter"].sudo().set_param(PARAM_INCIDENTE, "")
+        corrida = self.sudo().browse(datos["corrida"]).exists()
+        if corrida:
+            nota = ("Se normalizó la sincronización con AgilPedido: la actualización de %s leyó "
+                    "%s productos y se aplicó." % (self._distri_nombre()[len("AgilPedido "):],
+                                                  leidos))
+            corrida.activity_ids.filtered(
+                lambda a: a.summary == RESUMEN_INCIDENTE).action_feedback(feedback=nota)
+            corrida.message_post(body=escape(nota))
+        _logger.info("AgilPedido catalog sync incident closed (run %s)", datos["corrida"])
+        return True
+
+    @api.model
+    def _distri_texto_incidente(self, datos):
+        if datos.get("leidos") is not None and datos.get("visibles") is not None:
+            return ("Se frenó la sincronización con AgilPedido: devolvió %s productos y hoy hay "
+                    "%s visibles. El catálogo no se tocó." % (datos["leidos"], datos["visibles"]))
+        return ("Se frenó la sincronización con AgilPedido: no se pudo leer la tienda. "
+                "El catálogo no se tocó.")
+
+    @api.model
+    def _distri_banner_incidente(self):
+        """The red banner of /tablero ({text, url}) or None (controllers/tablero.py)."""
+        datos = self._distri_incidente()
+        if not datos:
+            return None
+        return {"text": self._distri_texto_incidente(datos),
+                "url": "/odoo/action-distri_pedido.accion_agil_sincronizaciones/%s"
+                       % int(datos["corrida"])}
 
     @api.model
     def _cron_distri_sincronizar(self):
@@ -139,15 +268,17 @@ class AgilSincronizacion(models.Model):
     # ------------------------------------------------------------ aplicar
 
     @api.model
-    def _distri_aplicar(self, feed, origen):
+    def _distri_aplicar(self, feed, origen, resultado=None):
         filas, rechazados = filas_agil(feed)
+        if resultado is not None:
+            resultado["leidos"] = len(filas)
         Tmpl = self.env["product.template"].sudo().with_context(
             active_test=False, lang="en_US", mail_create_nolog=True)
         temporales = Tmpl.search([("distri_agil_temporal", "=", True)])
         visibles_hoy = len(temporales.filtered(lambda t: t.active and t.is_published))
         motivo = motivo_para_abortar(len(filas), visibles_hoy)
         if motivo:
-            raise UserError(motivo)
+            raise AgilAbortado(motivo, len(filas), visibles_hoy)
 
         por_id = {t.distri_agil_id: t for t in temporales if t.distri_agil_id}
         ocupados = set(Tmpl.search([("distri_agil_id", "!=", False),
@@ -157,7 +288,7 @@ class AgilSincronizacion(models.Model):
         categorias = {}
         detalle = {"creados": [], "precios": [], "renombrados": [], "republicados": [],
                    "despublicados": [], "imagenes": [], "imagenes_fallidas": [],
-                   "sin_imagen": [],
+                   "sin_imagen": [], "ajustes": [],
                    "fallidos": ["%s: %s" % r for r in rechazados]}
         con_foto = []
 
@@ -291,6 +422,9 @@ class AgilSincronizacion(models.Model):
             actual = producto[campo].id if campo == "categ_id" else producto[campo]
             if actual != valor:
                 valores[campo] = valor
+        if valores and not notas and not (set(valores) & {"is_published", "active", "sale_ok"}):
+            # only its section or its order in AgilPedido changed
+            detalle["ajustes"].append(fila["nombre"])
         nombres = {codigo: producto.with_context(lang=codigo).name for codigo, _n in idiomas}
         if any(nombre != fila["nombre"] for nombre in nombres.values()):
             anterior = nombres.get("en_US") or next(iter(nombres.values()), "")
@@ -314,9 +448,10 @@ class AgilSincronizacion(models.Model):
                                                                      "AgilPedido)"),
                    ("republicados", "Vueltos a mostrar"), ("fallidos", "Con error"),
                    ("imagenes", "Fotos bajadas"), ("imagenes_fallidas", "Fotos con error"),
-                   ("sin_imagen", "Sin foto en AgilPedido"))
+                   ("sin_imagen", "Sin foto en AgilPedido"),
+                   ("ajustes", "Otros ajustes (sección u orden)"))
         # long lists that only need their count
-        solo_cuenta = {"imagenes", "sin_imagen"}
+        solo_cuenta = {"imagenes", "sin_imagen", "ajustes"}
         partes = ["Productos en AgilPedido: %s" % leidos]
         partes += ["%s: %s" % (titulo, cuentas[tipo]) for tipo, titulo in titulos]
         resumen = [" · ".join(partes)]
@@ -330,6 +465,10 @@ class AgilSincronizacion(models.Model):
             resumen += ["- %s" % n for n in nombres[:DETALLE_MAXIMO]]
             if len(nombres) > DETALLE_MAXIMO:
                 resumen.append("- … y %s más" % (len(nombres) - DETALLE_MAXIMO))
+        if not any(cuentas[tipo] for tipo in CAMBIOS):
+            # 19.0.1.113.0: nothing changed: the server log only, no record
+            _logger.info("AgilPedido catalog sync without changes: %s", resumen[0])
+            return self.browse()
         corrida = self.sudo().create({
             "name": self._distri_nombre(), "origen": origen, "estado": "ok",
             "leidos": leidos, "creados": cuentas["creados"], "precios": cuentas["precios"],
@@ -398,6 +537,16 @@ class AgilSincronizarWizard(models.TransientModel):
         corrida = self.env["distri.agil.sincronizacion"].sudo()._distri_ejecutar(
             contenido, origen=("Archivo %s" % (self.nombre_archivo or "subido"))
             if contenido is not None else None)
+        if not corrida:
+            # 19.0.1.113.0: a run without changes leaves no record
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {"title": "AgilPedido",
+                           "message": "Sin cambios: el catálogo ya estaba igual que AgilPedido.",
+                           "type": "success", "sticky": False,
+                           "next": {"type": "ir.actions.act_window_close"}},
+            }
         return {
             "type": "ir.actions.act_window",
             "res_model": "distri.agil.sincronizacion",

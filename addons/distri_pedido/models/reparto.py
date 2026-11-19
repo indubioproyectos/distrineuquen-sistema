@@ -413,6 +413,25 @@ class DistriRoute(models.Model):
             } for e in self.expense_ids.filtered(lambda e: not e.stop_id and e.state != "cancelled")],
         }
 
+    def _app_pick_payload(self):
+        """One row of «Tus rutas de hoy» on the phone (19.0.1.113.0)."""
+        self.ensure_one()
+        states = self.stop_ids.mapped("state")
+        done = len([s for s in states if s != "pending"])
+        day = self.date.strftime("%d/%m") if self.date else ""
+        bits = [day, "%s %s" % (len(states), "pedido" if len(states) == 1 else "pedidos")]
+        if self.state == "on_route":
+            bits.append("%s de %s hechas" % (done, len(states)))
+        return {
+            "id": self.id,
+            "name": self.name,
+            "state": self.state,
+            "state_label": dict(ROUTE_STATES).get(self.state, ""),
+            "title": "Viaje %s%s" % (self.trip or "", " · %s" % ", ".join(
+                self.zone_ids.mapped("name")) if self.zone_ids else ""),
+            "detail": " · ".join(b for b in bits if b),
+        }
+
     def action_reopen(self):
         """Back to "En reparto" so the driver can fix a visit."""
         for route in self:
@@ -1114,6 +1133,9 @@ class DistriRouteStop(models.Model):
         }
 
     def unlink(self):
+        # «Anular ruta» (models/anular_ruta.py) undoes visits it checked for money
+        if self.env.context.get("distri_route_cancel"):
+            return super().unlink()
         if any(s.state != "pending" or s.route_id.state == "settled" for s in self):
             raise UserError("No se puede sacar de la ruta un pedido que ya tiene la visita.")
         return super().unlink()

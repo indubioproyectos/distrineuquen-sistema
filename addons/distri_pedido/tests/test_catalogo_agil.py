@@ -26,6 +26,9 @@ from odoo.addons.distri_pedido.models.importar_pedido import (
 )
 from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
+from odoo.addons.distri_pedido.controllers.tablero import agil_banner
+from odoo.addons.distri_pedido.tests.test_agil_equivalencia import mensaje
+from odoo.addons.distri_pedido.models.catalogo_agil import PARAM_INCIDENTE, RESUMEN_INCIDENTE
 
 # AgilPedido shows sections by `posicion`, not by name: Zeta goes first
 SECCIONES = [
@@ -228,6 +231,156 @@ class TestCatalogoAgilSync(AgilMixin, TransactionCase):
         self.assertEqual(get.call_args.kwargs["timeout"], 30)
         self.assertEqual(galletita.list_price, 1400.0)
 
+    # ------------------------------------------------------------ 19.0.1.113.0
+
+    def _vivo(self, contenido=None, error=None):
+        """A run of the live storefront (the cron), with the page faked."""
+        Sinc = self.env["distri.agil.sincronizacion"]
+        if error:
+            with patch("odoo.addons.distri_pedido.models.catalogo_agil.requests.get",
+                       side_effect=error):
+                return Sinc._distri_ejecutar()
+        respuesta = MagicMock(content=contenido.encode())
+        with patch("odoo.addons.distri_pedido.models.catalogo_agil.requests.get",
+                   return_value=respuesta):
+            return Sinc._distri_ejecutar()
+
+    def test_v113_incidente_una_sola_alerta_y_se_cierra(self):
+        """C1: an aborted live sync alerts administración and gerencia once;
+        the banner shows until the next good sync, which closes it."""
+        Sinc = self.env["distri.agil.sincronizacion"]
+        self.env["ir.config_parameter"].sudo().set_param(PARAM_INCIDENTE, "")
+        admin = new_test_user(self.env, login="admin_inc", name="Administracion Inc",
+                              groups="base.group_user,distri_pedido.grupo_administracion")
+        gerente = new_test_user(self.env, login="gerente_inc", name="Gerencia Inc",
+                                groups="base.group_user,distri_pedido.grupo_gerencia")
+        vendedor = new_test_user(self.env, login="vendedor_inc", name="Vendedor Inc",
+                                 groups="base.group_user,distri_pedido.grupo_vendedor")
+        self.assertFalse(Sinc._distri_banner_incidente())
+        self._sync()  # 4 visible today
+
+        # an uploaded wrong file never opens an incident
+        self.assertEqual(self._sync(storefront([])).estado, "error")
+        self.assertFalse(Sinc._distri_incidente())
+
+        corrida = self._vivo(storefront([GALLETITA]))
+        self.assertEqual(corrida.estado, "error")
+        alertas = corrida.activity_ids.filtered(lambda a: a.summary == RESUMEN_INCIDENTE)
+        self.assertIn(admin, alertas.user_id)
+        self.assertIn(gerente, alertas.user_id)
+        self.assertNotIn(vendedor, alertas.user_id)
+        self.assertNotIn(self.env.ref("base.user_root"), alertas.user_id)
+        self.assertEqual(len(alertas), len(alertas.user_id), "one per user")
+        texto = ("Se frenó la sincronización con AgilPedido: devolvió 1 productos y hoy hay 4 "
+                 "visibles. El catálogo no se tocó.")
+        self.assertEqual(Sinc._distri_banner_incidente()["text"], texto)
+        self.assertIn(str(corrida.id), Sinc._distri_banner_incidente()["url"])
+        self.assertEqual(agil_banner(self.env(user=admin))["text"], texto)
+        self.assertIsNone(agil_banner(self.env(user=vendedor)))
+
+        # while it lasts: the runs are recorded, no new alert
+        for kwargs in ({"contenido": "<html>Mantenimiento</html>"},
+                       {"error": requests.ConnectionError("sin red")}):
+            otra = self._vivo(**kwargs)
+            self.assertEqual(otra.estado, "error")
+            self.assertNotEqual(otra, corrida)
+            self.assertFalse(otra.activity_ids)
+        self.assertEqual(Sinc._distri_incidente()["corrida"], corrida.id)
+        self.assertEqual(self._temporal(GALLETITA).list_price, 1234.5, "nothing touched")
+
+        # the next good sync (here without changes): closed, noted, no banner
+        antes = Sinc.search_count([])
+        self.assertFalse(self._vivo(storefront()))
+        self.assertEqual(Sinc.search_count([]), antes, "a run without changes leaves no record")
+        self.assertFalse(Sinc._distri_incidente())
+        self.assertFalse(Sinc._distri_banner_incidente())
+        self.assertFalse(corrida.activity_ids.filtered(lambda a: a.summary == RESUMEN_INCIDENTE))
+        self.assertIn("Se normalizó", corrida.message_ids[:1].body)
+
+        # a new failure is a new incident: alerted again
+        nueva = self._vivo(error=requests.ConnectionError("sin red"))
+        self.assertTrue(nueva.activity_ids.filtered(lambda a: a.summary == RESUMEN_INCIDENTE))
+        self.assertEqual(Sinc._distri_banner_incidente()["text"],
+                         "Se frenó la sincronización con AgilPedido: no se pudo leer la tienda. "
+                         "El catálogo no se tocó.")
+
+    def test_v113_sin_cambios_no_deja_registro(self):
+        """C2: only runs that changed something (or failed) are recorded."""
+        Sinc = self.env["distri.agil.sincronizacion"]
+        primera = self._sync()
+        self.assertEqual(primera.creados, 4)
+        antes = Sinc.search_count([])
+        self.assertFalse(self._sync())
+        self.assertEqual(Sinc.search_count([]), antes)
+        # only the order of a section changed: still a change, recorded
+        movidas = [dict(SECCIONES[0], posicion=0), dict(SECCIONES[1], posicion=1)]
+        otra = self._sync(storefront(PRODUCTOS, movidas))
+        self.assertEqual(Sinc.search_count([]), antes + 1)
+        self.assertEqual((otra.estado, otra.creados, otra.precios), ("ok", 0, 0))
+        self.assertIn("Otros ajustes (sección u orden): 4", otra.resumen)
+        # the wizard says so instead of opening an empty record
+        admin = new_test_user(self.env, login="admin_sin", name="Administracion Sin",
+                              groups="base.group_user,distri_pedido.grupo_administracion")
+        archivo = base64.b64encode(json.dumps(leer_feed(storefront())).encode())
+        self._sync()
+        wizard = self.env["distri.agil.sincronizar"].with_user(admin).create(
+            {"archivo": archivo, "nombre_archivo": "tienda.json"})
+        accion = wizard.action_actualizar()
+        self.assertEqual(accion["tag"], "display_notification")
+        self.assertIn("Sin cambios", accion["params"]["message"])
+
+    def _analizar(self, *renglones):
+        wizard = self.env["distri.importar.pedido"].create(
+            {"mensaje": mensaje(*renglones, total=1000)})
+        wizard.action_analizar()
+        return wizard.linea_ids
+
+    def test_v113_importador_display_y_temporal(self):
+        """The pasted AgilPedido message (models/importar_pedido.py): an exact
+        full name with a pack text sold per unit is identified; among same-name
+        products the temporary copy wins while the switch is on."""
+        self._sync()
+        Equivalencia = self.env["distri.agil.equivalencia"].sudo().with_context(
+            active_test=False)
+        unidad = self.env.ref("uom.product_uom_unit")
+        pipas = self.env["product.template"].create({
+            "name": "Pipas Pruebagil 50g. Display x 12 u.", "list_price": 100.0,
+            "type": "consu", "sale_ok": True, "uom_id": unidad.id,
+            "distri_agil_temporal": True, "distri_agil_id": "9900077",
+            "taxes_id": [Command.clear()]})
+        self._switch("1")
+        linea = self._analizar("- 2 x Pipas Pruebagil 50g. Display x 12 u. ($ 200.00)")
+        self.assertEqual((linea.product_tmpl_id, linea.product_uom_id, linea.parecido),
+                         (pipas, unidad, 100))
+        # same name: the temporary AgilPedido copy (its price), not the old one
+        galletita = self._temporal(GALLETITA)
+        linea = self._analizar("- 1 x Galletita Pruebagil 500G ($ 1,234.50)")
+        self.assertEqual((linea.product_tmpl_id, linea.parecido), (galletita, 100))
+        # same name except case (normalizar): the temporary copy too, and
+        # among temporary ones the exact original name first
+        self.env["product.template"].create({
+            "name": 'Red Point On 20 "convertible" Pruebagil', "list_price": 18300.0,
+            "type": "consu", "sale_ok": True, "taxes_id": [Command.clear()]})
+        red = self.env["product.template"].create({
+            "name": 'Red Point ON 20 "Convertible" Pruebagil', "list_price": 18500.0,
+            "type": "consu", "sale_ok": True, "distri_agil_temporal": True,
+            "distri_agil_id": "9900078", "taxes_id": [Command.clear()]})
+        self.env["product.template"].create({
+            "name": 'RED POINT ON 20 "CONVERTIBLE" PRUEBAGIL', "list_price": 1.0,
+            "type": "consu", "sale_ok": True, "distri_agil_temporal": True,
+            "distri_agil_id": "9900079", "taxes_id": [Command.clear()]})
+        linea = self._analizar('- 1 x Red Point ON 20 "Convertible" Pruebagil ($ 18,500.00)')
+        self.assertEqual((linea.product_tmpl_id, linea.parecido), (red, 100))
+        # «Corregir y recordar» with what it already had: nothing learned
+        antes = Equivalencia.search_count([])
+        linea._distri_corregir(red.product_variant_id, linea.product_uom_id)
+        self.assertEqual(Equivalencia.search_count([]), antes)
+        self.assertFalse(linea.equivalencia_id)
+        # switch off: the temporary copies do not count
+        self._switch("0")
+        linea = self._analizar("- 1 x Galletita Pruebagil 500G ($ 1,234.50)")
+        self.assertEqual(linea.product_tmpl_id, self.viejo)
+
     def test_id_de_un_producto_definitivo_no_se_toca(self):
         self.viejo.distri_agil_id = str(GALLETITA["id"])
         corrida = self._sync()
@@ -263,10 +416,10 @@ class TestCatalogoAgilSync(AgilMixin, TransactionCase):
 
     def test_instalar_no_cambia_nada(self):
         cron = self.env.ref("distri_pedido.cron_catalogo_agil")
-        self.assertFalse(cron.active)
-        # installed once a day; administración may run it more often since
-        # (the record is not updated again), so a copy of production may differ
-        self.assertIn(cron.interval_type, ("days", "hours"))
+        # installed OFF and once a day; administración turns it on and runs it
+        # more often since (every 15 minutes in 19.0.1.113.0; the record is not
+        # updated again), so a copy of production may differ
+        self.assertIn(cron.interval_type, ("days", "hours", "minutes"))
         self.assertEqual(cron.code.strip(), "model._cron_distri_sincronizar()")
         self.assertEqual(self.env.ref("distri_pedido.param_catalogo_agil").key, PARAM_CATALOGO_AGIL)
 

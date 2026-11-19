@@ -11,6 +11,9 @@
 .tab-alerta>span{flex:1}
 .tab-alerta .dn-i:last-child{width:20px;height:20px}
 .tab-alerta:active{background:#fbe7a6}
+/* 19.0.1.113.0: the stopped AgilPedido sync (red, above the yellow one) */
+.tab-alerta--err{background:var(--dn-red-bg);border-color:#eeb2aa;color:var(--dn-red-text)}
+.tab-alerta--err:active{background:#f9d7d3}
 .tab-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px;max-width:760px;margin:0 auto}
 @media (min-width:600px){.tab-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .tab-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;
