@@ -63,5 +63,7 @@ compose.yaml.bak-*
 
 # automatic backups, their log and the maintenance lock (scripts/respaldo-diario.sh)
 backups-auto/
+# daily AgilPedido storefront backups and their photos (scripts/agil/respaldo-agil.sh)
+backups-agil/
 logs/
 run/

@@ -50,8 +50,14 @@ docker exec odoo-lab-db-1 pg_dump -U odoo -Fc "$DB" > "$STAGE/$DB.dump"
 docker exec odoo-lab-odoo-1 tar -C /var/lib/odoo/filestore -cf - "$DB" > "$STAGE/filestore.tar"
 
 restic cat config >/dev/null 2>&1 || restic init
-restic backup --host distri-prod --tag hourly "$STAGE"
-KEEP=(--keep-hourly 24 --keep-daily 7 --keep-weekly 4 --keep-monthly 6)
+# The daily AgilPedido storefront backups (scripts/agil/respaldo-agil.sh) ride
+# along, so they reach R2 too. They change the snapshot paths, hence
+# --group-by host: one retention group per host, instead of the old
+# single-path snapshots forming a separate group that is never pruned.
+PATHS=("$STAGE")
+if [ -d "$LAB/backups-agil" ]; then PATHS+=("$LAB/backups-agil"); fi
+restic backup --host distri-prod --tag hourly "${PATHS[@]}"
+KEEP=(--group-by host --keep-hourly 24 --keep-daily 7 --keep-weekly 4 --keep-monthly 6)
 restic forget --host distri-prod --prune "${KEEP[@]}"
 rm -rf "$STAGE"
 echo "$(date -Is) ok"
