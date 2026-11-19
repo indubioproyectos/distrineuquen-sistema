@@ -187,7 +187,33 @@ class DistriRouteSheet(models.Model):
         return self.env.ref("distri_pedido.report_hoja_ruta").report_action(self, config=False)
 
     def action_print_remitos(self):
+        self._distri_check_remitos_access()
         return self.env.ref("distri_pedido.report_remitos_ruta").report_action(self, config=False)
+
+    def _distri_check_remitos_access(self):
+        """19.0.1.116.0: the route's remitos follow the rule of the single
+        remito (SaleOrderRemitoPrint._distri_check_remito_access):
+        administración and gerencia, the cashier, the packer and the route's
+        driver; a route with a wholesale customer's order, only those who
+        see the wholesale customers."""
+        from .lista_oculta import ve_lista_oculta
+        if self.env.su:
+            return
+        user = self.env.user
+        if user.share:
+            raise AccessError(REMITO_DENIED)
+        sees_wholesale = ve_lista_oculta(user)
+        by_role = sees_wholesale or any(user.has_group(g) for g in REMITO_GROUPS)
+        for route in self.sudo():
+            if not (by_role or user == route.driver_id):
+                raise AccessError(REMITO_DENIED)
+            if sees_wholesale:
+                continue
+            for order in route.stop_ids.order_id:
+                if order.partner_id._distri_es_distribuidora() or order._distri_de_distribuidora():
+                    raise AccessError("La %s tiene el remito de un cliente mayorista (%s): los "
+                                      "remitos de la ruta los imprime administración."
+                                      % (route.name, order.name))
 
 
 class SaleOrderRemitoPrint(models.Model):
@@ -319,6 +345,19 @@ class ReportRemitoPedido(models.AbstractModel):
         orders = self.env["sale.order"].browse(docids)
         orders._distri_check_remito_access()
         return {"doc_ids": docids, "doc_model": "sale.order", "docs": orders.sudo()}
+
+
+class ReportRemitosRuta(models.AbstractModel):
+    """19.0.1.116.0: the route's remitos check who prints them too
+    (/report/pdf included)."""
+    _name = "report.distri_pedido.remitos_ruta_documento"
+    _description = "Remitos de la ruta"
+
+    @api.model
+    def _get_report_values(self, docids, data=None):
+        routes = self.env["distri.route"].browse(docids)
+        routes._distri_check_remitos_access()
+        return {"doc_ids": docids, "doc_model": "distri.route", "docs": routes.sudo()}
 
 
 def _ar_date(moment):

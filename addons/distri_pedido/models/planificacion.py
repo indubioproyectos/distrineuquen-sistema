@@ -346,6 +346,12 @@ class DistriRoutePlanning(models.Model):
                     else " y vuelve al depósito, sin ruta", user))
             if target:
                 if not target._planning_can_take(order):
+                    if order.sudo().partner_id.distri_generic_partner:
+                        # 19.0.1.116.0: the usual cause, said plainly
+                        raise UserError(
+                            "El pedido %s no tiene cliente: sigue en el contacto genérico de "
+                            "los pedidos web. Asignale el cliente en Pedidos para revisar "
+                            "antes de subirlo a una ruta." % order.name)
                     raise UserError("El pedido %s no puede subir a una ruta: tiene que estar "
                                     "confirmado y armado, sin retener, y no ser para retirar en "
                                     "el depósito." % order.name)

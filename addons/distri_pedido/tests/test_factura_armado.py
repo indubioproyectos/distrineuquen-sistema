@@ -334,7 +334,11 @@ class TestFacturaArmado(RepartoMixin, AccountTestInvoicingCommon):
         self.assertFalse(order.invoice_ids)
         self.assertIn("sin diario", order.distri_factura_error)
         actividad = order.activity_ids.filtered(lambda a: a.summary == RESUMEN_ACTIVIDAD)
-        self.assertEqual(len(actividad), 1)
+        # 19.0.1.116.0: one for each person of administración/gerencia
+        avisados = order._distri_avisar_factura_a()
+        self.assertTrue(avisados)
+        self.assertEqual(actividad.user_id, avisados)
+        self.assertEqual(len(actividad), len(avisados))
         self.assertFalse(any(p.state == "done" for p in order.picking_ids),
                          "la entrega se deshace junto con la factura")
 
@@ -342,7 +346,7 @@ class TestFacturaArmado(RepartoMixin, AccountTestInvoicingCommon):
         with patch.object(SaleOrder, "_create_invoices", side_effect=UserError("otra vez")):
             order._distri_facturar_armado()
         self.assertEqual(len(order.activity_ids.filtered(
-            lambda a: a.summary == RESUMEN_ACTIVIDAD)), 1)
+            lambda a: a.summary == RESUMEN_ACTIVIDAD)), len(avisados))
 
         # el administrador reintenta desde el pedido
         order.action_distri_facturar_armado()

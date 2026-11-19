@@ -213,12 +213,31 @@ class SaleOrder(models.Model):
                                "terminado. Se reintenta con «Facturar lo armado»." % motivo)
         ya = self.activity_ids.filtered(lambda a: a.summary == RESUMEN_ACTIVIDAD)
         if not ya:
-            self.activity_schedule(
-                "mail.mail_activity_data_todo",
-                summary=RESUMEN_ACTIVIDAD,
-                note="No salió la factura del armado: %s" % motivo,
-                user_id=self._distri_usuario_administracion().id,
-            )
+            # 19.0.1.116.0: one to-do for each person of administración and
+            # gerencia (not the technical Administrator account)
+            for usuario in self._distri_avisar_factura_a():
+                self.activity_schedule(
+                    "mail.mail_activity_data_todo",
+                    summary=RESUMEN_ACTIVIDAD,
+                    note="No salió la factura del armado: %s" % motivo,
+                    user_id=usuario.id,
+                )
+
+    def _distri_avisar_factura_a(self):
+        """The active users of administración or gerencia who are not
+        technical administrators (Settings) nor OdooBot; if there is none,
+        the one _distri_usuario_administracion finds."""
+        grupos = [self.env.ref(x, raise_if_not_found=False) for x in (
+            "distri_pedido.grupo_administracion", "distri_pedido.grupo_gerencia")]
+        ids = [g.id for g in grupos if g]
+        usuarios = self.env["res.users"]
+        if ids:
+            sistema = self.env.ref("base.group_system")
+            usuarios = self.env["res.users"].sudo().search([
+                ("all_group_ids", "in", ids), ("share", "=", False),
+                ("id", "!=", self.env.ref("base.user_root").id),
+            ], order="id").filtered(lambda u: sistema not in u.all_group_ids)
+        return usuarios or self._distri_usuario_administracion()
 
     def _distri_limpiar_error_factura(self):
         self.ensure_one()

@@ -338,7 +338,7 @@ class TestRevisarApp(HttpCase):
         self.assertIn("Tomar un pedido", text)
         self.assertIn("pedidos en rojo esperan revisión antes de armarse", text)
         self.assertIn('href="/revisar?ver=rojos"', text)
-        self.assertRegex(text, r'class="tab-badge dn-num tab-badge--err">\d+ rojos<')
+        self.assertRegex(text, r'class="tab-badge dn-num tab-badge--err">\d+ rojos( · [^<]*)?<')
         self.assertIn("Todas las aplicaciones de Odoo", text)
         self.assertIn('href="/deposito"', text, "19.0.1.109.0: the «Depósito» tile")
         self.assertNotIn("Aprobar", text)

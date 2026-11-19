@@ -70,3 +70,4 @@ from . import test_v112_estado_cuenta
 from . import test_v113_reparto
 from . import test_v114_capacitacion
 from . import test_v115
+from . import test_v116

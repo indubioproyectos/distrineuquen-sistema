@@ -242,6 +242,9 @@ def identificar(renglon, catalogo):
     `repetidos` > 1 es que siguio habiendo mas de uno."""
     candidatos = [(renglon["nombre_limpio"], renglon["es_mayorista"])]
     if renglon["es_mayorista"]:
+        completo = completo_con_may(renglon, catalogo)
+        if completo:
+            return completo
         candidatos.append((renglon["nombre"], False))
     for nombre, es_mayorista in candidatos:
         envase = leer_envase(nombre)
@@ -257,6 +260,39 @@ def identificar(renglon, catalogo):
     return {"producto": producto, "parecido": parecido,
             "envase": leer_envase(renglon["nombre_limpio"]), "por_envase": False,
             "es_mayorista": renglon["es_mayorista"], "repetidos": 1}
+
+
+def nombre_con_may(plantilla):
+    """19.0.1.116.0: the product's OWN name starts with «May» (the temporary
+    AgilPedido copies «May Termómetro digital», catalogo_agil.py): its price
+    already is the wholesale one, so a line with it is never «May» on top."""
+    return bool(plantilla) and bool(PREFIJO_MAYORISTA.match(plantilla.name or ""))
+
+
+def sin_precio_mayorista(plantilla):
+    if plantilla.categ_id.name in CATEGORIAS_A_PRESUPUESTAR:
+        return False
+    lista = lista_mayorista(plantilla.env)
+    return not lista or not lista.item_ids.filtered(lambda i: i.product_tmpl_id == plantilla)
+
+
+def completo_con_may(renglon, catalogo):
+    """19.0.1.116.0: a «May …» line whose FULL name (with «May») is a product
+    of the catalog takes that product at its own price when it is a temporary
+    AgilPedido copy (only in the catalog while the switch is on), or when the
+    product without «May» has no wholesale price to apply. None otherwise."""
+    completos = exactos(renglon["nombre"], catalogo)
+    if not completos:
+        return None
+    temporales = [p for p in completos if p.distri_agil_temporal]
+    if not temporales:
+        normales = exactos(renglon["nombre_limpio"], catalogo)
+        if normales and not all(sin_precio_mayorista(p) for p in normales):
+            return None
+        temporales = completos
+    iguales = elegir_por_unidad(preferir_temporal(temporales, renglon["nombre"]))
+    return {"producto": iguales[0], "parecido": 1.0, "envase": leer_envase(renglon["nombre"]),
+            "por_envase": False, "es_mayorista": False, "repetidos": len(iguales)}
 
 
 def exactos(nombre, catalogo):
@@ -438,7 +474,7 @@ def precio_renglon(plantilla, cantidad, es_mayorista, mayorista, unidad=None):
     «May». Devuelve (valores, sin_regla): sin_regla es un «May» cuyo producto
     no tiene precio mayorista cargado en Odoo. Con `unidad` (un bulto), el
     precio es el de esa unidad."""
-    if not es_mayorista:
+    if not es_mayorista or nombre_con_may(plantilla):
         return {}, False
     if plantilla.categ_id.name in CATEGORIAS_A_PRESUPUESTAR:
         # cigarrillos y tabaco mayoristas: no hay precio publico, el
@@ -516,6 +552,8 @@ class ImportarPedido(models.TransientModel):
                     "product_uom_id": equivalencia.product_uom_id.id,
                     "parecido": 100,
                     "equivalencia_id": equivalencia.id,
+                    "es_mayorista": renglon["es_mayorista"] and not nombre_con_may(
+                        equivalencia.product_id.product_tmpl_id),
                 })
                 renglones.append((0, 0, valores))
                 continue
@@ -725,6 +763,8 @@ class ImportarPedidoLinea(models.TransientModel):
             equivalencia = self.env["distri.agil.equivalencia"]._distri_aprender(
                 linea._distri_nombre_limpio(), variante, unidad)
             valores = {"product_uom_id": unidad.id}
+            if nombre_con_may(linea.product_tmpl_id):
+                valores["es_mayorista"] = False
             if equivalencia:
                 valores.update(equivalencia_id=equivalencia.id,
                                cantidad=agil * (equivalencia.factor or 1.0))
@@ -748,6 +788,9 @@ class ImportarPedidoLinea(models.TransientModel):
         agil = self._distri_cantidad_agil()
         valores = {"product_tmpl_id": plantilla.id, "product_uom_id": unidad.id,
                    "cantidad": agil * factor}
+        if nombre_con_may(plantilla):
+            # 19.0.1.116.0: «May Ocb premium» already has the wholesale price
+            valores["es_mayorista"] = False
         # 19.0.1.113.0: the same product and unit it already had is nothing to
         # learn (no equivalence for what the reading already got right)
         igual = (plantilla == self.product_tmpl_id and unidad == self.product_uom_id
@@ -757,6 +800,9 @@ class ImportarPedidoLinea(models.TransientModel):
                 self._distri_nombre_limpio(), variante, unidad, factor=factor)
             if equivalencia:
                 valores["equivalencia_id"] = equivalencia.id
+        # 19.0.1.116.0: choosing a product always resolves the line, also the
+        # same one a «Parecido al 94 %» line already proposed (like «Está bien»)
+        valores["parecido"] = 100
         self.write(valores)
         return True
 

@@ -143,7 +143,18 @@ def red_domain(env):
 
 def _badge_revisar(env):
     n = env["sale.order"].sudo().search_count(red_domain(env))
-    return {"text": _plural(n, "rojo", "rojos"), "kind": "err", "n": n} if n else None
+    # 19.0.1.116.0: packed orders whose automatic invoice failed
+    # (models/factura_armado.py), retried with «Facturar lo armado»
+    sin_factura = env["sale.order"].sudo().search_count([
+        ("state", "=", "sale"), ("distri_factura_error", "!=", False)])
+    partes = []
+    if n:
+        partes.append(_plural(n, "rojo", "rojos"))
+    if sin_factura:
+        partes.append("%s armado sin factura" % sin_factura if sin_factura == 1
+                      else "%s armados sin factura" % sin_factura)
+    return {"text": " · ".join(partes), "kind": "err", "n": n,
+            "sin_factura": sin_factura} if partes else None
 
 
 def _badge_armado(env):
@@ -245,7 +256,7 @@ def tile_badges(env, tiles):
     for tile in tiles:
         badge_fn = TILE_BADGES.get(tile["key"])
         tile["badge"] = badge_fn(env) if badge_fn else None
-        if tile["key"] == "revisar" and tile["badge"]:
+        if tile["key"] == "revisar" and tile["badge"] and tile["badge"]["n"]:
             n = tile["badge"]["n"]
             banner = {
                 "text": ("1 pedido en rojo espera revisión antes de armarse" if n == 1 else

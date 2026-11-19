@@ -39,7 +39,10 @@ AMBIGUOUS = ("No se entiende el importe «%s»: escribí 1500 (o 1.500) para mil
 # open route states where a stop may still be collected by the driver
 OPEN_ROUTE_STATES = ("draft", "on_route")
 DUPLICATE_MINUTES = 5
-MAX_AMOUNT = 100000000.0
+# 19.0.1.116.0: was 100.000.000, too low for a whole day's cash or a big transfer
+MAX_AMOUNT = 10000000000.0
+TOO_BIG = ("El importe «%s» es demasiado grande: el máximo es $ 10.000.000.000. "
+           "Revisá que no sobren ceros.")
 NOTE_MAX_LENGTH = 200
 SEARCH_LIMIT = 20
 OPEN_INVOICES_LIMIT = 30
@@ -162,7 +165,9 @@ class DistriCashCollection(models.Model):
             value = round(float(raw), 2)
         except (TypeError, ValueError):
             value = 0.0
-        if not 0 < value <= MAX_AMOUNT:
+        if value > MAX_AMOUNT:
+            raise UserError(TOO_BIG % typed)
+        if not value > 0:
             raise UserError("Poné un importe mayor que cero.")
         return value
 

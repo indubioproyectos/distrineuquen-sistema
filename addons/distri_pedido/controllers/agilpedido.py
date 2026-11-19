@@ -548,7 +548,8 @@ class AgilPedido(http.Controller):
                     variante, unidad, factor = self._producto_y_unidad(kw)
                     linea._distri_corregir(variante, unidad, factor)
                     message = ("Corregido y aprendido: la próxima vez se carga solo."
-                               if linea.nombre_mensaje else "Renglón corregido.")
+                               if linea.nombre_mensaje and linea.equivalencia_id
+                               else "Renglón corregido.")
                 elif accion == "quitar":
                     linea.unlink()
                     message = "Renglón quitado."
