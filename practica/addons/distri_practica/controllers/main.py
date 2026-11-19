@@ -157,8 +157,12 @@ class PracticaLanding(SitioPublico):
                           "partner": order.partner_id.name, "code": order.distri_receipt_code})
         return {"codes": codes}
 
+    # csrf=False: after the nightly reset (new database.secret) a browser that
+    # kept its old session got «Session expired (invalid CSRF token)» on every
+    # role button. A forged cross-site POST gains nothing: the session cookie is
+    # SameSite=Lax, so it arrives without SESSION_OK and still needs the code.
     @http.route("/practica/entrar", type="http", auth="public", methods=["POST"],
-                website=True, sitemap=False)
+                website=True, sitemap=False, csrf=False)
     def entrar(self, rol="", codigo="", **kw):
         env = request.env
         if not is_active(env):
