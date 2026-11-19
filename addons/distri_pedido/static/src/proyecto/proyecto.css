@@ -134,6 +134,9 @@ main{display:grid;gap:0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .etapa::before{background:var(--navy-2)}}
 .etapa::after{content:"";position:absolute;left:1.13rem;top:2.3rem;bottom:0;width:3px;background:var(--line)}
 .etapa:last-child::after{display:none}
+/* every child in the text column: a 4th one (the «También…» note of step 6)
+   used to auto-place into the narrow number column */
+.etapa>*{grid-column:2;min-width:0}
 .etapa h3{font-size:1.08rem;font-weight:800;align-self:center}
 .etapa p{color:var(--muted);font-size:.95rem}
 .tags{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.15rem}
