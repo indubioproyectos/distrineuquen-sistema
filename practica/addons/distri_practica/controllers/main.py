@@ -80,9 +80,12 @@ def is_active(env):
 
 
 def practice_users(env):
-    users = env["res.users"]
+    # sudo: the landing runs as whoever is logged in, and a staff role (e.g. the
+    # salesperson) may not read other users; without it the landing failed and
+    # the visitor got the generic website home instead of the role buttons
+    users = env["res.users"].sudo()
     for _key, _label, _hint, xmlid, _url in ROLES + EXTRA_ROLES + CUSTOMER_ROLES:
-        users |= env.ref(xmlid, raise_if_not_found=False) or env["res.users"]
+        users |= (env.ref(xmlid, raise_if_not_found=False) or env["res.users"]).sudo()
     return users
 
 
