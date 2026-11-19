@@ -10,6 +10,12 @@ access code (distri_practica.codigo). The server checks the code once per
 browser session, then opens a session as the FIXED practice user of that
 role (data/usuarios.xml) and redirects to the role's main screen. Nothing
 the visitor sends chooses the user: only the role key, looked up in ROLES.
+
+«Hacer un pedido como cliente» (CUSTOMER_ROLES) is the customer side: the
+same guarded POST opens a session as the practice PORTAL user (a contact of
+one anonymized customer, chosen every night by sembrar.py) and lands on the
+public order page /pedido. «Como visitante sin cuenta» (VISITOR_KEY) only
+closes the current session and lands on /pedido as an anonymous visitor.
 """
 import hmac
 import logging
@@ -50,7 +56,17 @@ ROLES = [
 EXTRA_ROLES = [
     ("repartidor2", "Repartidor 2", "", "distri_practica.user_repartidor_2", "/reparto"),
 ]
-ROLE_BY_KEY = {r[0]: r for r in ROLES + EXTRA_ROLES}
+# the customer side: a portal (share) user, never an internal one
+CUSTOMER_ROLES = [
+    ("cliente", "Hacer un pedido como cliente",
+     "Entrás como un comercio con cuenta: pedís, ves tu pedido, cómo pagar y tu cuenta",
+     "distri_practica.user_cliente", "/pedido"),
+]
+CUSTOMER_KEYS = {r[0] for r in CUSTOMER_ROLES}
+# order as an anonymous visitor: no user at all, the session is closed
+VISITOR_KEY = "visitante"
+VISITOR_URL = "/pedido"
+ROLE_BY_KEY = {r[0]: r for r in ROLES + EXTRA_ROLES + CUSTOMER_ROLES}
 
 # wrong codes: at most this many per IP in the window (per worker process)
 MAX_FAILS = 10
@@ -65,9 +81,13 @@ def is_active(env):
 
 def practice_users(env):
     users = env["res.users"]
-    for _key, _label, _hint, xmlid, _url in ROLES + EXTRA_ROLES:
+    for _key, _label, _hint, xmlid, _url in ROLES + EXTRA_ROLES + CUSTOMER_ROLES:
         users |= env.ref(xmlid, raise_if_not_found=False) or env["res.users"]
     return users
+
+
+def staff_practice_users(env):
+    return practice_users(env).filtered(lambda u: not u.share)
 
 
 def _client_ip():
@@ -105,6 +125,9 @@ class PracticaLanding(SitioPublico):
         values = {
             "roles": [{"key": k, "label": label, "hint": hint} for k, label, hint, _x, _u in ROLES],
             "extra": [{"key": k, "label": label} for k, label, _h, _x, _u in EXTRA_ROLES],
+            "clientes": [{"key": k, "label": label, "hint": hint}
+                         for k, label, hint, _x, _u in CUSTOMER_ROLES],
+            "visitante": VISITOR_KEY,
             "code_ok": ok,
             "error": error,
             "current": current,
@@ -121,7 +144,7 @@ class PracticaLanding(SitioPublico):
         """Today's receipt codes of the practice routes on the street, so the
         driver can practice «Entregado con código»."""
         env = request.env
-        drivers = practice_users(env)
+        drivers = staff_practice_users(env)
         routes = env["distri.route"].sudo().search([
             ("kind", "=", "route"), ("state", "=", "on_route"), ("driver_id", "in", drivers.ids),
         ])
@@ -143,7 +166,7 @@ class PracticaLanding(SitioPublico):
             return request.make_response("No disponible.", status=403,
                                          headers=[("Content-Type", "text/plain; charset=utf-8")])
         role = ROLE_BY_KEY.get(rol or "")
-        if not role:
+        if not role and rol != VISITOR_KEY:
             return self._landing(error="Elegí un rol.", status=400)
         if not request.session.get(SESSION_OK):
             ip = _client_ip()
@@ -156,11 +179,20 @@ class PracticaLanding(SitioPublico):
                 _add_fail(ip)
                 _logger.info("distri_practica: wrong access code from %s", ip)
                 return self._landing(error="El código no es correcto.", status=403)
+        session = request.session
+        if rol == VISITOR_KEY:
+            session.logout(keep_db=True)
+            session[SESSION_OK] = True
+            _logger.info("distri_practica: %s entered as an anonymous visitor", _client_ip())
+            return request.redirect(VISITOR_URL, 303)
         user = env.ref(role[3], raise_if_not_found=False)
         user = user.sudo() if user else None
-        if not user or not user.active or user.share or not user.login.startswith("practica."):
+        # staff roles are internal users, the customer role a portal one
+        portal = role[0] in CUSTOMER_KEYS
+        if (not user or not user.active or bool(user.share) != portal
+                or not user.login.startswith("practica.")
+                or (portal and user.has_group("base.group_user"))):
             return self._landing(error="Ese usuario de práctica no está disponible.", status=409)
-        session = request.session
         session.logout(keep_db=True)
         session["pre_login"] = user.login
         session["pre_uid"] = user.id

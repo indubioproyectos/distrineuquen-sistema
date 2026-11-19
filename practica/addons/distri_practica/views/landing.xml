@@ -39,6 +39,11 @@
     .role:hover,.role:focus-visible{background:#1b3a63;outline:3px solid #f59e0b;outline-offset:2px}
     .alt{display:inline-block;margin:6px 0 0 4px;padding:6px 12px;border:1px solid #10243f;border-radius:999px;
       background:#fff;color:#10243f;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+    .cliente{margin:18px 0 0;padding:14px 16px;border:2px dashed #0f766e;border-radius:16px;background:#ecfdf5}
+    .cliente h2{color:#0f5f58}
+    .role.role-cliente{background:#0f766e;box-shadow:0 2px 0 rgba(15,118,110,.3)}
+    .role.role-cliente:hover,.role.role-cliente:focus-visible{background:#115e59}
+    .cliente .alt{border-color:#0f766e;color:#0f5f58}
     h2{font-size:17px;margin:0 0 8px}
     table{width:100%;border-collapse:collapse;font-size:14px}
     td,th{padding:6px 4px;border-bottom:1px solid #d8dee8;text-align:left;vertical-align:top}
@@ -79,6 +84,17 @@
           </t>
         </li>
       </ul>
+      <section class="cliente" aria-label="Del lado del cliente">
+        <h2>Del lado del cliente</h2>
+        <p class="muted" style="margin:0 0 10px">Probá cómo pide un comercio: el pedido que mandes
+          aparece después en «Pedidos para revisar» y en el armado, para seguirlo de punta a punta.</p>
+        <button t-foreach="clientes" t-as="cl" class="role role-cliente" type="submit" name="rol"
+                t-att-value="cl['key']">
+          <b t-esc="cl['label']"/>
+          <span t-esc="cl['hint']"/>
+        </button>
+        <button class="alt" type="submit" name="rol" t-att-value="visitante">o pedir como visitante, sin cuenta</button>
+      </section>
     </form>
     <div t-if="datos and datos.get('codes')" class="card" style="margin-top:14px">
       <h2>Códigos de recibido para practicar</h2>

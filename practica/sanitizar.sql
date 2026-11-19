@@ -222,9 +222,11 @@ UPDATE res_users SET active = (id IN (SELECT res_id FROM ir_model_data WHERE mod
   password = NULL, totp_secret = NULL, oauth_access_token = NULL,
   oauth_uid = NULL, oauth_provider_id = NULL, signature = NULL
 WHERE id <> 1 AND login NOT LIKE 'practica.%';
--- customers' portal logins were their e-mails
+-- customers' portal logins were their e-mails (the practice portal user
+-- «practica.cliente» of distri_practica keeps its login)
 UPDATE res_users SET login = 'cliente.' || id || '@practica.invalid'
-WHERE share AND login NOT IN ('public', 'portaltemplate') AND login NOT LIKE 'cliente.%@practica.invalid';
+WHERE share AND login NOT IN ('public', 'portaltemplate') AND login NOT LIKE 'cliente.%@practica.invalid'
+  AND login NOT LIKE 'practica.%';
 DELETE FROM res_users_apikeys;
 DELETE FROM auth_passkey_key;
 DELETE FROM auth_totp_device;
@@ -274,8 +276,10 @@ FROM (VALUES
   ('distri_pedido.revendedor_codigo', md5(random()::text || clock_timestamp()::text)),
   ('distri_pedido.alias_titular', 'Distri Neuquén (práctica)'),
   ('distri_pedido.alias_transferencia', 'PRACTICA.DISTRI.NQN'),
-  ('distri_pedido.telefono_empresa', '299 555-0000'),
-  ('distri_pedido.whatsapp_empresa', '5492995550000'),
+  -- the practice line (owner, 19/11/2026): only in wa.me links and texts; the
+  -- WhatsApp Cloud API stays off (no tokens). Production uses another number.
+  ('distri_pedido.telefono_empresa', '2994646085'),
+  ('distri_pedido.whatsapp_empresa', '5492994646085'),
   ('web.base.url', :'base_url'),
   ('web.base.url.freeze', 'True'),
   -- wkhtmltopdf reads report assets from the container itself

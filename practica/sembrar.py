@@ -16,6 +16,9 @@
 #   - the practice cashier's box open (/caja).
 #   - two transfer receipts (images) waiting for review.
 #   - the seller's portfolio (cartera) of practice customers.
+#   - «Cliente de práctica» (portal user practica.cliente, the landing's
+#     «Hacer un pedido como cliente»): a contact of one anonymized customer
+#     with a (fake) phone, a small balance and the account visible to him.
 import json
 import secrets
 import uuid
@@ -68,6 +71,36 @@ main_zone = Zone.browse(zones_sorted[0])
 other_zone = Zone.browse(zones_sorted[1]) if len(zones_sorted) > 1 else main_zone
 pool_main = list(by_zone[main_zone.id])
 pool_other = list(by_zone[other_zone.id])
+
+# ------------------------------------------------------------ the practice customer (portal)
+# One anonymized customer with a phone and a small balance owed; the portal
+# user's own contact becomes a contact of it, so /pedido, «Mi cuenta» and the
+# order page show that customer. Kept out of the pools below.
+cliente_user = R('distri_practica.user_cliente').sudo()
+rng0 = secrets.SystemRandom()
+candidates = [p for p in customers
+              if p.phone and not p.distri_lista_oculta and not p.distri_alta_estado]
+rng0.shuffle(candidates)
+practice_customer, practice_balance = None, None
+for partner in candidates[:80]:
+    balance = partner._distri_statement()['balance']
+    if 2000 <= balance <= 120000:
+        practice_customer, practice_balance = partner, balance
+        break
+if not practice_customer:
+    practice_customer = candidates[0] if candidates else customers[0]
+    practice_balance = practice_customer._distri_statement()['balance']
+    print('WARN practice customer without a small balance: %s' % practice_balance)
+for pool in (pool_main, pool_other):
+    if practice_customer in pool:
+        pool.remove(practice_customer)
+practice_customer.write({'distri_cuenta_visible': True})
+cliente_user.partner_id.write({
+    'name': 'Cliente de práctica', 'parent_id': practice_customer.id, 'type': 'contact',
+    'phone': practice_customer.phone or '299 555-0998', 'email': False, 'customer_rank': 1,
+})
+cliente_user.write({'password': secrets.token_urlsafe(48), 'active': True,
+                    'distri_debe_cambiar_clave': False})
 special = R('distri_pedido.product_venta_sin_detalle', raise_if_not_found=False)
 env.cr.execute("""
     SELECT l.product_id FROM sale_order_line l
@@ -266,6 +299,7 @@ summary = {
     'routes': {k: [r.name, r.state, len(r.stop_ids)] for k, r in out['routes'].items()},
     'caja': [caja.id, caja.state],
     'receipts': receipts,
+    'cliente': [cliente_user.login, practice_customer.name, round(practice_balance or 0, 2)],
     'codes_on_route_1': len([s for s in r1.stop_ids if s.order_id.distri_receipt_code]),
     'promises_pending': env['distri.promised.transfer'].sudo().search_count([('state', '=', 'pending')])
     if 'state' in env['distri.promised.transfer']._fields else None,

@@ -53,5 +53,14 @@
       <field name="tz">America/Argentina/Buenos_Aires</field>
       <field name="group_ids" eval="[Command.set([ref('base.group_user'), ref('distri_pedido.grupo_vendedor')])]"/>
     </record>
+    <!-- the customer side («Hacer un pedido como cliente»): a PORTAL user.
+         sembrar.py makes its contact a contact of one anonymized customer
+         every night (fake phone, small balance, account visible). -->
+    <record id="user_cliente" model="res.users">
+      <field name="name">Cliente de práctica</field>
+      <field name="login">practica.cliente</field>
+      <field name="tz">America/Argentina/Buenos_Aires</field>
+      <field name="group_ids" eval="[Command.set([ref('base.group_portal')])]"/>
+    </record>
   </data>
 </odoo>

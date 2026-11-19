@@ -3,7 +3,8 @@
 #   ./verificar.sh            exit 0 = clean, 1 = something real survived
 # Takes from production (READ ONLY, distri_lab) every customer's name, phone,
 # WhatsApp, e-mail, CUIT/DNI and street, and the hash of every secret system
-# parameter; then searches ALL text columns of distri_practica for them.
+# parameter, and the company's own phone/WhatsApp lines (except the practice
+# line 2994646085); then searches ALL text columns of distri_practica for them.
 # Prints only table.column and counts, never a value. The samples live in a
 # temp table of one psql session and in a 600 file deleted on exit.
 set -euo pipefail
@@ -48,18 +49,34 @@ COPY (SELECT key, md5(value) FROM ir_config_parameter
       WHERE value <> '' AND (key ~* '(token|secret|password|passwd|api_?key|client_id|client_identifier|webhook|verify|waba|phone_number_id)'
                              OR key IN ('database.uuid', 'distri_pedido.revendedor_codigo'))) TO STDOUT;
 SQL
-echo "muestras de produccion: $(wc -l < "$TMP/muestras.tsv") valores, $(wc -l < "$TMP/secretos.tsv") secretos"
+# the company's own lines (public phone, WhatsApp that receives the orders):
+# last 8 digits only. The practice line (PRACTICA_LINEA, set by sanitizar.sql)
+# is never a production sample: production stopped using it.
+PRACTICA_LINEA=94646085
+"${PROD_PSQL[@]}" > "$TMP/empresa.tsv" <<SQL
+COPY (SELECT DISTINCT right(regexp_replace(value, '\D', '', 'g'), 8) FROM ir_config_parameter
+      WHERE (key IN ('distri_pedido.telefono_empresa', 'distri_pedido.whatsapp_empresa')
+             OR key ~* '(telefono|whatsapp)_empresa')
+        AND length(regexp_replace(value, '\D', '', 'g')) >= 8
+        AND right(regexp_replace(value, '\D', '', 'g'), 8) <> '$PRACTICA_LINEA') TO STDOUT;
+SQL
+echo "muestras de produccion: $(wc -l < "$TMP/muestras.tsv") valores, $(wc -l < "$TMP/secretos.tsv") secretos, $(wc -l < "$TMP/empresa.tsv") lineas de la empresa"
 
 # ---- search in the practice DB
 {
   cat <<'SQL'
 CREATE TEMP TABLE leak_samples (kind text, val text);
 CREATE TEMP TABLE leak_secrets (key text, h text);
+CREATE TEMP TABLE leak_company (val text);
 COPY leak_samples FROM STDIN;
 SQL
   cat "$TMP/muestras.tsv"; echo '\.'
   echo 'COPY leak_secrets FROM STDIN;'
   cat "$TMP/secretos.tsv"; echo '\.'
+  echo 'COPY leak_company FROM STDIN;'
+  cat "$TMP/empresa.tsv"; echo '\.'
+  # the company lines: in every column the customers are searched in, and below also in the parameters and views
+  echo "INSERT INTO leak_samples SELECT 'digits', val FROM leak_company;"
   echo "SELECT set_config('leak.diag', '${VERIFICAR_DIAG:-0}', false) \\g /dev/null"
   cat <<'SQL'
 CREATE INDEX ON leak_samples (kind);
@@ -109,6 +126,14 @@ SELECT col, val, hits FROM leak_diag WHERE current_setting('leak.diag', true) = 
 \echo '== secretos de produccion que sobrevivieron (debe estar vacio) =='
 SELECT p.key FROM ir_config_parameter p JOIN leak_secrets s ON s.key = p.key AND s.h = md5(p.value)
 WHERE p.value <> '';
+\echo '== lineas de la empresa de produccion en parametros o vistas (debe estar vacio) =='
+CREATE TEMP TABLE leak_company_hits AS
+SELECT 'ir_config_parameter.' || p.key AS donde FROM ir_config_parameter p JOIN leak_company c
+  ON position(c.val IN regexp_replace(p.value, '\D', '', 'g')) > 0
+UNION ALL
+SELECT 'ir_ui_view.' || v.id FROM ir_ui_view v JOIN leak_company c
+  ON position(c.val IN regexp_replace(v.arch_db::text, '\D', '', 'g')) > 0;
+SELECT donde FROM leak_company_hits ORDER BY 1;
 \echo '== estado =='
 SELECT 'usuarios activos no de practica con clave', count(*) FROM res_users WHERE active AND login NOT LIKE 'practica.%' AND id <> 1 AND password IS NOT NULL
 UNION ALL SELECT 'crons activos', count(*) FROM ir_cron WHERE active
@@ -117,6 +142,7 @@ UNION ALL SELECT 'activo=1', count(*) FROM ir_config_parameter WHERE key = 'dist
 UNION ALL SELECT 'base_url practica', count(*) FROM ir_config_parameter WHERE key = 'web.base.url' AND value = 'https://practica.distrineuquen.com';
 SELECT CASE WHEN (SELECT count(*) FROM leak_hits) = 0
   AND NOT EXISTS (SELECT 1 FROM ir_config_parameter p JOIN leak_secrets s ON s.key = p.key AND s.h = md5(p.value) WHERE p.value <> '')
+  AND NOT EXISTS (SELECT 1 FROM leak_company_hits)
   AND NOT EXISTS (SELECT 1 FROM res_users WHERE active AND login NOT LIKE 'practica.%' AND id <> 1 AND password IS NOT NULL)
   AND NOT EXISTS (SELECT 1 FROM ir_cron WHERE active)
   AND NOT EXISTS (SELECT 1 FROM ir_mail_server)
