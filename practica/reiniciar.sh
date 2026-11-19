@@ -60,7 +60,7 @@ renovar_golden() {
   rm -f "$PROD_DUMP"
 
   log "sanitize"
-  pg -d "$DB" -v codigo="$(tr -dc 0-9 < "$P/.codigo")" -v base_url="https://$HOST_HDR" \
+  pg -d "$DB" -v codigo="$(tr -dc 'a-zA-Z0-9' < "$P/.codigo")" -v base_url="https://$HOST_HDR" \
     < "$P/sanitizar.sql"
 
   log "filestore: only the files still referenced"
@@ -80,7 +80,7 @@ renovar_golden() {
   log "install distri_practica"
   odoo_run -d "$DB" -i distri_practica --stop-after-init --no-http --log-level=warn
   # a module update may have added crons/params: sanitize again (idempotent)
-  pg -d "$DB" -v codigo="$(tr -dc 0-9 < "$P/.codigo")" -v base_url="https://$HOST_HDR" \
+  pg -d "$DB" -v codigo="$(tr -dc 'a-zA-Z0-9' < "$P/.codigo")" -v base_url="https://$HOST_HDR" \
     < "$P/sanitizar.sql" >/dev/null
 
   log "verify (no real customer data, no production secret)"

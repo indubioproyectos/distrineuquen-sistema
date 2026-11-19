@@ -36,7 +36,7 @@ db_restore "$GOLDEN/distri_practica.dump"
 filestore_restore "$GOLDEN/filestore.tar"
 log "update modules"
 odoo_run -d "$DB" -u distri_pedido,distri_tema,distri_practica --stop-after-init --no-http --log-level=warn
-pg -d "$DB" -v codigo="$(tr -dc 0-9 < "$P/.codigo")" -v base_url="https://$HOST_HDR" < "$P/sanitizar.sql" >/dev/null
+pg -d "$DB" -v codigo="$(tr -dc 'a-zA-Z0-9' < "$P/.codigo")" -v base_url="https://$HOST_HDR" < "$P/sanitizar.sql" >/dev/null
 "$P/verificar.sh" || die "verification FAILED: golden NOT replaced"
 
 log "write golden"

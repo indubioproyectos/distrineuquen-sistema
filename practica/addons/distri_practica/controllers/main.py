@@ -150,8 +150,8 @@ class PracticaLanding(SitioPublico):
             if _too_many_fails(ip):
                 return self._landing(error="Demasiados intentos. Probá de nuevo en unos minutos.",
                                      status=429)
-            expected = (env["ir.config_parameter"].sudo().get_param(PARAM_CODE) or "").strip()
-            given = (codigo or "").strip()
+            expected = (env["ir.config_parameter"].sudo().get_param(PARAM_CODE) or "").strip().lower()
+            given = (codigo or "").strip().lower()
             if not expected or not hmac.compare_digest(given.encode(), expected.encode()):
                 _add_fail(ip)
                 _logger.info("distri_practica: wrong access code from %s", ip)
