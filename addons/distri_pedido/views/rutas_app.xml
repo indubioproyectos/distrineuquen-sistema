@@ -87,15 +87,18 @@
           <div class="rt-group" t-att-data-zona="g['id']">
             <span class="rt-lbl"><t t-esc="g['name']"/> · <t t-esc="len(g['orders'])"/></span>
             <t t-foreach="g['orders']" t-as="o">
-              <div t-if="o['held']" class="rt-ord rt-ord--held" t-att-data-search="o['search']">
+              <div t-if="o['held']" t-att-class="'rt-ord rt-ord--held' + (' rt-ord--sib' if o.get('siblings') else '')" t-att-data-search="o['search']" t-att-data-partner="o.get('partner_id')">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
                 <span class="rt-ord__txt"><b><t t-esc="o['client']"/> · retenido</b>
-                  <span class="rt-meta"><t t-esc="o['name']"/> · No entra a una ruta hasta liberarlo<t t-if="o['held_reason']">: <t t-esc="o['held_reason']"/></t></span></span>
+                  <span class="rt-meta"><t t-esc="o['name']"/> · No entra a una ruta hasta liberarlo<t t-if="o['held_reason']">: <t t-esc="o['held_reason']"/></t></span>
+                  <span t-if="o.get('address')" class="rt-meta rt-addr" t-esc="o['address']" t-att-title="o['address']"/>
+                  <span t-if="o['chips']" class="rt-chips"><span t-foreach="o['chips']" t-as="c" t-att-class="'dn-chip' + (' dn-chip--%s' % c[1] if c[1] else '')" t-esc="c[0]"/></span></span>
                 <b class="dn-num rt-amt" t-esc="o['amount']"/>
               </div>
-              <div t-else="" class="rt-ord" draggable="true" t-att-data-order="o['id']" data-from="0" t-att-data-search="o['search']">
+              <div t-else="" t-att-class="'rt-ord' + (' rt-ord--sib' if o.get('siblings') else '')" draggable="true" t-att-data-order="o['id']" data-from="0" t-att-data-search="o['search']" t-att-data-partner="o.get('partner_id')">
                 <span class="rt-grip" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
                 <span class="rt-ord__txt"><b t-esc="o['client']"/>
+                  <span t-if="o.get('address')" class="rt-meta rt-addr" t-esc="o['address']" t-att-title="o['address']"/>
                   <span class="rt-meta" t-esc="o['meta']"/>
                   <span t-if="o['notice']" class="rt-notice" t-esc="o['notice']"/>
                   <span t-if="o['chips']" class="rt-chips"><span t-foreach="o['chips']" t-as="c" t-att-class="'dn-chip' + (' dn-chip--%s' % c[1] if c[1] else '')" t-esc="c[0]"/></span></span>
@@ -148,6 +151,8 @@
         </div>
         <!-- 19.0.1.113.0: the same driver, date and trip on another route (never blocks) -->
         <p t-if="c.get('twin')" class="rt-left rt-small rt-twin" role="status" t-esc="c['twin']"/>
+        <!-- 19.0.1.119.0: a customer of the route with another open order off it (never blocks) -->
+        <p t-foreach="c.get('siblings') or []" t-as="note" class="rt-left rt-small rt-sib" role="status" t-esc="note"/>
         <div class="rt-kpis dn-num">
           <span><b t-esc="c['stop_count']"/> pedidos</span>
           <span><b t-esc="c['parcel_count']"/> bultos</span>

@@ -40,6 +40,10 @@ LOAD_LOCKED = "La carga ya fue controlada con Administración."
 WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
 
+# 19.0.1.119.0: «Bajar al depósito» on /despacho asks no reason
+LEAVE_DEFAULT_REASON = "Bajado en el despacho"
+
+
 def first_name(user):
     return (user.name or "").split(" ")[0] if user else ""
 
@@ -123,9 +127,12 @@ class DistriRouteStopDispatch(models.Model):
                     "dispatch_checked_at": False})
         return True
 
-    def action_leave_at_depot(self, reason):
-        """«Queda en el depósito»: off the route, free for another one."""
+    def action_leave_at_depot(self, reason=None):
+        """«Bajar al depósito» (was «Queda en el depósito»): off the route,
+        free for another one. 19.0.1.119.0: one tap on /despacho, so the
+        reason is optional (LEAVE_DEFAULT_REASON when none is given)."""
         self._check_dispatcher()
+        reason = " ".join(str(reason or "").split()) or LEAVE_DEFAULT_REASON
         return self._distri_leave_at_depot(reason)
 
     def _distri_leave_at_depot(self, reason):

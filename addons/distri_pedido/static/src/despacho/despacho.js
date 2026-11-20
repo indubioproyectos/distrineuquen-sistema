@@ -4,14 +4,17 @@
  * and the open route is polled every few seconds, so the driver's ticks from
  * the phone show up here. Rules and texts come from the server
  * (models/despacho.py, controllers/despacho.py).
+ *
+ * 19.0.1.119.0: when the route's customers have other open orders that are
+ * not on it, «Controlado» comes back with `confirm` (the list) instead of
+ * closing the dispatch; a sheet shows them and «Controlar igual» sends it
+ * again with `confirmed: true`.
  */
 (function () {
   "use strict";
 
   var API = "/despacho/api/";
   var POLL_MS = 4000;
-  var REASONS = ["Falta mercadería", "No entra en la camioneta", "El cliente pidió otro día",
-                 "Pedido con un problema"];
 
   var S = {
     routes: null,     // the list of routes to dispatch
@@ -19,7 +22,7 @@
     online: true,
     auth: true,
     busy: false,      // an action is on its way
-    dialog: null,     // «Queda en el depósito»: { stop, reason, chip }
+    dialog: null,     // «Bajar al depósito»: { stop }; or «Controlado» to confirm: { confirm: [notes] }
     error: null,      // the last refusal of «Controlado»
     user: "",
   };
@@ -88,7 +91,11 @@
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     }).then(function (data) {
       if (data.route) S.route = data.route;
-      if (!data.ok) {
+      if (!data.ok && data.confirm) {
+        // other open orders of the route's customers: the dispatcher decides
+        S.error = null;
+        S.dialog = { confirm: data.confirm };
+      } else if (!data.ok) {
         if (body.action === "controlled") S.error = data.error;
         else toast(data.error || "No se pudo guardar.", true);
       } else {
@@ -174,7 +181,7 @@
       '<div class="st ' + stCls + '"><span class="drv' + (s.loaded ? " on" : "") + '">' + h(drv) + "</span>" +
       "</div>" + '<div class="st ' + stCls + '">' + h(s.message) + "</div>" +
       (route.editable ? '<button class="leave" data-a="leave" data-id="' + s.id + '"' + (can ? "" : " disabled") +
-        ">Queda en el depósito</button>" : "") + "</div>" +
+        ">Bajar al depósito</button>" : "") + "</div>" +
       '<div class="side"><span class="n">' + plural(s.parcels || 0, "bulto", "bultos") + "</span>" +
       (s.packed ? '<a class="link" target="_blank" rel="noopener" href="/armado/pedido/' + s.order_id +
         '/etiquetas">Etiquetas</a>' : "") + "</div></div>";
@@ -238,20 +245,30 @@
     return out;
   }
 
-  function viewDialog() {
-    var d = S.dialog, s = d.stop;
+  function viewConfirm() {
+    var notes = S.dialog.confirm || [];
     return '<div class="sheet-bg" data-a="dlg-bg"><div class="sheet" role="dialog" aria-modal="true">' +
-      "<h2>Queda en el depósito</h2>" +
-      '<div class="sub"><b>' + h(s.name) + "</b> · " + h(s.order) + " · " + plural(s.parcels || 0, "bulto", "bultos") +
-      "<br>Se saca de la ruta de " + h(S.route.driver_first) + " y queda libre para otra ruta.</div>" +
-      '<div class="chips">' + REASONS.map(function (r) {
-        return '<button class="chip' + (d.chip === r ? " on" : "") + '" data-a="chip" data-v="' + h(r) + '">' + h(r) + "</button>";
-      }).join("") + "</div>" +
-      '<label class="stack" style="display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--muted)">¿Por qué queda? (obligatorio)' +
-      '<textarea class="inp" rows="2" data-f="reason" placeholder="Ej.: faltó un bulto de bebidas">' + h(d.reason) +
-      "</textarea></label>" +
+      "<h2>¿Controlar igual?</h2>" +
+      '<div class="sub">' + (notes.length === 1 ? "Un cliente de esta ruta tiene otro pedido que no va cargado:" :
+        "Clientes de esta ruta tienen otros pedidos que no van cargados:") + "</div>" +
+      '<ul class="confirm-list">' + notes.map(function (n) { return "<li>" + h(n) + "</li>"; }).join("") + "</ul>" +
+      '<div class="grid2"><button class="btn outline" data-a="dlg-cancel">Volver</button>' +
+      '<button class="btn teal" data-a="dlg-force"' + (S.online && !S.busy ? "" : " disabled") +
+      ">Controlar igual</button></div>" +
+      "</div></div>";
+  }
+
+  // 19.0.1.119.0: one tap and one confirmation, no reason to type (the
+  // server notes «Bajado en el despacho»)
+  function viewDialog() {
+    if (S.dialog.confirm) return viewConfirm();
+    var s = S.dialog.stop;
+    return '<div class="sheet-bg" data-a="dlg-bg"><div class="sheet" role="dialog" aria-modal="true">' +
+      "<h2>¿Bajar " + h(s.order) + " (" + h(s.name) + ") al depósito?</h2>" +
+      '<div class="sub">Vuelve a la cola de Sin ruta.</div>' +
       '<div class="grid2"><button class="btn outline" data-a="dlg-cancel">Cancelar</button>' +
-      '<button class="btn red" data-a="dlg-ok"' + (d.reason.trim() ? "" : " disabled") + ">Dejar en el depósito</button></div>" +
+      '<button class="btn red" data-a="dlg-ok"' + (S.online && !S.busy ? "" : " disabled") +
+      ">Bajar al depósito</button></div>" +
       "</div></div>";
   }
 
@@ -274,23 +291,16 @@
     leave: function (el) {
       var s = findStop(+el.getAttribute("data-id"));
       if (!s) return;
-      S.dialog = { stop: s, reason: "", chip: null };
-      render();
-      var ta = app.querySelector("[data-f=reason]");
-      if (ta) ta.focus();
-    },
-    chip: function (el) {
-      var v = el.getAttribute("data-v");
-      S.dialog.chip = v; S.dialog.reason = v;
+      S.dialog = { stop: s };
       render();
     },
     "dlg-bg": function (el, ev) { if (ev.target === el) ACTIONS["dlg-cancel"](); },
     "dlg-cancel": function () { S.dialog = null; render(); },
     "dlg-ok": function () {
       var d = S.dialog;
-      if (!d || !d.reason.trim()) return;
-      act({ action: "leave", stop_id: d.stop.id, reason: d.reason.trim() }).then(function (data) {
-        if (data && data.ok) { S.dialog = null; toast(d.stop.order + " queda en el depósito."); render(); }
+      if (!d || !d.stop) return;
+      act({ action: "leave", stop_id: d.stop.id }).then(function (data) {
+        if (data && data.ok) { S.dialog = null; toast(d.stop.order + " volvió al depósito, sin ruta."); render(); }
       });
     },
     undo: function (el) {
@@ -299,6 +309,11 @@
       });
     },
     controlled: function () { act({ action: "controlled" }); },
+    "dlg-force": function () {
+      act({ action: "controlled", confirmed: true }).then(function (data) {
+        if (S.dialog && S.dialog.confirm && !(data && data.confirm)) { S.dialog = null; render(); }
+      });
+    },
   };
 
   document.addEventListener("click", function (ev) {
@@ -309,16 +324,6 @@
     ev.preventDefault();
     handler(el, ev);
   });
-  document.addEventListener("input", function (ev) {
-    var el = ev.target;
-    if (el.getAttribute && el.getAttribute("data-f") === "reason" && S.dialog) {
-      S.dialog.reason = el.value;
-      S.dialog.chip = REASONS.indexOf(el.value) >= 0 ? el.value : null;
-      var ok = app.querySelector("[data-a=dlg-ok]");
-      if (ok) ok.disabled = !el.value.trim();
-    }
-  });
-
   window.addEventListener("hashchange", function () {
     S.error = null; S.dialog = null;
     if (!currentId()) S.route = null;

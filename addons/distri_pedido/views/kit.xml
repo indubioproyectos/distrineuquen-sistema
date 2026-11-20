@@ -100,6 +100,7 @@
             y después <b>Agregar a inicio</b>.</p>
         </section>
         <nav t-if="not aj['publico']" class="dn-aj__links">
+          <a t-if="aj.get('capacitacion')" href="/proyecto">Capacitación</a>
           <a t-if="aj.get('perfil')" href="/mi-perfil">Mi perfil</a>
           <a t-if="aj.get('cuenta')" href="/mi-cuenta">Mi cuenta corriente</a>
           <a t-if="aj.get('clave')" href="/mi-clave">Cambiar clave</a>

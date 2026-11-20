@@ -15,7 +15,7 @@ from odoo import http
 from odoo.exceptions import ConcurrencyError
 from odoo.http import request
 
-from .proyecto import project_strip
+from .proyecto import project_strip, staff_only
 
 _logger = logging.getLogger(__name__)
 
@@ -991,6 +991,7 @@ class TomaDePedidos(http.Controller):
                 and usuario.partner_id.sudo().commercial_partner_id.distri_alta_estado == "perfil")
 
     @http.route("/presentacion", type="http", auth="public", website=True, sitemap=False)
+    @staff_only
     def presentacion(self, **kw):
         """Una pagina para mandar por WhatsApp a la gerencia.
 
@@ -1004,6 +1005,7 @@ class TomaDePedidos(http.Controller):
         })
 
     @http.route("/presentacion/cobranza", type="http", auth="public", website=True, sitemap=False)
+    @staff_only
     def presentacion_cobranza(self, **kw):
         """La propuesta de cobranza en ruta, en el mismo formato que /presentacion."""
         return request.render("distri_pedido.presentacion_cobranza", {
@@ -1013,6 +1015,7 @@ class TomaDePedidos(http.Controller):
         })
 
     @http.route("/presentacion/reparto", type="http", auth="public", website=True, sitemap=False)
+    @staff_only
     def presentacion_reparto(self, **kw):
         """La app del repartidor, para mostrarles a los repartidores antes de usarla."""
         return request.render("distri_pedido.presentacion_reparto", {
@@ -1022,6 +1025,7 @@ class TomaDePedidos(http.Controller):
         })
 
     @http.route("/presentacion/presupuesto", type="http", auth="public", website=True, sitemap=False)
+    @staff_only
     def presentacion_presupuesto(self, **kw):
         """El presupuesto: Odoo Online contra Odoo Community propio y el servicio."""
         return request.render("distri_pedido.presentacion_presupuesto", {

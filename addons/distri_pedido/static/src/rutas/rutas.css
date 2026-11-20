@@ -75,6 +75,9 @@
 .rt-meta{font-size:13px;color:var(--dn-muted)}
 .rt-ord--held .rt-meta{color:var(--dn-amber-text)}
 .rt-notice{font-size:13px;color:var(--dn-amber-text)}
+/* 19.0.1.119.0: the customer's address, one line, and its orders side by side */
+.rt-addr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rt-ord--sib{border-left:4px solid var(--dn-navy-2)}
 .rt-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .rt-chips .dn-chip{min-height:22px;font-size:12px}
 .rt-amt{white-space:nowrap}

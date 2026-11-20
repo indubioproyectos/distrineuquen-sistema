@@ -5,6 +5,12 @@ from odoo.tests import HttpCase, new_test_user, tagged
 @tagged("post_install", "-at_install")
 class TestProyecto(HttpCase):
 
+    def setUp(self):
+        super().setUp()
+        # 19.0.1.119.0: /proyecto and /presentacion* are for the staff
+        staff = new_test_user(self.env, login="staff_proyecto", groups="base.group_user")
+        self.authenticate(staff.login, staff.login)
+
     def test_hub_shows_new_modules(self):
         body = self.url_open("/proyecto").text
         expected = {

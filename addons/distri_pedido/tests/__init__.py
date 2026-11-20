@@ -74,3 +74,4 @@ from . import test_v116
 from . import test_v117_caja_online
 from . import test_v117_ya_armado
 from . import test_v118_caja_factura
+from . import test_v119_mismo_cliente

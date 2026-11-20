@@ -5,7 +5,7 @@ import html
 import os
 import re
 
-from odoo.tests import HttpCase, tagged
+from odoo.tests import HttpCase, new_test_user, tagged
 
 MODULE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROLES = ("armado", "reparto", "deposito", "caja", "administracion", "vendedores")
@@ -44,6 +44,12 @@ def module_sources():
 
 @tagged("post_install", "-at_install")
 class TestCapacitacion(HttpCase):
+
+    def setUp(self):
+        super().setUp()
+        # 19.0.1.119.0: /proyecto is for the staff
+        staff = new_test_user(self.env, login="staff_capacitacion", groups="base.group_user")
+        self.authenticate(staff.login, staff.login)
 
     def _page(self):
         response = self.url_open("/proyecto")

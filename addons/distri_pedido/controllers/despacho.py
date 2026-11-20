@@ -5,6 +5,12 @@ only (there is a connection at the depot): every tick goes straight to the serve
 screen polls the route every few seconds to show the driver's ticks. The
 rules live in models/despacho.py; everything runs as the logged-in user, so
 the model checks the group and the two-person rule.
+
+19.0.1.119.0: «Controlado» on a route whose customer has another open order
+that is not on it (models/planificacion.py _planning_sibling_notes) answers
+{"ok": false, "confirm": [...]} without closing the dispatch; the screen
+lists them and sends the action again with "confirmed": true. Every existing
+refusal comes first and stays as it was.
 """
 import hashlib
 import json
@@ -24,6 +30,15 @@ STATIC = "/distri_pedido/static/src/despacho/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "despacho")
 ASSETS = ("despacho.js", "despacho.css")
 ACTIONS = ("check", "uncheck", "leave", "undo", "controlled")
+
+
+class _NeedsConfirmation(Exception):
+    """«Controlado» passed every check, but the dispatcher has to see the
+    customers' other open orders first: the savepoint rolls it back."""
+
+    def __init__(self, notes):
+        super().__init__(notes)
+        self.notes = notes
 
 
 def asset_version():
@@ -113,6 +128,10 @@ class Despacho(http.Controller):
         try:
             with request.env.cr.savepoint():
                 self._do(route, body)
+        except _NeedsConfirmation as exc:
+            request.env.invalidate_all()
+            return self._json({"ok": False, "confirm": exc.notes,
+                               "route": route._despacho_payload()})
         except UserError as exc:
             request.env.invalidate_all()
             return self._json({"ok": False, "error": str(exc.args[0] if exc.args else exc),
@@ -122,7 +141,10 @@ class Despacho(http.Controller):
     def _do(self, route, body):
         action = body["action"]
         if action == "controlled":
+            notes = route._planning_sibling_notes()
             route.action_mark_controlled()
+            if notes and body.get("confirmed") is not True:
+                raise _NeedsConfirmation(notes)
             return
         if action == "undo":
             try:

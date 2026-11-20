@@ -35,9 +35,16 @@ controllers/reparto.py and static/src/reparto/app.js):
   allowed (a second route of the day) but warned: in the toast of the change,
   in the column («Ojo: …») and in the backend form (onchange). Before, «Nueva
   ruta» refused it.
+- 19.0.1.119.0: orders of the same customer travel together, each with its
+  own invoice (orders are invoiced when packing ends, so they are never
+  merged). The depot column shows them side by side; moving one moves the
+  customer's other orders that may move on their own (_planning_move_group);
+  a route whose customer has another open order that is not on it yet (not
+  packed, held, or packed on no route) is warned, never blocked
+  (_planning_sibling_notes), on the board and before «Controlado».
 """
 from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 from .despacho import ar_time, first_name
 from .reparto import TRIPS, _money
@@ -162,6 +169,76 @@ class DistriRoutePlanning(models.Model):
             if text:
                 return {"warning": {"title": "Repartidor con dos rutas", "message": text}}
         return None
+
+    def _planning_pending_siblings(self):
+        """[(order, kind)]: the other open orders of this route's customers
+        that are not on it and not delivered (19.0.1.119.0). kind:
+        «unpacked» (not packed yet), «held» (packed but held) or «free»
+        (packed, on no active route). Never the cancelled, delivered or
+        dispatched ones, pickups («retira» or a pickup zone), the ones
+        waiting for the customer's WhatsApp, the generic web customer, an
+        order packed and travelling on another route, or an order the
+        dispatcher left at the depot from this route (a decision with its
+        reason, models/despacho.py). Only while the route is at the depot."""
+        self.ensure_one()
+        if self.kind != "route" or self.state != "draft":
+            return []
+        route = self.sudo()
+        stops = route.stop_ids
+        partners = stops.partner_id.filtered(lambda p: not p.distri_generic_partner)
+        if not partners:
+            return []
+        skip = stops.order_id | route.left_order_ids.order_id
+        orders = self.env["sale.order"].sudo().search([
+            ("partner_id", "in", partners.ids), ("state", "=", "sale"),
+            ("id", "not in", skip.ids), ("company_id", "=", route.company_id.id),
+            ("distri_entrega", "!=", "retira"), ("distri_wa_state", "!=", "waiting"),
+        ], order="date_order, id")
+        out = []
+        for order in orders:
+            if order.distri_delivery_state in ("delivered", "dispatched") \
+                    or order._distri_pickup_zone():
+                continue
+            if order.distri_armado != "armado":
+                out.append((order, "unpacked"))
+                continue
+            active = order.distri_stop_ids.filtered(
+                lambda s: s.route_id.state != "settled"
+                and not (s.state == "not_delivered" and s.unloaded))
+            if not active:
+                out.append((order, "held" if order.distri_retenido else "free"))
+        return out
+
+    def _planning_sibling_notes(self):
+        """One «Ojo: …» sentence per customer and situation (see
+        _planning_pending_siblings), else []. Never blocks."""
+        self.ensure_one()
+        groups, index = [], {}
+        for order, kind in self._planning_pending_siblings():
+            key = (order.partner_id.id, kind)
+            if key not in index:
+                index[key] = (order.partner_id, kind, [])
+                groups.append(index[key])
+            index[key][2].append(order.name)
+        notes = []
+        for partner, kind, names in groups:
+            many = len(names) > 1
+            what = "otros pedidos (%s)" % ", ".join(names) if many else \
+                "otro pedido (%s)" % names[0]
+            if kind == "unpacked":
+                tail = ("sin armar. ¿Los terminás de armar para cargarlos?" if many
+                        else "sin armar. ¿Lo terminás de armar para cargarlo?")
+            elif kind == "held":
+                tail = ("armados pero retenidos. ¿Los liberás para cargarlos?" if many
+                        else "armado pero retenido. ¿Lo liberás para cargarlo?")
+            else:
+                tail = ("armados que no están en ninguna ruta. ¿Los sumás a esta ruta?" if many
+                        else "armado que no está en ninguna ruta. ¿Lo sumás a esta ruta?")
+            notes.append("Ojo: %s tiene %s %s" % (partner._distri_app_name(), what, tail))
+        return notes
+
+    def _planning_sibling_warning(self):
+        return " ".join(self._planning_sibling_notes())
 
     def _planning_zones(self):
         """The zones of its stops, else the zones chosen for the route."""
@@ -303,14 +380,83 @@ class DistriRoutePlanning(models.Model):
     def planning_move(self, order, target=None, before=None):
         """One order to a route (`target`), or back to the depot column
         (`target` empty). `before`: the stop of the target it goes in front
-        of (else at the end). Returns the new stop (or an empty recordset)."""
+        of (else at the end). Returns the new stop (or an empty recordset).
+        19.0.1.119.0: the customer's other orders go with it
+        (_planning_move_group)."""
+        return self._planning_move_group(order, target, before)[0]
+
+    @api.model
+    def _planning_active_stops(self, order):
+        """The stops that hold the order (the C3 rule of
+        _check_one_active_route)."""
+        return order.sudo().distri_stop_ids.filtered(
+            lambda s: s.route_id.state != "settled"
+            and not (s.state == "not_delivered" and s.unloaded))
+
+    @api.model
+    def _planning_move_group(self, order, target=None, before=None):
+        """planning_move, and then the same customer's other orders follow
+        it, each through the same checks as a move of its own: into a
+        route, the customer's free orders (the depot column's rules, not
+        held, not left at the depot from that route) and the ones still
+        movable on the route it came from, right after it; back to the
+        depot, the ones still movable on that route. An order that does not
+        pass stays where it is. Returns (new stop, the other orders moved)."""
+        check_planner(self.env)
+        order.ensure_one()
+        target = target or self.browse()
+        source = self._planning_active_stops(order)[:1].route_id
+        new = self._planning_move_one(order, target, before)
+        Order = self.env["sale.order"]
+        if source == target or not (source or target):
+            return new, Order
+        moved = Order
+        for other in self._planning_group_candidates(order, source, target):
+            try:
+                with self.env.cr.savepoint():
+                    self._planning_move_one(other, target)
+            except (UserError, ValidationError):
+                continue
+            moved |= other
+        if target and new and moved:
+            target.invalidate_recordset(["stop_ids"])
+            followers = target.stop_ids.filtered(lambda s: s.order_id in moved)
+            ids = [s.id for s in target.stop_ids if s not in followers]
+            at = ids.index(new.id) + 1 if new.id in ids else len(ids)
+            ids[at:at] = followers.ids
+            target.planning_reorder(ids)
+        return new, moved
+
+    @api.model
+    def _planning_group_candidates(self, order, source, target):
+        """The customer's other orders that may follow `order` (each one is
+        still checked by _planning_move_one)."""
+        partner = order.sudo().partner_id
+        Order = self.env["sale.order"]
+        if not partner or partner.distri_generic_partner:
+            return Order
+        found = Order.sudo()
+        if source:
+            found |= source.sudo().stop_ids.filtered(
+                lambda s: s.partner_id == partner and s.order_id != order
+                and s.state == "pending" and not (s.loaded or s.dispatch_checked)).order_id
+        if target:
+            left = target.sudo().left_order_ids.order_id
+            free = Order.sudo().search(
+                self._planning_free_domain(target.company_id)
+                + [("partner_id", "=", partner.id), ("id", "!=", order.id)],
+                order="distri_armado_fin, id")
+            found |= free.filtered(lambda o: o not in left and target._order_is_free(o))
+        return found.with_env(self.env)
+
+    @api.model
+    def _planning_move_one(self, order, target=None, before=None):
+        """The move of one order (planning_move before 19.0.1.119.0)."""
         check_planner(self.env)
         order.ensure_one()
         target = target or self.browse()
         Stop = self.env["distri.route.stop"]
-        active = order.sudo().distri_stop_ids.filtered(
-            lambda s: s.route_id.state != "settled"
-            and not (s.state == "not_delivered" and s.unloaded))
+        active = self._planning_active_stops(order)
         current = active[:1]
         if len(active) > 1:
             raise UserError("El pedido %s figura en más de una ruta: revisalo en el backend."
@@ -422,7 +568,7 @@ class DistriRoutePlanning(models.Model):
             index[key]["parcels"] += order.distri_bultos
         groups.sort(key=lambda g: g["sort"])
         for g in groups:
-            g["orders"].sort(key=lambda c: (c["held"], c["packed_at"] or "", c["id"]))
+            g["orders"] = self._planning_group_customers(g["orders"])
         # «Nuevo viaje con …» only when that driver has no route for it yet
         taken = {(c["driver_id"], c["trip"]) for c in columns if c["driver_id"]}
         for c in columns:
@@ -462,6 +608,32 @@ class DistriRoutePlanning(models.Model):
         return free, held
 
     @api.model
+    def _planning_group_customers(self, cards):
+        """The cards of a zone, oldest packed first, with the orders of the
+        same customer side by side (where the customer's first one is) and
+        the chip «N pedidos de este cliente» (19.0.1.119.0)."""
+        def own(c):
+            return (c["held"], c["packed_at"] or "", c["id"])
+        first, count = {}, {}
+        for c in cards:
+            key = c["partner_id"]
+            count[key] = count.get(key, 0) + 1
+            first[key] = min(first.get(key, own(c)), own(c))
+        for c in cards:
+            n = count[c["partner_id"]]
+            c["siblings"] = n - 1
+            if n > 1:
+                c["chips"] = [("%s pedidos de este cliente" % n, "neutral")] + c["chips"]
+        return sorted(cards, key=lambda c: (first[c["partner_id"]], c["partner_id"], own(c)))
+
+    @api.model
+    def _planning_address(self, partner):
+        """«Calle 123, Ciudad»: where the order goes, short."""
+        street = " ".join((partner.street or "").split())
+        city = " ".join((partner.city or "").split())
+        return ", ".join(p for p in (street, city) if p)
+
+    @api.model
     def _planning_card(self, order, held=False):
         o = order.sudo()
         bits = [o.name, parcels_text(o.distri_bultos)]
@@ -483,6 +655,9 @@ class DistriRoutePlanning(models.Model):
             "id": o.id,
             "name": o.name,
             "client": o.partner_id._distri_app_name(),
+            "partner_id": o.partner_id.id,
+            "address": self._planning_address(o.partner_shipping_id or o.partner_id),
+            "siblings": 0,
             "meta": " · ".join(b for b in bits if b),
             "amount": _money(o._distri_amount_to_collect()),
             "parcels": o.distri_bultos,
@@ -560,6 +735,8 @@ class DistriRoutePlanning(models.Model):
             "can_delete": editable and not self.stop_ids and not self.left_order_ids,
             # 19.0.1.113.0: the same driver, date and trip on another route
             "twin": self._planning_twin_warning(),
+            # 19.0.1.119.0: a customer of the route with another open order
+            "siblings": self._planning_sibling_notes(),
             "next_trip": next((t for t, _ in TRIPS if t > (self.trip or "1")), None)
             if self.state != "draft" and self.driver_id and self.date == today_ar() else None,
             "sheet_url": "/report/pdf/distri_pedido.hoja_ruta_documento/%s" % self.id,

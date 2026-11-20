@@ -393,6 +393,8 @@ class TestV115Http(PedidoAbiertoMixin, RepartoMixin, HttpCase):
     # ------------------------------------------------------------ /proyecto
 
     def test_proyecto_new_steps(self):
+        # 19.0.1.119.0: staff only
+        self.authenticate(self.italo.login, self.italo.login)
         body = self.url_open("/proyecto").text
         self.assertIn("Confirmar los pedidos de los vendedores", body)
         self.assertIn("La app te pide el GPS", body)

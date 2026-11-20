@@ -87,6 +87,9 @@ class ResUsers(models.Model):
             "perfil": bool(user.share and socio.distri_alta_estado),
             "cuenta": bool(user.share),
             "clave": True,
+            # 19.0.1.119.0: /proyecto from every screen (single-role users
+            # never land on Inicio, where its tile is)
+            "capacitacion": not user.share,
         }
 
     @api.model_create_multi

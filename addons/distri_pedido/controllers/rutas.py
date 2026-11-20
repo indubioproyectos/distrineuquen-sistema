@@ -153,9 +153,19 @@ class Rutas(http.Controller):
             target = self._route(form.get("route_id"), required=False) \
                 if _int(form.get("route_id")) else Route
             before = env["distri.route.stop"].browse(_int(form.get("before_id"))).exists()
-            Route.planning_move(order, target, before or None)
-            return ("%s → %s" % (order.name, target._planning_title())) if target else \
+            source = Route._planning_active_stops(order)[:1].route_id
+            _new, moved = Route._planning_move_group(order, target, before or None)
+            text = ("%s → %s." % (order.name, target._planning_title())) if target else \
                 "%s vuelve al depósito." % order.name
+            # 19.0.1.119.0: the customer's other orders travel with it, and a
+            # customer with another open order off the route is warned
+            if moved:
+                names = ", ".join(moved.mapped("name"))
+                text += (" También se movieron %s." if len(moved) > 1
+                         else " También se movió %s.") % names
+            route = target or (source if source.kind == "route" else Route)
+            warning = route._planning_sibling_warning() if route else ""
+            return " ".join(filter(None, [text, warning]))
         route = self._route(form.get("route_id"))
         if action == "orden":
             ids = [_int(x) for x in (form.get("stop_ids") or "").split(",") if _int(x)]

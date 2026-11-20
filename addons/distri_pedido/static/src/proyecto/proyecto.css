@@ -84,6 +84,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible{o
 .fase b{color:#fff}
 .atajos{display:flex;flex-wrap:wrap;gap:.4rem 1rem;font-size:.9rem}
 .atajos a{color:var(--turq);font-weight:700;text-decoration:none}
+.practicar{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin-top:.8rem;padding:0 1.2rem;border-radius:999px;background:var(--turq);color:var(--navy);font-weight:800;text-decoration:none}
 
 /* Sections */
 main{display:grid;gap:0}

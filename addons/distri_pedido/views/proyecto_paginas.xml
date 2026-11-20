@@ -111,6 +111,8 @@
       </div>
     </nav>
     <div class="atajos"><a href="#circuito">El circuito del pedido</a><a href="#practica">Practicá sin miedo</a></div>
+    <!-- 19.0.1.119.0: straight to the practice environment (inside it, its landing) -->
+    <a class="practicar" t-att-href="practica_url" t-att-target="None if en_practica else '_blank'" t-att-rel="None if en_practica else 'noopener'">Ir a practicar</a>
   </div>
 </header>
 
@@ -328,8 +330,8 @@
           <li>Entrá a <b>Despacho</b>. Aparecen las rutas asignadas esperando salir.</li>
           <li>Elegí la ruta y entrá a <b>Control de carga</b>.</li>
           <li>Tildá cada pedido cuando lo ves subir. El repartidor tilda lo mismo en su celular.</li>
-          <li>Si un pedido no sale, tocá <span class="k2">Dejar en el depósito</span>. Si tildaste mal, <span class="k2">Deshacer</span>.</li>
-          <li>Cuando todos los pedidos tienen los dos controles, la ruta queda <b>Controlado</b> y el repartidor puede salir.</li>
+          <li>Si un pedido no sale, tocá <span class="k2">Bajar al depósito</span> y confirmá: vuelve a la cola de Sin ruta. Después lo pasás a otra ruta desde <b>Planificación</b> en la PC. Si te equivocaste, <span class="k2">Deshacer</span>.</li>
+          <li>Cuando todos los pedidos tienen los dos controles, tocá <span class="k2">Controlado</span> para cerrar la carga. Recién ahí el repartidor puede salir.</li>
         </ol>
         <p class="nota">Si dice <span class="txt">Sos el repartidor de esta ruta: la carga la controla otra persona.</span>, es a propósito: nadie controla su propia carga.</p>
       </li>
@@ -694,7 +696,7 @@
       <div class="tarjeta">
         <h3>Cómo se practica</h3>
         <ul>
-          <li>Entrá a <a href="https://practica.distrineuquen.com" rel="noopener"><b>practica.distrineuquen.com</b></a>, poné el código que te pasa administración y elegí tu rol. No hace falta usuario ni clave.</li>
+          <li>Entrá a <a t-att-href="practica_url" t-att-target="None if en_practica else '_blank'" t-att-rel="None if en_practica else 'noopener'"><b>practica.distrineuquen.com</b></a>, poné el código que te pasa administración y elegí tu rol. No hace falta usuario ni clave.</li>
           <li>Es una copia del sistema con clientes inventados: nada llega a un cliente real ni mueve una cuenta de verdad.</li>
           <li>Hacé el circuito entero: tomá un pedido, armalo, ponelo en una ruta, entregalo, cobralo y rendilo.</li>
         </ul>

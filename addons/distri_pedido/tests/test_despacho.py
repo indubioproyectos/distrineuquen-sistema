@@ -223,10 +223,8 @@ class TestDespacho(RepartoMixin, HttpCase):
 
     # -------------------------------------------------------- left at depot
 
-    def test_left_at_depot_requires_reason_frees_order_and_is_not_counted(self):
+    def test_left_at_depot_frees_order_and_is_not_counted(self):
         stop = self._as(self.dispatcher, self.s2)
-        with self.assertRaisesRegex(UserError, "por qué"):
-            stop.action_leave_at_depot("   ")
         with self.assertRaises(UserError):
             self._as(self.driver, self.s2).action_leave_at_depot("No entra")
         order = self.s2.order_id
@@ -332,11 +330,10 @@ class TestDespacho(RepartoMixin, HttpCase):
         res = act(action="controlled")
         self.assertFalse(res["ok"])
         self.assertIn("No se puede dar por controlada", res["error"])
-        res = act(action="leave", stop_id=self.s3.id, reason="")
-        self.assertFalse(res["ok"])
-        res = act(action="leave", stop_id=self.s3.id, reason="El cliente pidió otro día")
+        # 19.0.1.119.0: «Bajar al depósito» is one tap, no reason typed
+        res = act(action="leave", stop_id=self.s3.id)
         self.assertTrue(res["ok"], res)
-        self.assertEqual(res["route"]["left"][0]["reason"], "El cliente pidió otro día")
+        self.assertEqual(res["route"]["left"][0]["reason"], "Bajado en el despacho")
         self._load(self.s1, self.s2)
         for stop in (self.s1, self.s2):
             self.assertTrue(act(action="check", stop_id=stop.id)["ok"])

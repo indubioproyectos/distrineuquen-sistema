@@ -75,6 +75,10 @@ TILES = [
     ("historial", "distri_pedido.menu_caja_historial", "Historial de cajas",
      "Las cajas de todos los cajeros, con sus cierres", IMG + "cobros.png", "clock",
      "/caja/historial"),
+    # 19.0.1.119.0: the staff training page (controllers/proyecto.py), for
+    # every internal user, last so it never pushes the daily work down
+    ("capacitacion", None, "Capacitación", "Cómo se usa cada pantalla y dónde practicar",
+     IMG + "app.png", "doc", "/proyecto"),
 ]
 
 
