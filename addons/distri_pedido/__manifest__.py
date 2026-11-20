@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.121.0",
+    "version": "19.0.1.122.0",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -288,6 +288,20 @@
     # distri_pedido.encomienda_remitente, the company line under it); the
     # package box, the order number and the barcode stay. Other labels are
     # unchanged.
+    # 19.0.1.122.0 (owner): the home page «/» no longer shows the «Farmacia ·
+    # Venta libre» card (controllers/sitio.py CATEGORIAS_OCULTAS_INICIO, by
+    # the section key); /pedido is unchanged. «Rearmar» on the sale order
+    # form (models/rearmar.py, administración; gerencia implies it): an
+    # invoiced order not delivered and without payments goes back to /armado
+    # as the script of 20/11/2026 did (invoice and order cancelled, a
+    # confirmed copy back in the packing queue, both chatters linked). An
+    # invoice with a CAE of ARCA is refused. «Inicio» lists its tiles in
+    # the order of the daily work (controllers/tablero.py
+    # DEFAULT_TILE_ORDER, one list a per-user order can replace later).
+    # The driver app gets «Rutas anteriores» (/reparto/anteriores,
+    # controllers/reparto_anteriores.py): his own routes of the last 30
+    # days, read only, with each visit's result and what he collected,
+    # never a customer's balance. No new fields, no migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",
@@ -296,7 +310,7 @@
              "views/pegar_numero.xml", "views/comprobante_cliente.xml",
              "views/cliente_provisorio.xml", "views/revisar_app.xml", "views/deposito_app.xml",
              "views/rutas_app.xml", "views/hoja_ruta.xml", "views/asignar_app.xml",
-             "views/agilpedido_app.xml"],
+             "views/agilpedido_app.xml", "views/reparto_anteriores.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare

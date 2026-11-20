@@ -98,10 +98,13 @@ class TestSitioPublico(HttpCase):
 
     def test_content_sections(self):
         page = texto(self._home())
-        for titulo in [c[1] for c in sitio.CATEGORIAS]:
+        # 19.0.1.122.0: «Farmacia · Venta libre» is not shown on the home
+        for key, titulo, _ejemplos in sitio.CATEGORIAS:
+            if key not in sitio.CATEGORIAS_OCULTAS_INICIO:
+                self.assertIn(titulo, page)
+        for titulo in ("Gaseosas", "Vinos", "Jugos"):
             self.assertIn(titulo, page)
-        for titulo in ("Farmacia · Venta libre", "Gaseosas", "Vinos", "Jugos"):
-            self.assertIn(titulo, page)
+        self.assertNotIn("Farmacia · Venta libre", page)
         self.assertNotIn("Medicamentos", page)
         self.assertNotIn(">Bebidas<", self._home())
         # owner review: no price lists on the public site

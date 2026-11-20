@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- 19.0.1.122.0 «Rutas anteriores» of the driver app
+       (controllers/reparto_anteriores.py): read only, no forms or buttons
+       that change anything. The look of /reparto (distri_ui.css, app.css). -->
+  <template id="reparto_anteriores_head" name="Reparto: cabecera de rutas anteriores">
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+    <meta name="theme-color" content="#10243f"/>
+    <meta name="robots" content="noindex,nofollow"/>
+    <link rel="icon" t-att-href="static + 'icon-192.png?v=' + version"/>
+    <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
+    <link rel="stylesheet" t-att-href="static + 'app.css?v=' + version"/>
+    <!-- plain server pages: navigation without extra history, like /cobro -->
+    <t t-call="distri_pedido.sin_historial"/>
+  </template>
+
+  <template id="reparto_anteriores" name="Reparto: rutas anteriores">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <t t-call="distri_pedido.reparto_anteriores_head"/>
+  <title>Rutas anteriores · <t t-esc="empresa"/></title>
+</head>
+<body>
+  <div id="app">
+    <div class="head">
+      <a class="back" href="/reparto">‹ Mi reparto</a>
+      <h1>Rutas anteriores</h1>
+      <div class="sub">Tus rutas de los últimos <t t-esc="dias"/> días. Solo para mirar.</div>
+    </div>
+    <div class="body">
+      <div t-if="not rutas" class="card">No tenés rutas de los últimos <t t-esc="dias"/> días.</div>
+      <a t-foreach="rutas" t-as="r" class="visit" t-att-href="'/reparto/anteriores/%s' % r['id']">
+        <div class="split"><span class="t" t-esc="r['date']"/><span class="pill info" t-esc="r['state']"/></div>
+        <div class="d" t-esc="r['name']"/>
+        <div class="d">
+          <t t-esc="r['stops']"/> <t t-esc="'visita' if r['stops'] == 1 else 'visitas'"/> ·
+          <t t-esc="r['delivered']"/> <t t-esc="'entregada' if r['delivered'] == 1 else 'entregadas'"/> ·
+          <t t-esc="r['not_delivered']"/> sin entregar
+        </div>
+        <div class="d">Efectivo cobrado: <b t-esc="r['cash']"/>
+          <t t-if="r['transfer']"> · Transferencias: <b t-esc="r['transfer']"/></t></div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+
+  <template id="reparto_anterior" name="Reparto: una ruta anterior">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <t t-call="distri_pedido.reparto_anteriores_head"/>
+  <title><t t-esc="ruta['name']"/> · <t t-esc="empresa"/></title>
+</head>
+<body>
+  <div id="app">
+    <div class="head">
+      <a class="back" href="/reparto/anteriores">‹ Rutas anteriores</a>
+      <h1 t-esc="ruta['date']"/>
+      <div class="sub"><t t-esc="ruta['name']"/> · <t t-esc="ruta['state']"/></div>
+      <div class="sub">
+        <t t-esc="ruta['delivered']"/> de <t t-esc="ruta['stops']"/> entregadas ·
+        Efectivo cobrado: <t t-esc="ruta['cash']"/>
+        <t t-if="ruta['transfer']"> · Transferencias: <t t-esc="ruta['transfer']"/></t>
+      </div>
+    </div>
+    <div class="body">
+      <div t-if="not visitas" class="card">Esta ruta no tuvo visitas.</div>
+      <div t-foreach="visitas" t-as="v" class="visit" data-stop="">
+        <div class="split">
+          <span class="t"><t t-esc="v_index + 1"/>. <t t-esc="v['name']"/></span>
+          <span t-att-class="'pill %s' % v['kind']" t-esc="v['result']"/>
+        </div>
+        <div class="d"><t t-esc="v['address']"/><t t-if="v['address'] and v['town']"> · </t><t t-esc="v['town']"/></div>
+        <div class="d">Pedido <t t-esc="v['order']"/></div>
+        <div t-if="v['reason']" class="d">Motivo: <t t-esc="v['reason']"/></div>
+        <div t-if="v['cash'] or v['transfer']" class="d">
+          <t t-if="v['cash']">Efectivo: <b t-esc="v['cash']"/></t>
+          <t t-if="v['cash'] and v['transfer']"> · </t>
+          <t t-if="v['transfer']">Transferencia: <b t-esc="v['transfer']"/></t>
+        </div>
+        <div t-if="v['comment']" class="d">Comentario: <t t-esc="v['comment']"/></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+
+</odoo>

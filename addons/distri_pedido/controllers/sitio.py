@@ -63,6 +63,17 @@ CATEGORIAS = [
     ("baterias", "Baterías", "Duracell y Energizer"),
     ("pegamentos", "Pegamentos", "Poxipol, Poxilina, La Gotita"),
 ]
+# 19.0.1.122.0 (owner): sections kept in CATEGORIAS but not shown as a card
+# on the home page, by their stable key (the image name), never by title.
+# /pedido lists the real product categories and is not affected.
+CATEGORIAS_OCULTAS_INICIO = frozenset({"farmacia"})
+
+
+def categorias_inicio():
+    """The category cards of the home page."""
+    return [dict(imagen("cat-" + key, "jpg"), titulo=titulo, ejemplos=ejemplos)
+            for key, titulo, ejemplos in CATEGORIAS if key not in CATEGORIAS_OCULTAS_INICIO]
+
 
 # Brands (owner review of 18/11/2026): the best-known cigarette brands
 # first, with the same tile as the rest (cut from the catalog pages); then
@@ -207,8 +218,7 @@ class SitioPublico(http.Controller):
             "portada": foto("portada3", (640, 960, 1280)),
             "comercio": foto("comercio", (480, 800)),
             "reparto_foto": foto("reparto", (480, 800)),
-            "categorias": [dict(imagen("cat-" + key, "jpg"), titulo=titulo, ejemplos=ejemplos)
-                           for key, titulo, ejemplos in CATEGORIAS],
+            "categorias": categorias_inicio(),
             "marcas_texto": MARCAS_TEXTO,
             "marcas": [dict(imagen(key, "png"), nombre=nombre) for key, nombre in MARCAS],
             "otras_marcas": OTRAS_MARCAS,

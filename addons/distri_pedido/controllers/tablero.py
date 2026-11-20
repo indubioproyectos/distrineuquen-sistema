@@ -80,9 +80,31 @@ TILES = [
      "/caja/historial"),
     # 19.0.1.119.0: the staff training page (controllers/proyecto.py), for
     # every internal user, last so it never pushes the daily work down
+    # (19.0.1.122.0: the order is DEFAULT_TILE_ORDER)
     ("capacitacion", None, "Capacitación", "Cómo se usa cada pantalla y dónde practicar",
      IMG + "app.png", "doc", "/proyecto"),
 ]
+
+
+# 19.0.1.122.0 (owner): the default order of the tiles, the order of the
+# daily work: take the order, review it, pack it, deliver it, collect and
+# settle, then the accounts, the cash history, the payments boards and the
+# training last. TILES only defines the tiles; this one list orders them
+# (a per-user order can replace it later). «Reparto» (backend: routes,
+# settlements, cases) goes after «Mi reparto» and «Caja del día» after
+# «Cobro en efectivo». A key missing here goes after the listed ones.
+DEFAULT_TILE_ORDER = (
+    "pedido", "agilpedido", "revisar", "armado", "deposito", "rutas", "despacho",
+    "mireparto", "reparto", "cobro", "caja", "comprobantes", "cuentas", "historial",
+    "cobros", "capacitacion",
+)
+
+
+def ordered_tiles(order=DEFAULT_TILE_ORDER):
+    """TILES sorted by a list of keys; unknown keys keep their TILES order
+    after the listed ones."""
+    rank = {key: i for i, key in enumerate(order)}
+    return sorted(TILES, key=lambda tile: rank.get(tile[0], len(rank)))
 
 
 # 19.0.1.120.0: the root menu of a special tile (one not shown by its menu)
@@ -121,7 +143,7 @@ def staff_tiles(env):
     """The tiles the current user may open, in order."""
     visible = None
     tiles = []
-    for key, xmlid, title, subtitle, icon, glyph, url in TILES:
+    for key, xmlid, title, subtitle, icon, glyph, url in ordered_tiles():
         tile = {"key": key, "title": title, "subtitle": subtitle, "icon": icon, "glyph": glyph,
                 "menu_id": False, "url": url, "badge": None}
         if xmlid is None:

@@ -77,3 +77,4 @@ from . import test_v118_caja_factura
 from . import test_v119_mismo_cliente
 from . import test_v120
 from . import test_v121_revisar_estado
+from . import test_v122

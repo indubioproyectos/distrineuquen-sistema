@@ -749,6 +749,11 @@
         <button name="action_distri_facturar_armado" type="object" string="Facturar lo armado"
                 groups="distri_pedido.grupo_administracion" class="btn-primary"
                 invisible="state != 'sale' or distri_armado != 'armado' or distri_falta_cliente or invoice_count"/>
+        <!-- 19.0.1.122.0 (models/rearmar.py): checked again on the server -->
+        <button name="action_distri_rearmar" type="object" string="Rearmar"
+                groups="distri_pedido.grupo_administracion"
+                invisible="state != 'sale' or not invoice_count"
+                confirm="Se cancela la factura y el pedido, y se crea uno nuevo para volver a armarlo. ¿Seguir?"/>
         <button name="action_distri_dejar_para_mas_tarde" type="object" string="Dejar para más tarde"
                 groups="distri_pedido.grupo_administracion"
                 invisible="state == 'cancel' or distri_armado != 'en_armado'"

@@ -73,3 +73,5 @@ from . import planificacion
 from . import hoja_ruta
 from . import anular_ruta
 from . import factura_sin_armar
+from . import rearmar
+from . import reparto_anteriores

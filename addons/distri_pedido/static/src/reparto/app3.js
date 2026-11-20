@@ -51,6 +51,9 @@
   var CASH_PAGE = "/cobro";
   // every customer's account, for drivers too (controllers/cuentas.py)
   var ACCOUNTS_APP = "/cuentas";
+  // 19.0.1.122.0: the driver's own routes of the last days, read only
+  // (online pages, controllers/reparto_anteriores.py)
+  var PAST_ROUTES = "/reparto/anteriores";
   var SYNC_EVERY_MS = 30000;
   var LOAD_POLL_MS = 5000;
   // one POST stays under the server limit (controllers/reparto.py MAX_BODY)
@@ -963,7 +966,8 @@
       "te asigne una, descargala antes de salir, con conexión.</div></div></div>" +
       '<div class="foot"><button class="btn" data-a="download">Descargar la ruta</button>' +
       '<a class="link cashlink" href="' + ACCOUNTS_APP + '">Cuentas de clientes ›</a>' +
-      '<a class="link cashlink" href="' + CASH_PAGE + '">Cobro en efectivo ›</a></div>';
+      '<a class="link cashlink" href="' + CASH_PAGE + '">Cobro en efectivo ›</a>' +
+      '<a class="link cashlink" href="' + PAST_ROUTES + '">Rutas anteriores ›</a></div>';
   }
 
   // --- truck loading
@@ -1247,7 +1251,8 @@
       '<div class="foot"><div class="grid2"><a class="btn teal" href="#gasto">Cargar gasto</a>' +
       '<a class="btn outline" href="#cierre">Cerrar la ruta</a></div>' +
       '<a class="link cashlink" href="' + CASH_PAGE + '">Cobro en efectivo a cualquier cliente ›</a>' +
-      '<a class="link cashlink" href="' + ACCOUNTS_APP + '">Cuentas de clientes (buscar cualquier cliente) ›</a></div>';
+      '<a class="link cashlink" href="' + ACCOUNTS_APP + '">Cuentas de clientes (buscar cualquier cliente) ›</a>' +
+      '<a class="link cashlink" href="' + PAST_ROUTES + '">Rutas anteriores ›</a></div>';
   }
 
   // --- «Ver cuenta» (19.0.1.92.0): the customer's balance and newest
