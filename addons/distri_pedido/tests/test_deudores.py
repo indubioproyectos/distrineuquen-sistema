@@ -86,7 +86,8 @@ class TestDeudores(TransactionCase):
         partners = report.line_ids.mapped("partner_id")
         self.assertIn(self.direct, partners)
         self.assertIn(self.italo_customer, partners)
-        self.assertNotIn(self.reseller, partners)
+        # 19.0.1.120.0 (owner): administración sees the wholesale customers' debts
+        self.assertIn(self.reseller, partners)
         self.assertNotIn(self.paid, partners)
         balances = report.line_ids.sorted("rank").mapped("balance")
         self.assertEqual(balances, sorted(balances, reverse=True))
@@ -121,8 +122,10 @@ class TestDeudores(TransactionCase):
     def test_filters_only_select_from_the_snapshot(self):
         report = self._report()
         snapshot, built = report.snapshot_line_ids, report.built_at
-        self.assertEqual(self._lines(report, self.italo_customer).rank, 1)
-        self.assertEqual(self._lines(report, self.direct).rank, 2)
+        # 19.0.1.120.0: the wholesale customer (highest debt) is listed first
+        self.assertEqual(self._lines(report, self.reseller).rank, 1)
+        self.assertEqual(self._lines(report, self.italo_customer).rank, 2)
+        self.assertEqual(self._lines(report, self.direct).rank, 3)
         report.seller = "distrineuquen"
         self.assertEqual(report.snapshot_line_ids, snapshot)
         self.assertEqual(report.built_at, built)

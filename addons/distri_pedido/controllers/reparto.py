@@ -33,6 +33,7 @@ from odoo.modules.module import get_module_path
 from .main import FICHA
 
 GROUP_DRIVER = "distri_pedido.grupo_reparto"
+WHOLESALE_ACCOUNT = "La cuenta de este cliente mayorista la ve administración."
 STATIC = "/distri_pedido/static/src/reparto/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "reparto")
 ASSETS = ("claim.js", "app.js", "app2.js", "app3.js", "app.css", "icon-192.png", "icon-512.png")
@@ -222,6 +223,10 @@ class Reparto(http.Controller):
         found = Route._driver_stop(request.env.user, stop)
         if not found or found.partner_id.commercial_partner_id.distri_generic_partner:
             return self._json({"ok": False, "error": "Ese cliente no está en tus repartos."}, 404)
+        # 19.0.1.120.0: a wholesale customer's stop is delivered and collected
+        # like any other, but his account stays with administración
+        if not found._app_account_visible():
+            return self._json({"ok": False, "error": WHOLESALE_ACCOUNT}, 403)
         return self._json({"ok": True, "account": Route._app_partner_statement(found.partner_id)})
 
     @http.route("/reparto/api/sync", type="http", auth="user", methods=["POST"],

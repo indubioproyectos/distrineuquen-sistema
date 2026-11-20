@@ -4,6 +4,8 @@
 - Direct customers only: commercial partners with sales (customer rank,
   receivable lines or imported history), without the generic web contacts
   and the resellers and wholesalers (revision_cliente.is_reseller).
+  19.0.1.120.0 (owner): this screen and /cuentas for administración and
+  gerencia do list the wholesale customers (direct_customers wholesale=True).
 - «Incobrable» (res.partner.distri_uncollectible, on the commercial
   partner): set by administración/gerencia. The customer leaves the debtor
   list and its totals and shows apart in «Deudas incobrables», with its
@@ -89,9 +91,12 @@ def seller_of(partner, tags=None):
     return "none"
 
 
-def direct_customers(env):
+def direct_customers(env, wholesale=False):
     """Commercial partners that buy directly (archived ones too: a debt is a
-    debt): customer rank or documents, not generic, not resellers."""
+    debt): customer rank or documents, not generic, not resellers.
+    19.0.1.120.0: `wholesale` keeps the resellers and wholesale customers
+    (revision_cliente.is_reseller), for the screens of who sees them
+    (lista_oculta.ve_mayoristas: the accounts app of administración)."""
     cr = env.cr
     env["distri.cuenta.movimiento"].flush_model()
     env["account.move.line"].flush_model()
@@ -106,7 +111,8 @@ def direct_customers(env):
     partners = env["res.partner"].sudo().with_context(active_test=False).search([
         ("parent_id", "=", False), ("distri_generic_partner", "=", False)])
     return partners.filtered(
-        lambda p: (p.customer_rank > 0 or p.id in with_docs) and not is_reseller(p))
+        lambda p: (p.customer_rank > 0 or p.id in with_docs)
+        and (wholesale or not is_reseller(p)))
 
 
 def debtor_balances(env, partners, date_to=False):
@@ -415,7 +421,9 @@ class DistriDebtorReport(models.TransientModel):
         filter shows 1, 2, 3… without rebuilding (DistriDebtorLine.rank)."""
         self._distri_check_access()
         Line = self.env["distri.debtor.line"].sudo()
-        customers = direct_customers(self.env)
+        # 19.0.1.120.0 (owner): administración and gerencia (the only ones
+        # here) see the wholesale customers' debts too, as in /cuentas
+        customers = direct_customers(self.env, wholesale=True)
         for report in self:
             entries = debtor_entries(self.env, customers, report.date_to or False)
             report.sudo().snapshot_line_ids.unlink()

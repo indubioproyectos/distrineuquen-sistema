@@ -1001,6 +1001,17 @@ class DistriRouteStop(models.Model):
         stops._refresh_amounts()
         return stops
 
+    def _app_account_visible(self):
+        """19.0.1.120.0: whether the current user may open «Ver cuenta» of
+        this stop. A wholesale customer (lista_oculta._distri_es_distribuidora)
+        is on the driver's route with his name, address, phone and what to
+        collect, like any customer; his account and balance only for who
+        sees the wholesale customers (administración, gerencia)."""
+        from .lista_oculta import ve_mayoristas
+        self.ensure_one()
+        user = self.env.user
+        return ve_mayoristas(user) or not self.sudo().partner_id._distri_es_distribuidora()
+
     def _app_payload(self):
         self.ensure_one()
         order = self.order_id.sudo()
@@ -1055,6 +1066,9 @@ class DistriRouteStop(models.Model):
             "code_hash": "" if order.distri_receipt_locked else (order.distri_receipt_hash or ""),
             "whatsapp": partner._distri_whatsapp_shown(),
             "whatsapp_confirmed": partner.distri_whatsapp_confirmed,
+            # 19.0.1.120.0: «Ver cuenta» (a wholesale customer's account
+            # stays with administración, _app_account_visible)
+            "account": self._app_account_visible(),
             "customer": {
                 "lat": ship.partner_latitude or None,
                 "lng": ship.partner_longitude or None,

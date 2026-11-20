@@ -58,6 +58,15 @@
     <t t-set="aj_urls" t-value="request.env['ir.http'].distri_ajustes_urls() if request else {}"/>
     <script>try{var z=localStorage.getItem('dn:letra');if(z&amp;&amp;z.length&lt;5&amp;&amp;+z&gt;0.5&amp;&amp;+z&lt;2){document.documentElement.style.setProperty('--dn-scale',z)}}catch(e){}</script>
     <link rel="stylesheet" t-att-href="aj_urls.get('css')"/>
+    <!-- 19.0.1.120.0: the way back to Inicio (/tablero) on every staff
+         screen, for whoever has it as home (res.users._distri_has_inicio):
+         a button next to the floating gear, and the first link of the sheet -->
+    <t t-set="aj_inicio" t-value="aj.get('inicio') if request and request.httprequest.path.rstrip('/') != '/tablero' else ''"/>
+    <a t-if="aj_inicio and gear_float" t-att-href="aj_inicio" id="dn-home" class="dn-home dn-home--float"
+       aria-label="Inicio" title="Inicio">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
+      <span>Inicio</span>
+    </a>
     <a href="#dn-aj" id="dn-gear" t-att-class="'dn-gear dn-gear--float' if gear_float else 'dn-gear'"
        aria-label="Ajustes" title="Ajustes" aria-controls="dn-aj" aria-haspopup="dialog">
       <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -100,6 +109,7 @@
             y después <b>Agregar a inicio</b>.</p>
         </section>
         <nav t-if="not aj['publico']" class="dn-aj__links">
+          <a t-if="aj_inicio" t-att-href="aj_inicio" class="dn-aj__inicio">Inicio: todas tus pantallas</a>
           <a t-if="aj.get('capacitacion')" href="/proyecto">Capacitación</a>
           <a t-if="aj.get('perfil')" href="/mi-perfil">Mi perfil</a>
           <a t-if="aj.get('cuenta')" href="/mi-cuenta">Mi cuenta corriente</a>

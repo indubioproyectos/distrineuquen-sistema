@@ -1256,6 +1256,8 @@
   var acct = { stopId: null, data: null, error: "", loading: false };
 
   function accountLink(stop) {
+    // 19.0.1.120.0: a wholesale customer's account stays with administración
+    if (stop.account === false) return "";
     return '<a class="place" href="#cuenta/' + stop.id + '"><span class="txt"><b>Ver cuenta</b>' +
       "<span>Saldo y últimos movimientos del cliente (necesita señal)</span></span>" +
       '<span class="chev">›</span></a>';

@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.119.0",
+    "version": "19.0.1.120.0",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -257,6 +257,17 @@
     # and /presentacion* need an internal user (controllers/proyecto.py
     # staff_only: logged out → login, portal → 404); Inicio gets the
     # «Capacitación» tile and /proyecto «Ir a practicar». No new fields, no
+    # migration.
+    # 19.0.1.120.0 (owner, day 1): every packer and driver lands on Inicio
+    # (res.users._distri_landing) with a tile for each screen he may open
+    # (Cuentas for whoever opens the accounts app), and every staff screen
+    # has «Inicio» (button next to the floating gear and first link of the
+    # «Ajustes» sheet, views/kit.xml dn_ajustes); a seller locked to /cuentas
+    # who also packs or drives lands on Inicio without backend tiles. Wholesale
+    # customers: administración and gerencia see them and their balance in
+    # /cuentas (deudores.direct_customers wholesale=True); the driver
+    # delivers and collects their stops like any other, «Ver cuenta» of a
+    # wholesale customer stays with administración. No new fields, no
     # migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],

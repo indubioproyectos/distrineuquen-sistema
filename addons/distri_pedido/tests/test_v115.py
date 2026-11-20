@@ -380,8 +380,9 @@ class TestV115Http(PedidoAbiertoMixin, RepartoMixin, HttpCase):
 
     def test_13_seller_who_delivers_lands_on_inicio(self):
         self.assertEqual(self.italo._distri_landing(), "")
-        self.assertEqual(self.driver._distri_landing(), "/reparto")
-        self.assertEqual(self.packer._distri_landing(), "/armado")
+        # 19.0.1.120.0: single-role packers and drivers land on Inicio too
+        self.assertEqual(self.driver._distri_landing(), "")
+        self.assertEqual(self.packer._distri_landing(), "")
         self.authenticate(self.italo.login, self.italo.login)
         res = self.url_open("/tablero")
         self.assertEqual(res.status_code, 200)

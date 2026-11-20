@@ -87,9 +87,11 @@ class ResUsers(models.Model):
             "perfil": bool(user.share and socio.distri_alta_estado),
             "cuenta": bool(user.share),
             "clave": True,
-            # 19.0.1.119.0: /proyecto from every screen (single-role users
-            # never land on Inicio, where its tile is)
+            # 19.0.1.119.0: /proyecto from every screen (a seller locked to
+            # /cuentas never lands on Inicio, where its tile is)
             "capacitacion": not user.share,
+            # 19.0.1.120.0: the way back to Inicio from every staff screen
+            "inicio": "/tablero" if user._distri_has_inicio() else "",
         }
 
     @api.model_create_multi
@@ -105,27 +107,33 @@ class ResUsers(models.Model):
         return super().create(vals_list)
 
     def _distri_landing(self):
-        """The screen of a user who only packs or delivers: /reparto for
-        the driver, /armado for the packer. Administración, gerencia and
-        system administrators keep the backend (empty string)."""
+        """The screen a user lands on when it is not Inicio (/tablero):
+        "/cuentas" for a seller locked to the accounts app who neither packs
+        nor delivers, else "" (Inicio, or the backend for whoever keeps it).
+
+        19.0.1.120.0 (owner, day 1): every packer and driver lands on Inicio,
+        whatever his other roles, with a tile for each screen he may open
+        and a way back to it from every staff screen (the «Inicio» button of
+        dn_ajustes, kit.staff_nav). Before, a user with one role went
+        straight to /reparto or /armado and could not see his other screens.
+        Administración, gerencia and system administrators are unchanged."""
         self.ensure_one()
         user = self.sudo()
         if user.share or user.has_group("distri_pedido.grupo_administracion") \
                 or user.has_group("base.group_system"):
             return ""
-        # 19.0.1.115.0: a user with more than one role (a seller who also
-        # delivers) lands on Inicio (/tablero), with a tile for each screen
-        roles = [g for g in ("distri_pedido.grupo_vendedor", "distri_pedido.grupo_reparto",
-                             "distri_pedido.grupo_armador") if user.has_group(g)]
-        if len(roles) > 1:
+        if user.has_group("distri_pedido.grupo_reparto") \
+                or user.has_group("distri_pedido.grupo_armador"):
             return ""
-        if user.has_group("distri_pedido.grupo_reparto"):
-            return "/reparto"
-        if user.has_group("distri_pedido.grupo_armador"):
-            return "/armado"
         if user._distri_seller_only_accounts():
             return "/cuentas"
         return ""
+
+    def _distri_has_inicio(self):
+        """19.0.1.120.0: whether the user's home is Inicio (/tablero): every
+        internal user without a screen of his own (_distri_landing)."""
+        self.ensure_one()
+        return not self.share and not self._is_public() and not self._distri_landing()
 
     def _distri_seller_only_accounts(self):
         """12/11/2026: while PARAM_SELLER_ONLY_ACCOUNTS is "1" a seller works

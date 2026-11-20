@@ -94,8 +94,8 @@ class TestArmadoApp(HttpCase):
         self.assertIn("Kiosco Kit Prueba".upper(), lista.text.upper())
         self.assertIn('href="/armado/faltantes"', lista.text)
         self.assertIn('data-dn="down"', lista.text)
-        # a packer whose only screen is /armado has no «Inicio» to go up to
-        self.assertNotIn('href="/tablero"', lista.text)
+        # 19.0.1.120.0: every packer lands on Inicio and goes back up to it
+        self.assertIn('href="/tablero"', lista.text)
         self.assertEqual(self.url_open("/armado/faltantes").status_code, 200)
 
     def test_fetch_flow_never_reloads(self):

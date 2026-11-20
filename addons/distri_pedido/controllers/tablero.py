@@ -65,7 +65,9 @@ TILES = [
     # gerencia, cajero: the menu of «Cuentas» is the closest group match)
     ("comprobantes", "comprobantes", "Comprobantes", "Subir transferencias y ver cómo siguen",
      IMG + "cobros.png", "receipt", "/comprobantes"),
-    ("cuentas", "distri_pedido.menu_cuentas_root", "Cuentas", "Deudores y estado de cuenta",
+    # 19.0.1.120.0: whoever opens the accounts app (models/cuentas_app.py
+    # app_scope: drivers too, who had it only as a link of /reparto)
+    ("cuentas", "cuentas", "Cuentas", "Deudores y estado de cuenta",
      IMG + "cuentas.png", "chart", "/cuentas"),
     ("reparto", "distri_pedido.menu_reparto_root", "Reparto", "Rutas, rendiciones y casos",
      IMG + "reparto.png", "pin", None),
@@ -80,6 +82,10 @@ TILES = [
     ("capacitacion", None, "Capacitación", "Cómo se usa cada pantalla y dónde practicar",
      IMG + "app.png", "doc", "/proyecto"),
 ]
+
+
+# 19.0.1.120.0: the root menu of a special tile (one not shown by its menu)
+SPECIAL_MENUS = {"cuentas": "distri_pedido.menu_cuentas_root"}
 
 
 def _special_visible(env, key):
@@ -102,6 +108,9 @@ def _special_visible(env, key):
     if key == "comprobantes":
         from ..models.comprobante_subir import can_upload
         return can_upload(user)
+    if key == "cuentas":
+        from ..models.cuentas_app import app_scope
+        return bool(app_scope(env))
     if key == "repartidor":
         return not user.share and user.has_group("distri_pedido.grupo_reparto")
     return False
@@ -119,6 +128,11 @@ def staff_tiles(env):
             continue
         if "." not in xmlid:
             if _special_visible(env, xmlid):
+                # the root menu behind a special tile stays out of «Todas
+                # las aplicaciones» (Tablero.tablero: taken)
+                menu = SPECIAL_MENUS.get(key) and env.ref(SPECIAL_MENUS[key],
+                                                          raise_if_not_found=False)
+                tile["menu_id"] = menu.id if menu else False
                 tiles.append(tile)
             continue
         if visible is None:
@@ -342,6 +356,12 @@ class Tablero(http.Controller):
             return request.redirect(landing)
         env = request.env
         tiles = staff_tiles(env)
+        # 19.0.1.120.0: a seller locked to /cuentas who also packs or drives
+        # lands here; a backend page would only send him to /cuentas
+        # (controllers/tienda.py web_client), so it gets no backend tile
+        locked = user._distri_seller_only_accounts()
+        if locked:
+            tiles = [t for t in tiles if not (t["url"] or "").startswith("/odoo")]
         banner = tile_badges(env, tiles)
         # the root menus behind our tiles (Armado/Despacho tiles are not root menus)
         taken = {t["menu_id"] for t in tiles}
@@ -350,7 +370,7 @@ class Tablero(http.Controller):
             "banner": banner,
             "agil_banner": agil_banner(env),
             "mi_ruta": my_route_today(env),
-            "apps": other_apps(env, taken),
+            "apps": [] if locked else other_apps(env, taken),
             "user": user,
             "empresa": FICHA["nombre"],
             "dn": kit_context("tablero.css"),

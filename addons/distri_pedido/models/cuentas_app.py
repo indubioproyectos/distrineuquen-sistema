@@ -272,8 +272,12 @@ class DistriAccountApp(models.AbstractModel):
         """The direct customers the user may review (see the module
         docstring)."""
         self._app_check()
-        customers = direct_customers(self.env)
-        if self._app_hides_distributors():
+        # 19.0.1.120.0 (owner): administración and gerencia see the wholesale
+        # customers and their balance here too; until then the debtors list
+        # dropped them for everybody (deudores.direct_customers)
+        hides = self._app_hides_distributors()
+        customers = direct_customers(self.env, wholesale=ve_mayoristas(self.env.user))
+        if hides:
             customers = customers.filtered(lambda p: not p._distri_es_distribuidora())
         return customers
 

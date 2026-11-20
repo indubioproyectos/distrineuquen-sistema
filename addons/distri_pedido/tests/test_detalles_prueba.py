@@ -11,7 +11,7 @@ from odoo.addons.distri_pedido.tests.test_socio_generico import GenericMixin
 
 @tagged("post_install", "-at_install", "distri_detalles")
 class TestLoginLanding(HttpCase):
-    """Armador and repartidor land on their screen; administration keeps Odoo."""
+    """The staff lands on Inicio (19.0.1.120.0: armador and repartidor too)."""
 
     @classmethod
     def setUpClass(cls):
@@ -31,18 +31,21 @@ class TestLoginLanding(HttpCase):
                                                  "csrf_token": csrf}, allow_redirects=False)
 
     def test_landing_by_role(self):
-        self.assertEqual(self.packer._distri_landing(), "/armado")
-        self.assertEqual(self.driver._distri_landing(), "/reparto")
+        # 19.0.1.120.0: packers and drivers land on Inicio too (tests/test_v120.py)
+        self.assertEqual(self.packer._distri_landing(), "")
+        self.assertEqual(self.driver._distri_landing(), "")
         self.assertEqual(self.admin._distri_landing(), "")
         res = self._login("armador_landing")
         self.assertEqual(res.status_code, 303)
-        self.assertTrue(res.headers["Location"].endswith("/armado"), res.headers["Location"])
+        self.assertIn("/odoo", res.headers["Location"])
+        res = self.url_open("/odoo", allow_redirects=False)
+        self.assertTrue(res.headers["Location"].endswith("/tablero"), res.headers["Location"])
         res = self._login("repartidor_landing")
-        self.assertTrue(res.headers["Location"].endswith("/reparto"), res.headers["Location"])
-        # the backend home of a driver goes to the app; a menu or record does not
+        self.assertIn("/odoo", res.headers["Location"])
+        # the backend home of a driver goes to Inicio; a menu or record does not
         res = self.url_open("/odoo", allow_redirects=False)
         self.assertEqual(res.status_code, 303)
-        self.assertTrue(res.headers["Location"].endswith("/reparto"))
+        self.assertTrue(res.headers["Location"].endswith("/tablero"))
         res = self._login("admin_landing")
         self.assertIn("/odoo", res.headers["Location"])
         # 19.0.1.76.0: the bare backend home of the staff is our tablero, not Discuss
