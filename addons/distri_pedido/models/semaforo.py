@@ -1,10 +1,18 @@
-"""Risk semaphore of «Pedidos para revisar» (models/revisar.py, 19.0.1.85.0).
+"""Colours of «Pedidos para revisar» (models/revisar.py, 19.0.1.85.0).
 
 Pure helpers, no models: revisar.py gathers the facts of each order and
-this file turns them into a colour and the reasons the manager reads.
+this file turns them into colours and the reasons the manager reads.
 Kept apart so the rules are easy to read and to test, and so no model
 module has to import another one (sale.order overrides are built in
 import order).
+
+19.0.1.121.0 (owner, from real use): two different things.
+- The colour the screen shows is the ORDER STATUS (`color_estado`): green
+  confirmed, yellow not confirmed yet, red not confirmed and without a real
+  customer, grey cancelled. Confirming an order turns it green.
+- The RISK (`evaluar`, stored as `distri_semaforo`) only feeds the small
+  chips of the orders not confirmed yet and the gerencia alert. «Sin
+  WhatsApp» is no longer a risk (phase 1 sends nothing over WhatsApp).
 """
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -13,14 +21,28 @@ AR_TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 UTC = ZoneInfo("UTC")
 
 RED, YELLOW, GREEN = "rojo", "amarillo", "verde"
+# 19.0.1.121.0: a cancelled order (status colour only)
+GREY = "gris"
 
 SEMAFORO = [
     (RED, "🔴 Rojo"),
     (YELLOW, "🟡 Amarillo"),
     (GREEN, "🟢 Verde"),
 ]
-# Sort key of the list: red first, then yellow, then green
+# Sort key of the risk: red first, then yellow, then green
 SEMAFORO_ORDEN = {RED: 1, YELLOW: 2, GREEN: 3}
+
+# 19.0.1.121.0: the status colour of the screen (`color_estado`)
+ESTADO_COLOR = [
+    (RED, "🔴 Sin cliente"),
+    (YELLOW, "🟡 Sin confirmar"),
+    (GREEN, "🟢 Confirmado"),
+    (GREY, "⚪ Cancelado"),
+]
+# Sort key of the list: what needs action first, the confirmed ones after
+ESTADO_ORDEN = {RED: 1, YELLOW: 2, GREEN: 3, GREY: 4}
+# Sale order states still waiting for the confirmation
+SIN_CONFIRMAR = ("draft", "sent")
 
 # A customer created less than this before the order is new
 DIAS_CLIENTE_NUEVO = 30
@@ -36,7 +58,6 @@ MIN_PEDIDOS_PARA_PROMEDIO = 3
 MOTIVO_SIN_CLIENTE = "Sin cliente asignado"
 MOTIVO_NUEVO = "Cliente nuevo"
 MOTIVO_SIN_COMPRAS = "Sin compras anteriores"
-MOTIVO_SIN_WHATSAPP = "Sin WhatsApp"
 MOTIVO_IMPORTE = "Importe alto"
 # 19.0.1.88.0: the WhatsApp with the code came from a username, no phone
 MOTIVO_WA_SIN_TELEFONO = "WhatsApp sin teléfono"
@@ -56,13 +77,14 @@ def promedio_base(pedidos, facturas):
 
 
 def evaluar(sin_cliente=False, cliente_nuevo=False, sin_compras=False,
-            sin_whatsapp=False, importe=0.0, montos_previos=(), wa_sin_telefono=False):
-    """(colour, reasons text) from the facts of one order.
+            importe=0.0, montos_previos=(), wa_sin_telefono=False):
+    """(risk colour, reasons text) from the facts of one order.
 
     Red: no real customer, a new customer or one that never bought.
-    Yellow: no WhatsApp on file, the order's WhatsApp came without a phone
-    (WhatsApp username), or more than FACTOR_IMPORTE times the average of
-    the previous orders or invoices. Green otherwise.
+    Yellow: the order's WhatsApp came without a phone (WhatsApp username),
+    or more than FACTOR_IMPORTE times the average of the previous orders or
+    invoices. Green otherwise. 19.0.1.121.0: a customer without WhatsApp on
+    file is no longer a risk.
     """
     if sin_cliente:
         motivos = [MOTIVO_SIN_CLIENTE] + ([MOTIVO_WA_SIN_TELEFONO] if wa_sin_telefono else [])
@@ -74,8 +96,6 @@ def evaluar(sin_cliente=False, cliente_nuevo=False, sin_compras=False,
         rojos.append(MOTIVO_NUEVO)
     if sin_compras:
         rojos.append(MOTIVO_SIN_COMPRAS)
-    if sin_whatsapp:
-        amarillos.append(MOTIVO_SIN_WHATSAPP)
     montos = [m for m in montos_previos if m and m > 0]
     if montos:
         promedio = sum(montos) / len(montos)
@@ -83,6 +103,29 @@ def evaluar(sin_cliente=False, cliente_nuevo=False, sin_compras=False,
             amarillos.append(MOTIVO_IMPORTE)
     color = RED if rojos else YELLOW if amarillos else GREEN
     return color, SEPARADOR.join(rojos + amarillos)
+
+
+def color_estado(state, sin_cliente=False):
+    """The status colour of «Pedidos para revisar» (19.0.1.121.0): green
+    confirmed, red not confirmed and without a real customer, yellow not
+    confirmed, grey cancelled."""
+    if state == "cancel":
+        return GREY
+    if state not in SIN_CONFIRMAR:
+        return GREEN
+    return RED if sin_cliente else YELLOW
+
+
+# Reasons that are no chip: the colour already says it, or it is no risk
+# any more («Sin WhatsApp» may still be in risks stored before 19.0.1.121.0)
+_SIN_CHIP = (MOTIVO_SIN_CLIENTE, "Sin WhatsApp")
+
+
+def chips(motivos):
+    """The risk reasons as chips (19.0.1.121.0): the stored reasons text
+    split, without the ones the colour already says or that are no risk."""
+    partes = [p.strip() for p in (motivos or "").split(SEPARADOR.strip())]
+    return [p for p in partes if p and p not in _SIN_CHIP]
 
 
 def inicio_del_dia_utc(dias_atras=0, ahora=None):

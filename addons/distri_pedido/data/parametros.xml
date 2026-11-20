@@ -109,4 +109,11 @@
     <field name="value">5</field>
   </record>
 
+  <!-- 19.0.1.121.0: the sender («Remite») printed on the parcel labels
+       (models/etiquetas.py). Editable: noupdate keeps the change. -->
+  <record id="param_encomienda_remitente" model="ir.config_parameter">
+    <field name="key">distri_pedido.encomienda_remitente</field>
+    <field name="value">Gonzalo Martín Granero · DNI 35569358 · Neuquén</field>
+  </record>
+
 </odoo>

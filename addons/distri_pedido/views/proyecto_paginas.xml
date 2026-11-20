@@ -477,7 +477,7 @@
       <li class="paso">
         <div class="paso-cab"><span class="cuando">Al llegar</span><h3>Mirar Inicio</h3><span class="url">/tablero</span></div>
         <ol>
-          <li>Entrá a <b>Inicio</b>. Arriba aparece el aviso de <b>pedidos en rojo</b> que esperan revisión antes de armarse.</li>
+          <li>Entrá a <b>Inicio</b>. Arriba aparece el aviso de <b>pedidos sin cliente</b> que esperan que les asignes el cliente. El botón <b>Pedidos para revisar</b> muestra cuántos faltan confirmar.</li>
           <li>Cada botón muestra en rojo cuánto tiene pendiente: Pedidos para revisar, AgilPedido, Armado, Despacho, Depósito, Caja.</li>
           <li>Si aparece un aviso rojo de AgilPedido, la sincronización con AgilPedido falló: avisale a Gonza. Se cierra solo cuando la siguiente anda bien.</li>
         </ol>
@@ -485,8 +485,9 @@
       <li class="paso">
         <div class="paso-cab"><span class="cuando">A la mañana y cada tanto</span><h3>Pedidos para revisar</h3><span class="url">/revisar</span></div>
         <ol>
-          <li>Entrá a <b>Pedidos para revisar</b>: hoy y ayer, más los retenidos. Primero los rojos.</li>
-          <li>Rojo: sin cliente, cliente nuevo o sin compras. Amarillo: sin WhatsApp o importe alto.</li>
+          <li>Entrá a <b>Pedidos para revisar</b>: hoy y ayer, más los retenidos. Se abre en <b>Por confirmar</b>; los confirmados están en <b>Confirmados</b>.</li>
+          <li>Verde: confirmado. Amarillo: falta confirmarlo. Rojo: falta confirmarlo y no tiene cliente asignado. Al confirmarlo se pone verde.</li>
+          <li>En los que faltan confirmar, las etiquetas dicen qué mirar antes: <span class="txt">Cliente nuevo</span>, <span class="txt">Sin compras anteriores</span>, <span class="txt">Importe alto</span>.</li>
           <li>Si falta el cliente, tocá <span class="k">Asignar cliente</span>, elegí el correcto o <span class="k2">Cliente nuevo</span>, y tocá <span class="k">Asignar y aprobar</span> (o <span class="k2">Solo asignar</span>).</li>
           <li>Si falta el WhatsApp, tocá <span class="k2">Pegar número</span>, revisá cómo queda y <span class="k">Guardar el WhatsApp verificado</span>.</li>
           <li>Para hablar con el cliente: <span class="k2">Abrir chat</span>.</li>
@@ -544,7 +545,7 @@
       <div class="caja-ok" data-check="administracion">
         <h3><svg class="dn-i"><use href="#check"/></svg>Ya lo sé hacer</h3>
         <ul class="check">
-          <li><label><input type="checkbox" id="ck-admin-1"/>Entiendo el semáforo rojo y amarillo</label></li>
+          <li><label><input type="checkbox" id="ck-admin-1"/>Entiendo los colores: rojo sin cliente, amarillo sin confirmar, verde confirmado</label></li>
           <li><label><input type="checkbox" id="ck-admin-2"/>Asigno un cliente y apruebo el pedido</label></li>
           <li><label><input type="checkbox" id="ck-admin-3"/>Retengo y libero un pedido</label></li>
           <li><label><input type="checkbox" id="ck-admin-4"/>Apruebo un pedido de AgilPedido corrigiendo productos</label></li>
@@ -644,7 +645,7 @@
       </li>
       <li class="etapa">
         <h3>Revisar</h3>
-        <p>Semáforo rojo y amarillo, asignar el cliente, retener o liberar.</p>
+        <p>Ver qué falta confirmar, asignar el cliente, retener o liberar.</p>
         <div class="tags"><a class="tag" href="#administracion" style="--c:var(--r-admin)"><i></i>Administración</a></div>
       </li>
       <li class="etapa">

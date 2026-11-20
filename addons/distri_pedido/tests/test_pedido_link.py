@@ -123,7 +123,8 @@ class TestPedidoLink(PedidoLinkMixin, TransactionCase):
     def test_wa_verified_writes_the_normalized_number_and_repaints(self):
         partner = self._habitual("Almacén Link Verde")
         order = self._web_order(phone="0299 15 555-1234", partner=partner)
-        self.assertEqual(order.distri_semaforo, "amarillo")
+        # 19.0.1.121.0: no WhatsApp on file is no risk any more
+        self.assertEqual(order.distri_semaforo, "verde")
         self.assertFalse(order.distri_wa_ya_verificado)
         result = order.with_user(self.admin_distri).action_distri_wa_verificado()
         self.assertTrue(result)
@@ -141,7 +142,7 @@ class TestPedidoLink(PedidoLinkMixin, TransactionCase):
         with self.assertRaisesRegex(UserError, "no se puede leer con seguridad"):
             order.with_user(self.admin_distri).action_distri_wa_verificado()
         self.assertFalse(partner.distri_whatsapp)
-        self.assertEqual(order.distri_semaforo, "amarillo")
+        self.assertEqual(order.distri_semaforo, "verde")
 
     def test_wa_verified_needs_administracion(self):
         partner = self._habitual("Almacén Link Grupos")

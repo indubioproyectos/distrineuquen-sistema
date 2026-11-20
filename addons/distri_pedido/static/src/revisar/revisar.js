@@ -3,8 +3,9 @@
  * action goes by fetch and answers JSON with the card rendered again, which
  * replaces the old one: the page never reloads.
  *
- * - .rv-tab[data-ver]: filters the cards in the page (Todos / Rojos /
- *   Amarillos / Retenidos) and keeps ?ver= in the address.
+ * - .rv-tab[data-ver]: filters the cards in the page (Por confirmar /
+ *   Confirmados / Retenidos / Todos, 19.0.1.121.0) and keeps ?ver= in the
+ *   address.
  * - [data-rv-copiar]: copies the WhatsApp code line (Clipboard API, then
  *   the old execCommand; when both fail the line stays selected).
  * - [data-rv-retener]: the «Retener» sheet with the reason.
@@ -21,18 +22,20 @@
     var body = document.body;
     var main = DN.$('.rv-main');
     if (!main) { return; }
-    var ver = main.getAttribute('data-ver') || 'todos';
+    var DEFAULT_VER = 'pendientes';
+    var ver = main.getAttribute('data-ver') || DEFAULT_VER;
 
     // ------------------------------------------------------------ tabs
     function matches(card, v) {
-      if (v === 'rojos') { return card.getAttribute('data-color') === 'rojo'; }
-      if (v === 'amarillos') { return card.getAttribute('data-color') === 'amarillo'; }
+      var color = card.getAttribute('data-color');
+      if (v === 'pendientes') { return color === 'rojo' || color === 'amarillo'; }
+      if (v === 'confirmados') { return color === 'verde'; }
       if (v === 'retenidos') { return card.hasAttribute('data-ret'); }
       return true;
     }
     function paint() {
       var cards = DN.$$('.rv-card', main);
-      var counts = {todos: 0, rojos: 0, amarillos: 0, retenidos: 0};
+      var counts = {pendientes: 0, confirmados: 0, retenidos: 0, todos: 0};
       var shown = 0;
       cards.forEach(function (card) {
         Object.keys(counts).forEach(function (k) { if (matches(card, k)) { counts[k] += 1; } });
@@ -57,7 +60,7 @@
         ev.preventDefault();
         ver = t.getAttribute('data-ver');
         main.setAttribute('data-ver', ver);
-        history.replaceState(history.state, '', ver === 'todos' ? '/revisar' : '/revisar?ver=' + ver);
+        history.replaceState(history.state, '', ver === DEFAULT_VER ? '/revisar' : '/revisar?ver=' + ver);
         paint();
       });
     });
@@ -152,7 +155,7 @@
     });
     if (location.search.indexOf('retener=') !== -1) {
       var m = /retener=(\d+)/.exec(location.search);
-      history.replaceState(history.state, '', ver === 'todos' ? '/revisar' : '/revisar?ver=' + ver);
+      history.replaceState(history.state, '', ver === DEFAULT_VER ? '/revisar' : '/revisar?ver=' + ver);
       if (m && cardOf(m[1])) { openRetener(m[1]); }
     }
 

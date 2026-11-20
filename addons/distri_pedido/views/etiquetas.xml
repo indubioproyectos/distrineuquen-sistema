@@ -74,6 +74,22 @@
       .etq .cod { position: absolute; left: 3mm; right: 3mm; bottom: 2mm; text-align: center; }
       .etq .cod img { width: 70mm; height: 8mm; display: block; margin: 0 auto; }
       .etq .cod span { font-size: 7.5pt; letter-spacing: .5px; }
+      /* 19.0.1.121.0: parcel labels, recipient and sender only. Sizes of the
+         name and the town come from models/etiquetas.py (recipient_size,
+         town_size) so nothing is cut off; the company line goes inside the
+         «Remite» block, the order at the bottom of the package box. */
+      .etq .izq.enc { height: 34.2mm; }
+      .etq .enc .rcp { font-weight: bold; line-height: 1.05; max-height: 9.8mm; overflow: hidden; }
+      .etq .enc .dni { font-size: 10.5pt; font-weight: bold; line-height: 1.15; white-space: nowrap; overflow: hidden; }
+      .etq .enc .loc { font-weight: bold; line-height: 1.15; max-height: 6mm; overflow: hidden; }
+      .etq .enc .tel { font-size: 7.5pt; line-height: 1.15; white-space: nowrap; overflow: hidden; }
+      .etq .enc .rem { position: relative; font-size: 7pt; line-height: 1.15; min-height: 10mm;
+                       max-height: 10.6mm; overflow: hidden; border-top: .25mm solid #000;
+                       padding: .5mm 0 0 11.5mm; margin-top: .6mm; }
+      .etq .enc .rem__logo { position: absolute; left: 0; top: .5mm; width: 10mm; height: 10mm; }
+      .etq .enc .rem__emp { white-space: nowrap; overflow: hidden; }
+      .etq .ped { position: absolute; right: 3mm; top: 28.3mm; width: 32mm; text-align: center;
+                  font-size: 7pt; line-height: 1.15; white-space: nowrap; overflow: hidden; }
     </style>
   </template>
 
@@ -81,7 +97,20 @@
     <t t-call="web.html_container">
       <t t-call="distri_pedido.etiqueta_estilo"/>
       <div t-foreach="labels" t-as="e" class="etq">
-        <div class="izq">
+        <!-- 19.0.1.121.0: a parcel shows only the recipient and the sender -->
+        <div t-if="e.get('parcel')" class="izq enc">
+          <div class="rcp" t-attf-style="font-size:{{e['recipient_size']}}pt" t-esc="e['recipient']"/>
+          <div class="dni" t-if="e['dni']">DNI <t t-esc="e['dni']"/></div>
+          <div class="loc" t-if="e['parcel_town']" t-attf-style="font-size:{{e['town_size']}}pt" t-esc="e['parcel_town']"/>
+          <div class="tel" t-if="e['recipient_phone']">Tel. <t t-esc="e['recipient_phone']"/></div>
+          <div class="rem">
+            <img class="rem__logo" t-att-src="'data:image/svg+xml;base64,%s' % e['logo']" alt=""/>
+            <div t-if="e['sender']">Remite: <t t-esc="e['sender']"/></div>
+            <div t-if="e.get('company')" class="rem__emp" t-esc="e['company']"/>
+          </div>
+        </div>
+        <div t-if="e.get('parcel')" class="ped">Pedido <b t-esc="e['order']"/></div>
+        <div t-else="" class="izq">
           <div class="emp" t-if="e.get('company')" t-esc="e['company']"/>
           <div class="cli" t-esc="e['name']"/>
           <div class="dir">

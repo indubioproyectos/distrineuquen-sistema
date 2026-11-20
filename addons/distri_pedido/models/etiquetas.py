@@ -13,15 +13,23 @@ counts packages per order (despacho.py): nothing changes there.
 
 Never a price or an amount on a label. Direct TSPL printing is a documented
 future option, not built (docs: armado.md «Etiquetas de bultos»).
+
+19.0.1.121.0 (owner, real order S00296): a parcel (encomienda) label shows
+only the recipient (who picks it up, DNI, destination town, the order's
+phone) and, smaller, the sender («Remite», PARAM_SENDER) with the company
+line under it (no company header on top). No payer, no carrier, no customer
+town from the partner. The package box, the order number and the barcode
+stay. Other labels are unchanged.
 """
 import base64
 import re
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+from odoo.tools import file_open
 
 from .armado import normalizar_ciudad
-from .encomienda import PAYER_LABELS
+from .ar_phone import phone_match_key
 from .reparto_cliente import TOWN_PREFIXES, town_from_name, town_prefix
 
 LABEL_TZ = "America/Argentina/Buenos_Aires"
@@ -35,6 +43,9 @@ PREFIX_OF_TOWN = {town: prefix for prefix, town in sorted(
     TOWN_PREFIXES.items(), key=lambda item: (-len(item[0]), item[0]))}
 # 19.0.1.94.0: the company's public phone on every label (never in the code)
 PARAM_PHONE = "distri_pedido.telefono_empresa"
+# 19.0.1.121.0: the sender of the parcel labels (data/parametros.xml)
+PARAM_SENDER = "distri_pedido.encomienda_remitente"
+SENDER_DEFAULT = "Gonzalo Martín Granero · DNI 35569358 · Neuquén"
 
 
 def label_town(partner, generic=False, zone=""):
@@ -75,6 +86,54 @@ def big_number_size(text):
     return {1: 34, 2: 34, 3: 34, 4: 30}.get(len(text), 25)
 
 
+LOGO_PATH = "distri_pedido/static/src/img/iconos/dn-logo.svg"
+_logo_cache = {}
+
+
+def logo_black():
+    """19.0.1.121.0: the DN logo of the parcel sender, pure black and white
+    for the 203 dpi thermal printer (black square, white letters), as a
+    base64 SVG embedded in the page like the barcode (no HTTP fetch)."""
+    if "svg" not in _logo_cache:
+        with file_open(LOGO_PATH, "rb") as handle:
+            svg = handle.read().replace(b'fill="#10243f"', b'fill="#000"')
+        _logo_cache["svg"] = base64.b64encode(svg).decode()
+    return _logo_cache["svg"]
+
+
+def recipient_size(text):
+    """Font size (pt) of the parcel recipient's name, 60 mm wide and two
+    lines at most (bold DejaVu Sans): as big as fits, never cut off."""
+    n = len(text or "")
+    if n <= 16:
+        return 13
+    if n <= 30:
+        return 11
+    if n <= 44:
+        return 9.5
+    return 8
+
+
+def town_size(text):
+    """Font size (pt) of the parcel destination town, one 60 mm line
+    (capitals included); a longer one wraps at the smallest size."""
+    n = len(text or "")
+    if n <= 16:
+        return 14
+    if n <= 22:
+        return 10.5
+    if n <= 28:
+        return 8
+    return 7
+
+
+def recipient_phone(raw):
+    """The order's phone as «299 424-3375» (Argentine national number), as
+    written otherwise; "" without one."""
+    national = phone_match_key(raw or "")
+    return format_phone(national) if len(national) == 10 else (raw or "").strip()
+
+
 class DistriPackage(models.Model):
     _name = "distri.package"
     _description = "Bulto de un pedido"
@@ -108,9 +167,8 @@ class DistriPackage(models.Model):
         # assigned later, so the label never depends on the route (no driver,
         # no trip, no route date, never «a confirmar»)
         if order.distri_encomienda:
-            payer = PAYER_LABELS.get(order.distri_envio_paga or "distri", "")
-            destination = "Encomienda a %s" % (order._distri_parcel_town() or town)
-            detail = payer
+            # 19.0.1.121.0: the parcel layout (recipient and sender only)
+            destination, detail = "Encomienda", ""
         elif order.distri_entrega == "retira":
             destination, detail = "Retira en depósito", ""
         else:
@@ -155,6 +213,30 @@ class DistriPackage(models.Model):
             "date": when.strftime("%d/%m/%Y"),
             "code": self.code,
             "barcode": self._barcode_png(),
+            **self._parcel_values(name),
+        }
+
+    def _parcel_values(self, customer_name):
+        """19.0.1.121.0: the recipient and the sender of a parcel label
+        (empty «parcel» for the other labels)."""
+        order = self.order_id.sudo()
+        if not order.distri_encomienda:
+            return {"parcel": False}
+        recipient = (order.distri_encomienda_nombre or "").strip() or customer_name or ""
+        # the parcel's town only: never the customer's or the generic
+        # contact's town (S00296 printed «Neuquén» for Zapala)
+        town = (order._distri_parcel_town() or "").strip()
+        sender = self.env["ir.config_parameter"].sudo().get_param(PARAM_SENDER)
+        return {
+            "parcel": True,
+            "recipient": recipient,
+            "recipient_size": recipient_size(recipient),
+            "dni": (order.distri_encomienda_dni or "").strip(),
+            "parcel_town": town,
+            "town_size": town_size(town),
+            "recipient_phone": recipient_phone(order.distri_telefono),
+            "sender": (sender if sender is not False else SENDER_DEFAULT).strip(),
+            "logo": logo_black(),
         }
 
     def _barcode_png(self):

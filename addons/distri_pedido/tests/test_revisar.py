@@ -99,8 +99,8 @@ class TestRevisar(RepartoMixin, AccountTestInvoicingCommon):
 
     def test_reglas_puras(self):
         self.assertEqual(semaforo.evaluar(sin_cliente=True), ("rojo", "Sin cliente asignado"))
-        self.assertEqual(semaforo.evaluar(cliente_nuevo=True, sin_whatsapp=True),
-                         ("rojo", "Cliente nuevo · Sin WhatsApp"))
+        self.assertEqual(semaforo.evaluar(cliente_nuevo=True),
+                         ("rojo", "Cliente nuevo"))
         self.assertEqual(semaforo.evaluar(importe=2001, montos_previos=[1000, 1000]),
                          ("amarillo", "Importe alto"))
         self.assertEqual(semaforo.evaluar(importe=2000, montos_previos=[1000, 1000]),
@@ -122,8 +122,9 @@ class TestRevisar(RepartoMixin, AccountTestInvoicingCommon):
         nuevo = self.env["res.partner"].create({"name": "Cliente Recién Creado"})
         order = self._pedido(nuevo)
         self.assertEqual(order.distri_semaforo, "rojo")
+        # 19.0.1.121.0: no WhatsApp on file is no risk any more
         self.assertEqual(order.distri_semaforo_motivos,
-                         "Cliente nuevo · Sin compras anteriores · Sin WhatsApp")
+                         "Cliente nuevo · Sin compras anteriores")
 
     def test_semaforo_sin_compras_anteriores(self):
         viejo = self.env["res.partner"].create({
@@ -147,15 +148,15 @@ class TestRevisar(RepartoMixin, AccountTestInvoicingCommon):
         order.order_line.price_unit = 100.0
         self.assertEqual(order.distri_semaforo, "verde")
 
-    def test_semaforo_sin_whatsapp_y_se_corrige(self):
+    def test_semaforo_sin_whatsapp_no_es_riesgo(self):
+        """19.0.1.121.0: phase 1 sends nothing over WhatsApp, so a regular
+        customer without WhatsApp on file is no warning at all."""
         cliente = self.env["res.partner"].create({"name": "Cliente Sin WA"})
         self._antiguo(cliente)
         self._historia(cliente, [500.0])
         order = self._pedido(cliente, precio=50.0)
         self.assertEqual((order.distri_semaforo, order.distri_semaforo_motivos),
-                         ("amarillo", "Sin WhatsApp"))
-        cliente.distri_whatsapp = "+5492994333444"
-        self.assertEqual(order.distri_semaforo, "verde")
+                         ("verde", False))
 
     def test_semaforo_promedio_con_facturas_de_odoo(self):
         cliente = self.env["res.partner"].create({
@@ -420,7 +421,7 @@ class TestRevisar(RepartoMixin, AccountTestInvoicingCommon):
 
         todos = hoy | ayer | viejo | viejo_retenido | cancelado | rojo
         lista = Order.search([("distri_revisar_en_lista", "=", True), ("id", "in", todos.ids)],
-                             order="distri_semaforo_orden, date_order desc, id desc")
+                             order="distri_revisar_orden, date_order desc, id desc")
         self.assertEqual(lista, rojo | hoy | ayer | viejo_retenido)
         self.assertEqual(lista[0], rojo, "los rojos primero")
         self.assertEqual(lista[1:].ids, (hoy | ayer | viejo_retenido).ids,

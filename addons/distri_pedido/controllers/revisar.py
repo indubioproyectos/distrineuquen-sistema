@@ -3,9 +3,10 @@
 
     /tablero (staff home)
       /revisar                       the cards of today's and yesterday's
-                                     orders plus every held one, red first
-                                     (tabs Todos / Rojos / Amarillos /
-                                     Retenidos, filtered in the page)
+                                     orders plus every held one, what is
+                                     missing confirmation first (tabs Por
+                                     confirmar / Confirmados / Retenidos /
+                                     Todos, filtered in the page)
       /revisar/<id>/retener   POST   «Retener» with its reason
       /revisar/<id>/liberar   POST   «Liberar»
       /revisar/<id>/numero    GET    «Pegar número»: what the pasted text
@@ -22,6 +23,11 @@ models/pegar_numero.py, models/pedido_link.py): this file only translates
 HTTP. The page sends every action with fetch() (X-Distri-Fetch: 1) and gets
 JSON with the card re-rendered; Retener and Liberar also work as plain
 forms without JavaScript.
+
+19.0.1.121.0 (owner, from real use): the colour of a card is the order
+status (models/semaforo.py color_estado): red not confirmed and without
+customer, yellow not confirmed, green confirmed. The risk reasons are chips
+of the orders not confirmed yet.
 """
 from datetime import datetime, timedelta
 
@@ -34,14 +40,19 @@ from odoo.http import request
 from ..models.asignar_cliente import puede_asignar
 from ..models.reparto import _money
 from ..models.revisar import MOTIVO_MAX, ORIGENES_REVISAR, puede_revisar
-from ..models.semaforo import AR_TZ, GREEN, RED, UTC, YELLOW
+from ..models.semaforo import AR_TZ, GREEN, GREY, RED, SIN_CONFIRMAR, UTC, YELLOW, chips
 from .kit import kit_context
 from .tablero import wants_tablero
 
 LIMIT = 300
-TABS = [("todos", "Todos"), ("rojos", "Rojos"), ("amarillos", "Amarillos"),
-        ("retenidos", "Retenidos")]
-COLOR_LABEL = {RED: "Rojo", YELLOW: "Amarillo", GREEN: "Verde"}
+# 19.0.1.121.0: «Por confirmar» (red and yellow) is the default tab
+TABS = [("pendientes", "Por confirmar"), ("confirmados", "Confirmados"),
+        ("retenidos", "Retenidos"), ("todos", "Todos")]
+DEFAULT_TAB = "pendientes"
+# the tabs of before 19.0.1.121.0 (old links, the Inicio banner)
+OLD_TABS = {"rojos": "pendientes", "amarillos": "pendientes"}
+COLOR_LABEL = {RED: "Sin cliente", YELLOW: "Sin confirmar", GREEN: "Confirmado",
+               GREY: "Cancelado"}
 # the order's WhatsApp state worth a chip on the card: (label, chip kind)
 WA_CHIP = {
     "waiting": ("Esperando el WhatsApp del cliente", "warn"),
@@ -87,7 +98,9 @@ def card(order):
     env = order.env
     o = order.sudo()
     generic = bool(not o.partner_id or o.partner_id.distri_generic_partner)
-    color = o.distri_semaforo or GREEN
+    color = o.distri_revisar_color or GREEN
+    # the risk chips only while the order waits for the confirmation
+    riesgos = chips(o.distri_semaforo_motivos) if o.state in SIN_CONFIRMAR else []
     origen = dict(ORIGENES_REVISAR).get(o.distri_revisar_origen, "")
     meta = [origen] if origen else []
     if o.distri_wa_code:
@@ -114,7 +127,9 @@ def card(order):
         "generic": generic,
         "typed": " · ".join(typed),
         "meta": " · ".join(m for m in meta if m),
-        "motivos": o.distri_semaforo_motivos or "",
+        "chips": riesgos,
+        "motivos": " · ".join(riesgos),
+        "pendiente": color in (RED, YELLOW),
         "wa_label": WA_CHIP.get(wa_state, ("", ""))[0],
         "wa_kind": WA_CHIP.get(wa_state, ("", ""))[1],
         "code_line": o.distri_wa_code_line or "",
@@ -185,20 +200,21 @@ class Revisar(http.Controller):
             return self._json({"ok": False, "error": text}, status=status)
         return self._page(error=text, status=status)
 
-    def _page(self, ver="todos", retener="", error="", ok="", status=200, asignado="",
+    def _page(self, ver=DEFAULT_TAB, retener="", error="", ok="", status=200, asignado="",
               sin_wa=""):
         user = request.env.user
         orders = request.env["sale.order"].search(
             [("distri_revisar_en_lista", "=", True)],
-            order="distri_semaforo_orden, date_order desc, id desc", limit=LIMIT)
+            order="distri_revisar_orden, date_order desc, id desc", limit=LIMIT)
         cards = [card(o) for o in orders]
         counts = {
-            "todos": len(cards),
-            "rojos": len([c for c in cards if c["color"] == RED]),
-            "amarillos": len([c for c in cards if c["color"] == YELLOW]),
+            "pendientes": len([c for c in cards if c["pendiente"]]),
+            "confirmados": len([c for c in cards if c["color"] == GREEN]),
             "retenidos": len([c for c in cards if c["retenido"]]),
+            "todos": len(cards),
         }
-        ver = ver if ver in dict(TABS) else "todos"
+        ver = OLD_TABS.get(ver, ver)
+        ver = ver if ver in dict(TABS) else DEFAULT_TAB
         hold = None
         if retener:
             try:
@@ -242,7 +258,7 @@ class Revisar(http.Controller):
     # ---------------------------------------------------------------- page
 
     @http.route("/revisar", type="http", auth="user", methods=["GET"], sitemap=False)
-    def page(self, ver="todos", retener="", ok="", asignado="", sin_wa="", aviso="", **kw):
+    def page(self, ver=DEFAULT_TAB, retener="", ok="", asignado="", sin_wa="", aviso="", **kw):
         self._check()
         return self._page(ver=ver, retener=retener, ok=ok, asignado=asignado, sin_wa=sin_wa,
                           error=(aviso or "")[:300])

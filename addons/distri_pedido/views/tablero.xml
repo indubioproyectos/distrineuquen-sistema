@@ -4,7 +4,7 @@
   <!-- «Tablero» / «Inicio»: the staff home (controllers/tablero.py). Opening
        /odoo without a menu lands here instead of Odoo's Discuss.
        19.0.1.108.0 (owner-approved mockup «Inicio»): on the kit, with a
-       glyph per tile, count badges, the «pedidos en rojo» banner, «Mi
+       glyph per tile, count badges, the «pedidos sin cliente» banner, «Mi
        reparto de hoy» for a user that also drives, and Odoo's other apps
        folded under «Todas las aplicaciones de Odoo». -->
   <template id="tablero_page" name="Tablero del equipo">&lt;!DOCTYPE html&gt;

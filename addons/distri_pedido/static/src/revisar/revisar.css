@@ -20,6 +20,11 @@
 .rv-sem--rojo{background:var(--dn-red-bg);color:var(--dn-red-text)}
 .rv-sem--amarillo{background:var(--dn-amber-bg);color:var(--dn-amber-text)}
 .rv-sem--verde{background:var(--dn-green-bg);color:var(--dn-green-text)}
+/* 19.0.1.121.0: status colours (confirmed, cancelled) and the risk chips */
+.rv-dot--verde{background:var(--dn-primary)}
+.rv-sem--gris{background:var(--dn-tint);color:var(--dn-muted)}
+.rv-sem--gris .rv-dot{background:var(--dn-muted)}
+.rv-chips{display:flex;flex-wrap:wrap;gap:6px}
 
 .rv-card{background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r);padding:16px;
   display:flex;flex-direction:column;gap:10px}

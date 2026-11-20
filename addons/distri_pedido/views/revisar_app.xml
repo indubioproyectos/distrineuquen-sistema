@@ -36,7 +36,10 @@
           <span class="rv-meta" t-esc="c['meta']"/>
           <span t-if="c['generic'] and c['typed']" class="rv-meta">Escribió: <t t-esc="c['typed']"/></span>
         </div>
-        <span t-if="c['motivos']" t-att-class="'rv-why' + (' rv-why--y' if c['color'] != 'rojo' else '')" t-esc="c['motivos']"/>
+        <!-- 19.0.1.121.0: the risk reasons, only while it waits for the confirmation -->
+        <div t-if="c['chips']" class="rv-chips">
+          <span t-foreach="c['chips']" t-as="chip" class="dn-chip dn-chip--warn rv-risk" t-esc="chip"/>
+        </div>
         <span t-if="c['wa_label']" t-att-class="'dn-chip rv-wa dn-chip--%s' % c['wa_kind']"><t t-esc="c['wa_label']"/></span>
         <div t-if="c['retenido']" class="rv-held">
           <b>Pedido retenido.</b> <t t-esc="c['ret_quien']"/><t t-if="c['ret_cuando']"> · <t t-esc="c['ret_cuando']"/></t>
@@ -94,7 +97,7 @@
     <div class="rv-top__txt">
       <span class="dn-top__kicker">Distri Neuquén · Administración</span>
       <h1 class="rv-title">Pedidos para revisar</h1>
-      <p class="rv-sub">Hoy y ayer, más los retenidos. Primero los rojos.</p>
+      <p class="rv-sub">Hoy y ayer, más los retenidos. Primero lo que falta confirmar.</p>
     </div>
   </header>
   <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
@@ -104,8 +107,8 @@
     <a t-foreach="tabs" t-as="tab" t-att-href="'/revisar?ver=%s' % tab[0]"
        t-att-class="'rv-tab' + (' on' if tab[0] == ver else '')" t-att-data-ver="tab[0]"
        t-att-aria-current="'true' if tab[0] == ver else None">
-      <span t-if="tab[0] == 'rojos'" class="rv-dot rv-dot--rojo" aria-hidden="true"/>
-      <span t-if="tab[0] == 'amarillos'" class="rv-dot rv-dot--amarillo" aria-hidden="true"/>
+      <span t-if="tab[0] == 'pendientes'" class="rv-dot rv-dot--amarillo" aria-hidden="true"/>
+      <span t-if="tab[0] == 'confirmados'" class="rv-dot rv-dot--verde" aria-hidden="true"/>
       <span><t t-esc="tab[1]"/> · <span class="dn-num" t-att-data-count="tab[0]" t-esc="counts[tab[0]]"/></span>
     </a>
   </nav>
@@ -113,14 +116,16 @@
   <main class="dn-main rv-main" t-att-data-ver="ver">
     <div class="dn-empty" data-rv-empty="" t-att-hidden="None if not cards else 'hidden'">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
-      <p>No hay pedidos para revisar.</p>
+      <p>No hay pedidos para mostrar acá.</p>
     </div>
     <t t-foreach="cards" t-as="c">
-      <t t-set="oculto" t-value="not (ver == 'todos' or (ver == 'rojos' and c['color'] == 'rojo') or (ver == 'amarillos' and c['color'] == 'amarillo') or (ver == 'retenidos' and c['retenido']))"/>
+      <t t-set="oculto" t-value="not (ver == 'todos' or (ver == 'pendientes' and c['pendiente']) or (ver == 'confirmados' and c['color'] == 'verde') or (ver == 'retenidos' and c['retenido']))"/>
       <t t-call="distri_pedido.revisar_card"/>
     </t>
     <p t-if="full" class="rv-legend">Se muestran los primeros pedidos: el resto, en «Abrir en Odoo».</p>
-    <p class="rv-legend">Rojo: sin cliente, cliente nuevo o sin compras. Amarillo: sin WhatsApp o importe alto.</p>
+    <p class="rv-legend">Verde: confirmado. Amarillo: falta confirmarlo. Rojo: falta confirmarlo y no tiene cliente
+      asignado. Las etiquetas (cliente nuevo, sin compras anteriores, importe alto) dicen qué mirar antes de
+      confirmarlo.</p>
   </main>
 
   <!-- «Retener»: the reason (distri.retener.wizard's text). Without

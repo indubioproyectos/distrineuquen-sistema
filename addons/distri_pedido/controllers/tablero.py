@@ -25,7 +25,8 @@ IMG = "/distri_pedido/static/src/img/iconos/"
 # (views/tablero.xml, static/src/tablero/tablero.css). Every tile has a
 # sprite glyph (static/src/kit/dn-icons.svg) and, when it is cheap, a count
 # badge (TILE_BADGES): one search_count per visible tile, nothing for the
-# hidden ones. Above the tiles, the «pedidos en rojo» banner.
+# hidden ones. Above the tiles, the «pedidos sin cliente» banner
+# (19.0.1.121.0, before: «pedidos en rojo» of the risk).
 #
 # (key, visibility, title, subtitle, legacy PNG icon, glyph, url)
 # visibility: a menu xmlid (the tile shows when the user sees that menu),
@@ -36,7 +37,7 @@ TILES = [
     ("pedido", "staff", "Tomar un pedido", "Cargá el pedido de un cliente",
      IMG + "cuentas.png", "order", "/pedido"),
     # 19.0.1.108.0: controllers/revisar.py, administración and gerencia
-    ("revisar", "revisar", "Pedidos para revisar", "Semáforo, retener y liberar",
+    ("revisar", "revisar", "Pedidos para revisar", "Qué falta confirmar, retener y liberar",
      IMG + "cuentas.png", "target", "/revisar"),
     # 19.0.1.115.0: the driver's app, for a driver with another role too
     # (res.users._distri_landing sends him to Inicio)
@@ -151,28 +152,36 @@ def _plural(n, one, many):
     return "%s %s" % (n, one if n == 1 else many)
 
 
-def red_domain(env):
-    """Red orders of «Pedidos para revisar» that nobody held and nobody
-    packed yet: the banner and the badge of the «Pedidos para revisar» tile."""
+def pendientes_domain(env):
+    """19.0.1.121.0: orders of «Pedidos para revisar» still missing the
+    confirmation (its «Por confirmar» tab, held ones included): the badge of
+    the «Pedidos para revisar» tile."""
     return (env["sale.order"]._distri_revisar_dominio()
-            & Domain("distri_semaforo", "=", "rojo") & Domain("distri_retenido", "=", False)
-            & Domain("distri_armado", "=", "pendiente"))
+            & Domain("distri_revisar_color", "in", ["rojo", "amarillo"]))
+
+
+def sin_cliente_domain(env):
+    """The ones of pendientes_domain without a real customer (red): the
+    banner above the tiles."""
+    return (env["sale.order"]._distri_revisar_dominio()
+            & Domain("distri_revisar_color", "=", "rojo"))
 
 
 def _badge_revisar(env):
-    n = env["sale.order"].sudo().search_count(red_domain(env))
+    n = env["sale.order"].sudo().search_count(pendientes_domain(env))
     # 19.0.1.116.0: packed orders whose automatic invoice failed
     # (models/factura_armado.py), retried with «Facturar lo armado»
     sin_factura = env["sale.order"].sudo().search_count([
         ("state", "=", "sale"), ("distri_factura_error", "!=", False)])
     partes = []
     if n:
-        partes.append(_plural(n, "rojo", "rojos"))
+        partes.append("%s sin confirmar" % n)
     if sin_factura:
         partes.append("%s armado sin factura" % sin_factura if sin_factura == 1
                       else "%s armados sin factura" % sin_factura)
-    return {"text": " · ".join(partes), "kind": "err", "n": n,
-            "sin_factura": sin_factura} if partes else None
+    sin_cliente = env["sale.order"].sudo().search_count(sin_cliente_domain(env)) if n else 0
+    return {"text": " · ".join(partes), "kind": "err" if sin_factura or sin_cliente else "warn",
+            "n": n, "sin_cliente": sin_cliente, "sin_factura": sin_factura} if partes else None
 
 
 def _badge_armado(env):
@@ -269,17 +278,17 @@ TILE_BADGES = {
 
 def tile_badges(env, tiles):
     """Fills tile["badge"] for the visible tiles ({text, kind, n} or None)
-    and returns the «pedidos en rojo» banner (or None)."""
+    and returns the «pedidos sin cliente» banner (or None)."""
     banner = None
     for tile in tiles:
         badge_fn = TILE_BADGES.get(tile["key"])
         tile["badge"] = badge_fn(env) if badge_fn else None
-        if tile["key"] == "revisar" and tile["badge"] and tile["badge"]["n"]:
-            n = tile["badge"]["n"]
+        if tile["key"] == "revisar" and tile["badge"] and tile["badge"].get("sin_cliente"):
+            n = tile["badge"]["sin_cliente"]
             banner = {
-                "text": ("1 pedido en rojo espera revisión antes de armarse" if n == 1 else
-                         "%s pedidos en rojo esperan revisión antes de armarse" % n),
-                "url": "/revisar?ver=rojos",
+                "text": ("1 pedido sin cliente espera que le asignes el cliente" if n == 1 else
+                         "%s pedidos sin cliente esperan que les asignes el cliente" % n),
+                "url": "/revisar",
             }
     return banner
 

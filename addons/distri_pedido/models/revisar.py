@@ -30,6 +30,13 @@ administración assigns the customer and releases it. «Liberar» refuses while
 it is still on the generic «Pedidos web» contact; «Asignar y aprobar»
 releases it in the same step. Staff orders and logged-in customers' orders
 are not held (unchanged).
+
+19.0.1.121.0 (owner, from real use): the colour of the list is the order
+status (`distri_revisar_color`: green confirmed, yellow not confirmed, red
+not confirmed and without customer), sorted by `distri_revisar_orden`. The
+risk (`distri_semaforo`, models/semaforo.py) stays as it was, minus «Sin
+WhatsApp»: it gives the chips of the orders not confirmed yet and the
+gerencia alert.
 """
 from datetime import timedelta
 
@@ -38,14 +45,15 @@ from odoo.exceptions import UserError
 from odoo.fields import Domain
 
 from .semaforo import (
-    DIAS_CLIENTE_NUEVO, RED, SEMAFORO, SEMAFORO_ORDEN, ULTIMOS, evaluar,
-    inicio_del_dia_utc, link_whatsapp, promedio_base,
+    DIAS_CLIENTE_NUEVO, ESTADO_COLOR, ESTADO_ORDEN, RED, SEMAFORO, SEMAFORO_ORDEN, ULTIMOS,
+    color_estado, evaluar, inicio_del_dia_utc, link_whatsapp, promedio_base,
 )
 
 GRUPO_REVISAR = "distri_pedido.grupo_administracion"
 GRUPO_GERENCIA = "distri_pedido.grupo_gerencia"
 
-# «1» (default): an activity for gerencia when a red order arrives
+# «1» (default): an activity for gerencia when a risky order (red risk,
+# `distri_semaforo`) arrives
 PARAM_ALERTA_ROJOS = "distri_pedido.revisar_alerta_rojos"
 RESUMEN_ALERTA = "Pedido para revisar (rojo)"
 
@@ -99,15 +107,26 @@ class SaleOrderRevisar(models.Model):
         help="Rutas que ya salieron (o ya se controlaron) donde el pedido retenido sigue "
              "como visita pendiente.")
 
-    # ---- semaphore: a snapshot of the order's risk, stored so the list
-    # sorts and filters by it. It follows the customer, the amount and the
-    # customer's WhatsApp; the customer's later purchases do not repaint it.
+    # ---- risk: a snapshot of the order's risk, stored so it filters and
+    # sorts. It follows the customer and the amount; the customer's later
+    # purchases do not repaint it. Since 19.0.1.121.0 it is no longer the
+    # colour of the list: it gives the risk chips and the gerencia alert.
     distri_semaforo = fields.Selection(
-        SEMAFORO, string="Semáforo", compute="_compute_distri_semaforo", store=True)
+        SEMAFORO, string="Riesgo", compute="_compute_distri_semaforo", store=True)
     distri_semaforo_orden = fields.Integer(
-        string="Orden del semáforo", compute="_compute_distri_semaforo", store=True, index=True)
+        string="Orden del riesgo", compute="_compute_distri_semaforo", store=True, index=True)
     distri_semaforo_motivos = fields.Char(
-        string="Motivos", compute="_compute_distri_semaforo", store=True)
+        string="Señales de riesgo", compute="_compute_distri_semaforo", store=True)
+
+    # ---- 19.0.1.121.0: the colour of the list is the order status, from
+    # the state and the customer only (cheap, and confirming repaints it)
+    distri_revisar_color = fields.Selection(
+        ESTADO_COLOR, string="Semáforo", compute="_compute_distri_revisar_color", store=True,
+        help="Verde: confirmado. Amarillo: falta confirmarlo. Rojo: falta confirmarlo y no "
+             "tiene un cliente asignado. Gris: cancelado.")
+    distri_revisar_orden = fields.Integer(
+        string="Orden del semáforo", compute="_compute_distri_revisar_color", store=True,
+        index=True)
 
     # ---- the list
     distri_revisar_origen = fields.Selection(
@@ -123,7 +142,7 @@ class SaleOrderRevisar(models.Model):
         search="_search_distri_revisar_hoy")
     distri_revisar_alertado = fields.Boolean(
         string="Aviso a gerencia", copy=False, readonly=True,
-        help="Ya se le avisó a gerencia que entró en rojo: no se vuelve a avisar.")
+        help="Ya se le avisó a gerencia que el pedido es de riesgo: no se vuelve a avisar.")
 
     # ------------------------------------------------------------ computes
 
@@ -134,8 +153,16 @@ class SaleOrderRevisar(models.Model):
                 lambda s: s.state == "pending").route_id if order.distri_retenido else ()
             order.distri_retenido_rutas = ", ".join(r.name or "" for r in rutas) or False
 
-    @api.depends("partner_id", "partner_id.distri_generic_partner", "partner_id.distri_whatsapp",
-                 "partner_id.commercial_partner_id.distri_whatsapp", "amount_total", "date_order",
+    @api.depends("state", "partner_id", "partner_id.distri_generic_partner")
+    def _compute_distri_revisar_color(self):
+        for order in self:
+            partner = order.partner_id
+            color = color_estado(order.state,
+                                 sin_cliente=not partner or partner.distri_generic_partner)
+            order.distri_revisar_color = color
+            order.distri_revisar_orden = ESTADO_ORDEN[color]
+
+    @api.depends("partner_id", "partner_id.distri_generic_partner", "amount_total", "date_order",
                  "distri_wa_sin_telefono")
     def _compute_distri_semaforo(self):
         ahora = fields.Datetime.now()
@@ -181,7 +208,6 @@ class SaleOrderRevisar(models.Model):
         return {
             "cliente_nuevo": bool(creado and creado > cuando - timedelta(days=DIAS_CLIENTE_NUEVO)),
             "sin_compras": not (pedidos or facturas or historia),
-            "sin_whatsapp": not (partner.distri_whatsapp or cliente.distri_whatsapp),
             "importe": self.amount_total,
             "montos_previos": promedio_base(montos_pedidos, montos_facturas),
             "wa_sin_telefono": self.distri_wa_sin_telefono,
@@ -438,7 +464,9 @@ class SaleOrderRevisar(models.Model):
         return res
 
     def _distri_revisar_alertar(self):
-        """One activity per gerencia user for a red order, once per order."""
+        """One activity per gerencia user for a risky order (red risk, not
+        the status colour of the list), once per order. Only on create: an
+        upgrade or a later edit never schedules it."""
         rojos = self.sudo().filtered(
             lambda o: o.distri_semaforo == RED and not o.distri_revisar_alertado
             and o.state != "cancel")
@@ -453,7 +481,7 @@ class SaleOrderRevisar(models.Model):
                 order.activity_schedule(
                     "mail.mail_activity_data_todo",
                     summary=RESUMEN_ALERTA,
-                    note="Entró en rojo: %s. Revisalo en «Pedidos para revisar»."
+                    note="Pedido de riesgo: %s. Revisalo en «Pedidos para revisar»."
                          % (order.distri_semaforo_motivos or ""),
                     user_id=usuario.id,
                 )

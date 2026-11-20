@@ -1,6 +1,6 @@
 /* «Inicio» (19.0.1.108.0, views/tablero.xml): the staff home on the kit,
    from the owner-approved mockup. Tiles in two columns with a navy glyph,
-   an optional count badge, the «pedidos en rojo» banner on top and Odoo's
+   an optional count badge, the «pedidos sin cliente» banner on top and Odoo's
    other apps folded at the bottom. */
 .tab .dn-top__row{max-width:760px}
 .tab-title{font-size:20px}

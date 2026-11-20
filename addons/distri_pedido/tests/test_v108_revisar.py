@@ -47,11 +47,11 @@ class TestRevisarApp(HttpCase):
         cls.product = cls.env["product.product"].create({
             "name": "Producto Revisar V108", "list_price": 100, "type": "consu",
             "taxes_id": [Command.clear()]})
-        # red: a customer created today that never bought, no WhatsApp
+        # red risk: a customer created today that never bought, no WhatsApp
         cls.nuevo = Partner.create({"name": "Almacen Nuevo V108", "customer_rank": 1})
-        # yellow: an old customer with history and no WhatsApp
+        # no risk since 19.0.1.121.0: an old customer with history and no WhatsApp
         cls.sin_wa = Partner.create({"name": "Despensa Sin WA V108", "customer_rank": 1})
-        # green: old, with history and WhatsApp
+        # no risk: old, with history and WhatsApp
         cls.habitual = Partner.create({"name": "Maxikiosco Habitual V108", "customer_rank": 1,
                                        "distri_whatsapp": "+5492994222444"})
         for partner in (cls.sin_wa, cls.habitual):
@@ -115,30 +115,48 @@ class TestRevisarApp(HttpCase):
             self.assertIn("Pedidos para revisar", page.text)
 
     def test_page_renders_semaphore_and_reasons(self):
+        """19.0.1.121.0: the colour is the order status; the risk reasons
+        are chips of the orders not confirmed yet."""
         self.assertEqual(self.rojo.distri_semaforo, "rojo")
-        self.assertEqual(self.amarillo.distri_semaforo, "amarillo")
-        self.assertEqual(self.verde.distri_semaforo, "verde")
+        self.assertEqual(self.amarillo.distri_semaforo, "verde", "«Sin WhatsApp» is no risk")
+        self.verde.action_confirm()
+        self.assertEqual(self.web.distri_revisar_color, "rojo")
+        self.assertEqual(self.rojo.distri_revisar_color, "amarillo")
+        self.assertEqual(self.amarillo.distri_revisar_color, "amarillo")
+        self.assertEqual(self.verde.distri_revisar_color, "verde")
         self._login(self.gerente)
-        text = self.url_open("/revisar").text
+        text = self.url_open("/revisar?ver=todos").text
         for order in (self.rojo, self.amarillo, self.verde, self.web):
             self.assertIn('id="rv-%s"' % order.id, text)
-        self.assertRegex(text, r'class="rv-card rv-card--rojo"[^>]*id="rv-%s"' % self.rojo.id)
-        self.assertIn("Cliente nuevo · Sin compras anteriores", text)
-        self.assertIn('class="rv-why rv-why--y">Sin WhatsApp<', text)
-        self.assertIn("Sin cliente asignado", text)
-        self.assertIn("rv-card--compact", text, "green cards fold to one line")
+        self.assertRegex(text, r'class="rv-card rv-card--rojo"[^>]*id="rv-%s"' % self.web.id)
+        self.assertRegex(text, r'class="rv-card rv-card--amarillo"[^>]*id="rv-%s"' % self.rojo.id)
+        self.assertIn('<span class="dn-chip dn-chip--warn rv-risk">Cliente nuevo</span>', text)
+        self.assertIn('<span class="dn-chip dn-chip--warn rv-risk">Sin compras anteriores</span>',
+                      text)
+        self.assertNotIn("Sin WhatsApp", text)
+        self.assertNotIn("Sin cliente asignado", text, "the red label already says it")
+        self.assertIn("Sin cliente</span>", text)
+        self.assertIn("rv-card--compact", text, "confirmed cards fold to one line")
         self.assertIn("Kiosco de la Web V108", text, "typed name of an order without customer")
         self.assertIn("Escribió: 299 000-3333", text)
         self.assertIn("$ 900", text)
         self.assertIn('href="/odoo/sale.order/%s"' % self.rojo.id, text, "«Abrir en Odoo»")
-        # red first
+        # without customer first, then not confirmed, the confirmed last
+        self.assertLess(text.index('id="rv-%s"' % self.web.id),
+                        text.index('id="rv-%s"' % self.rojo.id))
         self.assertLess(text.index('id="rv-%s"' % self.rojo.id),
                         text.index('id="rv-%s"' % self.verde.id))
-        for tab in ("Todos", "Rojos", "Amarillos", "Retenidos"):
-            self.assertIn('data-ver="%s"' % tab.lower(), text)
+        for tab in ("pendientes", "confirmados", "retenidos", "todos"):
+            self.assertIn('data-ver="%s"' % tab, text)
         self.assertNotIn("Aprobar", text, "owner: no «Aprobar» on the new screens")
-        rojos = self.url_open("/revisar?ver=rojos").text
-        self.assertRegex(rojos, r'id="rv-%s"[^>]*hidden' % self.verde.id)
+        # «Por confirmar» is the default tab, and the old «Rojos» link lands there
+        for url in ("/revisar", "/revisar?ver=rojos"):
+            page = self.url_open(url).text
+            self.assertRegex(page, r'id="rv-%s"[^>]*hidden' % self.verde.id, url)
+            self.assertNotRegex(page, r'id="rv-%s"[^>]*hidden' % self.rojo.id, url)
+        page = self.url_open("/revisar?ver=confirmados").text
+        self.assertNotRegex(page, r'id="rv-%s"[^>]*hidden' % self.verde.id)
+        self.assertRegex(page, r'id="rv-%s"[^>]*hidden' % self.web.id)
 
     def test_copiar_codigo_markup(self):
         self._login(self.admin)
@@ -287,19 +305,33 @@ class TestRevisarApp(HttpCase):
         tiles = staff_tiles(env)
         banner = tile_badges(env, tiles)
         by_key = {t["key"]: t for t in tiles}
-        rojos = self.env["sale.order"].search_count([
-            ("distri_revisar_en_lista", "=", True), ("distri_semaforo", "=", "rojo"),
-            ("distri_retenido", "=", False), ("distri_armado", "=", "pendiente")])
-        self.assertGreaterEqual(rojos, 2, "the new customer's and the web order")
-        self.assertEqual(by_key["revisar"]["badge"]["n"], rojos)
-        self.assertEqual(by_key["revisar"]["badge"]["kind"], "err")
-        self.assertIn("%s pedidos en rojo esperan revisión" % rojos, banner["text"])
-        self.assertEqual(banner["url"], "/revisar?ver=rojos")
-        # a held order leaves the count
+        # 19.0.1.121.0: the badge counts the orders missing confirmation,
+        # the banner the ones without customer
+        Order = self.env["sale.order"]
+        pendientes = Order.search_count([("distri_revisar_en_lista", "=", True),
+                                         ("distri_revisar_color", "in", ["rojo", "amarillo"])])
+        sin_cliente = Order.search_count([("distri_revisar_en_lista", "=", True),
+                                          ("distri_revisar_color", "=", "rojo")])
+        self.assertGreaterEqual(pendientes, 4, "the four orders of the test are drafts")
+        self.assertGreaterEqual(sin_cliente, 1, "the web order")
+        badge = by_key["revisar"]["badge"]
+        self.assertEqual(badge["n"], pendientes)
+        self.assertEqual(badge["kind"], "err")
+        self.assertTrue(badge["text"].startswith("%s sin confirmar" % pendientes))
+        self.assertIn("sin cliente", banner["text"])
+        self.assertIn(str(sin_cliente), banner["text"])
+        self.assertEqual(banner["url"], "/revisar")
+
+        def count():
+            tiles = staff_tiles(env)
+            tile_badges(env, tiles)
+            return {t["key"]: t for t in tiles}["revisar"]["badge"]["n"]
+
+        # a confirmed order leaves the count; a held one stays (still to confirm)
+        self.verde.action_confirm()
+        self.assertEqual(count(), pendientes - 1)
         self.rojo.with_user(self.gerente).distri_retener("Revisar")
-        tiles = staff_tiles(env)
-        tile_badges(env, tiles)
-        self.assertEqual({t["key"]: t for t in tiles}["revisar"]["badge"]["n"], rojos - 1)
+        self.assertEqual(count(), pendientes - 1)
 
         # the cashier: no red banner, «Abierta» once the cash is open
         env = self.env(user=self.cajero)
@@ -336,9 +368,8 @@ class TestRevisarApp(HttpCase):
         self.assertIn('href="/revisar"', text)
         self.assertIn('href="/pedido"', text)
         self.assertIn("Tomar un pedido", text)
-        self.assertIn("pedidos en rojo esperan revisión antes de armarse", text)
-        self.assertIn('href="/revisar?ver=rojos"', text)
-        self.assertRegex(text, r'class="tab-badge dn-num tab-badge--err">\d+ rojos( · [^<]*)?<')
+        self.assertRegex(text, r"\d+ pedidos? sin cliente esperan? que")
+        self.assertRegex(text, r'class="tab-badge dn-num tab-badge--err">\d+ sin confirmar( · [^<]*)?<')
         self.assertIn("Todas las aplicaciones de Odoo", text)
         self.assertIn('href="/deposito"', text, "19.0.1.109.0: the «Depósito» tile")
         self.assertNotIn("Aprobar", text)
@@ -346,4 +377,4 @@ class TestRevisarApp(HttpCase):
         text = self.url_open("/tablero").text
         self.assertIn('href="/caja"', text)
         self.assertNotIn('href="/revisar"', text)
-        self.assertNotIn("pedidos en rojo", text)
+        self.assertNotIn("asignes el cliente", text)

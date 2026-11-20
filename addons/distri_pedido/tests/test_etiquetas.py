@@ -9,7 +9,9 @@ from odoo.tests import tagged
 from odoo.tools.pdf import PdfReader
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
-from odoo.addons.distri_pedido.models.etiquetas import big_number_size, format_phone
+from odoo.addons.distri_pedido.models.etiquetas import (
+    PARAM_SENDER, big_number_size, format_phone, recipient_size, town_size)
+from odoo.addons.distri_pedido.models.sale_order import SOCIO_SIN_ASIGNAR
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
 MM = 72 / 25.4  # PDF points per millimetre
@@ -94,8 +96,9 @@ class TestEtiquetas(RepartoMixin, AccountTestInvoicingCommon):
         other.sudo().write({"distri_encomienda": True, "distri_encomienda_manual": True,
                             "distri_envio_paga": "customer"})
         values = other._distri_packages()._label_values()
-        self.assertTrue(values["destination"].startswith("Encomienda a"))
-        self.assertTrue(values["detail"])
+        # 19.0.1.121.0: a parcel label shows recipient and sender, no payer
+        self.assertEqual((values["destination"], values["detail"]), ("Encomienda", ""))
+        self.assertTrue(values["parcel"])
         routed = self._packed(1)
         route = self._route(routed)
         values = routed._distri_packages()._label_values()
@@ -185,3 +188,91 @@ class TestEtiquetas(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(format_phone(False), "")
         self.assertGreaterEqual(big_number_size("3/5"), 30)
         self.assertLess(big_number_size("12/12"), big_number_size("3/5"))
+
+    # ------------------------------------------------------------ 19.0.1.121.0: parcels
+
+    def _parcel(self, **vals):
+        """A parcel order like S00296: generic contact (whose city is our
+        base town), recipient and DNI typed, going to Zapala."""
+        generico = self.env["res.partner"].create({
+            "name": SOCIO_SIN_ASIGNAR, "distri_generic_partner": True,
+            "distri_generic_kind": "retail", "city": "Neuquén"})
+        order = self._packed(2)
+        order.sudo().with_context(distri_asignar_cliente=True).write({"partner_id": generico.id})
+        order.sudo().write(dict({
+            "distri_nombre": "ANGELA BARROS", "distri_telefono": "+5492994243375",
+            "distri_encomienda": True, "distri_encomienda_manual": True,
+            "distri_encomienda_nombre": "ANGELA BARROS", "distri_encomienda_dni": "44237964",
+            "distri_encomienda_localidad": "Zapala", "distri_envio_paga": "distri",
+        }, **vals))
+        return order
+
+    def test_parcel_label_recipient_and_sender_only(self):
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.telefono_empresa", "2995797248")
+        order = self._parcel()
+        packages = order._distri_packages()
+        values = packages[0]._label_values()
+        self.assertTrue(values["parcel"])
+        self.assertEqual(values["recipient"], "ANGELA BARROS")
+        self.assertEqual(values["dni"], "44237964")
+        self.assertEqual(values["parcel_town"], "Zapala")
+        self.assertEqual(values["recipient_phone"], "299 424-3375")
+        self.assertEqual(values["sender"], "Gonzalo Martín Granero · DNI 35569358 · Neuquén",
+                         "the editable parameter, created with the module")
+        self.assertEqual(values["company"], "Distri Neuquén · 299 579-7248")
+        html = self._html(packages)
+        text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+        for expected in ("ANGELA BARROS", "DNI 44237964", "Zapala", "Tel. 299 424-3375",
+                         "Remite: Gonzalo Martín Granero · DNI 35569358 · Neuquén",
+                         "Distri Neuquén · 299 579-7248", "1/2", "de 2 bultos",
+                         "Pedido %s" % order.name, "%s-01" % order.name):
+            self.assertIn(expected, text)
+        # the company line is inside the «Remite» block, under the sender
+        self.assertLess(text.index("Remite:"), text.index("Distri Neuquén · 299"))
+        self.assertLess(text.index("Zapala"), text.index("Remite:"))
+        self.assertIn("data:image/svg+xml;base64,", html, "the DN logo, embedded")
+        self.assertIn("data:image/png;base64,", html, "the Code128 barcode stays")
+        # no payer, no carrier, no packing date, no base town as destination
+        self.assertNotIn("Envío pago", text)
+        self.assertNotIn("Encomienda a", text)
+        self.assertNotIn("Armado:", text)
+        recipient_part = text[text.index("ANGELA BARROS"):text.index("Remite:")]
+        self.assertNotIn("Neuquén", recipient_part,
+                         "the generic contact's city is not the recipient's town")
+        reader = self._pdf("distri_pedido.report_etiquetas_bultos", packages.ids)
+        self.assertEqual(len(reader.pages), 2)
+        for page in reader.pages:
+            self.assertAlmostEqual(float(page.mediabox.width) / MM, 100, delta=1)
+            self.assertAlmostEqual(float(page.mediabox.height) / MM, 50, delta=1)
+
+    def test_parcel_label_fallbacks_and_sender_param(self):
+        self.env["ir.config_parameter"].sudo().set_param(PARAM_SENDER, "Otro Remitente · Plottier")
+        order = self._parcel(distri_encomienda_nombre=False, distri_encomienda_dni=False,
+                             distri_telefono=False)
+        values = order._distri_packages()[0]._label_values()
+        self.assertEqual(values["recipient"], "ANGELA BARROS", "the customer name typed")
+        self.assertEqual((values["dni"], values["recipient_phone"]), ("", ""))
+        self.assertEqual(values["sender"], "Otro Remitente · Plottier")
+        text = " ".join(re.sub(r"<[^>]+>", " ", self._html(order._distri_packages())).split())
+        self.assertNotIn("DNI", text[text.index("ANGELA BARROS"):text.index("Remite:")])
+
+    def test_parcel_long_values_fit(self):
+        name = "MARIA DE LOS ANGELES FERNANDEZ GUTIERREZ DEL CASTILLO"
+        order = self._parcel(distri_encomienda_nombre=name,
+                             distri_encomienda_localidad="San Martín de los Andes")
+        values = order._distri_packages()[0]._label_values()
+        self.assertLess(values["recipient_size"], recipient_size("ANGELA BARROS"))
+        self.assertLess(values["town_size"], town_size("Zapala"))
+        reader = self._pdf("distri_pedido.report_etiquetas_bultos", order._distri_packages().ids)
+        self.assertEqual(len(reader.pages), 2, "still one 100 x 50 page per package")
+
+    def test_non_parcel_label_unchanged(self):
+        order = self._packed(1)
+        values = order._distri_packages()._label_values()
+        self.assertFalse(values["parcel"])
+        self.assertNotIn("recipient", values)
+        text = " ".join(re.sub(r"<[^>]+>", " ", self._html(order._distri_packages())).split())
+        self.assertNotIn("Remite:", text)
+        self.assertIn("Armado:", text)
+        self.assertIn("Reparto", text)

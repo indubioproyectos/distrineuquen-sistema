@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-  <!-- «Retener / Liberar» and «Pedidos para revisar» with the risk
-       semaphore (models/revisar.py, models/semaforo.py). Made for the
-       manager's phone: kanban cards first, the list as a second view. -->
+  <!-- «Retener / Liberar» and «Pedidos para revisar» (models/revisar.py,
+       models/semaforo.py). Made for the manager's phone: kanban cards
+       first, the list as a second view. 19.0.1.121.0: the colour is the
+       order status (distri_revisar_color); the risk reasons show only on
+       the orders not confirmed yet. -->
 
   <!-- ============================================ asistente: retener -->
 
@@ -71,14 +73,14 @@
         </div>
       </xpath>
       <xpath expr="//group[@name='partner_details']" position="inside">
-        <field name="distri_semaforo" widget="badge" readonly="1"
+        <field name="distri_revisar_color" widget="badge" readonly="1"
                groups="distri_pedido.grupo_administracion"
-               decoration-danger="distri_semaforo == 'rojo'"
-               decoration-warning="distri_semaforo == 'amarillo'"
-               decoration-success="distri_semaforo == 'verde'"/>
+               decoration-danger="distri_revisar_color == 'rojo'"
+               decoration-warning="distri_revisar_color == 'amarillo'"
+               decoration-success="distri_revisar_color == 'verde'"/>
         <field name="distri_semaforo_motivos" readonly="1"
                groups="distri_pedido.grupo_administracion"
-               invisible="not distri_semaforo_motivos"/>
+               invisible="not distri_semaforo_motivos or state not in ('draft', 'sent')"/>
       </xpath>
     </field>
   </record>
@@ -91,8 +93,8 @@
     <field name="priority">40</field>
     <field name="arch" type="xml">
       <kanban create="0" class="o_kanban_mobile" sample="0"
-              default_order="distri_semaforo_orden, date_order desc, id desc">
-        <field name="distri_semaforo"/>
+              default_order="distri_revisar_orden, date_order desc, id desc">
+        <field name="distri_revisar_color"/>
         <field name="distri_retenido"/>
         <field name="distri_revisar_wa_url"/>
         <field name="distri_wa_code"/>
@@ -102,10 +104,10 @@
           <t t-name="card" class="p-2">
             <div class="d-flex justify-content-between align-items-baseline gap-2">
               <span class="fs-5 fw-bold">
-                <field name="distri_semaforo" widget="badge"
-                       decoration-danger="distri_semaforo == 'rojo'"
-                       decoration-warning="distri_semaforo == 'amarillo'"
-                       decoration-success="distri_semaforo == 'verde'"/>
+                <field name="distri_revisar_color" widget="badge"
+                       decoration-danger="distri_revisar_color == 'rojo'"
+                       decoration-warning="distri_revisar_color == 'amarillo'"
+                       decoration-success="distri_revisar_color == 'verde'"/>
                 <field name="name"/>
               </span>
               <field name="amount_total" widget="monetary" class="fs-5 fw-bold"/>
@@ -116,7 +118,8 @@
               <span t-if="record.distri_wa_code.raw_value"> · código <field name="distri_wa_code"/></span>
               · <field name="date_order" widget="datetime"/>
             </div>
-            <field name="distri_semaforo_motivos" class="small"/>
+            <field name="distri_semaforo_motivos" class="small"
+                   invisible="state not in ('draft', 'sent')"/>
             <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
               <field name="state" widget="badge" decoration-success="state == 'sale'"
                      decoration-info="state in ('draft', 'sent')"/>
@@ -146,15 +149,15 @@
     <field name="priority">40</field>
     <field name="arch" type="xml">
       <list string="Pedidos para revisar" create="0" delete="0"
-            default_order="distri_semaforo_orden, date_order desc, id desc"
-            decoration-danger="distri_semaforo == 'rojo'"
-            decoration-warning="distri_semaforo == 'amarillo'">
+            default_order="distri_revisar_orden, date_order desc, id desc"
+            decoration-danger="distri_revisar_color == 'rojo'"
+            decoration-warning="distri_revisar_color == 'amarillo'">
         <field name="currency_id" column_invisible="1"/>
         <field name="distri_revisar_wa_url" column_invisible="1"/>
-        <field name="distri_semaforo" string="Semáforo" widget="badge"
-               decoration-danger="distri_semaforo == 'rojo'"
-               decoration-warning="distri_semaforo == 'amarillo'"
-               decoration-success="distri_semaforo == 'verde'"/>
+        <field name="distri_revisar_color" string="Semáforo" widget="badge"
+               decoration-danger="distri_revisar_color == 'rojo'"
+               decoration-warning="distri_revisar_color == 'amarillo'"
+               decoration-success="distri_revisar_color == 'verde'"/>
         <field name="name" string="Pedido"/>
         <field name="partner_id" string="Cliente"/>
         <field name="amount_total" string="Total" widget="monetary"/>
@@ -162,7 +165,8 @@
         <field name="distri_wa_code" string="Código" optional="show"/>
         <field name="state" widget="badge" optional="show"/>
         <field name="distri_retenido" string="Retenido" widget="boolean"/>
-        <field name="distri_semaforo_motivos" optional="show"/>
+        <field name="distri_semaforo_motivos" optional="show"
+               invisible="state not in ('draft', 'sent')"/>
         <field name="date_order" optional="hide"/>
         <button name="action_distri_retener" type="object" string="Retener" icon="fa-pause"
                 class="btn-link" invisible="distri_retenido or state == 'cancel'"/>
@@ -185,12 +189,16 @@
         <field name="partner_id"/>
         <field name="distri_wa_code"/>
         <filter name="retenidos" string="Retenidos" domain="[('distri_retenido', '=', True)]"/>
-        <filter name="rojos" string="Rojos" domain="[('distri_semaforo', '=', 'rojo')]"/>
-        <filter name="amarillos" string="Amarillos" domain="[('distri_semaforo', '=', 'amarillo')]"/>
+        <filter name="pendientes" string="Por confirmar"
+                domain="[('distri_revisar_color', 'in', ('rojo', 'amarillo'))]"/>
+        <filter name="rojos" string="Sin cliente" domain="[('distri_revisar_color', '=', 'rojo')]"/>
+        <filter name="confirmados" string="Confirmados" domain="[('distri_revisar_color', '=', 'verde')]"/>
+        <filter name="riesgo" string="Con riesgo"
+                domain="[('distri_semaforo', '=', 'rojo'), ('state', 'in', ('draft', 'sent'))]"/>
         <separator/>
         <filter name="hoy" string="Hoy" domain="[('distri_revisar_hoy', '=', True)]"/>
         <group>
-          <filter name="por_semaforo" string="Semáforo" context="{'group_by': 'distri_semaforo'}"/>
+          <filter name="por_semaforo" string="Semáforo" context="{'group_by': 'distri_revisar_color'}"/>
         </group>
       </search>
     </field>
@@ -209,11 +217,12 @@
         (0, 0, {'view_mode': 'form', 'view_id': ref('sale.view_order_form')})]"/>
     <field name="help" type="html">
       <p class="o_view_nocontent_smiling_face">No hay pedidos para revisar.</p>
-      <p>Los pedidos de hoy y de ayer, y todos los retenidos: primero los rojos, después los
-         amarillos y al final los verdes. Rojo: cliente nuevo, sin compras anteriores o sin
-         cliente asignado. Amarillo: sin WhatsApp, o más del doble de lo que compra
-         habitualmente. Retené el que quieras revisar: no se arma, no se factura y no sale en
-         ruta hasta que lo liberes.</p>
+      <p>Los pedidos de hoy y de ayer, y todos los retenidos: primero lo que falta confirmar y al
+         final los confirmados. Verde: confirmado. Amarillo: falta confirmarlo. Rojo: falta
+         confirmarlo y no tiene cliente asignado. En los que faltan confirmar, las señales de
+         riesgo (cliente nuevo, sin compras anteriores, más del doble de lo que compra
+         habitualmente) dicen qué mirar. Retené el que quieras revisar: no se arma, no se
+         factura y no sale en ruta hasta que lo liberes.</p>
     </field>
   </record>
 
