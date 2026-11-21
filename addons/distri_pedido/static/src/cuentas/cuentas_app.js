@@ -612,7 +612,7 @@
     }
     var summary = boxes.length ? '<div class="summary">' + boxes.join("") + "</div>" : "";
     var red = d.owed_count ? '<div class="redbox">Facturas adeudadas · ' + d.owed_count + " · en rojo, por <b class=\"num\">" +
-      money(d.owed_total) + "</b>. Los pagos se aplican de la más vieja a la más nueva.</div>" : "";
+      money(d.owed_total) + "</b>. Cada pago cancela primero la factura que concilia o nombra; el resto, de la más vieja a la más nueva.</div>" : "";
     return summary +
       '<div class="label">Período</div>' + periodView(acc) + shareView(d, wide) + red + totalsView(d) +
       '<div class="label">Movimientos · lo más nuevo arriba</div>' + statementView(acc, wide) +

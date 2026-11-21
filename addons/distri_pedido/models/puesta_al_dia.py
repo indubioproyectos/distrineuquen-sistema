@@ -545,7 +545,7 @@ class CuentaMovimientoOnline(models.Model):
     # unpaid, set by hand from the review's conclusions, never inferred. The
     # Online sync only rewrites date, number, concept and amounts, so the mark
     # survives it. Since 19.0.1.99.0 it is only a record of the review: the red
-    # of the statement is computed FIFO (estado_cuenta.mark_owed_fifo) and the
+    # of the statement is computed (estado_cuenta.mark_owed) and the
     # note shows on the row.
     distri_owed = fields.Boolean(
         string="Marcada en la revisión", index=True,

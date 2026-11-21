@@ -20,12 +20,16 @@ The cards «Candidato · falta el comprobante» of the customer (19.0.1.45.0)
 show apart for staff only, as «Pago a confirmar · falta el comprobante»:
 never subtracted from the balance, with the balance if they were approved.
 
-Red rows («debe $ X», 19.0.1.99.0): every credit of the customer
-(payments, credit notes, refunds, reported returns) is applied to the debit
-rows oldest to newest (mark_owed_fifo). What stays uncovered is owed, so the
-red total always equals the balance and a customer up to date or in credit
-has nothing red. The review marks (distri_owed*) no longer decide the color;
-their note stays visible as `review_note`.
+Red rows («debe $ X», 19.0.1.99.0, priority passes since 19.0.1.123.0):
+every credit of the customer (payments, credit notes, refunds, reported
+returns) is applied to the debit rows in passes, each over what is still
+unallocated (mark_owed): first the reconciliations of this Odoo, then the
+invoice a memo names, then an exact amount nearest in date, and last oldest
+debit first. What stays uncovered is owed, so the red total always equals
+the balance and a customer up to date or in credit has nothing red. A paid
+invoice no longer stays red because an older one took its payment. The
+review marks (distri_owed*) no longer decide the color; their note stays
+visible as `review_note`.
 
 Staff see the invoice number and the remito. The customer sees only the
 remito (models/remito.py): `customer_type` and `customer_ref` never carry
@@ -41,6 +45,7 @@ to him (models/cuenta_visible.py).
 """
 import base64
 import binascii
+import re
 from datetime import date, datetime, time, timedelta, timezone
 
 from odoo import api, fields, models
@@ -88,7 +93,8 @@ LINK_SIGNATURE_BYTES = 24
 
 
 def mark_owed_fifo(rows):
-    """Set row["owed"] on statement rows, FIFO.
+    """Set row["owed"] on statement rows, FIFO only (the statement uses
+    mark_owed; «Deudores» still dates its «Deuda más vieja» with this one).
 
     The credit is the sum of the rows whose net (debit - credit) is negative,
     whatever their date: a payment made before an invoice still covers it.
@@ -118,6 +124,133 @@ def mark_owed_fifo(rows):
             total += owed
         else:
             row["owed"] = 0.0
+    return count, round(total, 2)
+
+
+# Invoice numbers a credit's memo may name (mark_owed, pass 2): the full
+# number, or a bare 5-digit tail that is not part of a longer token (S00241,
+# an amount like 12345,50, a date or a full number).
+_MEMO_FULL_NUMBER = re.compile(r"(?<![\w/])((?:\d{4}|VSR|AJC)/\d{4}/\d{5})(?![\d/])")
+_MEMO_TAIL = re.compile(r"(?<![\w/.,$])(\d{5})(?![\w/]|[.,]\d)")
+_INVOICE_NUMBER = re.compile(r"^\d{4}/\d{4}/(\d{5})$")
+
+
+def _memo_refs(text):
+    """The invoice references in a memo, in order: ("full", number) or
+    ("tail", 5 digits); a tail already named by a full number is skipped."""
+    refs = [("full", m.group(1)) for m in _MEMO_FULL_NUMBER.finditer(text)]
+    seen = {ref[-5:] for _kind, ref in refs}
+    for m in _MEMO_TAIL.finditer(text):
+        if m.group(1) not in seen:
+            seen.add(m.group(1))
+            refs.append(("tail", m.group(1)))
+    return refs
+
+
+def _nearest_debit(candidates, day):
+    """The candidate dated on or before `day`, nearest in date; if none, the
+    nearest after. Ties: the first in row order (the oldest)."""
+    def when(item):
+        return item["row"].get("date") or date.min
+    before = [d for d in candidates if when(d) <= day]
+    if before:
+        best = max(when(d) for d in before)
+        return next(d for d in before if when(d) == best)
+    best = min(when(d) for d in candidates)
+    return next(d for d in candidates if when(d) == best)
+
+
+def mark_owed(rows):
+    """Set row["owed"] on statement rows (oldest first), by priority passes.
+
+    Debits are the rows with a positive net (debit - credit), credits the
+    ones with a negative net; net-zero rows are ignored. Every pass applies
+    only the amounts still unallocated:
+
+    1. reconciliation: row["reconciled"] of a credit lists (debit line id,
+       amount) pairs of account.partial.reconcile; each covers the debit row
+       whose row["line_id"] matches, for that amount;
+    2. memo: a credit whose row["memo"] names an invoice number (full, or
+       its 5-digit tail) covers that debit, up to what it still owes;
+    3. same amount: a credit whose remaining amount equals a debit's
+       remaining amount pays it, preferring the debit dated on or before the
+       credit, nearest in date, else the nearest after;
+    4. FIFO: what is left goes to the debits oldest first.
+
+    A debit's «owed» is what stays uncovered; every other row gets 0.
+    Invariant: sum(owed) == max(balance, 0), within cents.
+
+    Returns (count, total) of the owed rows.
+    """
+    debits, credits = [], []
+    for row in rows:
+        row["owed"] = 0.0
+        net = round((row.get("debit") or 0.0) - (row.get("credit") or 0.0), 2)
+        if net > OWED_TOLERANCE:
+            debits.append({"row": row, "rem": net})
+        elif net < -OWED_TOLERANCE:
+            credits.append({"row": row, "rem": -net})
+
+    def allocate(credit, debit, amount):
+        amount = round(min(amount, credit["rem"], debit["rem"]), 2)
+        if amount > OWED_TOLERANCE:
+            credit["rem"] = round(credit["rem"] - amount, 2)
+            debit["rem"] = round(debit["rem"] - amount, 2)
+
+    def open_(items):
+        return [item for item in items if item["rem"] > OWED_TOLERANCE]
+
+    # 1. reconciliation
+    by_line = {d["row"]["line_id"]: d for d in debits if d["row"].get("line_id")}
+    for credit in credits:
+        for line_id, amount in credit["row"].get("reconciled") or ():
+            if line_id in by_line:
+                allocate(credit, by_line[line_id], amount)
+
+    # 2. memo / ref
+    by_number, by_tail = {}, {}
+    for debit in debits:
+        number = debit["row"].get("number") or ""
+        if number:
+            by_number.setdefault(number, []).append(debit)
+            match = _INVOICE_NUMBER.match(number)
+            if match:
+                by_tail.setdefault(match.group(1), []).append(debit)
+    for credit in credits:
+        text = credit["row"].get("memo") or ""
+        own = credit["row"].get("number") or ""
+        if own:
+            text = text.replace(own, " ")
+        for kind, ref in _memo_refs(text):
+            if credit["rem"] <= OWED_TOLERANCE:
+                break
+            candidates = open_((by_number if kind == "full" else by_tail).get(ref, []))
+            if candidates:
+                day = credit["row"].get("date") or date.min
+                allocate(credit, _nearest_debit(candidates, day), credit["rem"])
+
+    # 3. same amount (credits are in date order already)
+    for credit in open_(credits):
+        candidates = [d for d in open_(debits)
+                      if abs(d["rem"] - credit["rem"]) < OWED_TOLERANCE]
+        if candidates:
+            day = credit["row"].get("date") or date.min
+            allocate(credit, _nearest_debit(candidates, day), credit["rem"])
+
+    # 4. FIFO
+    for credit in credits:
+        for debit in debits:
+            if credit["rem"] <= OWED_TOLERANCE:
+                break
+            if debit["rem"] > OWED_TOLERANCE:
+                allocate(credit, debit, credit["rem"])
+
+    count, total = 0, 0.0
+    for debit in debits:
+        if debit["rem"] > OWED_TOLERANCE:
+            debit["row"]["owed"] = debit["rem"]
+            count += 1
+            total += debit["rem"]
     return count, round(total, 2)
 
 
@@ -282,10 +415,13 @@ class ResPartnerEstadoCuenta(models.Model):
 
         Each row: date, source, doc_type (staff), number (staff: invoice or
         payment number), remito, concept, customer_type, customer_ref,
-        debit, credit, balance, provisional, owed (uncovered amount, FIFO,
-        see mark_owed_fifo), review_note (the account review's note, shown
-        only), key (sort key), line_key (stable identity of the row, see
-        statement_line_key).
+        debit, credit, balance, provisional, owed (uncovered amount, see
+        mark_owed), review_note (the account review's note, shown only), key
+        (sort key), line_key (stable identity of the row, see
+        statement_line_key), line_id (account.move.line of this Odoo, else
+        False), reconciled ((debit line id, amount) pairs reconciled with
+        this credit line) and memo (label/ref text that may name an
+        invoice); the last three feed mark_owed and are never shown.
         """
         self.ensure_one()
         partner = self.commercial_partner_id.sudo()
@@ -336,6 +472,10 @@ class ResPartnerEstadoCuenta(models.Model):
                 "res_id": move.id,
                 "key": (line.date, _SOURCE_ORDER[SOURCE_ODOO], line.id),
                 "line_key": statement_line_key("account.move", move.id, per_move[move.id]),
+                "line_id": line.id,
+                "reconciled": [(p.debit_move_id.id, p.amount)
+                               for p in line.matched_debit_ids.sorted("id")],
+                "memo": " ".join(dict.fromkeys(x for x in (line.name, move.ref) if x)),
             })
         seen.discard(None)
 
@@ -357,7 +497,7 @@ class ResPartnerEstadoCuenta(models.Model):
                 "debit": mov.debe or 0.0,
                 "credit": mov.haber or 0.0,
                 "provisional": False,
-                # set by mark_owed_fifo; the review mark is only a note now
+                # set by mark_owed; the review mark is only a note now
                 "owed": 0.0,
                 "review_note": mov.distri_owed_note or (
                     "Marcada adeudada en la revisión" if mov.distri_owed else ""),
@@ -366,6 +506,9 @@ class ResPartnerEstadoCuenta(models.Model):
                 "key": (mov.fecha, _SOURCE_ORDER[SOURCE_ONLINE], mov.id),
                 "line_key": (statement_line_key("online", mov.origen_id) if mov.origen_id
                              else statement_line_key("distri.cuenta.movimiento", mov.id)),
+                "line_id": False,
+                "reconciled": [],
+                "memo": mov.concepto or "",
             })
 
         for ret in self.env["distri.route.return"]._distri_provisional_for(partner):
@@ -391,6 +534,9 @@ class ResPartnerEstadoCuenta(models.Model):
                 "res_id": ret.id,
                 "key": (when, _SOURCE_ORDER[SOURCE_RETURN], ret.id),
                 "line_key": statement_line_key("distri.route.return", ret.id),
+                "line_id": False,
+                "reconciled": [],
+                "memo": "",
             })
 
         # a payment registered from a Mercado Pago card links back to it
@@ -407,7 +553,7 @@ class ResPartnerEstadoCuenta(models.Model):
         for row in rows:
             balance += (row["debit"] or 0.0) - (row["credit"] or 0.0)
             row["balance"] = balance
-        mark_owed_fifo(rows)
+        mark_owed(rows)
         return rows
 
     def _distri_statement(self, date_from=False, date_to=False):
@@ -482,8 +628,9 @@ class ResPartnerEstadoCuenta(models.Model):
         ]
         if data.get("owed_count"):
             out.append("<p class='text-danger o_distri_estado_adeudadas'><b>Facturas adeudadas: "
-                       "%d por %s</b> · en rojo en la tabla · los pagos se aplican de la más "
-                       "vieja a la más nueva</p>" % (
+                       "%d por %s</b> · en rojo en la tabla · cada pago cancela primero "
+                       "la factura que concilia o nombra; el resto, de la más vieja a la más "
+                       "nueva</p>" % (
                            data["owed_count"], html_escape(_money(data["owed_total"]))))
         if candidates:
             out.append("<p><b>%s: %s</b> · %d %s por %s, no restados del saldo</p>" % (

@@ -514,7 +514,7 @@ class DistriAccountApp(models.AbstractModel):
             } for c in data["candidates"]],
             "candidate_amount": data["candidate_amount"],
             "whatif_balance": data["whatif_balance"],
-            # FIFO over the whole statement, not only the period (19.0.1.99.0)
+            # over the whole statement, not only the period (19.0.1.99.0, mark_owed)
             "owed_count": data["owed_count"],
             "owed_total": data["owed_total"],
             "comments": comments.filtered(lambda c: not c.line_key)._app_payload(),

@@ -78,3 +78,4 @@ from . import test_v119_mismo_cliente
 from . import test_v120
 from . import test_v121_revisar_estado
 from . import test_v122
+from . import test_v123_facturas_rojo
