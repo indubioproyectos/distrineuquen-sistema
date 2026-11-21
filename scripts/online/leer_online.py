@@ -37,6 +37,11 @@ BATCH = 2000
 # ODOO-134 en el lab el 30/10/2026», «… archivado en el lab el …»): the sync
 # never overwrites it and counts it for its lab customer in the balance check.
 MANUAL_FIX = re.compile(r"en el lab el \d\d/\d\d/\d{4}")
+# Audit adjustments are born in the lab (journal AJC) and only REPLICATED in
+# Online, in Online's own journal with code AJC (credit notes RAJC/..., since
+# 21/11/2026). Their lines never enter the lab history: the lab already has the
+# original AJC move, so copying the replica would count the credit twice.
+SKIP_JOURNAL_CODES = ("AJC",)
 
 LINE_FIELDS = ["id", "date", "move_id", "move_name", "move_type", "name", "ref", "journal_id",
                "partner_id", "debit", "credit", "amount_residual", "payment_id", "reconciled",
@@ -94,6 +99,12 @@ def main():
     print("Online: receivable lines", file=sys.stderr)
     lines = fetch_all(R, "account.move.line", [("account_id.account_type", "=", "asset_receivable"),
                                                ("parent_state", "=", "posted")], LINE_FIELDS)
+    skip_journals = {j["id"] for j in R.sr("account.journal", [("code", "in", list(SKIP_JOURNAL_CODES))],
+                                           ["id"])}
+    skipped = [l for l in lines if m2o(l["journal_id"]) in skip_journals]
+    lines = [l for l in lines if m2o(l["journal_id"]) not in skip_journals]
+    print("Online: %d receivable lines of the audit journal (%s) left out of the history"
+          % (len(skipped), ", ".join(SKIP_JOURNAL_CODES)), file=sys.stderr)
     print("Online: payments", file=sys.stderr)
     pay_domain = [("payment_type", "=", "inbound"), ("partner_type", "=", "customer")]
     if opts.desde:
