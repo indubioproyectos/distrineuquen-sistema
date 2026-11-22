@@ -9,8 +9,10 @@
 - No open caja: the cashier gets a chatter note on the payment and, from
   «Registrar pago», a notification; the cash enters the next caja he opens.
 - «Registrar pago» proposes the caja's cash journal (CSH1) to a cashier
-  instead of core's first journal by sequence (BNK1). «Banco» stays in the
-  choices for the transfer part of a split payment.
+  instead of core's first journal by sequence (BNK1). 19.0.1.128.0: a
+  cashier no longer opens «Registrar pago» nor sees «Banco»
+  (models/cobrar_wizard.py); he collects with «Cobrar» (models/cobrar.py),
+  whose cash is posted here too.
 
 The module's own flows that post a payment and only then link it to a route
 or a depot box (models/reparto.py, models/cobro_efectivo.py) post with

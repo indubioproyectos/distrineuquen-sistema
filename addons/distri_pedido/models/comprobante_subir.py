@@ -90,7 +90,6 @@ from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
 
 from .cobros import AMOUNT_TOLERANCE, CONFIDENCE_HIGH, CONFIDENCE_LOW
-from .esquema_v126 import v126_1_ready
 from .reparto_cliente import AR_TZ, today_ar
 
 _logger = logging.getLogger(__name__)
@@ -172,7 +171,9 @@ ATTEMPT_FILTER = "repetido"
 ATTEMPT_FLAG = "No se cargó · ya estaba en el sistema"
 VIAS = [("pantalla", "Pantalla «Subir comprobante»"), ("compartido", "Compartir con Distri"),
         # 19.0.1.103.0: the customer, from his order page
-        ("cliente", "Página del pedido (cliente)")]
+        ("cliente", "Página del pedido (cliente)"),
+        # 19.0.1.128.0: the transfer of a one-step «Cobrar» (models/cobrar.py)
+        ("cobrar", "«Cobrar» (cobro en un paso)")]
 
 
 def _ar(dt, fmt):
@@ -497,7 +498,7 @@ class WhatsappMessageUpload(models.Model):
             # apart from distri_amount until the file is read (_distri_file_values)
             "distri_amount_typed": typed or 0.0,
         }
-        if sender_note and v126_1_ready(self.env):
+        if sender_note:
             vals["distri_sender_note"] = sender_note
         vals.update(extra or {})
         # stored upright; the key above stays the one of the original bytes,

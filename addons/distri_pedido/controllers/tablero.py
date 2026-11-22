@@ -57,8 +57,9 @@ TILES = [
     # 19.0.1.109.0: controllers/deposito.py, administración and gerencia
     ("deposito", "deposito", "Depósito", "Entregas, venta en mostrador y caja",
      IMG + "despacho.png", "store", "/deposito"),
-    # 19.0.1.92.0: controllers/cobro.py, for every internal user
-    ("cobro", None, "Cobro en efectivo", "Registrar el efectivo que te dio un cliente",
+    # 19.0.1.92.0: controllers/cobro.py; 19.0.1.128.0: «Cobrar» (cash and
+    # transfers in one step), only for the roles that collect (can_collect)
+    ("cobro", "cobro", "Cobrar", "Efectivo y transferencias con comprobante, en un paso",
      IMG + "cobros.png", "cash", "/cobro"),
     # 19.0.1.97.0: controllers/caja.py, for the «Cajero» group
     ("caja", "distri_pedido.menu_caja_app", "Caja del día",
@@ -143,6 +144,9 @@ def _special_visible(env, key):
         return bool(app_scope(env))
     if key == "repartidor":
         return not user.share and user.has_group("distri_pedido.grupo_reparto")
+    if key == "cobro":
+        from ..models.cobrar import can_collect
+        return not user.share and can_collect(user)
     return False
 
 

@@ -59,7 +59,6 @@ from odoo.exceptions import AccessError, UserError
 from odoo.modules import module as odoo_module
 from odoo.tools.pdf import PdfReader
 
-from .esquema_v126 import v126_ready
 from .ocr_comprobante import (
     CONFIDENCE_HIGH, CONFIDENCE_LOW, OWN_ACCOUNT_DEFAULT, PARAM_OWN_ACCOUNT, local_to_utc,
     ocr_image, own_account_values, parse_receipt, pdf_images, read_image,
@@ -994,11 +993,10 @@ class DistriMpReport(models.Model):
             ("income_id", "=", False), ("report_review", "=", False),
             ("date", ">=", start - timedelta(hours=1)), ("date", "<=", end),
         ])
-        ready = v126_ready(self.env)
         for card in cards:
             note = AUTHORIZED_MISSING if card.state == "authorized" else HAND_VERIFIED_MISSING
-            if card.state == "confirmed" and ready and card.credited_at:
-                # 19.0.1.126.0: credited at once; the audit is v128
+            if card.state == "confirmed" and card.credited_at:
+                # 19.0.1.126.0: credited at once; the audit is v129
                 note = CREDITED_MISSING
             card.write({"report_review": True, "report_id": self.id, "proposal_note": note})
             card.message_post(body="%s (%s). Revisá la operación %s en la app%s." % (
@@ -1343,8 +1341,6 @@ class DistriMpCollection(models.Model):
                  "reversal", "conflict_note", "receipt_candidate", "receipt_id.wa_sin_telefono",
                  "credited_at", "income_id")
     def _compute_column(self):
-        # 19.0.1.126.0: `credited_at` is read only once its column exists
-        ready = v126_ready(self.env)
         for rec in self:
             if rec.receipt_candidate and not rec.receipt_id and rec.state == "draft":
                 # a candidate waits for its WhatsApp receipt: never confirmed
@@ -1366,7 +1362,7 @@ class DistriMpCollection(models.Model):
                 # report that covers its moment does not bring it
                 if rec.report_review:
                     rec.column = "no_money"
-                elif ready and rec.state == "confirmed" and rec.credited_at:
+                elif rec.state == "confirmed" and rec.credited_at:
                     rec.column = "credited"
                 else:
                     rec.column = "verify"

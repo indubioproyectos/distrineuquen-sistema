@@ -56,7 +56,6 @@ from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
 from ..models.acreditar import CREDIT_NOTICE, CreditWarning, can_credit
-from ..models.esquema_v126 import v126_1_ready, v126_ready
 from ..models.comprobante_subir import (
     ATTEMPT_FILTER, BUCKETS, LIST_DAYS, MAX_FILE_BYTES, MAX_FILES, can_upload, merge_rows)
 from ..models.reparto import _money
@@ -111,8 +110,7 @@ class Comprobantes(http.Controller):
             "cliente": None,
             # 19.0.1.126.0: the one-time notice, also here (where they credit)
             "aviso_acreditar": CREDIT_NOTICE if user._distri_credit_notice_pending() else "",
-            "puede_acreditar": can_credit(user) and v126_ready(request.env),
-            "v126_1": v126_1_ready(request.env),
+            "puede_acreditar": can_credit(user),
         }
         base.update(values)
         html = request.env["ir.qweb"]._render("distri_pedido.comprobantes_page", base)

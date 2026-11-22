@@ -70,7 +70,7 @@ guard (`_bank_twin_payments`) looks only at manual payments outside the
 «Mercado Pago» journal, and an income tied here is confirmed before any
 confirmation runs: the two never tie the same income.
 
-The audit of every credited receipt against the report is v128.
+The audit of every credited receipt against the report is v129 (owner, 22/11/2026).
 """
 import logging
 from datetime import timedelta
@@ -84,8 +84,7 @@ from .cobros import (
     AMOUNT_TOLERANCE, BANK_TWIN_DAYS, RECEIPT_TIME_CLOSE, _check_cobros, digits, local_day,
     local_when, operation_close, own_account,
 )
-from .esquema_v126 import NOT_READY, v126_1_ready, v126_ready
-from .ocr_comprobante import CONFIDENCE_HIGH, CONFIDENCE_LOW
+from .ocr_comprobante import CONFIDENCE_HIGH, CONFIDENCE_LOW, ocr_deadline, ocr_seconds
 from .reparto import _money
 from .reparto_cliente import today_ar
 
@@ -185,13 +184,10 @@ class CreditWarning(UserError):
 class DistriMpCollectionCredit(models.Model):
     _inherit = "distri.mp.collection"
 
-    # prefetch=False: see models/esquema_v126.py
-    credited_by_id = fields.Many2one("res.users", string="Acreditó", readonly=True, copy=False,
-                                     prefetch=False)
-    credited_at = fields.Datetime(string="Acreditado el", readonly=True, copy=False,
-                                  prefetch=False)
+    credited_by_id = fields.Many2one("res.users", string="Acreditó", readonly=True, copy=False)
+    credited_at = fields.Datetime(string="Acreditado el", readonly=True, copy=False)
     audit_state = fields.Selection(
-        AUDIT_STATES, string="Control con MP", readonly=True, copy=False, prefetch=False,
+        AUDIT_STATES, string="Control con MP", readonly=True, copy=False,
         help="El control del comprobante acreditado contra el reporte de Mercado Pago. «A "
              "verificar» hasta que el reporte trae la transferencia.")
     credit_flow = fields.Selection(
@@ -209,25 +205,23 @@ class DistriMpCollectionCredit(models.Model):
     @api.depends("kind", "state", "receipt_id")
     @api.depends_context("uid")
     def _compute_credit_flags(self):
-        ready = v126_ready(self.env)
         user = self.env.user
         for card in self:
             flow = card._distri_credit_flow() if card.kind == "verify" else False
             card.credit_flow = flow
             card.credit_reminder = CREDIT_REMINDER
-            card.can_credit = bool(ready and card._distri_user_can_credit(user))
+            card.can_credit = card._distri_user_can_credit(user)
             sudo = card.sudo()
             card.credited_label = (
                 "Acreditado por %s el %s" % (sudo.credited_by_id.name or "",
                                              local_when(sudo.credited_at))
-                if ready and card.kind == "verify" and sudo.credited_at else False)
+                if card.kind == "verify" and sudo.credited_at else False)
 
     @api.depends("kind", "state", "amount", "source_id", "date")
     def _compute_credited_candidate_count(self):
-        ready = v126_ready(self.env)
         for card in self:
             card.credited_candidate_count = len(card._credited_candidates()) \
-                if ready and card.kind == "income" and card.state == "draft" else 0
+                if card.kind == "income" and card.state == "draft" else 0
 
     def _distri_user_can_credit(self, user):
         """`user` may credit this draft «verify» card (by its flow)."""
@@ -247,7 +241,7 @@ class DistriMpCollectionCredit(models.Model):
         credit it."""
         self.ensure_one()
         receipt = self.sudo().receipt_id
-        return bool(receipt and v126_1_ready(self.env) and receipt.distri_sender_note)
+        return bool(receipt and receipt.distri_sender_note)
 
     def _distri_credit_flow(self):
         """«staff», «customer» or «driver»: decided by how the receipt
@@ -319,8 +313,6 @@ class DistriMpCollectionCredit(models.Model):
         rule crediting a driver's receipt by itself, in his name; it
         replaces the approver's check, the rest applies."""
         self.ensure_one()
-        if not v126_ready(self.env):
-            return [NOT_READY], []
         user = self.env.user
         card = self.sudo()
         errors, warnings = [], []
@@ -474,8 +466,6 @@ class DistriMpCollectionCredit(models.Model):
         """«Acreditar» on the board: the wizard with the amount, the customer
         and the warnings."""
         self.ensure_one()
-        if not v126_ready(self.env):
-            raise UserError(NOT_READY)
         if not self.can_credit:
             flow = self._distri_credit_flow()
             raise AccessError(APPROVE_DENIED.get(flow, CREDIT_DENIED))
@@ -486,8 +476,6 @@ class DistriMpCollectionCredit(models.Model):
         UserError on an error and CreditWarning when warnings were not
         confirmed. Returns the payment."""
         self.ensure_one()
-        if not v126_ready(self.env):
-            raise UserError(NOT_READY)
         # one crediting at a time per card, and per operation number
         self.env.cr.execute("SELECT id FROM distri_mp_collection WHERE id = %s FOR UPDATE",
                             [self.id])
@@ -577,10 +565,8 @@ class DistriMpCollectionCredit(models.Model):
     def action_undo(self):
         """A credited card undone goes back to «Para acreditar»: its
         payment is cancelled by the D10 path; the credit marks go."""
-        credited = self.browse()
-        if v126_ready(self.env):
-            credited = self.sudo().filtered(
-                lambda c: c.kind == "verify" and c.state == "confirmed" and c.credited_at)
+        credited = self.sudo().filtered(
+            lambda c: c.kind == "verify" and c.state == "confirmed" and c.credited_at)
         result = super().action_undo()
         for card in credited.filtered(lambda c: c.state == "draft"):
             card.write({"credited_by_id": False, "credited_at": False, "audit_state": False})
@@ -592,7 +578,7 @@ class DistriMpCollectionCredit(models.Model):
         """The exact operation (D10): a credited card of the same amount is
         «verificado»."""
         result = super()._tie_hand_verified(card)
-        if v126_ready(self.env) and card.sudo().credited_at and self.state == "confirmed":
+        if card.sudo().credited_at and self.state == "confirmed":
             card.sudo().audit_state = "verificado"
         return result
 
@@ -600,8 +586,6 @@ class DistriMpCollectionCredit(models.Model):
         """After the exact operation (D10), the cascade of the module
         docstring against the credited cards."""
         tied = super()._match_hand_verified()
-        if not v126_ready(self.env):
-            return tied
         rest = self.filtered(lambda c: c.kind == "income" and c.state == "draft"
                              and c.proposal not in ("verified", "authorized", "credited")) - tied
         return tied | rest._match_credited()
@@ -639,7 +623,7 @@ class DistriMpCollectionCredit(models.Model):
         """The credited cards waiting for their transfer that this income
         may be, by the first level of the cascade that finds any."""
         self.ensure_one()
-        if not v126_ready(self.env) or self.kind != "income":
+        if self.kind != "income":
             return self.browse()
         pool = self._distri_credited_pool() if pool is None else pool
         for level in ("operation", "operation_close", "time", "customer"):
@@ -716,7 +700,7 @@ class DistriMpCollectionCredit(models.Model):
         """Never a second payment for a credited receipt: an income that may
         be one waits until a person ties it or says it is another payment."""
         todo = super()._confirm_todo()
-        if v126_ready(self.env) and not self.env.context.get("distri_not_credited"):
+        if not self.env.context.get("distri_not_credited"):
             for rec in todo:
                 cards = rec._credited_candidates()
                 if cards:
@@ -728,7 +712,7 @@ class DistriMpCollectionCredit(models.Model):
 
     def _bulk_problem(self):
         problem = super()._bulk_problem()
-        if not problem and v126_ready(self.env) and self.kind == "income" and \
+        if not problem and self.kind == "income" and \
                 self._credited_candidates():
             return "puede ser un comprobante ya acreditado"
         return problem
@@ -781,7 +765,7 @@ class WhatsappMessageCredit(models.Model):
         """The draft «verify» card of this receipt that `user` may credit,
         or an empty recordset."""
         self.ensure_one()
-        if not v126_ready(self.env) or self.sudo().distri_receipt_state != "pending":
+        if self.sudo().distri_receipt_state != "pending":
             return self.env["distri.mp.collection"]
         card = self._distri_verify_card()
         if not card or card.state != "draft":
@@ -790,7 +774,13 @@ class WhatsappMessageCredit(models.Model):
 
     def _distri_read_now(self):
         """Reads the file now when the background reading has not run yet
-        (the person is about to credit it)."""
+        (the person is about to credit it). 19.0.1.128.0: the OCR gives up
+        after `ocr_seconds` (models/ocr_comprobante.py); what was not read is
+        typed by the person."""
+        with ocr_deadline(ocr_seconds(self.env)):
+            self._distri_read_now_capped()
+
+    def _distri_read_now_capped(self):
         for msg in self.sudo().filtered(lambda m: not m.media_state and m.attachment_id):
             try:
                 with self.env.cr.savepoint():
@@ -826,7 +816,7 @@ class WhatsappMessageCredit(models.Model):
 
     def _distri_read_receipt(self, read_file=False):
         result = super()._distri_read_receipt(read_file=read_file)
-        if read_file and v126_ready(self.env) and \
+        if read_file and \
                 driver_rule(self.env) in ("inmediato", "coincide"):
             for msg in self.sudo().filtered(lambda m: m.distri_from_app):
                 msg._distri_auto_credit_driver()
@@ -977,7 +967,7 @@ class AccountPaymentCredit(models.Model):
 
     def _compute_distri_audit_state(self):
         states = {}
-        if v126_ready(self.env) and self.ids:
+        if self.ids:
             cards = self.env["distri.mp.collection"].sudo().search(
                 [("kind", "=", "verify"), ("payment_id", "in", self.ids),
                  ("credited_at", "!=", False)])
@@ -986,8 +976,6 @@ class AccountPaymentCredit(models.Model):
             payment.distri_audit_state = states.get(payment.id, False)
 
     def _search_distri_audit_state(self, operator, value):
-        if not v126_ready(self.env):
-            return [("id", "=", 0)]
         cards = self.env["distri.mp.collection"].sudo().search(
             [("kind", "=", "verify"), ("payment_id", "!=", False), ("credited_at", "!=", False),
              ("audit_state", operator, value)])
@@ -997,9 +985,8 @@ class AccountPaymentCredit(models.Model):
 class ResUsersCreditNotice(models.Model):
     _inherit = "res.users"
 
-    # prefetch=False: see models/esquema_v126.py
     distri_aviso_acreditar_visto = fields.Datetime(
-        string="Vio el aviso de acreditar comprobantes", copy=False, prefetch=False,
+        string="Vio el aviso de acreditar comprobantes", copy=False,
         help="Cuándo tocó «Entendido» en el aviso de la acreditación inmediata (19.0.1.126.0).")
 
     @property
@@ -1014,7 +1001,7 @@ class ResUsersCreditNotice(models.Model):
         """The one-time notice of the instant crediting is shown to this user."""
         self.ensure_one()
         user = self.sudo()
-        if not v126_ready(self.env) or user._is_public() or not can_credit(user) \
+        if user._is_public() or not can_credit(user) \
                 or user._is_superuser():
             return False
         return not user.distri_aviso_acreditar_visto
@@ -1022,7 +1009,7 @@ class ResUsersCreditNotice(models.Model):
     def _distri_credit_notice_seen(self):
         """«Entendido»: kept with the moment (the field is the log)."""
         self.ensure_one()
-        if not v126_ready(self.env) or not self._distri_credit_notice_pending():
+        if not self._distri_credit_notice_pending():
             return False
         self.sudo().distri_aviso_acreditar_visto = fields.Datetime.now()
         _logger.info("User %s acknowledged the instant crediting notice", self.login)

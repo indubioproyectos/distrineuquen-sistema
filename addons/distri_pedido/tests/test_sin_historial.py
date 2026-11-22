@@ -32,7 +32,8 @@ class TestSinHistorial(RepartoMixin, HttpCase):
         cls._setup_reparto()
         cls.staff = new_test_user(
             cls.env, login="empleado_historial", name="Empleado Historial",
-            groups="base.group_user", password="empleado-historial-1",
+            # 19.0.1.128.0: a role that opens /cobro
+            groups="base.group_user,distri_pedido.grupo_vendedor", password="empleado-historial-1",
             company_id=cls.env.company.id, company_ids=[Command.set(cls.env.company.ids)],
         )
         cls.partner = cls.env["res.partner"].create({

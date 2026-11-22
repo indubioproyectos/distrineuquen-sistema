@@ -18,7 +18,7 @@ class TestCobroSuperaDeuda(HttpCase):
         super().setUpClass()
         company = cls.env.company
         cls.cobrador = new_test_user(
-            cls.env, login="cobrador_v99", name="Cobrador V99", groups="base.group_user",
+            cls.env, login="cobrador_v99", name="Cobrador V99", groups="base.group_user,distri_pedido.grupo_vendedor",
             company_id=company.id, company_ids=[Command.set(company.ids)])
         cls.partner = cls.env["res.partner"].create({"name": "Kiosco Deuda V99",
                                                      "company_type": "company"})

@@ -87,3 +87,4 @@ from . import test_v126_2_subir
 from . import test_v126_3_pago_dividido
 from . import test_v127_paquete
 from . import test_v127_1_rendiciones
+from . import test_v128_cobrar

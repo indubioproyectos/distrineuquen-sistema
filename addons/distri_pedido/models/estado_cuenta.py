@@ -57,7 +57,6 @@ from odoo.exceptions import AccessError, UserError
 from odoo.tools import consteq, html_escape
 from odoo.tools.misc import hmac as odoo_hmac
 
-from .esquema_v126 import v126_ready
 from .ajuste_cuenta import AJC_JOURNAL_CODE
 from .cuenta import clave_documento
 from .remito import es_numero_de_factura
@@ -682,13 +681,12 @@ class ResPartnerEstadoCuenta(models.Model):
             # (shown to everybody as «Pago confirmado»): the report tied it;
             # «audit_pending» (staff only, «a verificar con MP»): not yet
             pending, confirmed = set(), set()
-            if v126_ready(self.env):
-                for card in cards.filtered(lambda c: c.kind == "verify" and c.credited_at):
-                    move = card.payment_id.move_id.id
-                    if card.audit_state == "verificado":
-                        confirmed.add(move)
-                    elif card.audit_state == "pendiente":
-                        pending.add(move)
+            for card in cards.filtered(lambda c: c.kind == "verify" and c.credited_at):
+                move = card.payment_id.move_id.id
+                if card.audit_state == "verificado":
+                    confirmed.add(move)
+                elif card.audit_state == "pendiente":
+                    pending.add(move)
             for row in rows:
                 if row["res_model"] == "account.move" and row["res_id"] in by_move:
                     row["card_id"] = by_move[row["res_id"]]

@@ -595,11 +595,12 @@
         </ol>
       </li>
       <li class="paso">
-        <div class="paso-cab"><span class="cuando">Si te dan efectivo</span><h3>Cobro en efectivo</h3><span class="url">/cobro</span></div>
+        <div class="paso-cab"><span class="cuando">Si te pagan</span><h3>Cobrar</h3><span class="url">/cobro</span></div>
         <ol>
-          <li>Entrá a <b>Cobro en efectivo</b>, buscá el cliente y tocá <span class="k2">Buscar</span>.</li>
-          <li>Poné el importe y elegí <span class="txt">¿A qué lo aplicás?</span>: <b>A cuenta</b> o una factura.</li>
-          <li>Tocá <span class="k">Registrar cobro en efectivo</span>.</li>
+          <li>Entrá a <b>Cobrar</b>, buscá el cliente y tocá <span class="k2">Buscar</span>.</li>
+          <li>Poné el efectivo y, si hubo transferencia, adjuntá su comprobante (foto o PDF) con el importe.</li>
+          <li>Elegí <span class="txt">¿A qué lo aplicás?</span>: <b>A cuenta</b>, una factura del sistema o una de Online.</li>
+          <li>Tocá <span class="k">Cobrar</span>.</li>
           <li>Ese mismo día, entregale la plata al cajero. Le aparece en <b>Cobros de otros usuarios</b>.</li>
         </ol>
       </li>

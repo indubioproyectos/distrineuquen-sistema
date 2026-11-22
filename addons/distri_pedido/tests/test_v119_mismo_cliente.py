@@ -251,8 +251,9 @@ class TestCapacitacionStaffOnly(HttpCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # 19.0.1.128.0: a role that opens /cobro
         cls.staff = new_test_user(cls.env, login="staff_v119", name="Staff V119",
-                                  groups="base.group_user")
+                                  groups="base.group_user,distri_pedido.grupo_vendedor")
         cls.portal = new_test_user(cls.env, login="portal_v119", name="Portal V119",
                                    groups="base.group_portal")
 

@@ -303,7 +303,7 @@ class TestV125CobroOnlineHttp(HttpCase):
         cls.online = cls.env["distri.cuenta.movimiento"].sudo().create({
             "partner_id": cls.partner.id, "fecha": "2025-11-10", "comprobante": "0001/2025/07081",
             "tipo": "factura", "debe": 3000.0})
-        new_test_user(cls.env, login="cobro_v125", name="Cobro V125", groups="base.group_user")
+        new_test_user(cls.env, login="cobro_v125", name="Cobro V125", groups="base.group_user,distri_pedido.grupo_vendedor")
 
     def test_pay_online_from_the_page(self):
         self.authenticate("cobro_v125", "cobro_v125")

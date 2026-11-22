@@ -311,7 +311,8 @@ class TestCobroEfectivoHttp(HttpCase):
         cls.env["distri.cuenta.movimiento"].sudo().create({
             "partner_id": cls.partner.id, "fecha": "2026-01-10", "comprobante": "0001/2026/98801",
             "tipo": "factura", "debe": 10000.0})
-        new_test_user(cls.env, login="cobro_http", name="Cobro Http", groups="base.group_user")
+        # 19.0.1.128.0: /cobro is for the roles that collect
+        new_test_user(cls.env, login="cobro_http", name="Cobro Http", groups="base.group_user,distri_pedido.grupo_vendedor")
         new_test_user(cls.env, login="cobro_portal", groups="base.group_portal")
 
     def _csrf(self, html):
@@ -334,7 +335,7 @@ class TestCobroEfectivoHttp(HttpCase):
         self.assertIn("KIOSCO COBRO EFECTIVO", found)
         self.assertIn("/cobro?cliente=%d" % self.partner.id, found)
         page = self.url_open("/cobro?cliente=%d" % self.partner.id).text
-        self.assertIn("Registrar cobro en efectivo", page)
+        self.assertIn("<h1>Cobrar</h1>", page)
         self.assertIn("A cuenta", page)
         data = {"csrf_token": self._csrf(page), "cliente": self.partner.id, "importe": "1500",
                 "factura": "", "nota": "en la vereda"}
@@ -372,4 +373,8 @@ class TestCobroEfectivoHttp(HttpCase):
 
     def test_links_from_the_apps(self):
         self.authenticate("cobro_http", "cobro_http")
-        self.assertIn('href="/cobro"', self.url_open("/tablero").text)
+        # 19.0.1.128.0: a seller lands on /cuentas (its own link); the tile
+        # of Inicio is there for the roles that collect
+        from odoo.addons.distri_pedido.controllers.tablero import staff_tiles
+        user = self.env["res.users"].search([("login", "=", "cobro_http")])
+        self.assertIn("/cobro", [t["url"] for t in staff_tiles(self.env(user=user))])

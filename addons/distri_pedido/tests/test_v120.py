@@ -107,7 +107,8 @@ class TestV120Inicio(HttpCase):
 
     def test_way_back_to_inicio_on_every_staff_screen(self):
         screens = {self.driver: ("/reparto", "/cuentas", "/cobro"),
-                   self.packer: ("/armado", "/cobro"),
+                   # 19.0.1.128.0: /cobro is not for the packer
+                   self.packer: ("/armado",),
                    self.simon: ("/reparto", "/armado", "/cuentas", "/cobro", "/comprobantes")}
         for user, urls in screens.items():
             self._login(user.login)

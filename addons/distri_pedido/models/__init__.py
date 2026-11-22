@@ -76,8 +76,9 @@ from . import anular_ruta
 from . import factura_sin_armar
 from . import rearmar
 from . import reparto_anteriores
-from . import esquema_v126
 from . import acreditar
 from . import subir_v126_1
 from . import subir_v126_2
 from . import paquete_v127
+from . import cobrar
+from . import cobrar_wizard

@@ -34,7 +34,6 @@ from odoo import models
 from odoo.exceptions import UserError
 
 from .acreditar import can_credit
-from .esquema_v126 import v126_1_ready
 from .ocr_comprobante import CONFIDENCE_HIGH
 from .reparto import _money
 from .reparto_cliente import AR_TZ, today_ar
@@ -100,7 +99,7 @@ class WhatsappMessageOwnPending(models.Model):
         (`_distri_upload_manage_problem`): the same bytes complete it."""
         self.ensure_one()
         msg = self.sudo()
-        if not v126_1_ready(self.env) or not msg.distri_upload \
+        if not msg.distri_upload \
                 or msg.distri_forwarded_by_id != user or msg.distri_receipt_state != "pending":
             return False
         if msg.distri_partner_id and not msg._distri_sender_note_text():

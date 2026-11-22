@@ -9,6 +9,14 @@
     <field name="value">0</field>
   </record>
 
+  <!-- 19.0.1.128.0: la lectura del comprobante mientras alguien espera
+       (subir, «Cobrar», acreditar) se rinde a los N segundos y se escribe el
+       importe a mano (models/ocr_comprobante.py, entre 2 y 30). -->
+  <record id="param_ocr_segundos" model="ir.config_parameter">
+    <field name="key">distri_pedido.ocr_segundos</field>
+    <field name="value">7</field>
+  </record>
+
   <!-- La factura del armado se emite sola (models/factura_armado.py). Con "0"
        queda en borrador y la emite administracion. Si el diario pide el CAE a
        ARCA queda en borrador igual, sin importar este valor. -->

@@ -30,7 +30,10 @@ import logging
 import re
 import shutil
 import subprocess
+import threading
+import time
 import unicodedata
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 _logger = logging.getLogger(__name__)
@@ -46,6 +49,15 @@ OCR_LANG = "spa"
 # «3», and only believed when the two readings differ by 3<->8 digits alone.
 OCR_ARBITER_LANG = "eng"
 OCR_TIMEOUT = 40
+# 19.0.1.128.0 (audit 2026-11-22): a reading done while a person waits (the
+# upload screen, «Cobrar», crediting) gives up after this many seconds, so the
+# request never reaches Odoo's limit_time_real; the person types the amount.
+# The background reading keeps OCR_TIMEOUT per pass.
+PARAM_OCR_SECONDS = "distri_pedido.ocr_segundos"
+DEFAULT_OCR_SECONDS = 7.0
+OCR_SECONDS_MIN, OCR_SECONDS_MAX = 2.0, 30.0
+OCR_GAVE_UP = "No se pudo leer el comprobante a tiempo: escribí el importe a mano."
+_deadline = threading.local()
 # The company's own account (CUIT, holder, CVU/CBU, alias): never the payer.
 # Only in the ir.config_parameter distri_pedido.cuenta_propia (comma
 # separated), loaded on each server by /srv/odoo-lab/scripts/cargar-datos-empresa.sh
@@ -233,6 +245,59 @@ def _looks_like_name(line):
     return " ".join(words)
 
 
+# ---------------------------------------------------------------- time cap
+
+
+def ocr_seconds(env):
+    """The interactive cap in seconds (PARAM_OCR_SECONDS, default 7, kept
+    between OCR_SECONDS_MIN and OCR_SECONDS_MAX)."""
+    value = env["ir.config_parameter"].sudo().get_param(PARAM_OCR_SECONDS)
+    try:
+        seconds = float(value) if value not in (None, False, "") else DEFAULT_OCR_SECONDS
+    except ValueError:
+        seconds = DEFAULT_OCR_SECONDS
+    return min(max(seconds, OCR_SECONDS_MIN), OCR_SECONDS_MAX)
+
+
+@contextmanager
+def ocr_deadline(seconds):
+    """Every OCR pass inside gives up once `seconds` have passed since the
+    block started. Nested blocks keep the earliest deadline (one request, one
+    budget). `ocr_gave_up()` tells, inside the block and after it, whether a
+    pass was skipped or cut."""
+    previous = getattr(_deadline, "at", None)
+    at = time.monotonic() + seconds
+    _deadline.at = min(at, previous) if previous else at
+    if previous is None:
+        # the flag of the last block stays readable after it ends
+        _deadline.gave_up = False
+    try:
+        yield
+    finally:
+        _deadline.at = previous
+
+
+def ocr_time_left():
+    """Seconds left of the current `ocr_deadline`, or None without one."""
+    at = getattr(_deadline, "at", None)
+    return None if at is None else at - time.monotonic()
+
+
+def ocr_gave_up():
+    return bool(getattr(_deadline, "gave_up", False))
+
+
+def _pass_timeout():
+    """The timeout of the next Tesseract pass, or 0 when the cap is spent."""
+    left = ocr_time_left()
+    if left is None:
+        return OCR_TIMEOUT
+    if left < 0.3:
+        _deadline.gave_up = True
+        return 0
+    return min(OCR_TIMEOUT, left)
+
+
 # ---------------------------------------------------------------- OCR
 
 
@@ -375,11 +440,11 @@ OCR_SECOND_READINGS = (
 SECOND_READING_MIN_AMOUNT = 1000
 
 
-def _tsv_words(image, lang=OCR_LANG, psm=3):
+def _tsv_words(image, lang=OCR_LANG, psm=3, timeout=OCR_TIMEOUT):
     """Words of the image: (left, top, width, height, conf, text)."""
     if pytesseract is not None:
         data = pytesseract.image_to_data(
-            image, lang=lang, config="--psm %d" % psm, timeout=OCR_TIMEOUT,
+            image, lang=lang, config="--psm %d" % psm, timeout=timeout,
             output_type=pytesseract.Output.DICT)
         rows = zip(data["left"], data["top"], data["width"], data["height"],
                    data["conf"], data["text"])
@@ -388,7 +453,7 @@ def _tsv_words(image, lang=OCR_LANG, psm=3):
         image.save(buffer, format="PNG")
         result = subprocess.run(
             ["tesseract", "stdin", "stdout", "-l", lang, "--psm", str(psm), "tsv"],
-            input=buffer.getvalue(), capture_output=True, timeout=OCR_TIMEOUT, check=True)
+            input=buffer.getvalue(), capture_output=True, timeout=timeout, check=True)
         lines = result.stdout.decode("utf-8", "replace").splitlines()
         rows = []
         for line in lines[1:]:
@@ -433,12 +498,22 @@ def ocr_image(data, lang=OCR_LANG, change=None, psm=3):
     if pytesseract is None and not ocr_available():
         _logger.warning("Receipt OCR: tesseract is not installed")
         return "", 0.0
+    timeout = _pass_timeout()
+    if not timeout:
+        return "", 0.0
     try:
         image = _prepare(data)
         if change:
             image = change(image)
-        words = _tsv_words(image, lang, psm)
+        timeout = _pass_timeout()
+        if not timeout:
+            return "", 0.0
+        words = _tsv_words(image, lang, psm, timeout=timeout)
     except Exception as exc:  # a broken photo is still a receipt to look at
+        if ocr_time_left() is not None and ocr_time_left() < 0.3:
+            _deadline.gave_up = True
+            _logger.info("Receipt OCR: gave up at the time cap (%s)", type(exc).__name__)
+            return "", 0.0
         _logger.info("Receipt OCR failed (%s: %s)", type(exc).__name__, exc)
         return "", 0.0
     if not words:

@@ -304,6 +304,10 @@
         amtInput.value = r.amount_text;
         if (item) { item.amount = r.amount_text; }
         checkAmount(amtInput);
+      } else if (r.notice && amtInput && !amtInput.value.trim()) {
+        // 19.0.1.128.0: the reading gave up at the time cap: typed by hand
+        amtInput.placeholder = 'Escribí el importe';
+        amtInput.title = r.notice;
       }
     }
     function suggestFor(item) {
@@ -311,7 +315,7 @@
       body.append('csrf_token', DN.$('[name=csrf_token]', form).value);
       body.append('archivo', item.file, item.file.name);
       reading++; paintSug();
-      DN.api('/comprobantes/sugerir', {body: body, timeout: 90000}).then(function (r) {
+      DN.api('/comprobantes/sugerir', {body: body, timeout: 40000}).then(function (r) {
         reading--;
         var n = files.indexOf(item);
         var li = n >= 0 ? DN.$('li[data-comp-new="' + n + '"]', thumbs) : null;
@@ -325,7 +329,7 @@
       body.append('compartido', shared.value);
       body.append('indice', li.getAttribute('data-comp-index') || '0');
       reading++; paintSug();
-      DN.api('/comprobantes/sugerir', {body: body, timeout: 90000}).then(function (r) {
+      DN.api('/comprobantes/sugerir', {body: body, timeout: 40000}).then(function (r) {
         reading--;
         takePreview(r, li.querySelector('[data-comp-amt]'), null);
         paintSug();

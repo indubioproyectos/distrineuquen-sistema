@@ -234,7 +234,7 @@ class TestInicioOrden(TransactionCase):
 
     ORDEN = ["Tomar un pedido", "AgilPedido", "Pedidos para revisar", "Armado", "Depósito",
              "Planificación de rutas", "Despacho", "Mi reparto", "Rendiciones y casos",
-             "Cobro en efectivo", "Caja del día", "Comprobantes", "Cuentas",
+             "Cobrar", "Caja del día", "Comprobantes", "Cuentas",
              "Historial de cajas", "Cobros", "Capacitación"]
 
     def _user(self, login, groups):

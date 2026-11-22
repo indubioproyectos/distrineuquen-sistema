@@ -36,9 +36,7 @@ and an amount stayed uncredited and nobody was told. Owner decision:
     bytes, operation twins); a credit is undone first;
   · «Girar» ↺ ↻: the stored photo is turned and read again.
 
-New column distri_sender_note: prefetch=False and guarded by
-`v126_1_ready` (models/esquema_v126.py). Until -u the upload keeps the
-19.0.1.126.0 rules.
+New column distri_sender_note (19.0.1.128.0 removed the rollout guard).
 """
 import hashlib
 import io
@@ -56,8 +54,10 @@ from .comprobante_subir import (
     _PIL_FORMAT, MAX_FILE_BYTES, UPLOAD_KEY, file_key, receipt_kind, rotation,
     upright_image,
 )
-from .esquema_v126 import v126_1_ready, v126_ready
-from .ocr_comprobante import CONFIDENCE_HIGH, parse_receipt, pdf_images, read_image
+from .ocr_comprobante import (
+    CONFIDENCE_HIGH, OCR_GAVE_UP, ocr_deadline, ocr_gave_up, ocr_seconds, parse_receipt,
+    pdf_images, read_image,
+)
 from .paquete_v127 import invoice_suggestions
 from .reparto import _money
 from .reparto_cliente import AR_TZ, today_ar
@@ -94,15 +94,14 @@ READING_RESET = {
 class WhatsappMessageStaffUpload(models.Model):
     _inherit = "distri.whatsapp.message"
 
-    # prefetch=False: see models/esquema_v126.py
     distri_sender_note = fields.Char(
-        string="Lo mandó (no está en el sistema)", readonly=True, copy=False, prefetch=False,
+        string="Lo mandó (no está en el sistema)", readonly=True, copy=False,
         help="Quien lo subió marcó «No está en el sistema» y escribió quién lo mandó. Asignalo "
              "con «Elegir cliente» y después acreditalo.")
 
     def _distri_sender_note_text(self):
         self.ensure_one()
-        return (self.sudo().distri_sender_note or "") if v126_1_ready(self.env) else ""
+        return self.sudo().distri_sender_note or ""
 
     # ------------------------------------------------------------ suggestions
 
@@ -188,16 +187,23 @@ class WhatsappMessageStaffUpload(models.Model):
 
     @api.model
     def _distri_upload_preview(self, raw, degrees=0):
-        """{amount, amount_text, amount_sure, suggestions} of a chosen file."""
+        """{amount, amount_text, amount_sure, suggestions, gave_up, notice} of a
+        chosen file. 19.0.1.128.0: the OCR gives up after `ocr_seconds`
+        («gave_up», the person types the amount)."""
         if not raw or len(raw) > MAX_FILE_BYTES or not receipt_kind(raw):
-            return {"amount": 0.0, "amount_text": "", "amount_sure": False, "suggestions": []}
-        try:
-            text, reading = self._distri_read_raw(raw, rotation(degrees))
-        except Exception:
-            _logger.warning("Receipt preview could not be read", exc_info=True)
-            text, reading = "", {}
+            return {"amount": 0.0, "amount_text": "", "amount_sure": False, "suggestions": [],
+                    "gave_up": False, "notice": ""}
+        with ocr_deadline(ocr_seconds(self.env)):
+            try:
+                text, reading = self._distri_read_raw(raw, rotation(degrees))
+            except Exception:
+                _logger.warning("Receipt preview could not be read", exc_info=True)
+                text, reading = "", {}
+        gave_up = ocr_gave_up()
         amount = reading.get("amount") or 0.0
         return {
+            "gave_up": gave_up,
+            "notice": OCR_GAVE_UP if gave_up and not amount else "",
             "amount": amount,
             "amount_text": ("%.2f" % amount).replace(".", ",").replace(",00", "") if amount else "",
             "amount_sure": bool(amount and reading.get("amount_confidence") == CONFIDENCE_HIGH),
@@ -214,9 +220,6 @@ class WhatsappMessageStaffUpload(models.Model):
         result of `_distri_upload_receipts` gains «credit»: «acreditado»,
         «aviso» (warnings to confirm), «pendiente», «asignacion» or ""."""
         partner = partner.commercial_partner_id if partner else self.env["res.partner"]
-        if not v126_1_ready(self.env):
-            return self._distri_upload_receipts(files, partner=partner, via=via, amounts=amounts,
-                                                rotations=rotations)
         sender_note = " ".join(str(sender_note or "").split())[:SENDER_NOTE_MAX]
         # what was refused before keeps its message (no file, a wrong amount)
         if not files:
@@ -298,7 +301,7 @@ class WhatsappMessageStaffUpload(models.Model):
         """(card, credited, verified) of the receipt."""
         self.ensure_one()
         card = self.sudo()._distri_verify_card()
-        credited = bool(v126_ready(self.env) and card and card.state == "confirmed"
+        credited = bool(card and card.state == "confirmed"
                         and card.credited_at)
         verified = bool(credited and (card.income_id or card.audit_state == "verificado"))
         return card, credited, verified
@@ -496,7 +499,6 @@ class DistriMpCollectionSenderNote(models.Model):
 
     @api.depends("receipt_id")
     def _compute_receipt_sender_note(self):
-        ready = v126_1_ready(self.env)
         for card in self:
             card.receipt_sender_note = (card.sudo().receipt_id.distri_sender_note or False) \
-                if ready and card.receipt_id else False
+                if card.receipt_id else False

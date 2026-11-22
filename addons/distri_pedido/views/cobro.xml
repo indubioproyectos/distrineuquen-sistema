@@ -3,7 +3,9 @@
 
   <!-- «Cobro en efectivo» (19.0.1.92.0, controllers/cobro.py,
        models/cobro_efectivo.py): any internal user registers the cash a
-       customer gave him; it enters his cash box of the day (Caja depósito). -->
+       customer gave him; it enters his cash box of the day (Caja depósito).
+       19.0.1.128.0: «Cobrar» in one step (models/cobrar.py): cash plus
+       transfers with their receipts; a cashier's cash enters his caja. -->
   <template id="cobro_page" name="Cobro en efectivo">&lt;!DOCTYPE html&gt;
 <html lang="es">
 <head>
@@ -11,7 +13,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="theme-color" content="#10243f"/>
   <meta name="robots" content="noindex,nofollow"/>
-  <title>Cobro en efectivo · <t t-esc="empresa"/></title>
+  <title>Cobrar · <t t-esc="empresa"/></title>
   <link rel="icon" href="/distri_pedido/static/src/img/iconos/app-192.png?v=95"/>
   <link rel="stylesheet" t-att-href="shared_css"/>
   <t t-call="distri_pedido.sin_historial"/>
@@ -45,6 +47,11 @@
     .match:first-of-type{border-top:0}
     .match span{font-size:13px;color:var(--muted);display:block}
     .match em{font-style:normal;font-size:12px;font-weight:700;color:var(--teal)}
+    .tr{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line-2)}
+    .tr:first-of-type{border-top:0}
+    .tr .file{font-size:14px}
+    .tr .hint{font-size:12px;color:var(--muted)}
+    .dest{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-top:8px}
     .opt em.online{font-style:normal;font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--muted);border-radius:4px;padding:0 4px;margin-left:4px}
   </style>
 </head>
@@ -55,16 +62,21 @@
     <div class="head">
       <a class="back" t-att-href="back" data-up="">‹ Volver</a>
       <div class="kicker"><t t-esc="empresa"/> · <t t-esc="user.name"/></div>
-      <h1>Cobro en efectivo</h1>
-      <div class="sub">Lo que registrás entra en tu caja del día (Caja depósito) y se cierra en el
-        «Cierre de caja depósito».</div>
+      <h1>Cobrar</h1>
+      <div class="sub" t-if="cashier">Efectivo y transferencias en un solo paso. El efectivo entra
+        en tu caja del día; cada transferencia lleva su comprobante y se acredita en el momento.</div>
+      <div class="sub" t-else="">Efectivo y transferencias en un solo paso. El efectivo entra en tu
+        caja del día (Caja depósito) y se cierra en el «Cierre de caja depósito»; cada transferencia
+        lleva su comprobante y se acredita en el momento.</div>
     </div>
 
     <div t-if="done" class="banner ok" role="status">
       Cobro registrado: <t t-esc="money(done.amount)"/> de <t t-esc="done.partner_id.name"/>
       (<t t-esc="done.memo"/>).
     </div>
-    <div t-if="error" class="banner err" role="alert"><t t-esc="error"/></div>
+    <div t-if="done and done._name == 'distri.cobro' and done.caja_notice" class="banner warn"
+         role="status" id="cobro-sin-caja"><t t-esc="done.caja_notice"/></div>
+    <div t-if="error" class="banner err" role="alert" style="white-space:pre-line"><t t-esc="error"/></div>
 
     <div class="body">
       <t t-if="account">
@@ -85,7 +97,8 @@
           </div>
         </div>
 
-        <form class="card" method="post" action="/cobro/registrar"
+        <form class="card" method="post" action="/cobro/registrar" enctype="multipart/form-data"
+              id="cobro-form"
               onsubmit="this.querySelectorAll('button[type=submit]').forEach(function(b){b.disabled=true})">
           <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
           <input type="hidden" name="cliente" t-att-value="socio.id"/>
@@ -106,19 +119,52 @@
             <div class="small" t-esc="over_warning"/>
             <input type="hidden" name="deuda_ok" value="1"/>
           </div>
+          <!-- 19.0.1.128.0: the v126 warnings of the transfers -->
+          <div t-if="credit_warning" class="card warn" role="alert" id="cobro-acreditar">
+            <b>Revisá las transferencias</b>
+            <div class="small" style="white-space:pre-line" t-esc="credit_warning"/>
+            <input type="hidden" name="acreditar_ok" value="1"/>
+          </div>
+          <input t-if="form.get('acreditar_ok') and not credit_warning" type="hidden" name="acreditar_ok" value="1"/>
           <input t-if="form.get('deuda_ok') and not over_warning" type="hidden" name="deuda_ok" value="1"/>
           <input t-if="form.get('ruta_ok') and route_field != 'ruta_ok'" type="hidden" name="ruta_ok" value="1"/>
           <input t-if="form.get('forzar') and route_field != 'forzar'" type="hidden" name="forzar" value="1"/>
-          <label class="stack">Importe en efectivo
+          <label class="stack">Efectivo
             <input class="inp" type="text" name="importe" inputmode="decimal" autocomplete="off"
-                   required="required" placeholder="0" t-att-value="form.get('importe')"/>
+                   placeholder="0" t-att-value="form.get('importe')"/>
           </label>
+          <!-- 19.0.1.128.0: transfers, each with its receipt (models/cobrar.py) -->
+          <div id="cobro-transf">
+            <div class="label">Transferencias (con comprobante)</div>
+            <t t-foreach="range(1, page_transfers + 1)" t-as="n">
+              <t t-set="kept" t-value="transfers[n - 1] if n &lt;= len(transfers) else None"/>
+              <div class="tr" t-att-data-tr="n" t-att-hidden="None if (n == 1 or kept) else 'hidden'">
+                <t t-if="kept">
+                  <input type="hidden" t-att-name="'recibo_%s' % n" t-att-value="kept['receipt_id']"/>
+                  <div class="file">Comprobante ya cargado: <b t-esc="kept['name']"/></div>
+                </t>
+                <label t-else="" class="stack">Comprobante <t t-esc="n"/> (foto o PDF)
+                  <input class="file" type="file" t-att-name="'comprobante_%s' % n"
+                         accept="image/*,application/pdf" data-leer=""/>
+                </label>
+                <label class="stack">Importe de la transferencia
+                  <input class="inp" type="text" t-att-name="'importe_transf_%s' % n" inputmode="decimal"
+                         autocomplete="off" placeholder="Se lee del comprobante"
+                         t-att-value="kept['amount'] if kept else None"/>
+                </label>
+                <div class="hint" data-hint=""/>
+              </div>
+            </t>
+            <button type="button" class="btn outline" id="cobro-otra" hidden="hidden">Agregar otra transferencia</button>
+          </div>
           <div>
             <div class="label">¿A qué lo aplicás?</div>
+            <div class="dest">A cuenta</div>
             <label class="opt">
               <input type="radio" name="factura" value="" t-att-checked="not form.get('factura') or None"/>
               <div>A cuenta<span>Queda como pago a cuenta del cliente.</span></div>
             </label>
+            <div class="dest" t-if="account['invoices']">Factura del sistema o de Online</div>
             <!-- 19.0.1.125.0: what the statement says is still owed, Online history too -->
             <t t-foreach="account['invoices']" t-as="inv">
               <label class="opt">
@@ -142,12 +188,52 @@
             <t t-elif="route_warning">No le pagó al repartidor: registrarlo</t>
             <t t-elif="duplicate">Sí, es otro cobro: registrarlo</t>
             <t t-elif="over_warning">Sí, registrar igual</t>
-            <t t-else="">Registrar cobro en efectivo</t>
+            <t t-elif="credit_warning">Revisé las transferencias: cobrar</t>
+            <t t-else="">Cobrar</t>
           </button>
-          <a t-if="duplicate or route_warning or over_warning" class="btn outline"
-             t-att-href="'/cobro?cliente=%s' % socio.id if over_warning else '/cobro'" data-up="">
-            <t t-if="over_warning">No, corregir el importe</t><t t-else="">No, no lo registro</t></a>
+          <a t-if="duplicate or route_warning or over_warning or credit_warning" class="btn outline"
+             t-att-href="'/cobro?cliente=%s' % socio.id if (over_warning or credit_warning) else '/cobro'" data-up="">
+            <t t-if="over_warning or credit_warning">No, corregir</t><t t-else="">No, no lo registro</t></a>
         </form>
+        <script>
+          (function () {
+            // 19.0.1.128.0: another transfer slot, and the amount read from the
+            // receipt (/cobro/leer, gives up after a few seconds)
+            var form = document.getElementById('cobro-form');
+            if (!form || !window.fetch || !window.FormData) { return; }
+            var more = document.getElementById('cobro-otra');
+            var slots = form.querySelectorAll('[data-tr]');
+            function hidden() { return Array.prototype.filter.call(slots, function (s) { return s.hidden; }); }
+            if (hidden().length) { more.hidden = false; }
+            more.addEventListener('click', function () {
+              var next = hidden()[0];
+              if (next) { next.hidden = false; }
+              if (!hidden().length) { more.hidden = true; }
+            });
+            Array.prototype.forEach.call(form.querySelectorAll('[data-leer]'), function (input) {
+              input.addEventListener('change', function () {
+                var slot = input.closest('[data-tr]');
+                var amount = slot.querySelector('input[name^=importe_transf_]');
+                var hint = slot.querySelector('[data-hint]');
+                if (!input.files.length) { return; }
+                var body = new FormData();
+                body.append('csrf_token', form.querySelector('[name=csrf_token]').value);
+                body.append('archivo', input.files[0]);
+                hint.textContent = 'Leyendo el comprobante…';
+                fetch('/cobro/leer', {method: 'POST', body: body, credentials: 'same-origin'})
+                  .then(function (r) { return r.json(); })
+                  .then(function (r) {
+                    if (r.amount_text) {
+                      if (!amount.value.trim()) { amount.value = r.amount_text; }
+                      hint.textContent = r.amount_sure ? 'Importe leído: revisalo.' : 'Importe leído con dudas: revisalo mirando la foto.';
+                    } else {
+                      hint.textContent = r.notice || r.error || 'No se leyó el importe: escribilo.';
+                    }
+                  }, function () { hint.textContent = 'No se leyó el importe: escribilo.'; });
+              });
+            });
+          })();
+        </script>
 
         <div class="card" t-if="account['rows']">
           <div class="label">Últimos movimientos</div>
@@ -258,7 +344,7 @@
       </t>
 
       <div class="card" t-if="today">
-        <div class="split"><div class="label">Tus cobros en la caja abierta</div><b t-esc="money(today_total)"/></div>
+        <div class="split"><div class="label">Tus cobros de hoy</div><b t-esc="money(today_total)"/></div>
         <t t-foreach="today" t-as="c">
           <div class="mov">
             <div><t t-esc="c.partner_id.name"/><span t-esc="c.memo"/></div>

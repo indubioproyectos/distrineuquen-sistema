@@ -151,7 +151,7 @@ class TestClienteNuevoPagina(HttpCase):
     def setUpClass(cls):
         super().setUpClass()
         new_test_user(cls.env, login="cobro_nuevo_http", name="Cobro Nuevo Http",
-                      groups="base.group_user")
+                      groups="base.group_user,distri_pedido.grupo_vendedor")
         cls.existing = cls.env["res.partner"].create({
             "name": "Despensa Parecida V103", "phone": "299 000-4105", "customer_rank": 1})
 

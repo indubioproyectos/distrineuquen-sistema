@@ -313,7 +313,13 @@ class DistriCashCollection(models.Model):
 
     @api.model
     def _cash_memo(self, user, route, invoice, note, history=None):
-        parts = ["Efectivo", "cobró %s" % user.name, "caja %s" % route.date.strftime("%d/%m")]
+        return self._cash_memo_day(user, route.date, invoice, note, history)
+
+    @api.model
+    def _cash_memo_day(self, user, day, invoice, note, history=None):
+        """19.0.1.128.0: also the memo of a cashier's «Cobrar» cash (no box,
+        models/cobrar.py)."""
+        parts = ["Efectivo", "cobró %s" % user.name, "caja %s" % day.strftime("%d/%m")]
         if history:
             # 19.0.1.125.0: the Online invoice number last, as the cash sheets
             # write it («… · planilla 17/11 · 0001/2026/07986»)
@@ -402,8 +408,13 @@ class DistriCashCollection(models.Model):
         partner.message_post(body=Markup(
             "Cobro en efectivo de <b>%s</b> (%s), registrado por %s en %s.") % (
             _money(amount), target, user.name, route.name) + (Markup("<br/>Nota: %s") % note if note else ""))
-        # C1: the stops still to visit show what is left to collect, and
-        # «Ya cobrado en el local» (the app gets it with the route)
+        self._cash_notify_stops(user, partner, amount, invoice, stops)
+        return collection
+
+    @api.model
+    def _cash_notify_stops(self, user, partner, amount, invoice, stops):
+        """C1: the stops still to visit show what is left to collect, and
+        «Ya cobrado en el local» (the app gets it with the route)."""
         pending = stops.filtered(lambda s: s.state == "pending")
         if pending:
             pending._refresh_amounts()
@@ -413,7 +424,6 @@ class DistriCashCollection(models.Model):
                     "que cobrarse por ese importe.") % (
                     user.name, _money(amount), partner.name,
                     invoice.name if invoice else "a cuenta", stop.order_id.name))
-        return collection
 
     @api.model
     def _cash_check_debt(self, partner, amount):
