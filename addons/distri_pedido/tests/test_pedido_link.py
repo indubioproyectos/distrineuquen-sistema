@@ -97,10 +97,11 @@ class TestPedidoLink(PedidoLinkMixin, TransactionCase):
         order = self._web_order(phone="2995551234")
         base = self.env["ir.config_parameter"].sudo().get_param("web.base.url").rstrip("/")
         line = order._distri_link_line()
-        self.assertEqual(line, "Tu pedido (link personal, no lo compartas): %s/p/%s"
+        # 19.0.1.129.5: the label, then the link on its own line
+        self.assertEqual(line, "Tu pedido (link personal, no lo compartas):\n%s/p/%s"
                          % (base, order.distri_link_token))
-        text = ("Soy *Kiosco WA* y quiero hacer el siguiente pedido hacia *Mitre 1*:\n"
-                "- 2 x Producto WhatsApp test ($ 2000,00)\n*Total: $ 2000,00*\n\n%s\n%s" % (
+        text = ("*Cliente:* Kiosco WA\n*Dirección:* Mitre 1\n\n"
+                "- 2 x Producto WhatsApp test ($ 2.000)\n\n*Total: $ 2.000*\n\n%s\n%s" % (
                     order._distri_wa_code_line(), line))
         self.assertEqual(find_codes(text), [order.distri_wa_code])
         self.assertEqual(find_web_codes(text), [(order.name, order.distri_wa_code)])
@@ -259,10 +260,10 @@ class TestPedidoLinkHttp(PedidoAbiertoMixin, PedidoLinkMixin, HttpCase):
         text = unquote(link.replace("&amp;", "&").split("?text=", 1)[1])
         lines = text.splitlines()
         base = self.env["ir.config_parameter"].sudo().get_param("web.base.url").rstrip("/")
-        # 19.0.1.129.3: the code line and the only link close the text
-        self.assertEqual(lines[-2], "Pedido %s · código %s" % (order.name, order.distri_wa_code))
-        self.assertEqual(lines[-1], "Tu pedido (link personal, no lo compartas): %s/p/%s"
-                         % (base, order.distri_link_token))
+        # 19.0.1.129.3/19.0.1.129.5: the code line, the label and the only link close the text
+        self.assertEqual(lines[-3], "Pedido %s · código %s" % (order.name, order.distri_wa_code))
+        self.assertEqual(lines[-2], "Tu pedido (link personal, no lo compartas):")
+        self.assertEqual(lines[-1], "%s/p/%s" % (base, order.distri_link_token))
         self.assertIn(order.distri_wa_code, find_codes(text))
         self.assertEqual(find_web_codes(text), [(order.name, order.distri_wa_code)])
         # the whole text, as the customer sends it, still confirms the order

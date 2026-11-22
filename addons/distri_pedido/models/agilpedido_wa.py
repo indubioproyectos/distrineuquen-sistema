@@ -104,9 +104,9 @@ COMENTARIO = re.compile(r"^\s*comentario\s*:\s*(?P<texto>.*)$", re.IGNORECASE)
 GRACIAS = re.compile(r"^\s*muchas\s+gracias\b", re.IGNORECASE)
 
 
-# The page's own message (controllers/main.py _mensaje_whatsapp) reads like
-# AgilPedido's since 19.0.1.129.3 («Soy *X* y quiero hacer el siguiente
-# pedido ...», «- 2 x ... ($ ...)», «*Total: $ ...*»). Its order code line or
+# The page's own message (models/enviar_empresa.py _distri_company_message)
+# shares AgilPedido's product and total lines («- 2 x ... ($ ...)»,
+# «*Total: $ ...*», 19.0.1.129.3/19.0.1.129.5). Its order code line or
 # its /p/<token> link (24 letters and digits, models/pedido_link.py) mark it
 # as ours: never a new AgilPedido draft, even when its order is not found.
 LINK_DE_LA_PAGINA = re.compile(r"/p/[A-Za-z0-9]{24}(?![A-Za-z0-9])")

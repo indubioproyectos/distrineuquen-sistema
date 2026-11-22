@@ -3,7 +3,8 @@
 
 - Every web order gets an unguessable link token (`distri_link_token`). The
   text the customer sends from /pedido ends with «Tu pedido (link personal,
-  no lo compartas): https://distrineuquen.com/p/<token>» right below the
+  no lo compartas):» and https://distrineuquen.com/p/<token> on its own line
+  (19.0.1.129.5) right below the
   «Pedido S00164 · código 7K3P» line (that line stays untouched: the webhook
   matcher reads it). It is the order's only link (19.0.1.129.3): the manager
   reads the chat in the WhatsApp Business app on his phone and taps it,
@@ -138,9 +139,10 @@ class SaleOrderLink(models.Model):
         return "%s/p/%s" % (base.rstrip("/"), self._distri_link_token_ensure())
 
     def _distri_link_line(self):
-        """The last line of the customer's message: the order's only link."""
+        """The end of the order's WhatsApp text: the label, then the order's
+        only link on its own line (19.0.1.129.5)."""
         self.ensure_one()
-        return "Tu pedido (link personal, no lo compartas): %s" % self._distri_link_url()
+        return "Tu pedido (link personal, no lo compartas):\n%s" % self._distri_link_url()
 
     def _distri_link_customer_url(self):
         """Where /p/ sends anyone outside the team: «Tu pedido»."""

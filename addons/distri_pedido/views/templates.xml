@@ -1029,7 +1029,7 @@
         <t t-else=""><t t-esc="descartados"/> productos ya no están en el catálogo y no se agregaron.</t>
       </t>
       <t t-if="avisar_cambio">
-        <br/><a class="btn s" t-att-href="avisar_cambio" target="_blank" rel="noopener">Avisar el cambio por WhatsApp</a>
+        <br/><a class="btn s" t-att-href="avisar_cambio" target="_blank" rel="noopener" t-att-data-enviado-url="enviado_url">Avisar el cambio por WhatsApp</a>
       </t>
     </div>
     <!-- 19.0.1.98.0: the comment the customer left with the order -->
@@ -1056,7 +1056,7 @@
     </div>
     <div class="aviso cambios" t-if="espera">
       <p style="margin:0 0 .6rem;font-weight:600">Falta un paso: enviá el mensaje por WhatsApp para que recibamos tu pedido.</p>
-      <a class="btn" style="background:#25d366" t-att-href="espera['url']" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+      <a class="btn" style="background:#25d366" t-att-href="espera['url']" target="_blank" rel="noopener" t-att-data-enviado-url="enviado_url">Enviar por WhatsApp</a>
       <p style="margin:.5rem 0 0;font-size:.82rem">Código <b t-esc="espera['codigo']"/></p>
     </div>
     <!-- 19.0.1.99.0 (audit F7) -->
@@ -1246,6 +1246,7 @@
       });
     })();
   </script>
+  <t t-call="distri_pedido.enviado_empresa_js"/>
 </body>
 </html>
   </template>
@@ -1457,6 +1458,29 @@
 </html>
   </template>
 
+  <!-- 19.0.1.129.5: a tap on a link with data-enviado-url (it opens the
+       company's WhatsApp) posts there, so the order is marked «Enviado a la
+       empresa» (controllers/main.py enviado_empresa). The link still opens
+       wa.me even if the post fails; #paso-empresa turns into the ✓. -->
+  <template id="enviado_empresa_js" name="Enviado a la empresa">
+  <script>
+    (function () {
+      document.querySelectorAll('a[data-enviado-url]').forEach(function (link) {
+        link.addEventListener('click', function () {
+          var url = link.getAttribute('data-enviado-url');
+          try {
+            fetch(url, {method: 'POST', keepalive: true, credentials: 'same-origin'});
+          } catch (e) {
+            if (navigator.sendBeacon) { navigator.sendBeacon(url); }
+          }
+          var paso = link.closest('#paso-empresa');
+          if (paso) { paso.setAttribute('data-enviado', '1'); }
+        });
+      });
+    })();
+  </script>
+  </template>
+
   <template id="gracias" name="Pedido recibido">&lt;!DOCTYPE html&gt;
 <html lang="es">
 <head>
@@ -1493,6 +1517,15 @@
     .codigo .num{font-size:2.2rem;font-weight:800;letter-spacing:.35em;margin:.2rem 0 .1rem;
                  padding-left:.35em;color:var(--texto);font-variant-numeric:tabular-nums}
     .codigo .ayuda{margin:.2rem 0 0}
+    .paso{margin:0 0 1.4rem}
+    .paso .hecho{display:none;background:#d3f9d8;color:#2b8a3e;font-weight:700;border-radius:8px;
+                 padding:.8rem;margin:0}
+    .paso[data-enviado] .hecho{display:block}
+    .paso[data-enviado] .pendiente{display:none}
+    .paso[data-enviado] .wa{background:#fff;color:#25d366;border:2px solid #25d366;
+                            font-size:.95rem;padding:.7rem;margin-top:.6rem}
+    .paso[data-enviado] .wa svg{fill:#25d366}
+    .wa.cliente{background:#128c7e}
     .volver{display:inline-block;margin-top:1.4rem;font-size:.95rem;color:var(--texto);
             text-decoration:none;border-bottom:1px solid var(--linea);padding-bottom:.15rem}
   </style>
@@ -1512,13 +1545,24 @@
     <t t-if="personal">
       <h1>Pedido guardado</h1>
       <p class="nro">Quedó como <b t-esc="pedido.name"/><t t-if="cliente_nombre"> para <b t-esc="cliente_nombre"/></t></p>
-      <a class="wa" t-att-href="enviar_al_cliente" target="_blank" rel="noopener">
+      <!-- 19.0.1.129.5: every order reaches the company's WhatsApp; pending until tapped -->
+      <div class="paso" id="paso-empresa" t-att-data-enviado="'1' if enviado_empresa else None">
+        <p class="falta pendiente">Falta un paso: enviá el pedido a la empresa.</p>
+        <a class="wa" id="enviar-empresa" t-att-href="enviar_a_la_empresa" target="_blank"
+           rel="noopener" t-att-data-enviado-url="enviado_url">
+          <svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>
+          Enviar a la empresa
+        </a>
+        <p class="hecho">Enviado a la empresa ✓</p>
+        <p class="ayuda">Se abre tu WhatsApp con el chat de la empresa y el pedido ya escrito.
+          Solo tenés que darle enviar.</p>
+      </div>
+      <a class="wa cliente" t-att-href="enviar_al_cliente" target="_blank" rel="noopener">
         <svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>
         Enviar al cliente
       </a>
       <p class="ayuda" t-if="cliente_numero">Se abre tu WhatsApp con el chat del cliente y el enlace del pedido.</p>
       <p class="ayuda" t-else="">El cliente no tiene WhatsApp cargado: se abre tu WhatsApp para que elijas el chat.</p>
-      <p class="ayuda">El pedido ya está en el sistema. No hace falta mandarlo a la empresa.</p>
       <p class="ayuda" t-if="codigo_recibido">En el enlace del pedido el cliente ve su código de
         recibido para dárselo al repartidor.</p>
     </t>
@@ -1526,7 +1570,8 @@
       <h1>Falta un paso</h1>
       <p class="nro">Pedido <b t-esc="pedido.name"/> · código <b t-esc="pedido.distri_wa_code"/></p>
       <p class="falta">Falta un paso: enviá el mensaje por WhatsApp para que recibamos tu pedido.</p>
-      <a class="wa" t-att-href="whatsapp" target="_blank" rel="noopener">
+      <a class="wa" t-att-href="whatsapp" target="_blank" rel="noopener"
+         t-att-data-enviado-url="enviado_url">
         <svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>
         Enviar por WhatsApp
       </a>
@@ -1537,7 +1582,8 @@
     <h1>Recibimos tu pedido</h1>
     <p class="nro">Quedó como <b t-esc="pedido.name"/></p>
 
-    <a class="wa" t-att-href="whatsapp" target="_blank" rel="noopener">
+    <a class="wa" t-att-href="whatsapp" target="_blank" rel="noopener"
+       t-att-data-enviado-url="enviado_url">
       <svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 110.9L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>
       Enviar por WhatsApp
     </a>
@@ -1565,6 +1611,7 @@
 
     <a class="volver" href="/pedido" data-side="">Volver al catálogo</a>
   </div>
+  <t t-call="distri_pedido.enviado_empresa_js"/>
 </body>
 </html>
   </template>

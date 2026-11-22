@@ -325,7 +325,9 @@ class TestPedidoWhatsappHttp(PedidoAbiertoMixin, PedidoWhatsappMixin, HttpCase):
                       % order.distri_link_token, link)
         self.assertNotIn(order.access_token, link)
         self.assertNotIn("ver tu cuenta", link)
-        self.assertNotIn("wa.me/15551833591", html)
+        # 19.0.1.129.5: the company's chat too, «Enviar a la empresa»
+        self.assertIn("Enviar a la empresa", html)
+        self.assertIn("wa.me/15551833591?text=", html)
         # without a valid token the form is refused (19.0.1.29.0: for everyone,
         # with the page shown again with the cart instead of an error page)
         res = self._post_order(csrf_token="x")

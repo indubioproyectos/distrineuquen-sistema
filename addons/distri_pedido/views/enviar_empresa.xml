@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- 19.0.1.129.5: «Enviar a la empresa» (models/enviar_empresa.py). Every
+       order reaches the company's WhatsApp: the button opens the chat with
+       the order's text and marks it sent; a confirmed order not sent yet
+       shows a warning; «Pedidos para revisar» filters them. -->
+
+  <record id="view_order_form_enviar_empresa" model="ir.ui.view">
+    <field name="name">sale.order.form.enviar.empresa</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="priority">30</field>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <field name="distri_enviado_empresa" invisible="1"/>
+        <field name="distri_origen" invisible="1"/>
+        <button name="action_distri_enviar_empresa" type="object" string="Enviar a la empresa"
+                icon="fa-whatsapp" class="btn-primary"
+                invisible="state == 'cancel' or distri_enviado_empresa"/>
+        <button name="action_distri_enviar_empresa" type="object" string="Enviar a la empresa"
+                icon="fa-whatsapp"
+                invisible="state == 'cancel' or not distri_enviado_empresa"/>
+      </xpath>
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-warning mb-0 text-center" role="alert" name="distri_falta_empresa"
+             invisible="distri_enviado_empresa or state != 'sale' or distri_origen == 'agilpedido_wa'">
+          Este pedido todavía no se envió al WhatsApp de la empresa. Tocá
+          <b>Enviar a la empresa</b>.
+        </div>
+      </xpath>
+      <xpath expr="//sheet" position="inside">
+        <widget name="web_ribbon" title="Enviado a la empresa" bg_color="text-bg-success"
+                invisible="not distri_enviado_empresa or state == 'cancel'"/>
+      </xpath>
+      <xpath expr="//group[@name='partner_details']" position="inside">
+        <field name="distri_enviado_empresa_el" readonly="1"
+               invisible="not distri_enviado_empresa_el"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- «Pedidos para revisar» -->
+
+  <record id="view_order_list_revisar_enviar_empresa" model="ir.ui.view">
+    <field name="name">sale.order.list.revisar.enviar.empresa</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="distri_pedido.view_order_list_revisar"/>
+    <field name="arch" type="xml">
+      <field name="distri_retenido" position="after">
+        <field name="distri_enviado_empresa" string="Enviado a la empresa" widget="boolean"
+               optional="show"/>
+      </field>
+    </field>
+  </record>
+
+  <record id="view_order_kanban_revisar_enviar_empresa" model="ir.ui.view">
+    <field name="name">sale.order.kanban.revisar.enviar.empresa</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="distri_pedido.view_order_kanban_revisar"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='distri_retenido']" position="after">
+        <field name="distri_enviado_empresa"/>
+        <field name="distri_origen"/>
+      </xpath>
+      <xpath expr="//span[hasclass('badge')][contains(., 'Retenido')]" position="after">
+        <span t-if="!record.distri_enviado_empresa.raw_value and record.state.raw_value != 'cancel' and record.distri_origen.raw_value != 'agilpedido_wa'"
+              class="badge text-bg-danger">No enviado a la empresa</span>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_order_search_revisar_enviar_empresa" model="ir.ui.view">
+    <field name="name">sale.order.search.revisar.enviar.empresa</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="distri_pedido.view_order_search_revisar"/>
+    <field name="arch" type="xml">
+      <filter name="riesgo" position="after">
+        <filter name="no_enviado_empresa" string="No enviado a la empresa"
+                domain="[('distri_enviado_empresa', '=', False), ('state', '!=', 'cancel'), ('distri_origen', '!=', 'agilpedido_wa')]"/>
+      </filter>
+    </field>
+  </record>
+
+</odoo>

@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.4",
+    "version": "19.0.1.129.5",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -492,6 +492,23 @@
     # Online» is «el sistema anterior», this Odoo is «el sistema»;
     # migrations/19.0.1.129.4 renames them in the noupdate project records.
     # New dependencies (already installed): mail_bot, digest.
+    # 19.0.1.129.5 (owner, after testing 19.0.1.129.3): a cleaner order
+    # WhatsApp text (models/enviar_empresa.py _distri_company_message): field
+    # lines «*Cliente:*», «*Dirección:*» (or «*Retira:* En el depósito», or
+    # «*Encomienda:* terminal de X» + «*Retira:* nombre, DNI n»),
+    # «*Teléfono:*»; one blank line between blocks; money without cents and
+    # always with the thousands dot («$ 4.240»); «*Comentario:*»; at the end
+    # the code line, «Tu pedido (link personal, no lo compartas):» and the
+    # /p/ link on its own line. AgilPedido's money format (_plata_agil) is
+    # gone. Every order reaches the company's WhatsApp (a plain phone, the
+    # server cannot send to it): «Enviar a la empresa» on the seller's
+    # confirmation (a pending step until tapped), on the backend order form,
+    # and the customer's «Enviar por WhatsApp»; any of them sets
+    # sale.order.distri_enviado_empresa + _el (POST /pedido/<token>/
+    # enviado-empresa from the page). Confirmed orders not sent show a
+    # warning; «Pedidos para revisar» gets the «No enviado a la empresa»
+    # filter and column. migrations/19.0.1.129.5 marks the earlier orders as
+    # sent (the step did not exist).
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth", "mail_bot", "digest"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",
@@ -503,7 +520,8 @@
              "views/rutas_app.xml", "views/hoja_ruta.xml", "views/asignar_app.xml",
              "views/agilpedido_app.xml", "views/reparto_anteriores.xml",
              "views/rendiciones_app.xml", "views/auditoria.xml", "data/auditoria_cron.xml",
-             "views/efectivo_a_rendir.xml", "views/marca.xml", "data/marca.xml"],
+             "views/efectivo_a_rendir.xml", "views/marca.xml", "data/marca.xml",
+             "views/enviar_empresa.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare

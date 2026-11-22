@@ -1,6 +1,7 @@
-"""19.0.1.129.3: the order WhatsApp text in AgilPedido's format, with a single
-/p/ link (controllers/main.py _mensaje_whatsapp, controllers/pedido_link.py,
-models/agilpedido_wa.py es_mensaje_de_la_pagina)."""
+"""19.0.1.129.3: the order WhatsApp text with a single /p/ link
+(controllers/main.py _mensaje_whatsapp, controllers/pedido_link.py,
+models/agilpedido_wa.py es_mensaje_de_la_pagina). 19.0.1.129.5 replaced
+AgilPedido's layout: the format tests live in test_v129_5_enviar_empresa.py."""
 from odoo import Command
 from odoo.tests import HttpCase, TransactionCase, new_test_user, tagged
 
@@ -9,12 +10,11 @@ from odoo.addons.distri_pedido.models.agilpedido_wa import (
     ORIGEN_AGILPEDIDO_WA, PARAM_AUTO, es_mensaje_de_la_pagina, leer_mensaje_agilpedido,
 )
 from odoo.addons.distri_pedido.models.pedido_whatsapp import find_codes, find_web_codes
-from odoo.addons.distri_pedido.models.sale_order import STOCK_NOTICE
 from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin
 from odoo.addons.distri_pedido.tests.test_pedido_whatsapp import PedidoWhatsappMixin
 
 BASE = "https://distri.test"
-LINK_PREFIX = "Tu pedido (link personal, no lo compartas): "
+LINK_LABEL = "Tu pedido (link personal, no lo compartas):"
 
 
 class MensajeAgilMixin(PedidoWhatsappMixin):
@@ -51,10 +51,12 @@ class MensajeAgilMixin(PedidoWhatsappMixin):
             order, order.distri_nombre, order.distri_telefono, order.distri_domicilio,
             entrega, mayorista=mayorista)
 
+    def _url(self, order):
+        return "%s/p/%s" % (BASE, order.distri_link_token)
+
     def _cola(self, order):
-        """The last two lines: the code line and the only link."""
-        return ["", order._distri_wa_code_line(),
-                LINK_PREFIX + "%s/p/%s" % (BASE, order.distri_link_token)]
+        """The last block: the code line, the label and the only link."""
+        return ["", order._distri_wa_code_line(), LINK_LABEL, self._url(order)]
 
     def _agil_orders(self):
         return self.env["sale.order"].sudo().search([("distri_origen", "=", ORIGEN_AGILPEDIDO_WA)])
@@ -68,26 +70,6 @@ class TestMensajeAgil(MensajeAgilMixin, TransactionCase):
         super().setUpClass()
         cls._setup_mensaje()
 
-    def test_agilpedido_money_format(self):
-        plata = TomaDePedidos._plata_agil
-        self.assertEqual(plata(4240), "4240,00")
-        self.assertEqual(plata(9000), "9000,00")
-        self.assertEqual(plata(13760), "13.760,00")
-        self.assertEqual(plata(1101340), "1.101.340,00")
-        self.assertEqual(plata(999.5), "999,50")
-        self.assertEqual(plata(0), "0,00")
-
-    def test_simple_order_exact_text(self):
-        order = self._pedido()
-        self.assertEqual(self._texto(order).split("\n"), [
-            "Soy *Kiosco Ana* y quiero hacer el siguiente pedido hacia *Mitre 1*:",
-            "- 2 x Producto WhatsApp test ($ 2000,00)",
-            "- 16 x Galletitas chips v129 ($ 13.760,00)",
-            "*Total: $ 15.760,00*",
-            "Teléfono: 2995551234",
-            STOCK_NOTICE,
-        ] + self._cola(order))
-
     def test_only_one_link(self):
         order = self._pedido()
         order._portal_ensure_token()
@@ -96,55 +78,15 @@ class TestMensajeAgil(MensajeAgilMixin, TransactionCase):
         self.assertEqual(texto.count("/p/"), 1)
         self.assertNotIn("/pedido/", texto)
         self.assertNotIn(order.access_token, texto)
-        self.assertTrue(texto.endswith(LINK_PREFIX + "%s/p/%s" % (BASE, order.distri_link_token)))
+        self.assertEqual(texto.split("\n")[-4:], self._cola(order))
         self.assertNotIn("Hola Distri", texto)
         self.assertNotIn("Muchas gracias", texto)
-
-    def test_retira(self):
-        order = self._pedido(distri_entrega="retira", distri_domicilio=False)
-        lines = self._texto(order, entrega="retira").split("\n")
-        self.assertEqual(lines[0], "Soy *Kiosco Ana* y quiero hacer el siguiente pedido "
-                                   "para retirar en el depósito:")
-        self.assertFalse([line for line in lines if "Domicilio" in line or "hacia" in line])
-
-    def test_wholesale(self):
-        order = self._pedido()
-        lines = self._texto(order, mayorista=True).split("\n")
-        self.assertEqual(lines[1], "⚠️ *LISTA DISTRIBUIDORAS*")
-        self.assertEqual(lines[2], "- 2 x Producto WhatsApp test ($ 2000,00)")
-        self.assertNotIn("LISTA DISTRIBUIDORAS", self._texto(order))
-
-    def test_unpriced_lines(self):
-        order = self._pedido(lines=[(self.product, 2, 1000), (self.galletitas, 3, 0)])
-        lines = self._texto(order).split("\n")
-        self.assertIn("- 3 x Galletitas chips v129 ($ a confirmar)", lines)
-        self.assertIn("*Total: $ 2000,00 + a confirmar*", lines)
-        self.assertIn("(los renglones a confirmar se valorizan con tu lista y te confirmamos "
-                      "el total)", lines)
-        nada = self._pedido(lines=[(self.galletitas, 3, 0)], distri_telefono="2995551235")
-        self.assertIn("*Total: a confirmar*", self._texto(nada).split("\n"))
-
-    def test_encomienda(self):
-        order = self._pedido(distri_encomienda_pedida=True, distri_encomienda_nombre="Ana Pérez",
-                             distri_encomienda_dni="30123456",
-                             distri_encomienda_localidad="Zapala", distri_domicilio=False)
-        lines = self._texto(order).split("\n")
-        self.assertEqual(lines[0], "Soy *Kiosco Ana* y quiero hacer el siguiente pedido por "
-                                   "encomienda a la terminal de *Zapala*:")
-        self.assertIn("*ENCOMIENDA*: retira Ana Pérez, DNI 30123456", lines)
-
-    def test_comentario_and_modified(self):
-        order = self._pedido(distri_comentario="Dejar en el kiosco de la esquina")
-        order.sudo().distri_modificado = True
-        lines = self._texto(order).split("\n")
-        total = lines.index("*Total: $ 15.760,00*")
-        self.assertEqual(lines[total + 1], "Comentario: Dejar en el kiosco de la esquina")
-        self.assertEqual(lines[total + 2], "_modificado por el cliente_")
 
     def test_webhook_still_matches_the_code(self):
         order = self._pedido()
         texto = self._texto(order)
-        # the text has AgilPedido's shape: only the page's full code line counts
+        # its product and total lines have AgilPedido's shape: only the page's
+        # full code line counts
         self.assertTrue(leer_mensaje_agilpedido(texto)["es_pedido"])
         self.assertEqual(find_web_codes(texto), [(order.name, order.distri_wa_code)])
         self.assertIn(order.distri_wa_code, find_codes(texto))

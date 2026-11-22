@@ -906,82 +906,33 @@ class TomaDePedidos(http.Controller):
         return "https://wa.me/%s?text=%s" % (
             numero, quote(self._texto_enviar_al_cliente(pedido, nombre)))
 
-    @staticmethod
-    def _plata_agil(monto):
-        """An amount as AgilPedido writes it: «4240,00», «13.760,00»,
-        «1.101.340,00». Its quirk, consistent in the real messages: the
-        thousands dot only from 10.000 up."""
-        centavos = int(round((monto or 0) * 100))
-        entero, resto = divmod(abs(centavos), 100)
-        texto = str(entero) if entero < 10000 else "{:,}".format(entero).replace(",", ".")
-        return "%s%s,%02d" % ("-" if centavos < 0 else "", texto, resto)
-
-    def _cabecera_whatsapp(self, pedido, nombre, domicilio, entrega):
-        """«Soy *NOMBRE* y quiero hacer el siguiente pedido hacia *DOMICILIO*:»,
-        AgilPedido's first line without its «Hola Distri Neuquén! »."""
-        if pedido.distri_encomienda_pedida:
-            destino = "por encomienda a la terminal de *%s*" % (
-                pedido.distri_encomienda_localidad or "-")
-        elif entrega == "retira":
-            destino = "para retirar en el depósito"
-        else:
-            destino = "hacia *%s*" % ((domicilio or "").strip() or "-")
-        return "Soy *%s* y quiero hacer el siguiente pedido %s:" % (
-            (nombre or "").strip() or "-", destino)
-
     def _mensaje_whatsapp(self, pedido, nombre, telefono, domicilio,
                           entrega="domicilio", mayorista=False):
-        """The text the customer sends from his own WhatsApp (19.0.1.129.3:
-        AgilPedido's format, with one link).
+        """The order's text for the company's WhatsApp (19.0.1.129.5: field
+        lines, blocks split by a blank line, money without cents, the code
+        line and the /p/ link at the end). Built by the order:
+        models/enviar_empresa.py _distri_company_message."""
+        return pedido.sudo()._distri_company_message(
+            nombre, telefono, domicilio, entrega, mayorista=mayorista)
 
-        The «Pedido S00164 · código 7K3P» line near the end confirms the order
-        even if the customer deletes the rest (models/pedido_whatsapp.py
-        find_web_codes); it and the /p/ link keep the AgilPedido auto-import
-        away from it (models/agilpedido_wa.py es_mensaje_de_la_pagina)."""
-        lineas = [self._cabecera_whatsapp(pedido, nombre, domicilio, entrega)]
-        if mayorista:
-            # it qualifies every price below
-            lineas.append("\u26a0\ufe0f *LISTA DISTRIBUIDORAS*")
-        hay_sin_precio = False
-        for linea in pedido.order_line:
-            if linea.display_type:
-                continue
-            unidad = linea.product_uom_id.name or ""
-            detalle = " · %s" % unidad if linea.product_uom_id.relative_factor > 1 else ""
-            if linea.price_unit:
-                importe = "$ %s" % self._plata_agil(linea.price_subtotal)
-            else:
-                importe = "$ a confirmar"
-                hay_sin_precio = True
-            lineas.append("- %s x %s%s (%s)" % (
-                int(linea.product_uom_qty), linea.product_id.name, detalle, importe))
-        if hay_sin_precio and not pedido.amount_total:
-            lineas.append("*Total: a confirmar*")
-        elif hay_sin_precio:
-            lineas.append("*Total: $ %s + a confirmar*" % self._plata_agil(pedido.amount_total))
-        else:
-            lineas.append("*Total: $ %s*" % self._plata_agil(pedido.amount_total))
-        if hay_sin_precio:
-            lineas.append("(los renglones a confirmar se valorizan con tu lista y te "
-                          "confirmamos el total)")
-        comentario = (pedido.distri_comentario or "").strip()
-        if comentario:
-            lineas.append("Comentario: %s" % comentario)
-        if pedido.distri_modificado:
-            lineas.append("_modificado por el cliente_")
-        if pedido.distri_encomienda_pedida:
-            lineas.append("*ENCOMIENDA*: retira %s, DNI %s" % (
-                pedido.distri_encomienda_nombre, pedido.distri_encomienda_dni))
-        if telefono:
-            lineas.append("Teléfono: %s" % telefono)
-        lineas.append(pedido._distri_stock_notice())
-        lineas.append("")
-        if pedido.distri_wa_code:
-            # this line stays exactly as is: the webhook matcher reads it
-            # (models/pedido_whatsapp.py find_codes, _WEB_CODE_RE)
-            lineas.append(pedido._distri_wa_code_line())
-        lineas.append(pedido._distri_link_line())
-        return "\n".join(lineas)
+    def _url_enviado_empresa(self, pedido):
+        """Where the page posts when «Enviar a la empresa» / «Enviar por
+        WhatsApp» is tapped (sets distri_enviado_empresa)."""
+        return "/pedido/%s/enviado-empresa" % pedido.sudo().access_token
+
+    @http.route("/pedido/<string:token>/enviado-empresa", type="http", auth="public",
+                methods=["POST"], csrf=False, sitemap=False)
+    def enviado_empresa(self, token, **kw):
+        """19.0.1.129.5: the company's WhatsApp was opened with the order.
+
+        The page posts it on tap (the link itself opens wa.me). The order's
+        access token is the credential, as on every /pedido/<token> page;
+        it only sets a flag, so no CSRF token is needed."""
+        pedido = self._por_token(token)
+        if not pedido or pedido.state == "cancel":
+            return request.make_json_response({"ok": False}, status=404)
+        pedido.sudo()._distri_mark_sent_to_company()
+        return request.make_json_response({"ok": True})
 
     # --------------------------------------------------------------- rutas
 
@@ -1231,6 +1182,7 @@ class TomaDePedidos(http.Controller):
         datos["pago"] = self._como_pagar(pedido)
         datos["encomienda"] = self._encomienda_cliente(pedido)
         datos["espera"] = self._espera_whatsapp(pedido)
+        datos["enviado_url"] = self._url_enviado_empresa(pedido)
         datos["guardado"] = kw.get("guardado") == "1" and editable
         # 19.0.1.99.0 (audit F7): the code the customer tells the driver
         datos["codigo_recibido"] = self._codigo_recibido(pedido)
@@ -2003,6 +1955,7 @@ class TomaDePedidos(http.Controller):
             "paga_por_transferencia": bool(self._alias_transferencia()),
             "espera": False,
             "personal": False,
+            "enviado_url": self._url_enviado_empresa(pedido),
             "codigo_recibido": self._codigo_recibido(pedido),
         }
         if pedido.distri_wa_state == "staff":
@@ -2015,6 +1968,12 @@ class TomaDePedidos(http.Controller):
                 "cliente_numero": pedido._distri_wa_customer_number(),
                 "enviar_al_cliente": self._url_enviar_al_cliente(
                     pedido, nombre_cliente, pedido._distri_wa_customer_number()),
+                # 19.0.1.129.5: every order reaches the company's WhatsApp
+                "enviar_a_la_empresa": self._url_whatsapp_empresa(self._mensaje_whatsapp(
+                    pedido, nombre_cliente, telefono or pedido._distri_company_phone(),
+                    domicilio or pedido._distri_company_address(), entrega,
+                    mayorista=hay_mayorista or pedido._distri_company_wholesale())),
+                "enviado_empresa": pedido.distri_enviado_empresa,
             })
         else:
             texto = self._mensaje_whatsapp(pedido, nombre, telefono, domicilio,
