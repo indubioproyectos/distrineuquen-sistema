@@ -24,7 +24,9 @@ services:
     volumes:
       - odoo-data:/var/lib/odoo
       - ./config:/etc/odoo
-      - ./addons:/mnt/extra-addons
+      # frozen export of one commit, never the working tree ./addons:
+      # scripts/prod-snapshot.sh, scripts/actualizar-modulo.sh
+      - ./prod/addons-current:/mnt/extra-addons:ro
       - ./oca-addons:/mnt/oca-addons
     environment:
       HOST: db

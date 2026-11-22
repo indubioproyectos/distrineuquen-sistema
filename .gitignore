@@ -67,3 +67,5 @@ backups-auto/
 backups-agil/
 logs/
 run/
+# production code snapshots (scripts/prod-snapshot.sh)
+prod/
