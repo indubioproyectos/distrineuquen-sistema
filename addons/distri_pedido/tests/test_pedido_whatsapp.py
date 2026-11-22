@@ -318,11 +318,13 @@ class TestPedidoWhatsappHttp(PedidoAbiertoMixin, PedidoWhatsappMixin, HttpCase):
         self.assertIn("Enviar al cliente", html)
         link = unquote(re.search(r'href="(https://wa\.me/5492994112233\?text=[^"]+)"',
                                  html).group(1).replace("&amp;", "&"))
-        self.assertIn("Hola Kiosco Cartera WA, te dejo tu pedido: ", link)
+        # 19.0.1.129.6: the same text as the company's WhatsApp
+        self.assertIn("*Pedido:* %s\n*Cliente:* Kiosco Cartera WA\n" % order.name, link)
+        self.assertIn("*Total: $ 140.000*", link)
         # 19.0.1.92.0: the account is hidden from the customer by default
         # 19.0.1.129.3: the order's single /p/ link
-        self.assertIn("/p/%s. Desde ahí podés verlo, modificarlo y pagar."
-                      % order.distri_link_token, link)
+        self.assertIn("Tu pedido (link personal, no lo compartas):\n", link)
+        self.assertTrue(link.endswith("/p/%s" % order.distri_link_token))
         self.assertNotIn(order.access_token, link)
         self.assertNotIn("ver tu cuenta", link)
         # 19.0.1.129.5: the company's chat too, «Enviar a la empresa»

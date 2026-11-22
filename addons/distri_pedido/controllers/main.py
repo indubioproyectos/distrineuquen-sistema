@@ -894,10 +894,12 @@ class TomaDePedidos(http.Controller):
         return bool(socio) and socio._distri_account_visible()
 
     def _texto_enviar_al_cliente(self, pedido, nombre):
-        que = ("verlo, modificarlo, ver tu cuenta y pagar"
-               if self._cuenta_visible_al_cliente(pedido) else "verlo, modificarlo y pagar")
-        return "Hola %s, te dejo tu pedido: %s. Desde ahí podés %s. %s" % (
-            nombre or "", self._link_edicion(pedido), que, pedido._distri_stock_notice())
+        """«Enviar al cliente» (19.0.1.129.6): the same text as the company's
+        WhatsApp, so the customer checks the order line by line as with
+        AgilPedido. The link label promises the account only when he sees it."""
+        from ..models.pedido_link import LINK_LABEL_WITH_ACCOUNT  # lazy: see _mp_error_class
+        label = LINK_LABEL_WITH_ACCOUNT if self._cuenta_visible_al_cliente(pedido) else None
+        return pedido.sudo()._distri_company_message_default(link_label=label)
 
     def _url_enviar_al_cliente(self, pedido, nombre, numero):
         """«Enviar al cliente»: el WhatsApp del vendedor, con el chat del

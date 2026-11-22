@@ -53,6 +53,9 @@ RECEIPT_WA_TEXT = ("Hola, te escribimos de Distri Neuquén. Tu código de recibi
                    "es %s. Dáselo al repartidor cuando recibas el pedido.")
 ROUTE_REFRESH_HINT = "El pedido ya está en el celular del repartidor: que actualice la ruta."
 
+LINK_LABEL = "Tu pedido (link personal, no lo compartas):"
+LINK_LABEL_WITH_ACCOUNT = "Tu pedido y tu cuenta (link personal, no lo compartas):"
+
 
 def new_link_token():
     return "".join(secrets.choice(LINK_TOKEN_ALPHABET) for _ in range(LINK_TOKEN_LENGTH))
@@ -138,11 +141,12 @@ class SaleOrderLink(models.Model):
         base = self.env["ir.config_parameter"].sudo().get_param("web.base.url") or ""
         return "%s/p/%s" % (base.rstrip("/"), self._distri_link_token_ensure())
 
-    def _distri_link_line(self):
+    def _distri_link_line(self, label=None):
         """The end of the order's WhatsApp text: the label, then the order's
-        only link on its own line (19.0.1.129.5)."""
+        only link on its own line (19.0.1.129.5). «Enviar al cliente» passes
+        its own label when the customer also sees his account (19.0.1.129.6)."""
         self.ensure_one()
-        return "Tu pedido (link personal, no lo compartas):\n%s" % self._distri_link_url()
+        return "%s\n%s" % (label or LINK_LABEL, self._distri_link_url())
 
     def _distri_link_customer_url(self):
         """Where /p/ sends anyone outside the team: «Tu pedido»."""

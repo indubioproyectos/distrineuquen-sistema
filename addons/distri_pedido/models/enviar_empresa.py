@@ -65,7 +65,7 @@ class SaleOrderEnviarEmpresa(models.Model):
     # ------------------------------------------------------------ the text
 
     def _distri_company_message(self, nombre, telefono, domicilio, entrega="domicilio",
-                                mayorista=False):
+                                mayorista=False, link_label=None):
         """The order as text for the company's WhatsApp, one blank line
         between blocks."""
         self.ensure_one()
@@ -87,12 +87,14 @@ class SaleOrderEnviarEmpresa(models.Model):
             # this line stays exactly as is: the webhook matcher reads it
             # (models/pedido_whatsapp.py find_codes, _WEB_CODE_RE)
             cola.append(order._distri_wa_code_line())
-        cola.extend(order._distri_link_line().split("\n"))
+        cola.extend(order._distri_link_line(link_label).split("\n"))
         bloques.append(cola)
         return "\n\n".join("\n".join(bloque) for bloque in bloques)
 
     def _distri_company_fields(self, nombre, telefono, domicilio, entrega):
         lineas = [MODIFIED_MARK] if self.distri_modificado else []
+        # 19.0.1.129.6: the order number first (owner)
+        lineas.append("*Pedido:* %s" % self.name)
         lineas.append("*Cliente:* %s" % ((nombre or "").strip() or "-"))
         if self.distri_encomienda_pedida:
             lineas.append("*Encomienda:* terminal de %s" % (
@@ -136,7 +138,7 @@ class SaleOrderEnviarEmpresa(models.Model):
 
     # ------------------------------------------------- the text, from the order
 
-    def _distri_company_message_default(self):
+    def _distri_company_message_default(self, link_label=None):
         """The text built from the order alone: the backend button, the
         seller's confirmation and the customer's order page."""
         self.ensure_one()
@@ -146,7 +148,8 @@ class SaleOrderEnviarEmpresa(models.Model):
         return order._distri_company_message(
             nombre or order.distri_nombre or socio.name,
             order._distri_company_phone(), order._distri_company_address(),
-            order.distri_entrega or "domicilio", mayorista=order._distri_company_wholesale())
+            order.distri_entrega or "domicilio", mayorista=order._distri_company_wholesale(),
+            link_label=link_label)
 
     def _distri_company_address(self):
         """The typed address, else the street on file of a real customer."""

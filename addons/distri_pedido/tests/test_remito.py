@@ -232,12 +232,15 @@ class TestRemito(HttpCase):
 
     def test_whatsapp_no_promete_la_cuenta_oculta(self):
         ctrl = TomaDePedidos()
-        with patch.object(TomaDePedidos, "_link_edicion", return_value="https://x/pedido/t"):
-            self.assertIn("ver tu cuenta", ctrl._texto_enviar_al_cliente(self.order, "Ana"))
-            self._ocultar()
-            texto = ctrl._texto_enviar_al_cliente(self.order, "Ana")
-        self.assertIn("Desde ahí podés verlo, modificarlo y pagar.", texto)
+        # 19.0.1.129.6: the same text as the company's; only the link label
+        # names the account, and only when the customer sees it
+        self.assertIn("Tu pedido y tu cuenta (link personal", ctrl._texto_enviar_al_cliente(self.order, "Ana"))
+        self._ocultar()
+        texto = ctrl._texto_enviar_al_cliente(self.order, "Ana")
+        self.assertIn("Tu pedido (link personal, no lo compartas):", texto)
         self.assertNotIn("cuenta", texto)
+        self.assertIn("*Total: $", texto)
+        self.assertEqual(texto.count("http"), 1)
         self.assertFalse(ctrl._cuenta_visible_al_cliente(self.order))
 
     def test_mostrar_y_ocultar_desde_la_ficha(self):
