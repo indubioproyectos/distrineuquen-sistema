@@ -2,12 +2,14 @@
 «Enviar código por WhatsApp» (19.0.1.87.0).
 
 - Every web order gets an unguessable link token (`distri_link_token`). The
-  text the customer sends from /pedido carries «Ver pedido:
-  https://distrineuquen.com/p/<token>» right below the «Pedido S00164 ·
-  código 7K3P» line (that line stays untouched: the webhook matcher reads
-  it). The manager reads the chat in the WhatsApp Business app on his
-  phone and taps the link: administración/gerencia land on the order form
-  (controllers/pedido_link.py); anyone else only sees the order's status.
+  text the customer sends from /pedido ends with «Tu pedido (link personal,
+  no lo compartas): https://distrineuquen.com/p/<token>» right below the
+  «Pedido S00164 · código 7K3P» line (that line stays untouched: the webhook
+  matcher reads it). It is the order's only link (19.0.1.129.3): the manager
+  reads the chat in the WhatsApp Business app on his phone and taps it,
+  administración/gerencia/sistemas land on the order form
+  (controllers/pedido_link.py); anyone else, the customer included, lands on
+  the customer's own order page (/pedido/<access_token>).
   The token is letters and digits only, never «-» or «_»: a 4-character
   piece between dashes could be read as an order code by `find_codes`.
 - «WhatsApp verificado»: the manager checked the chat and the number the
@@ -37,7 +39,7 @@ LINK_TOKEN_ALPHABET = string.ascii_letters + string.digits
 LINK_TOKEN_LENGTH = 24  # about 143 bits
 _LINK_TOKEN_RE = re.compile(r"^[A-Za-z0-9]{%d}$" % LINK_TOKEN_LENGTH)
 
-# Plain words of the public page (/p/<token>)
+# Plain words of an order's status (the /p/ status page until 19.0.1.129.3)
 LINK_STATUS = {
     "received": "recibido",
     "packing": "en armado",
@@ -136,9 +138,16 @@ class SaleOrderLink(models.Model):
         return "%s/p/%s" % (base.rstrip("/"), self._distri_link_token_ensure())
 
     def _distri_link_line(self):
-        """The line of the customer's message that opens the order."""
+        """The last line of the customer's message: the order's only link."""
         self.ensure_one()
-        return "Ver pedido: %s" % self._distri_link_url()
+        return "Tu pedido (link personal, no lo compartas): %s" % self._distri_link_url()
+
+    def _distri_link_customer_url(self):
+        """Where /p/ sends anyone outside the team: «Tu pedido»."""
+        self.ensure_one()
+        order = self.sudo()
+        order._portal_ensure_token()
+        return "/pedido/%s" % order.access_token
 
     @api.model
     def _distri_link_find(self, token):

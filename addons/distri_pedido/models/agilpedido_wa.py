@@ -10,7 +10,9 @@ nuevo con pedidos reales. NO se le responde nada al cliente.
 Orden de las reglas sobre un texto que llega (pedido_whatsapp.py):
 1. el codigo de un pedido de la pagina («Pedido S00164 · código 7K3P") gana
    siempre, con o sin el interruptor;
-2. despues, si el interruptor esta prendido, el mensaje de AgilPedido;
+2. despues, si el interruptor esta prendido, el mensaje de AgilPedido; nunca
+   el texto de la pagina (19.0.1.129.3: tiene la misma forma, pero lleva la
+   linea del codigo o el link /p/, es_mensaje_de_la_pagina);
 3. al final, la propuesta por telefono de un pedido que espera el WhatsApp.
 
 El pedido entra como cualquier pedido web sin cliente: a nombre del contacto
@@ -36,6 +38,9 @@ from .importar_pedido import (
     PARECIDO_MINIMO, catalogo_normalizado, identificar, identificar_por_codigo, importe_ar,
     leer_envase, leer_renglon, lista_general, lista_mayorista, precio_en_unidad, precio_renglon, unidad_de_venta, unidades_de_venta,
 )
+# pedido_whatsapp loads before this file (models/__init__.py): importing its
+# pure helper does not change the order sale.order overrides are built in
+from .pedido_whatsapp import find_web_codes
 
 _logger = logging.getLogger(__name__)
 
@@ -97,6 +102,18 @@ ENVIO = re.compile(r"^\s*env[ií]o\s+a\s+domicilio\s*:?\s*\(?(?P<importe>\$?\s*[
                    re.IGNORECASE)
 COMENTARIO = re.compile(r"^\s*comentario\s*:\s*(?P<texto>.*)$", re.IGNORECASE)
 GRACIAS = re.compile(r"^\s*muchas\s+gracias\b", re.IGNORECASE)
+
+
+# The page's own message (controllers/main.py _mensaje_whatsapp) reads like
+# AgilPedido's since 19.0.1.129.3 («Soy *X* y quiero hacer el siguiente
+# pedido ...», «- 2 x ... ($ ...)», «*Total: $ ...*»). Its order code line or
+# its /p/<token> link (24 letters and digits, models/pedido_link.py) mark it
+# as ours: never a new AgilPedido draft, even when its order is not found.
+LINK_DE_LA_PAGINA = re.compile(r"/p/[A-Za-z0-9]{24}(?![A-Za-z0-9])")
+
+
+def es_mensaje_de_la_pagina(texto):
+    return bool(find_web_codes(texto) or LINK_DE_LA_PAGINA.search(texto or ""))
 
 
 def _sin_formato(linea):
@@ -321,7 +338,7 @@ class SaleOrderAgilpedido(models.Model):
         if not self.env["distri.pedido.whatsapp.settings"].agilpedido_auto():
             return Order.browse()
         datos = leer_mensaje_agilpedido(message.body)
-        if not datos["es_pedido"]:
+        if not datos["es_pedido"] or es_mensaje_de_la_pagina(message.body):
             return Order.browse()
         existente = Order.search([("distri_agil_message_id", "=", message.id)], limit=1)
         if existente:

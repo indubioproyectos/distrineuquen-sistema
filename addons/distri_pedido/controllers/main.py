@@ -868,7 +868,10 @@ class TomaDePedidos(http.Controller):
         return (base or request.httprequest.host_url).rstrip("/")
 
     def _link_edicion(self, pedido):
-        return "%s/pedido/%s" % (self._base_url(), pedido.access_token)
+        """The customer's order link: /p/<token> (19.0.1.129.3). The team lands
+        on the backend order, anyone else on «Tu pedido» (/pedido/<access_token>,
+        controllers/pedido_link.py)."""
+        return pedido.sudo()._distri_link_url()
 
     def _url_whatsapp_empresa(self, texto):
         return request.env["distri.pedido.whatsapp.settings"].sudo().company_url(texto)
@@ -903,72 +906,81 @@ class TomaDePedidos(http.Controller):
         return "https://wa.me/%s?text=%s" % (
             numero, quote(self._texto_enviar_al_cliente(pedido, nombre)))
 
+    @staticmethod
+    def _plata_agil(monto):
+        """An amount as AgilPedido writes it: «4240,00», «13.760,00»,
+        «1.101.340,00». Its quirk, consistent in the real messages: the
+        thousands dot only from 10.000 up."""
+        centavos = int(round((monto or 0) * 100))
+        entero, resto = divmod(abs(centavos), 100)
+        texto = str(entero) if entero < 10000 else "{:,}".format(entero).replace(",", ".")
+        return "%s%s,%02d" % ("-" if centavos < 0 else "", texto, resto)
+
+    def _cabecera_whatsapp(self, pedido, nombre, domicilio, entrega):
+        """«Soy *NOMBRE* y quiero hacer el siguiente pedido hacia *DOMICILIO*:»,
+        AgilPedido's first line without its «Hola Distri Neuquén! »."""
+        if pedido.distri_encomienda_pedida:
+            destino = "por encomienda a la terminal de *%s*" % (
+                pedido.distri_encomienda_localidad or "-")
+        elif entrega == "retira":
+            destino = "para retirar en el depósito"
+        else:
+            destino = "hacia *%s*" % ((domicilio or "").strip() or "-")
+        return "Soy *%s* y quiero hacer el siguiente pedido %s:" % (
+            (nombre or "").strip() or "-", destino)
+
     def _mensaje_whatsapp(self, pedido, nombre, telefono, domicilio,
                           entrega="domicilio", mayorista=False):
-        """El texto que el cliente manda desde su propio WhatsApp.
+        """The text the customer sends from his own WhatsApp (19.0.1.129.3:
+        AgilPedido's format, with one link).
 
-        Arranca con el codigo del pedido: con el, el aviso de WhatsApp
-        confirma el pedido aunque el cliente borre el resto del texto."""
-        lineas = []
+        The «Pedido S00164 · código 7K3P» line near the end confirms the order
+        even if the customer deletes the rest (models/pedido_whatsapp.py
+        find_web_codes); it and the /p/ link keep the AgilPedido auto-import
+        away from it (models/agilpedido_wa.py es_mensaje_de_la_pagina)."""
+        lineas = [self._cabecera_whatsapp(pedido, nombre, domicilio, entrega)]
+        if mayorista:
+            # it qualifies every price below
+            lineas.append("\u26a0\ufe0f *LISTA DISTRIBUIDORAS*")
+        hay_sin_precio = False
+        for linea in pedido.order_line:
+            if linea.display_type:
+                continue
+            unidad = linea.product_uom_id.name or ""
+            detalle = " · %s" % unidad if linea.product_uom_id.relative_factor > 1 else ""
+            if linea.price_unit:
+                importe = "$ %s" % self._plata_agil(linea.price_subtotal)
+            else:
+                importe = "$ a confirmar"
+                hay_sin_precio = True
+            lineas.append("- %s x %s%s (%s)" % (
+                int(linea.product_uom_qty), linea.product_id.name, detalle, importe))
+        if hay_sin_precio and not pedido.amount_total:
+            lineas.append("*Total: a confirmar*")
+        elif hay_sin_precio:
+            lineas.append("*Total: $ %s + a confirmar*" % self._plata_agil(pedido.amount_total))
+        else:
+            lineas.append("*Total: $ %s*" % self._plata_agil(pedido.amount_total))
+        if hay_sin_precio:
+            lineas.append("(los renglones a confirmar se valorizan con tu lista y te "
+                          "confirmamos el total)")
+        comentario = (pedido.distri_comentario or "").strip()
+        if comentario:
+            lineas.append("Comentario: %s" % comentario)
+        if pedido.distri_modificado:
+            lineas.append("_modificado por el cliente_")
+        if pedido.distri_encomienda_pedida:
+            lineas.append("*ENCOMIENDA*: retira %s, DNI %s" % (
+                pedido.distri_encomienda_nombre, pedido.distri_encomienda_dni))
+        if telefono:
+            lineas.append("Teléfono: %s" % telefono)
+        lineas.append(pedido._distri_stock_notice())
+        lineas.append("")
         if pedido.distri_wa_code:
             # this line stays exactly as is: the webhook matcher reads it
             # (models/pedido_whatsapp.py find_codes, _WEB_CODE_RE)
             lineas.append(pedido._distri_wa_code_line())
-        # the team opens the order from the chat (models/pedido_link.py)
-        lineas += [pedido._distri_link_line(), ""]
-        lineas.append("*PEDIDO %s*" % pedido.name)
-        if pedido.distri_modificado:
-            lineas.append("_modificado por el cliente_")
-        lineas.append("")
-        if mayorista:
-            lineas += ["\u26a0\ufe0f *LISTA DISTRIBUIDORAS*", ""]
-        hay_sin_precio = False
-        for linea in pedido.order_line:
-            unidad = linea.product_uom_id.name or ""
-            detalle = " (%s)" % unidad if linea.product_uom_id.relative_factor > 1 else ""
-            if linea.price_unit:
-                importe = "= $ %s" % self._plata(linea.price_subtotal)
-            else:
-                importe = "= a confirmar"
-                hay_sin_precio = True
-            lineas.append("%s x %s%s %s" % (
-                int(linea.product_uom_qty),
-                linea.product_id.name,
-                detalle,
-                importe,
-            ))
-        if hay_sin_precio and not pedido.amount_total:
-            total = "*TOTAL: a confirmar*"
-        elif hay_sin_precio:
-            total = "*TOTAL: $ %s + a confirmar*" % self._plata(pedido.amount_total)
-        else:
-            total = "*TOTAL: $ %s*" % self._plata(pedido.amount_total)
-        lineas += ["", total]
-        if hay_sin_precio:
-            lineas.append("(los renglones a confirmar se valorizan con tu lista y te confirmamos el total)")
-        lineas.append(pedido._distri_stock_notice())
-        lineas += [
-            "",
-            "Comercio: %s" % (nombre or "-"),
-            "Telefono: %s" % (telefono or "-"),
-            ("Lo retira en el deposito" if entrega == "retira"
-             else "Domicilio: %s" % (domicilio or "-")),
-        ]
-        if pedido.distri_encomienda_pedida:
-            lineas += [
-                "*ENCOMIENDA* a la terminal de %s" % pedido.distri_encomienda_localidad,
-                "Retira: %s, DNI %s" % (pedido.distri_encomienda_nombre,
-                                        pedido.distri_encomienda_dni),
-            ]
-        lineas += [
-            "",
-            "Con este link ves tu pedido y podes modificarlo hasta que empecemos a armarlo:",
-            self._link_edicion(pedido),
-            "",
-            "\u26a0\ufe0f *Este link es personal, no lo compartas.* Con el se ve tu "
-            + ("pedido y tu cuenta corriente." if self._cuenta_visible_al_cliente(pedido)
-               else "pedido."),
-        ]
+        lineas.append(pedido._distri_link_line())
         return "\n".join(lineas)
 
     # --------------------------------------------------------------- rutas

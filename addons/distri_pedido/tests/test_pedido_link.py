@@ -97,9 +97,11 @@ class TestPedidoLink(PedidoLinkMixin, TransactionCase):
         order = self._web_order(phone="2995551234")
         base = self.env["ir.config_parameter"].sudo().get_param("web.base.url").rstrip("/")
         line = order._distri_link_line()
-        self.assertEqual(line, "Ver pedido: %s/p/%s" % (base, order.distri_link_token))
-        text = "%s\n%s\n\n*PEDIDO %s*\n2 x Producto WhatsApp test = $ 2.000" % (
-            order._distri_wa_code_line(), line, order.name)
+        self.assertEqual(line, "Tu pedido (link personal, no lo compartas): %s/p/%s"
+                         % (base, order.distri_link_token))
+        text = ("Soy *Kiosco WA* y quiero hacer el siguiente pedido hacia *Mitre 1*:\n"
+                "- 2 x Producto WhatsApp test ($ 2000,00)\n*Total: $ 2000,00*\n\n%s\n%s" % (
+                    order._distri_wa_code_line(), line))
         self.assertEqual(find_codes(text), [order.distri_wa_code])
         self.assertEqual(find_web_codes(text), [(order.name, order.distri_wa_code)])
         # no token ever yields a 4-character code (letters and digits only)
@@ -257,27 +259,24 @@ class TestPedidoLinkHttp(PedidoAbiertoMixin, PedidoLinkMixin, HttpCase):
         text = unquote(link.replace("&amp;", "&").split("?text=", 1)[1])
         lines = text.splitlines()
         base = self.env["ir.config_parameter"].sudo().get_param("web.base.url").rstrip("/")
-        self.assertEqual(lines[0], "Pedido %s · código %s" % (order.name, order.distri_wa_code))
-        self.assertEqual(lines[1], "Ver pedido: %s/p/%s" % (base, order.distri_link_token))
+        # 19.0.1.129.3: the code line and the only link close the text
+        self.assertEqual(lines[-2], "Pedido %s · código %s" % (order.name, order.distri_wa_code))
+        self.assertEqual(lines[-1], "Tu pedido (link personal, no lo compartas): %s/p/%s"
+                         % (base, order.distri_link_token))
         self.assertIn(order.distri_wa_code, find_codes(text))
+        self.assertEqual(find_web_codes(text), [(order.name, order.distri_wa_code)])
         # the whole text, as the customer sends it, still confirms the order
         self._message(text, wa_id="5492995551234")
         self.assertEqual(order.distri_wa_state, "received")
 
-    def test_public_page_shows_only_the_status(self):
+    def test_public_goes_to_the_customer_page(self):
+        """19.0.1.129.3: /p/ is the customer's link, «Tu pedido» for anyone
+        outside the team (it used to show only the status)."""
         order = self._web_order(phone="2995557788", name="Kiosco Secreto Link")
         order._portal_ensure_token()
         res = self.url_open("/p/%s" % order.distri_link_token, allow_redirects=False)
-        self.assertEqual(res.status_code, 200)
-        html = res.text
-        self.assertIn("Recibimos tu pedido %s" % order.name, html)
-        self.assertIn("recibido", html)
-        for private in ("$", "2.000", "2000", "Kiosco Secreto Link", "5557788",
-                        order.partner_id.name, order.access_token, order.distri_wa_code):
-            if private:
-                self.assertNotIn(private, html)
-        self.assertIn("Soy del equipo: ingresar", html)
-        self.assertIn("/web/login?redirect=%%2Fp%%2F%s" % order.distri_link_token, html)
+        self.assertIn(res.status_code, (301, 302, 303))
+        self.assertTrue(res.headers["Location"].endswith("/pedido/%s" % order.access_token))
         self.assertEqual(res.headers.get("Cache-Control"), "no-store")
 
     def test_team_goes_to_the_backend_and_others_see_the_page(self):
@@ -287,12 +286,11 @@ class TestPedidoLinkHttp(PedidoAbiertoMixin, PedidoLinkMixin, HttpCase):
         self.assertIn(res.status_code, (301, 302, 303))
         self.assertIn("/odoo/action-distri_pedido.action_pedidos_revisar/%s" % order.id,
                       res.headers["Location"])
-        # a seller is internal but not of the team: the public page, no login link
+        # a seller is internal but not of the team: the customer's page
         self.authenticate("vendedor_link", "vendedor_link")
         res = self.url_open("/p/%s" % order.distri_link_token, allow_redirects=False)
-        self.assertEqual(res.status_code, 200)
-        self.assertIn("Recibimos tu pedido %s" % order.name, res.text)
-        self.assertNotIn("Soy del equipo", res.text)
+        self.assertIn(res.status_code, (301, 302, 303))
+        self.assertTrue(res.headers["Location"].endswith("/pedido/%s" % order.access_token))
 
     def test_invalid_token_is_not_found(self):
         order = self._web_order()
