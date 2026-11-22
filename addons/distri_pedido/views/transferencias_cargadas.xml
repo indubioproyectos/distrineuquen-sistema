@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.7: «Transferencias cargadas» (models/transferencias_cargadas.py),
+       the chronological control list of every transfer the staff credited or
+       loaded, under «Auditoría de cobros». Read-only: the actions stay on the
+       card and the anomaly. -->
+
+  <record id="regla_loaded_transfer_company" model="ir.rule">
+    <field name="name">Transferencias cargadas: las empresas del usuario</field>
+    <field name="model_id" ref="model_distri_loaded_transfer"/>
+    <field name="global" eval="True"/>
+    <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+  </record>
+
+  <record id="view_loaded_transfer_list" model="ir.ui.view">
+    <field name="name">distri.loaded.transfer.list</field>
+    <field name="model">distri.loaded.transfer</field>
+    <field name="arch" type="xml">
+      <list string="Transferencias cargadas" create="0" edit="0" delete="0"
+            default_order="loaded_at desc, id desc"
+            decoration-muted="audit_state == 'anulado'"
+            decoration-danger="with_anomaly and audit_state != 'anulado'"
+            decoration-info="load_state == 'pending'">
+        <field name="loaded_at"/>
+        <field name="loaded_by_id"/>
+        <field name="partner_id"/>
+        <field name="amount" sum="Total"/>
+        <field name="currency_id" column_invisible="1"/>
+        <field name="operation"/>
+        <field name="destination"/>
+        <field name="payment_id" optional="show"/>
+        <field name="load_state" widget="badge" optional="show"
+               decoration-info="load_state == 'pending'"
+               decoration-success="load_state == 'credited'"/>
+        <field name="audit_state" widget="badge"
+               decoration-warning="audit_state == 'pendiente'"
+               decoration-success="audit_state == 'verificado'"
+               decoration-danger="audit_state in ('diferencia', 'sin_transferencia', 'revertido')"
+               decoration-muted="audit_state == 'anulado'"/>
+        <field name="receipt_flag" string="Sin comprobante" widget="badge" decoration-danger="receipt_flag"
+               optional="show"/>
+        <field name="income_id" optional="show"/>
+        <field name="income_date" optional="show"/>
+        <field name="confirmed_mark" string="Pago confirmado" class="text-success fw-bold"/>
+        <field name="with_anomaly" column_invisible="1"/>
+        <field name="uploaded_by_id" optional="hide"/>
+        <field name="receipt_image" widget="image" string="Foto"
+               options="{'size': [0, 40], 'zoom': true, 'zoom_delay': 300}"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_loaded_transfer_form" model="ir.ui.view">
+    <field name="name">distri.loaded.transfer.form</field>
+    <field name="model">distri.loaded.transfer</field>
+    <field name="arch" type="xml">
+      <form string="Transferencia cargada" create="0" edit="0" delete="0">
+        <sheet>
+          <div class="oe_button_box" name="button_box">
+            <button name="action_view_card" type="object" class="oe_stat_button"
+                    icon="fa-file-image-o" string="Comprobante"/>
+            <button name="action_view_payment" type="object" class="oe_stat_button"
+                    icon="fa-money" string="Pago" invisible="not payment_id"/>
+            <button name="action_view_anomalies" type="object" class="oe_stat_button"
+                    icon="fa-exclamation-triangle" string="Anomalía"
+                    invisible="not anomaly_id"/>
+            <button name="action_view_statement" type="object" class="oe_stat_button"
+                    icon="fa-list-alt" string="Estado de cuenta" invisible="not partner_id"/>
+          </div>
+          <div class="oe_title"><h1><field name="name"/></h1></div>
+          <div class="alert alert-danger" role="alert" invisible="not with_anomaly">
+            Tiene una anomalía en la auditoría de cobros: revisala desde «Anomalía».
+          </div>
+          <div class="alert alert-info" role="alert" invisible="load_state != 'pending'">
+            Subida por el personal y todavía sin acreditar.
+          </div>
+          <group>
+            <group string="Comprobante">
+              <field name="receipt_name" invisible="1"/>
+              <field name="receipt_image" widget="distri_receipt_preview"
+                     filename="receipt_name" nolabel="1" colspan="2"/>
+            </group>
+            <group string="Carga">
+              <field name="loaded_at"/>
+              <field name="loaded_by_id"/>
+              <field name="uploaded_by_id" invisible="not uploaded_by_id"/>
+              <field name="load_state"/>
+              <field name="partner_id"/>
+              <field name="amount"/>
+              <field name="currency_id" invisible="1"/>
+              <field name="operation"/>
+              <field name="destination"/>
+              <field name="payment_id"/>
+              <field name="card_id"/>
+              <field name="audit_state" widget="badge"/>
+              <field name="receipt_flag" invisible="not receipt_flag"/>
+              <field name="income_id"/>
+              <field name="income_date" invisible="not income_id"/>
+              <field name="confirmed"/>
+              <field name="anomaly_id" invisible="not anomaly_id"/>
+              <field name="with_anomaly" invisible="1"/>
+            </group>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_loaded_transfer_search" model="ir.ui.view">
+    <field name="name">distri.loaded.transfer.search</field>
+    <field name="model">distri.loaded.transfer</field>
+    <field name="arch" type="xml">
+      <search>
+        <field name="loaded_by_id"/>
+        <field name="partner_id"/>
+        <field name="operation"/>
+        <field name="payment_id"/>
+        <field name="loaded_day" string="Desde el día" operator="&gt;="/>
+        <field name="loaded_day" string="Hasta el día" operator="&lt;="/>
+        <filter name="mine" string="Cargadas por mí" domain="[('loaded_by_id', '=', uid)]"/>
+        <separator/>
+        <filter name="today" string="Hoy"
+                domain="[('loaded_day', '=', context_today().strftime('%Y-%m-%d'))]"/>
+        <filter name="yesterday" string="Ayer"
+                domain="[('loaded_day', '=', (context_today() - relativedelta(days=1)).strftime('%Y-%m-%d'))]"/>
+        <filter name="this_week" string="Esta semana"
+                domain="[('loaded_day', '&gt;=', (context_today() + relativedelta(weeks=-1, days=1, weekday=0)).strftime('%Y-%m-%d'))]"/>
+        <filter name="this_month" string="Este mes"
+                domain="[('loaded_day', '&gt;=', context_today().strftime('%Y-%m-01'))]"/>
+        <filter name="loaded_day" string="Fecha" date="loaded_day"/>
+        <separator/>
+        <filter name="credited" string="Acreditadas" domain="[('load_state', '=', 'credited')]"/>
+        <filter name="pending_upload" string="Subidas sin acreditar"
+                domain="[('load_state', '=', 'pending')]"/>
+        <separator/>
+        <filter name="audit_pendiente" string="A verificar con MP"
+                domain="[('audit_state', '=', 'pendiente')]"/>
+        <filter name="audit_verificado" string="Verificadas con MP"
+                domain="[('audit_state', '=', 'verificado')]"/>
+        <filter name="audit_diferencia" string="Diferencia con MP"
+                domain="[('audit_state', '=', 'diferencia')]"/>
+        <filter name="audit_sin_transferencia" string="Sin transferencia en MP"
+                domain="[('audit_state', '=', 'sin_transferencia')]"/>
+        <filter name="audit_revertido" string="Revertidas en MP"
+                domain="[('audit_state', '=', 'revertido')]"/>
+        <filter name="audit_anulado" string="Anuladas" domain="[('audit_state', '=', 'anulado')]"/>
+        <filter name="without_receipt" string="Sin comprobante"
+                domain="[('without_receipt', '=', True)]"/>
+        <separator/>
+        <filter name="not_matched" string="No cruzadas con el reporte"
+                domain="[('matched', '=', False)]"/>
+        <filter name="with_anomaly" string="Con anomalía" domain="[('with_anomaly', '=', True)]"/>
+        <group>
+          <filter name="by_user" string="Cargó o acreditó" context="{'group_by': 'loaded_by_id'}"/>
+          <filter name="by_day" string="Día" context="{'group_by': 'loaded_day:day'}"/>
+          <filter name="by_audit_state" string="Control con MP"
+                  context="{'group_by': 'audit_state'}"/>
+          <filter name="by_partner" string="Cliente" context="{'group_by': 'partner_id'}"/>
+          <filter name="by_load_state" string="Carga" context="{'group_by': 'load_state'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <record id="action_loaded_transfer" model="ir.actions.act_window">
+    <field name="name">Transferencias cargadas</field>
+    <field name="res_model">distri.loaded.transfer</field>
+    <field name="view_mode">list,form</field>
+    <field name="search_view_id" ref="view_loaded_transfer_search"/>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Sin transferencias cargadas</p>
+      <p>Cada comprobante de transferencia que el personal acreditó o subió, del más nuevo al
+         más viejo: quién lo cargó, a qué factura fue, su control con el reporte de Mercado
+         Pago y la foto.</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_cobros_transferencias_cargadas" name="Transferencias cargadas"
+            parent="menu_cobros_auditoria" action="action_loaded_transfer" sequence="20"
+            groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,base.group_system"/>
+</odoo>

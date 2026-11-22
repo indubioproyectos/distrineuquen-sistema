@@ -292,6 +292,8 @@
               <field name="anomaly_count"/>
               <field name="supplier_count"/>
               <field name="supplier_amount"/>
+              <button name="action_view_transfers" type="object" string="Ver transferencias"
+                      icon="fa-list" title="Las transferencias que acreditó ese día"/>
             </list>
           </field>
           <field name="text"/>
@@ -412,8 +414,18 @@
 
   <!-- ================================================= menus -->
 
+  <!-- 19.0.1.129.7: «Auditoría de cobros» opens a menu with «Anomalías» (the
+       list it opened before) and «Transferencias cargadas»
+       (views/transferencias_cargadas.xml). A menuitem without action keeps
+       the old one on update, so the record clears it. -->
   <menuitem id="menu_cobros_auditoria" name="Auditoría de cobros" parent="menu_cobros_root"
-            action="action_mp_anomaly" sequence="11"
+            sequence="11"
+            groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,base.group_system"/>
+  <record id="menu_cobros_auditoria" model="ir.ui.menu">
+    <field name="action" eval="False"/>
+  </record>
+  <menuitem id="menu_cobros_auditoria_anomalias" name="Anomalías" parent="menu_cobros_auditoria"
+            action="action_mp_anomaly" sequence="10"
             groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,base.group_system"/>
   <menuitem id="menu_cobros_resumen_diario" name="Resumen diario por persona"
             parent="menu_cobros_root" action="action_credit_summary" sequence="52"
