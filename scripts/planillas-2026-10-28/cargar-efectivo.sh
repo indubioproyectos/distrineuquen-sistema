@@ -44,13 +44,13 @@ LAB_MOUNTS="-v $TMP:/in:ro" NAME=distri-planillas-$$ DO_COMMIT=$COMMIT \
 
 mkdir -p "$DIR/carga-lab"; chmod 700 "$DIR/carga-lab"
 LOG=$DIR/carga-lab/efectivo-$STAMP-$MODE.log
-rg -N -e '^(LOG|RESULT|SKIP|WARN|CREDITO|ABORT|COMMITTED|NOT COMMITTED)' -e 'Traceback' -e 'Error' "$OUT" > "$LOG" || true
+rg -N -e '^(LOG|APLICA|RESULT|SKIP|WARN|CREDITO|ABORT|COMMITTED|NOT COMMITTED)' -e 'Traceback' -e 'Error' "$OUT" > "$LOG" || true
 if [ "$COMMIT" = 1 ] && rg -q '^COMMITTED' "$OUT"; then
   rg -N '^LOG ' "$OUT" | python3 -I -c 'import json,sys; [print(json.loads(l[4:])["pago"]) for l in sys.stdin]' \
     > "$DIR/carga-lab/pagos-creados-$STAMP.txt"
   echo "ids: $DIR/carga-lab/pagos-creados-$STAMP.txt"
 fi
 chmod 600 "$DIR"/carga-lab/*
-rg -N -e '^(RESULT|SKIP|WARN|CREDITO|ABORT|COMMITTED|NOT COMMITTED)' -e 'Traceback' -e 'Error' "$OUT" || true
+rg -N -e '^(APLICA|RESULT|SKIP|WARN|CREDITO|ABORT|COMMITTED|NOT COMMITTED)' -e 'Traceback' -e 'Error' "$OUT" || true
 echo "log: $LOG"
 rg -q '^(COMMITTED|NOT COMMITTED)' "$OUT"
