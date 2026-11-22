@@ -25,12 +25,14 @@ every credit of the customer (payments, credit notes, refunds, reported
 returns) is applied to the debit rows in passes, each over what is still
 unallocated (mark_owed): first the reconciliations of this Odoo, then the
 Online history invoice a /cobro payment is linked to by id (19.0.1.125.0),
-then the invoice a memo names, then an exact amount nearest in date, and last oldest
-debit first. What stays uncovered is owed, so the red total always equals
-the balance and a customer up to date or in credit has nothing red. A paid
-invoice no longer stays red because an older one took its payment. The
-review marks (distri_owed*) no longer decide the color; their note stays
-visible as `review_note`.
+then the invoice a memo names, then an exact amount nearest in date, then
+2 or 3 payments adding up exactly to an invoice within 7 days after it
+(«pago dividido», 19.0.1.126.3), and last oldest debit first. What stays
+uncovered is owed, so the red total always equals the balance and a
+customer up to date or in credit has nothing red. A paid invoice no longer
+stays red because an older one took its payment. The review marks
+(distri_owed*) no longer decide the color; their note stays visible as
+`review_note`.
 
 Staff see the invoice number and the remito. The customer sees only the
 remito (models/remito.py): `customer_type` and `customer_ref` never carry
@@ -48,6 +50,7 @@ import base64
 import binascii
 import re
 from datetime import date, datetime, time, timedelta, timezone
+from itertools import combinations
 
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
@@ -162,7 +165,83 @@ def _nearest_debit(candidates, day):
     return next(d for d in candidates if when(d) == best)
 
 
-def mark_owed(rows):
+# mark_owed, pass 3b (19.0.1.126.3): how far after an invoice its split
+# payment may be dated, how many credits it may take and how many of the
+# nearest credits are tried per invoice (C(12,2) + C(12,3) = 286 sums).
+SPLIT_MAX_DAYS = 7
+SPLIT_SIZES = (2, 3)
+SPLIT_MAX_CANDIDATES = 12
+
+
+def _cents(amount):
+    return int(round(amount * 100))
+
+
+def _split_payments(debits, credits, allocate, stats=None):
+    """Pass 3b of mark_owed: a debit still open is paid by 2 or 3 open
+    credits whose remaining amounts add up to its remaining amount exactly
+    (to the cent), every one dated from the debit's day to SPLIT_MAX_DAYS
+    after it.
+
+    Debits go by date (row order on a tie). Per debit only the
+    SPLIT_MAX_CANDIDATES credits nearest in date are tried. The best
+    combination has the smallest maximum date gap, then fewer credits, then
+    the earliest credit dates; two different combinations equal on all three
+    are a tie: the debit is skipped (never a guess) and recorded as
+    ambiguous. `credits` is the open credits in row order; each match
+    consumes them entirely, so a later debit only sees what is left.
+
+    `stats` (optional dict) collects "split": [(debit row, [credit rows])]
+    and "ambiguous": [debit row].
+    """
+    dated = [(index, credit) for index, credit in enumerate(credits)
+             if credit["row"].get("date")]
+    if len(dated) < min(SPLIT_SIZES):
+        return
+    order = sorted(
+        (d for d in debits if d["row"].get("date")),
+        key=lambda d: d["row"]["date"],
+    )
+    for debit in order:
+        if debit["rem"] <= OWED_TOLERANCE:
+            continue
+        day = debit["row"]["date"]
+        target = _cents(debit["rem"])
+        pool = []
+        for index, credit in dated:
+            gap = (credit["row"]["date"] - day).days
+            if credit["rem"] > OWED_TOLERANCE and 0 <= gap <= SPLIT_MAX_DAYS \
+                    and _cents(credit["rem"]) < target:
+                pool.append((gap, index, credit))
+        if len(pool) < min(SPLIT_SIZES):
+            continue
+        pool.sort(key=lambda item: (item[0], item[1]))
+        pool = sorted(pool[:SPLIT_MAX_CANDIDATES], key=lambda item: item[1])
+        best_key, best, tied = None, None, False
+        for size in SPLIT_SIZES:
+            for combo in combinations(pool, size):
+                if sum(_cents(item[2]["rem"]) for item in combo) != target:
+                    continue
+                key = (max(item[0] for item in combo), size,
+                       tuple(sorted(item[0] for item in combo)))
+                if best_key is None or key < best_key:
+                    best_key, best, tied = key, combo, False
+                elif key == best_key:
+                    tied = True
+        if best is None:
+            continue
+        if tied:
+            if stats is not None:
+                stats.setdefault("ambiguous", []).append(debit["row"])
+            continue
+        for _gap, _index, credit in best:
+            allocate(credit, debit, credit["rem"])
+        if stats is not None:
+            stats.setdefault("split", []).append(
+                (debit["row"], [item[2]["row"] for item in best]))
+
+
+def mark_owed(rows, stats=None):
     """Set row["owed"] on statement rows (oldest first), by priority passes.
 
     Debits are the rows with a positive net (debit - credit), credits the
@@ -183,11 +262,16 @@ def mark_owed(rows):
     3. same amount: a credit whose remaining amount equals a debit's
        remaining amount pays it, preferring the debit dated on or before the
        credit, nearest in date, else the nearest after;
+    3b. split payment (19.0.1.126.3): 2 or 3 credits whose remaining
+       amounts add up exactly to a debit's remaining amount, all dated from
+       the debit's day to 7 days after, pay it (_split_payments; a tie is
+       skipped, never guessed);
     4. FIFO: what is left goes to the debits oldest first.
 
     A debit's «owed» is what stays uncovered; every other row gets 0.
     Invariant: sum(owed) == max(balance, 0), within cents.
 
+    `stats` (optional dict) receives what pass 3b matched and skipped.
     Returns (count, total) of the owed rows.
     """
     debits, credits = [], []
@@ -255,6 +339,9 @@ def mark_owed(rows):
         if candidates:
             day = credit["row"].get("date") or date.min
             allocate(credit, _nearest_debit(candidates, day), credit["rem"])
+
+    # 3b. split payment: 2 or 3 credits summing a debit to the cent
+    _split_payments(debits, open_(credits), allocate, stats)
 
     # 4. FIFO
     for credit in credits:

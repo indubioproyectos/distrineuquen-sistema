@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.126.2",
+    "version": "19.0.1.126.3",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -373,6 +373,15 @@
     # every defense and warning; no new record). Someone else's or a credited
     # receipt is still refused, naming who uploaded it and its state.
     # models/subir_v126_2.py. No new column, no migration.
+    # 19.0.1.126.3 (owner, SALAZAR YANET LORENA: invoice 0001/2026/05777 paid
+    # the same day by PCSH1/2026/01889 + PBNK1/2026/03670 still red): the red
+    # rule gets pass 3b «pago dividido» after the same amount and before FIFO
+    # (models/estado_cuenta.py _split_payments): 2 or 3 open credits whose
+    # remaining amounts add up exactly (to the cent) to an open invoice, all
+    # dated from its day to 7 days after, pay it. Invoices by date; smallest
+    # maximum gap, then fewer credits, then the earliest; a full tie is
+    # skipped (never guessed). At most the 12 nearest credits per invoice.
+    # The red total still equals the balance. No new fields, no migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",
