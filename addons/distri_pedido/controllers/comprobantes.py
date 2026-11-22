@@ -22,6 +22,10 @@
                                  19.0.1.126.1: the uploader manages his upload
                                  (models/subir_v126_1.py)
 
+19.0.1.126.2: the same file as the user's own receipt pending assignment is
+not refused: its result «completar» links /comprobantes/<id>/completar
+(«Completar y acreditar» on the existing receipt, models/subir_v126_2.py).
+
 19.0.1.126.1: «/comprobantes/subir» takes «no_en_sistema» + «remitente» (who
 sent it, when the customer is not in the system) and «acreditar» («Subir y
 acreditar»); the customer is mandatory once the module is updated
@@ -259,8 +263,13 @@ class Comprobantes(http.Controller):
                 "credit": msg._distri_credit_form(user),
                 "credit_warnings": [], "credit_error": "", "credit_done": "",
                 "manage_error": "", "manage_done": "",
+                # 19.0.1.126.2: the uploader's own receipt pending assignment
+                "complete": msg._distri_upload_complete_form(user), "complete_error": "",
                 "csrf_token": request.csrf_token()}
         base.update(values)
+        if base["complete"]:
+            # completing it is the way to credit it: one form only
+            base["credit"] = None
         return self._page_response("distri_pedido.comprobante_ver_page", base)
 
     @http.route("/comprobantes/<int:msg_id>/acreditar", type="http", auth="user",
@@ -377,6 +386,59 @@ class Comprobantes(http.Controller):
     def turn(self, msg_id, sentido="", **kw):
         degrees = 270 if sentido == "izquierda" else 90
         return self._manage(msg_id, lambda msg: msg._distri_upload_rotate(degrees))
+
+    # ---------------------------------------------------------------- 19.0.1.126.2
+
+    @http.route("/comprobantes/<int:msg_id>/completar", type="http", auth="user",
+                methods=["GET"], sitemap=False)
+    def complete_page(self, msg_id, cliente_id="", desde="", **kw):
+        """«Ya subiste este comprobante y quedó sin acreditar. Completalo:»
+        (the result of uploading the same file again), else «Ver comprobante»."""
+        msg = self._receipt(msg_id)
+        parent = "/comprobantes/mios" if desde == "mios" else "/comprobantes"
+        form = msg._distri_upload_complete_form(request.env.user, self._partner(cliente_id))
+        if not form:
+            return request.redirect("/comprobantes/%d" % msg.id)
+        return self._view_page(msg, parent, complete=form)
+
+    @http.route("/comprobantes/<int:msg_id>/completar", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def complete(self, msg_id, cliente_id="", importe="", confirmado="", desde="", **kw):
+        """«Completar y acreditar»: the customer on the existing receipt and
+        the credit of `_distri_credit` (models/subir_v126_2.py)."""
+        msg = self._receipt(msg_id)
+        parent = "/comprobantes/mios" if desde == "mios" else "/comprobantes"
+        user = request.env.user
+        partner = self._partner(cliente_id)
+        try:
+            amount = request.env["distri.cash.collection"]._cash_amount(importe) \
+                if str(importe or "").strip() else None
+            with request.env.cr.savepoint():
+                result = msg.with_user(user).sudo(False)._distri_upload_complete(
+                    partner, amount=amount, confirmed=bool(confirmado))
+        except (UserError, AccessError) as exc:
+            if self._by_fetch():
+                return self._json({"ok": False, "error": _error_text(exc)}, status=400)
+            form = msg._distri_upload_complete_form(user, partner)
+            if form:
+                form["amount_text"] = importe or form["amount_text"]
+            return self._view_page(msg, parent, complete=form, complete_error=_error_text(exc))
+        msg.invalidate_recordset()
+        if self._by_fetch():
+            uploads, attempts = self._today(user)
+            return self._json(dict(result, ok=True, id=msg.id,
+                                   credited=result.get("credit") == "acreditado",
+                                   uploads=uploads, attempts=attempts))
+        if result.get("credit") == "acreditado":
+            return self._view_page(msg, parent, credit_done=result["message"])
+        if result.get("credit") == "aviso":
+            form = msg._distri_credit_form(user) or {}
+            form.update(amount_text=result.get("amount_text", ""),
+                        partner_id=result.get("partner_id") or "",
+                        partner_name=result.get("partner_name") or "")
+            return self._view_page(msg, parent, credit=form,
+                                   credit_warnings=result.get("warnings") or [])
+        return self._view_page(msg, parent, credit_error=result.get("message") or "")
 
     @http.route("/comprobantes/<int:msg_id>/archivo", type="http", auth="user", methods=["GET"],
                 sitemap=False)

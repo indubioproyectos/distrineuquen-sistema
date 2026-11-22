@@ -165,6 +165,8 @@ BUCKETS = {
 # 19.0.1.126.1: a cancelled upload frees its key (the same file can be
 # uploaded again) and keeps the old one after this prefix
 CANCEL_KEY = "cancelado:%d:%s"
+# the note `_distri_upload_cancel` writes («Cancelado por X: motivo»)
+CANCEL_NOTE = "Cancelado por "
 # «Mis comprobantes» filter of the refused duplicates (19.0.1.101.0)
 ATTEMPT_FILTER = "repetido"
 ATTEMPT_FLAG = "No se cargó · ya estaba en el sistema"
@@ -341,8 +343,13 @@ class WhatsappMessageUpload(models.Model):
         """The receipt already loaded with these same bytes, by any channel."""
         Message = self.sudo().with_context(active_test=False)
         key = file_key(raw)
-        found = Message.search([("wa_message_id", "in", (UPLOAD_KEY % key, CHAT_KEY % key))],
-                               limit=1)
+        # 19.0.1.126.2: a cancelled upload is never «ya estaba», on any path.
+        # One that still holds the key (cancelled before the key was freed)
+        # frees it now, so the new upload does not hit the unique key.
+        held = Message.search([("wa_message_id", "in", (UPLOAD_KEY % key, CHAT_KEY % key))])
+        cancelled = held.filtered(lambda m: m._distri_upload_cancelled())
+        cancelled._distri_upload_free_key()
+        found = (held - cancelled)[:1]
         if found:
             return found
         checksum = hashlib.sha1(raw).hexdigest()
@@ -356,11 +363,28 @@ class WhatsappMessageUpload(models.Model):
             lambda m: not m._distri_upload_cancelled())[:1]
 
     def _distri_upload_cancelled(self):
-        """19.0.1.126.1: cancelled by whoever uploaded it (or administración)."""
+        """19.0.1.126.1: cancelled by whoever uploaded it (or administración).
+        19.0.1.126.2: also a dismissed upload with the cancel note whose key
+        was not freed yet (`_distri_upload_free_key` frees it)."""
         self.ensure_one()
         msg = self.sudo()
-        return msg.distri_receipt_state == "dismissed" and \
-            (msg.wa_message_id or "").startswith("cancelado:")
+        if msg.distri_receipt_state != "dismissed":
+            return False
+        return (msg.wa_message_id or "").startswith("cancelado:") or bool(
+            msg.distri_upload and (msg.distri_receipt_note or "").startswith(CANCEL_NOTE))
+
+    def _distri_upload_free_key(self):
+        """19.0.1.126.2: a cancelled upload gives up its key
+        (`wa_message_id` is unique): the old one stays after CANCEL_KEY."""
+        for msg in self.sudo():
+            key = msg.wa_message_id or ""
+            if not key or key.startswith("cancelado:"):
+                continue
+            msg.with_context(distri_receipt_matching=True).write(
+                {"wa_message_id": CANCEL_KEY % (msg.id, key)})
+            # written now: the INSERT of the new upload checks the unique key
+            msg.flush_recordset(["wa_message_id"])
+            _logger.info("Cancelled upload %s freed its key %s", msg.id, key)
 
     def _distri_partner_suggest_only(self):
         """19.0.1.126.1: a receipt the staff uploaded without a customer
@@ -373,7 +397,7 @@ class WhatsappMessageUpload(models.Model):
 
     @api.model
     def _distri_upload_receipts(self, files, partner=None, via="pantalla", amounts=None,
-                                rotations=None, sender_note=None):
+                                rotations=None, sender_note=None, complete_own=False):
         """Creates one pending receipt per new file.
 
         `files`: [(filename, raw bytes)]. `partner`: the customer the user
@@ -386,7 +410,10 @@ class WhatsappMessageUpload(models.Model):
         sistema» (no customer then). Returns a list of {"name",
         "status", "message", "id"}: status «nuevo», «repetido» or «error»
         (a file that is not a photo or PDF, too big). Caller checks
-        can_upload()."""
+        can_upload(). `complete_own` (19.0.1.126.2): the same bytes as a
+        receipt this user uploaded and left pending assignment are not
+        refused: status «completar» offers to complete that receipt
+        (models/subir_v126_2.py)."""
         user = self.env.user
         if not can_upload(user):
             raise AccessError("Tu usuario no sube comprobantes.")
@@ -416,6 +443,9 @@ class WhatsappMessageUpload(models.Model):
                                 "message": "No es una foto (JPG, PNG o WEBP) ni un PDF."})
                 continue
             existing = self._distri_upload_duplicate(raw)
+            if existing and complete_own and existing._distri_upload_completable(user):
+                results.append(existing._distri_upload_completion(name, customer))
+                continue
             if existing:
                 # 19.0.1.101.0: kept so the user can review it later
                 attempt = self.env["distri.receipt.upload.attempt"].sudo().create({
@@ -424,7 +454,7 @@ class WhatsappMessageUpload(models.Model):
                     "amount_typed": typed or 0.0})
                 results.append({"name": name, "status": "repetido", "id": existing.id,
                                 "attempt_id": attempt.id,
-                                "message": "Ya estaba cargado (%s)." % existing._distri_upload_label()})
+                                "message": existing._distri_duplicate_message(user)})
                 continue
             msg = self._distri_upload_create(name, raw, kind, user, customer, via, typed,
                                              degrees, sender_note=sender_note)
@@ -492,6 +522,12 @@ class WhatsappMessageUpload(models.Model):
         msg._distri_read_receipt()
         _logger.info("Receipt %s uploaded by %s (%s) as message %s", name, user.login, via, msg.id)
         return msg
+
+    def _distri_duplicate_message(self, user):
+        """What the refused duplicate says (19.0.1.126.2 names who and how
+        it is: models/subir_v126_2.py)."""
+        self.ensure_one()
+        return "Ya estaba cargado (%s)." % self._distri_upload_label()
 
     def _distri_upload_label(self):
         """«$ 82.200 · Kiosco Sol · Esperando el reporte» for the list."""

@@ -236,7 +236,10 @@ class TestComprobantesV100(HttpCase):
         self.assertEqual(_size(msg.attachment_id.raw), (30, 40))
         self.assertEqual(msg.wa_message_id, "upload:%s" % file_key(photo), "key of the original")
         res = self._upload([("otra.png", photo, "image/png")], csrf, turns=["0"])
-        self.assertEqual(res.json()["results"][0]["status"], "repetido")
+        # 19.0.1.126.2: still the same file; being the user's own receipt
+        # pending assignment it is offered to complete instead of refused
+        self.assertEqual((res.json()["results"][0]["status"], res.json()["results"][0]["id"]),
+                         ("completar", msg.id))
         # a «Girar» value that is not a quarter turn is ignored
         photo2 = _png((81, 0, 0), size=(40, 30))
         msg2 = self._created(self._upload([("b.png", photo2, "image/png")], csrf, turns=["45"]))

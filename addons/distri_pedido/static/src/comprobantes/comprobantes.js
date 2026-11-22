@@ -42,6 +42,13 @@
  *     again);
  *   · the rows show who sent it (no customer) and «Cancelar o cambiar la
  *     foto».
+ * - 19.0.1.126.2: a result «completar» (the user's own receipt pending
+ *   assignment uploaded again: nothing created) shows that receipt (photo,
+ *   amount), the suggested customers and «Completar y acreditar», which
+ *   opens /comprobantes/<id>/completar (with the customer chosen now, or the
+ *   tapped suggestion); a row with «complete_url» links it too. On «Ver
+ *   comprobante» the «Completar» form uses the customer search of
+ *   «Acreditar» and its suggestion chips fill the customer.
  */
 (function () {
   'use strict';
@@ -388,7 +395,8 @@
       return u.sender_note ? '<small class="comp-item__note">Lo mandó: ' + DN.h(u.sender_note) + '</small>' : '';
     }
     function manageLink(u) {
-      return u.can_manage && u.url ? '<a class="dn-link comp-item__manage" href="' + DN.h(u.url) + '#gestionar" data-dn="down">Cancelar o cambiar la foto</a>' : '';
+      var complete = u.complete_url ? '<a class="dn-link comp-item__manage" href="' + DN.h(u.complete_url) + '" data-dn="down">Completar y acreditar</a>' : '';
+      return complete + (u.can_manage && u.url ? '<a class="dn-link comp-item__manage" href="' + DN.h(u.url) + '#gestionar" data-dn="down">Cancelar o cambiar la foto</a>' : '');
     }
     function paintUploads(rows, attempts) {
       count.textContent = rows.length;
@@ -488,13 +496,15 @@
         var fresh = results.filter(function (x) { return x.status === 'nuevo'; }).length;
         var repeated = results.filter(function (x) { return x.status === 'repetido'; });
         var bad = results.filter(function (x) { return x.status === 'error'; });
+        var own = results.filter(function (x) { return x.status === 'completar'; }).length;
         var parts = [];
         if (fresh) { parts.push(fresh === 1 ? '1 comprobante subido' : fresh + ' comprobantes subidos'); }
-        if (repeated.length) { parts.push(repeated.length === 1 ? '1 ya estaba cargado: ' + repeated[0].message.replace(/^Ya estaba cargado /, '') : repeated.length + ' ya estaban cargados'); }
+        if (own) { parts.push(own === 1 ? 'Ya lo habías subido y quedó sin acreditar: completalo abajo' : own + ' ya los habías subido y quedaron sin acreditar: completalos abajo'); }
+        if (repeated.length) { parts.push(repeated.length === 1 ? '1 ya estaba cargado: ' + repeated[0].message.replace(/^Ya estaba cargado:?\s*/, '') : repeated.length + ' ya estaban cargados'); }
         if (repeated.length && v101) { parts.push('No se cargó de nuevo: queda en la lista para que lo revises'); }
         if (bad.length) { parts.push(bad.map(function (x) { return x.name + ': ' + x.message; }).join(' · ')); }
         if (v126) { paintResults(results); }
-        DN.toast(parts.join('. ') + '.', bad.length || (repeated.length && !fresh) ? 'err' : 'ok');
+        DN.toast(parts.join('. ') + '.', bad.length || (repeated.length && !fresh && !own) ? 'err' : 'ok');
         files.forEach(function (item) { if (item.url) { URL.revokeObjectURL(item.url); } });
         files = [];
         sugs = [];
@@ -514,6 +524,23 @@
       });
     });
 
+    // ---- 19.0.1.126.2: the own receipt pending assignment, to complete
+    function completeCard(r) {
+      var link = function (id) { return DN.h(r.url + (id ? '?cliente_id=' + encodeURIComponent(id) : '')); };
+      var photo = r.image && r.file_url
+        ? '<a class="comp-ver__photo" href="' + DN.h(r.file_url) + '" target="_blank" rel="noopener"><img src="' + DN.h(r.file_url) + '" alt="Comprobante que ya subiste"></a>'
+        : (r.file_url ? '<a class="dn-link" href="' + DN.h(r.file_url) + '" target="_blank" rel="noopener">Abrir el PDF</a>' : '');
+      var chips = (r.suggestions || []).map(function (sg) {
+        return '<a class="comp-sug__chip" href="' + link(sg.id) + '" data-dn="down">Sugerido: ' + DN.h(sg.name) + '<small>' + DN.h(sg.reason) + '</small></a>';
+      }).join('');
+      return '<div class="comp-r__complete">' + photo +
+        '<p class="comp-muted">Importe: <b class="dn-num">' + (r.amount ? money(r.amount) : 'sin importe leído') + '</b>' +
+        (r.sender_note ? ' · Lo mandó: ' + DN.h(r.sender_note) : '') + '</p>' +
+        (chips ? '<div class="comp-sug">' + chips + '</div>' : '') +
+        '<a class="dn-btn" href="' + link(r.partner_id) + '" data-dn="down">Completar y acreditar' +
+        (r.partner_name ? ' a ' + DN.h(r.partner_name) : '') + '</a></div>';
+    }
+
     // ---- 19.0.1.126.1: the answer per file, «Acreditar igual» without uploading again
     var resultsBox = DN.$('[data-comp-results]');
     function paintResults(results) {
@@ -525,6 +552,7 @@
             '</ul><button type="button" class="dn-btn" data-comp-confirm="' + r.id + '" data-importe="' + DN.h(r.amount_text || '') +
             '" data-cliente="' + DN.h(String(r.partner_id || '')) + '">Acreditar igual</button></div>';
         }
+        if (r.status === 'completar') { confirm = completeCard(r); }
         return '<li class="comp-r comp-r--' + DN.h(r.status) + ' comp-r--c-' + DN.h(r.credit || 'none') + '"><b>' + DN.h(r.name) + '</b> ' +
           '<span data-comp-msg="">' + DN.h(r.message) + '</span>' + confirm + '</li>';
       }).join('');
@@ -584,8 +612,20 @@
       }, 250);
     });
     form.addEventListener('click', function (ev) {
-      var pick = ev.target.closest('[data-comp-pick]');
+      // 19.0.1.126.2: a suggestion chip of «Completar» fills the customer
+      var pick = ev.target.closest('[data-comp-pick]') || ev.target.closest('[data-comp-sug-id]');
       if (!pick) { return; }
+      if (pick.hasAttribute('data-comp-sug-id')) {
+        ev.preventDefault();
+        initialId = pick.getAttribute('data-comp-sug-id');
+        initialTxt = 'Se acredita a ' + pick.getAttribute('data-name') + '.';
+        DN.$$('[data-comp-sug-id]', form).forEach(function (b) { b.setAttribute('aria-pressed', b === pick ? 'true' : 'false'); });
+        idInput.value = initialId;
+        q.value = '';
+        txt.textContent = initialTxt;
+        res.hidden = true;
+        return;
+      }
       idInput.value = pick.getAttribute('data-comp-pick');
       q.value = pick.getAttribute('data-name');
       txt.textContent = 'Se acredita a ' + pick.getAttribute('data-name') + '.';

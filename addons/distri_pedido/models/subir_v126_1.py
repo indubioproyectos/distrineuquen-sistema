@@ -53,7 +53,7 @@ from odoo.tools.pdf import PdfReader
 from .acreditar import CreditWarning, can_approve, can_credit
 from .cobros import _ORDER_RE, own_account
 from .comprobante_subir import (
-    _PIL_FORMAT, CANCEL_KEY, MAX_FILE_BYTES, UPLOAD_KEY, file_key, receipt_kind, rotation,
+    _PIL_FORMAT, MAX_FILE_BYTES, UPLOAD_KEY, file_key, receipt_kind, rotation,
     upright_image,
 )
 from .esquema_v126 import v126_1_ready, v126_ready
@@ -231,7 +231,8 @@ class WhatsappMessageStaffUpload(models.Model):
             sender_note = ""
         results = self._distri_upload_receipts(files, partner=partner, via=via, amounts=amounts,
                                                rotations=rotations,
-                                               sender_note=sender_note or None)
+                                               sender_note=sender_note or None,
+                                               complete_own=True)
         may_credit = can_credit(self.env.user)
         for result in results:
             result.setdefault("credit", "")
@@ -356,8 +357,8 @@ class WhatsappMessageStaffUpload(models.Model):
         msg = self.sudo()
         undone = msg._distri_upload_undo_credit()
         note = "Cancelado por %s: %s" % (user.name, reason)
-        msg.with_context(distri_receipt_matching=True).write(
-            {"wa_message_id": CANCEL_KEY % (msg.id, msg.wa_message_id)})
+        # 19.0.1.126.2: the same helper frees a key left behind (lazy path)
+        msg._distri_upload_free_key()
         msg._distri_close("dismissed", note)
         card = msg._distri_verify_card()
         if card:

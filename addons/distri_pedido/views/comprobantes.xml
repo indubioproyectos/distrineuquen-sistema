@@ -13,7 +13,11 @@
        está en el sistema» + who sent it otherwise), «Subir y acreditar»,
        suggested customers (/comprobantes/sugerir), the large photo with ↺ ↻
        and a zoom, and «Cancelar» / «Cambiar foto» / «Girar» on «Ver
-       comprobante» (models/subir_v126_1.py). -->
+       comprobante» (models/subir_v126_1.py).
+       19.0.1.126.2: a result «completar» (the user's own receipt pending
+       assignment uploaded again) links «Completar y acreditar»
+       (/comprobantes/<id>/completar, the `complete` form of
+       comprobante_ver_page); the rows of such receipts link it too. -->
 
   <!-- a refused duplicate in a list; `u` is DistriReceiptUploadAttempt._distri_row,
        `href` the link -->
@@ -143,12 +147,16 @@
           <ul><li t-foreach="r['warnings']" t-as="w" t-esc="w"/></ul>
           <button type="submit" class="dn-btn">Acreditar igual</button>
         </form>
+        <a t-if="r['status'] == 'completar'" class="dn-btn comp-r__complete"
+           t-att-href="r['url'] + ('?cliente_id=%s' % r['partner_id'] if r.get('partner_id') else '')"
+           data-dn="down">Completar y acreditar</a>
       </li>
     </ul>
 
     <h2 class="dn-label">Subidos hoy por vos: <span data-comp-count="" t-esc="len(uploads)"/></h2>
     <p t-if="puede_acreditar" class="comp-muted">Tocá un comprobante pendiente para acreditarlo, cancelarlo
       o cambiar la foto.</p>
+    <p t-else="" class="comp-muted">Tocá un comprobante pendiente para cancelarlo o cambiar la foto.</p>
     <div class="dn-empty" t-if="not rows" data-comp-empty="">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
       <p>Todavía no subiste comprobantes hoy.</p>
@@ -167,6 +175,8 @@
         <small t-elif="u['amount_typed'] and u['reading']" class="comp-item__note">Importe cargado por vos · leyendo el comprobante…</small>
         <small t-if="u.get('sender_note')" class="comp-item__note">Lo mandó: <t t-esc="u['sender_note']"/></small>
       </a>
+      <a t-if="u.get('complete_url')" class="dn-link comp-item__manage" t-att-href="u['complete_url']"
+         data-dn="down">Completar y acreditar</a>
       <a t-if="u.get('can_manage')" class="dn-link comp-item__manage" t-att-href="u['url'] + '#gestionar'"
          data-dn="down">Cancelar o cambiar la foto</a></li>
       </t>
@@ -252,6 +262,45 @@
         <t t-esc="'Ver la foto en pantalla completa' if r['image'] else 'Abrir el PDF'"/>
       </a>
     </t>
+    <!-- 19.0.1.126.2: «Completar y acreditar» the uploader's own receipt pending
+         assignment (controllers/comprobantes.py complete) -->
+    <div t-if="complete_error" class="dn-card dn-card--warn comp-ver__note" role="alert">
+      <span t-esc="complete_error"/>
+    </div>
+    <form t-if="complete and not credit_done" id="completar" class="comp-credit comp-complete"
+          method="post" t-att-action="'/comprobantes/%d/completar' % r['id']">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input type="hidden" name="desde" t-att-value="'mios' if parent == '/comprobantes/mios' else ''"/>
+      <h2 class="dn-label" t-esc="'Completar y acreditar' if complete['credit'] else 'Completar'"/>
+      <p class="dn-card dn-card--warn comp-ver__note" t-esc="complete['message']"/>
+      <div t-if="complete['credit']" class="dn-field">
+        <label for="complete-importe">Importe a acreditar</label>
+        <input id="complete-importe" class="dn-input dn-num" type="text" name="importe"
+               inputmode="decimal" maxlength="20" required="required"
+               t-att-value="complete['amount_text']"/>
+        <p class="comp-muted">
+          <t t-if="complete['read_amount']">Leído en el comprobante: <t t-esc="money(complete['read_amount'])"/>.</t>
+          <t t-else="">No se pudo leer el importe: escribilo mirando el comprobante.</t>
+          <t t-if="complete['typed_amount']"> Cargado al subirlo: <t t-esc="money(complete['typed_amount'])"/>.</t>
+        </p>
+      </div>
+      <div class="dn-field comp-cliente">
+        <label for="comp-q">¿De qué cliente?</label>
+        <div t-if="complete['suggestions']" class="comp-sug">
+          <button t-foreach="complete['suggestions']" t-as="sg" type="button" class="comp-sug__chip"
+                  t-att-data-comp-sug-id="sg['id']" t-att-data-name="sg['name']">Sugerido: <t t-esc="sg['name']"/>
+            <small t-esc="sg['reason']"/></button>
+        </div>
+        <input type="hidden" name="cliente_id" data-comp-cliente-id="" t-att-value="complete['partner_id']"/>
+        <input id="comp-q" class="dn-input" type="search" autocomplete="off" maxlength="80"
+               placeholder="Buscar cliente…" data-comp-q=""/>
+        <ul class="comp-res" data-comp-res="" hidden="hidden"></ul>
+        <p class="comp-muted" data-comp-cliente-txt=""
+           t-esc="('Se acredita a %s.' % complete['partner_name']) if complete['partner_name'] else 'Elegí el cliente: tocá la sugerencia si es ese, o buscalo.'"/>
+      </div>
+      <button type="submit" class="dn-btn dn-btn--lg"
+              t-esc="'Completar y acreditar' if complete['credit'] else 'Completar'"/>
+    </form>
     <!-- 19.0.1.126.0: «Acreditar» (controllers/comprobantes.py credit) -->
     <div t-if="credit_done" class="dn-card comp-ver__note" role="status">
       <b>✓</b> <span t-esc="credit_done"/>
@@ -292,7 +341,7 @@
       <button type="submit" class="dn-btn dn-btn--lg"
               t-esc="'Acreditar igual' if credit_warnings else 'Acreditar'"/>
     </form>
-    <p t-if="not credit" class="comp-muted">Lo aprueba o lo descarta administración en Cobros.</p>
+    <p t-if="not credit and not complete" class="comp-muted">Lo aprueba o lo descarta administración en Cobros.</p>
     <!-- 19.0.1.126.1: «Girar», «Cambiar foto», «Cancelar» (controllers/comprobantes.py _manage) -->
     <section t-if="r.get('manage')" id="gestionar" class="comp-manage">
       <h2 class="dn-label">Corregir</h2>
@@ -398,13 +447,17 @@
         <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t>
       </a>
       <div class="dn-top__txt">
-        <span class="dn-top__kicker">Ya estaba en el sistema</span>
+        <span class="dn-top__kicker" t-esc="'El que estaba se canceló' if r.get('cancelled') else 'Ya estaba en el sistema'"/>
         <h1 class="dn-top__title dn-num" t-esc="money(r['amount']) if r['amount'] else 'Sin importe'"/>
       </div>
     </div>
   </header>
   <main class="dn-main comp-ver">
-    <div class="dn-card dn-card--warn comp-ver__note">
+    <div t-if="r.get('cancelled')" class="dn-card comp-ver__note">
+      <b t-esc="r['flag']"/>. Este comprobante se canceló después de tu intento: ya no está en el
+      sistema, así que lo podés subir de nuevo desde «Subir comprobante».
+    </div>
+    <div t-else="" class="dn-card dn-card--warn comp-ver__note">
       <b t-esc="r['flag']"/>. Este es el comprobante que ya estaba: no hace falta subirlo de nuevo.
     </div>
     <t t-set="chip" t-value="{'pendiente': 'warn', 'aprobado': 'ok', 'rechazado': 'err'}.get(r['bucket'], 'neutral')"/>
