@@ -82,3 +82,6 @@ from . import subir_v126_2
 from . import paquete_v127
 from . import cobrar
 from . import cobrar_wizard
+from . import pago_proveedor
+from . import auditoria
+from . import mp_sftp

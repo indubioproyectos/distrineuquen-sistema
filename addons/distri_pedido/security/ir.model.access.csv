@@ -224,3 +224,15 @@ access_distri_cobro_cajero,distri.cobro cajero,model_distri_cobro,distri_pedido.
 access_distri_cobro_sistema,distri.cobro sistema,model_distri_cobro,base.group_system,1,0,0,0
 access_cobrar_wizard_user,distri.cobrar.wizard staff,model_distri_cobrar_wizard,base.group_user,1,1,1,0
 access_cobrar_wizard_line_user,distri.cobrar.wizard.line staff,model_distri_cobrar_wizard_line,base.group_user,1,1,1,1
+access_mp_anomaly_admin,distri.mp.anomaly administracion,model_distri_mp_anomaly,distri_pedido.grupo_administracion,1,0,0,0
+access_mp_anomaly_gerencia,distri.mp.anomaly gerencia,model_distri_mp_anomaly,distri_pedido.grupo_gerencia,1,0,0,0
+access_mp_anomaly_sistema,distri.mp.anomaly sistema,model_distri_mp_anomaly,base.group_system,1,0,0,0
+access_mp_anomaly_review_admin,distri.mp.anomaly.review administracion,model_distri_mp_anomaly_review,distri_pedido.grupo_administracion,1,1,1,0
+access_mp_anomaly_review_sistema,distri.mp.anomaly.review sistema,model_distri_mp_anomaly_review,base.group_system,1,1,1,0
+access_mp_audit_admin,distri.mp.audit administracion,model_distri_mp_audit,distri_pedido.grupo_administracion,1,0,0,0
+access_mp_audit_sistema,distri.mp.audit sistema,model_distri_mp_audit,base.group_system,1,0,0,0
+access_credit_summary_admin,distri.credit.summary administracion,model_distri_credit_summary,distri_pedido.grupo_administracion,1,0,0,0
+access_credit_summary_sistema,distri.credit.summary sistema,model_distri_credit_summary,base.group_system,1,0,0,0
+access_credit_summary_line_admin,distri.credit.summary.line administracion,model_distri_credit_summary_line,distri_pedido.grupo_administracion,1,0,0,0
+access_credit_summary_line_sistema,distri.credit.summary.line sistema,model_distri_credit_summary_line,base.group_system,1,0,0,0
+access_supplier_payment_group,distri.supplier.payment pago proveedor,model_distri_supplier_payment,distri_pedido.grupo_pago_proveedor,1,1,1,0

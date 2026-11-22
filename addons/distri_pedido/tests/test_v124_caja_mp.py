@@ -202,7 +202,11 @@ class TestV124CajaMp(CajaMixin, AccountTestInvoicingCommon):
         bank = self._bank_payment(45000, date=today_ar() - timedelta(days=2))
         card = self._income(45000)
         before = self._mp_payments()
-        card.action_confirm()
+        # 19.0.1.129.0: proposed, never tied by itself; a person confirms it
+        with self.assertRaisesRegex(UserError, "Es el pago cargado a mano"):
+            card.action_confirm()
+        self.assertEqual(card.state, "draft")
+        card.action_tie_bank_twin()
         self.assertEqual(self._mp_payments(), before)
         self.assertEqual(card.state, "confirmed")
         self.assertEqual(card.payment_id, bank)
@@ -239,9 +243,17 @@ class TestV124CajaMp(CajaMixin, AccountTestInvoicingCommon):
     def test_mp_bulk_confirm(self):
         bank = self._bank_payment(61000)
         tied, plain = self._income(61000), self._income(62000)
-        # the board's «Confirmar» on the chosen ones, through its notice
+        # the board's «Confirmar» on the chosen ones, through its notice:
+        # 19.0.1.129.0, a possible bank twin stops it until a person decides
+        notice = self.env["distri.mp.confirm.notice"].create({
+            "mode": "selected", "collection_ids": [Command.set((tied | plain).ids)]})
+        with self.assertRaisesRegex(UserError, "cargado a mano"):
+            notice.action_apply()
+        self.assertEqual((tied | plain).mapped("state"), ["draft", "draft"])
+        self.assertEqual(tied._bulk_problem(), "puede ser un pago cargado a mano en el banco")
+        tied.action_tie_bank_twin()
         self.env["distri.mp.confirm.notice"].create({
-            "mode": "selected", "collection_ids": [Command.set((tied | plain).ids)]}).action_apply()
+            "mode": "selected", "collection_ids": [Command.set(plain.ids)]}).action_apply()
         self.assertEqual(tied.payment_id, bank)
         self.assertEqual(plain.payment_id.journal_id, self.mp_journal)
         # an ambiguous one stops the whole selection before anything is confirmed

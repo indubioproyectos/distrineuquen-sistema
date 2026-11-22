@@ -138,11 +138,14 @@ APPROVE_DENIED = {
 }
 TIE_NOTE = "Puede ser el comprobante acreditado %s (%s): vinculalo o, si es otro pago, " \
            "confirmalo como otro pago."
+# 19.0.1.129.0: «same customer and amount (±$1) within ±2 days»
+NEAR_DAYS = 2
 LEVEL_LABELS = {
     "operation": "mismo número de operación",
     "operation_close": "número de operación con un dígito distinto y mismo importe",
     "time": "mismo importe y hora del comprobante",
     "customer": "mismo importe, cliente y día",
+    "near": "mismo cliente e importe con hasta dos días de diferencia",
 }
 
 
@@ -448,7 +451,9 @@ class DistriMpCollectionCredit(models.Model):
         payments = self.env["account.payment"].sudo().search([
             ("company_id", "=", record.company_id.id), ("payment_type", "=", "inbound"),
             ("partner_type", "=", "customer"), ("state", "in", ("in_process", "paid")),
-            ("journal_id.type", "=", "bank"), ("journal_id", "!=", mp_journal.id),
+            ("journal_id.type", "=", "bank"),
+            ("journal_id", "not in", (mp_journal | self.env["account.journal"]
+                                      ._distri_supplier_journal(record.company_id)).ids),
             ("partner_id", "child_of", partner.id),
             ("amount", ">=", amount - AMOUNT_TOLERANCE), ("amount", "<=", amount + AMOUNT_TOLERANCE),
             ("date", ">=", day - timedelta(days=BANK_TWIN_DAYS)),
@@ -544,6 +549,9 @@ class DistriMpCollectionCredit(models.Model):
             "fulfilled_promise_ids": [(6, 0, promises.ids)],
             "report_review": False,
         })
+        # 19.0.1.129.0: the unique index of credited operations
+        # (models/auditoria.py) decides here between two concurrent credits
+        card.flush_recordset()
         # the receipt waits no more: no transfer takes it by amount, the
         # report ties to this card (`_match_hand_verified`)
         receipt.with_context(distri_receipt_matching=True).write({
@@ -612,11 +620,25 @@ class DistriMpCollectionCredit(models.Model):
             cuit = digits(card.payer_cuit or card.receipt_id.distri_payer_cuit)
             return not (cuit and self.payer_cuit and cuit != digits(self.payer_cuit))
         if level == "customer":
+            customer = card.partner_id.commercial_partner_id
+            if not customer or self.date_day != card._distri_credit_day():
+                return False
+            # 19.0.1.129.0: the income's customer (chosen or proposed) counts
+            # too, not only the one of the payer's known CUIT
+            if self.partner_id and self.partner_id.commercial_partner_id == customer:
+                return True
             if not self.payer_cuit:
                 return False
             partners = self.env["res.partner"].sudo()._distri_partners_by_cuit(self.payer_cuit)
-            return len(partners) == 1 and partners == card.partner_id.commercial_partner_id \
-                and self.date_day == card._distri_credit_day()
+            return len(partners) == 1 and partners == customer
+        if level == "near":
+            # 19.0.1.129.0 (audit 2026-11-22): same customer, amount within
+            # $1 and ±2 days. Never tied by itself: a person decides
+            customer = card.partner_id.commercial_partner_id
+            day = card._distri_credit_day()
+            return bool(customer and self.partner_id and self.date_day and day
+                        and self.partner_id.commercial_partner_id == customer
+                        and abs((self.date_day - day).days) <= NEAR_DAYS)
         return False
 
     def _credited_candidates(self, pool=None):
@@ -626,7 +648,7 @@ class DistriMpCollectionCredit(models.Model):
         if self.kind != "income":
             return self.browse()
         pool = self._distri_credited_pool() if pool is None else pool
-        for level in ("operation", "operation_close", "time", "customer"):
+        for level in ("operation", "operation_close", "time", "customer", "near"):
             found = pool.filtered(lambda c: self._credited_match_level(c, level))
             if found:
                 return found
@@ -639,7 +661,7 @@ class DistriMpCollectionCredit(models.Model):
         handled = self.browse()
         pool = self._distri_credited_pool()
         todo = self
-        for level in ("operation_close", "time", "customer"):
+        for level in ("operation_close", "time", "customer", "near"):
             if not (todo and pool):
                 break
             found = {rec.id: pool.filtered(lambda c, rec=rec: rec._credited_match_level(c, level))
@@ -649,7 +671,7 @@ class DistriMpCollectionCredit(models.Model):
                 if not cards:
                     continue
                 incomes = todo.filtered(lambda r: set(found[r.id].ids) & set(cards.ids))
-                if len(cards) == 1 and len(incomes) == 1:
+                if len(cards) == 1 and len(incomes) == 1 and level != "near":
                     rec._tie_credited(cards, level)
                     pool -= cards
                 else:

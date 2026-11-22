@@ -46,11 +46,32 @@
       <field name="comment">Asigna clientes, aprueba pedidos, ve todas las cuentas y la contabilidad completa (diarios, asientos, informes).</field>
     </record>
 
+    <!-- 19.0.1.129.0 (decision 7, 21/11/2026): «Pago a proveedor de Distri»,
+         a customer credited for a transfer he made straight to a supplier
+         (models/pago_proveedor.py). Only Gerencia (implied below), the
+         administrator (Denis) and the technical admin (Ale): the last two
+         are added by migrations/19.0.1.129.0. A privilege of its own, so it
+         adds to the user's role instead of replacing it. -->
+    <record id="privilegio_pago_proveedor" model="res.groups.privilege">
+      <field name="name">Pago a proveedor</field>
+      <field name="category_id" ref="categoria_distri"/>
+      <field name="sequence">40</field>
+      <field name="description">Quién acredita a un cliente lo que le pagó directo a un proveedor de la empresa.</field>
+    </record>
+
+    <record id="grupo_pago_proveedor" model="res.groups">
+      <field name="name">Cobros: pago a proveedor de Distri</field>
+      <field name="privilege_id" ref="privilegio_pago_proveedor"/>
+      <field name="sequence">10</field>
+      <field name="comment">Acredita al cliente una transferencia que hizo directo a un proveedor de la empresa, con la autorización de Gerencia, en el diario «Pagos a proveedores por cuenta de clientes».</field>
+      <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
+    </record>
+
     <record id="grupo_gerencia" model="res.groups">
       <field name="name">Gerencia</field>
       <field name="privilege_id" ref="privilegio_distri"/>
       <field name="sequence">50</field>
-      <field name="implied_ids" eval="[(4, ref('grupo_administracion')), (4, ref('stock.group_stock_manager')), (4, ref('purchase.group_purchase_user')), (4, ref('account.group_account_readonly'))]"/>
+      <field name="implied_ids" eval="[(4, ref('grupo_administracion')), (4, ref('stock.group_stock_manager')), (4, ref('purchase.group_purchase_user')), (4, ref('account.group_account_readonly')), (4, ref('grupo_pago_proveedor'))]"/>
       <field name="comment">Ve todo, carga compras y lleva el stock.</field>
     </record>
 

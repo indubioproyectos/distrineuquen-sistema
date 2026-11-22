@@ -89,6 +89,10 @@ MP_JOURNAL_NAME = "Mercado Pago"
 # 19.0.1.124.0: a payment registered by hand in «Banco» is the same transfer as
 # an income of the report when dated within this many days of it
 BANK_TWIN_DAYS = 2
+# 19.0.1.129.0: the tie is proposed, a person confirms it
+BANK_TWIN_PROPOSAL = (
+    "%s puede ser el pago cargado a mano %s: tocá «Es el pago cargado a mano» para vincularlo "
+    "sin registrar otro pago o, si es otra transferencia, «Confirmar: no es ese pago».")
 
 PARAM_FOLDER = "distri_pedido.mp_carpeta_reportes"
 DEFAULT_FOLDER = "/var/lib/odoo/mercadopago/entrada"
@@ -1244,6 +1248,15 @@ class DistriMpCollection(models.Model):
         help="La entrega se autorizó a mano para un cliente, pero el CUIT de quien pagó, según "
              "el reporte, ya es de otro cliente.")
 
+    # 19.0.1.129.0: the payment registered by hand in a bank journal that may
+    # be this income's transfer (`_bank_twin_payments`); a person confirms it
+    bank_twin_payment_id = fields.Many2one(
+        "account.payment", string="Pago cargado a mano propuesto", readonly=True, copy=False,
+        ondelete="set null",
+        help="Un pago cargado a mano en un diario de banco, del mismo cliente e importe, que "
+             "puede ser esta misma transferencia. No se vincula solo: confirmalo con «Es el "
+             "pago cargado a mano» o, si es otro pago, «Confirmar: no es ese pago».")
+
     _source_unique = models.Constraint("unique(source_id)",
                                        "Esa operación de Mercado Pago ya está cargada.")
 
@@ -1339,10 +1352,14 @@ class DistriMpCollection(models.Model):
     @api.depends("kind", "state", "proposal", "partner_id", "receipt_id.distri_forwarded_by_id",
                  "report_review", "amount", "receipt_id.distri_amount", "authorized_conflict",
                  "reversal", "conflict_note", "receipt_candidate", "receipt_id.wa_sin_telefono",
-                 "credited_at", "income_id")
+                 "credited_at", "income_id", "bank_twin_payment_id")
     def _compute_column(self):
         for rec in self:
-            if rec.receipt_candidate and not rec.receipt_id and rec.state == "draft":
+            if rec.kind == "income" and rec.state == "draft" and rec.bank_twin_payment_id:
+                # 19.0.1.129.0: a payment registered by hand may be this same
+                # transfer; a person confirms the tie (never automatic)
+                rec.column = "review"
+            elif rec.receipt_candidate and not rec.receipt_id and rec.state == "draft":
                 # a candidate waits for its WhatsApp receipt: never confirmed
                 # on sight, nor by «Confirmar todos»
                 rec.column = "review"
@@ -2084,9 +2101,16 @@ class DistriMpCollection(models.Model):
                     "importe verificado estaba mal, deshacé primero esa verificación." % (
                         rec.name, card.name, card.payment_id.name or ""))
         # 19.0.1.124.0: before anything is confirmed, so a bulk confirmation
-        # never stops halfway
+        # never stops halfway. 19.0.1.129.0: never tied by itself either; a
+        # person confirms the tie or says it is another payment
+        decided = self.env.context.get("distri_not_bank_twin")
         for rec in todo:
-            rec._check_one_bank_twin(rec._bank_twin_payments())
+            twins = rec._bank_twin_payments()
+            rec._check_one_bank_twin(twins)
+            if twins and not decided:
+                raise UserError(BANK_TWIN_PROPOSAL % (
+                    rec.name, "%s del %s en %s" % (twins.name, twins.date.strftime("%d/%m/%Y"),
+                                                   twins.journal_id.name)))
         return todo
 
     # ------------------------------------------------------------ bank twin
@@ -2109,7 +2133,9 @@ class DistriMpCollection(models.Model):
         payments = Payment.search([
             ("company_id", "=", record.company_id.id), ("payment_type", "=", "inbound"),
             ("partner_type", "=", "customer"), ("state", "in", ("in_process", "paid")),
-            ("journal_id.type", "=", "bank"), ("journal_id", "!=", mp_journal.id),
+            ("journal_id.type", "=", "bank"),
+            ("journal_id", "not in", (mp_journal | self.env["account.journal"]
+                                      ._distri_supplier_journal(record.company_id)).ids),
             ("partner_id", "child_of", partner.id), ("amount", "=", record.amount),
             ("date", ">=", day - timedelta(days=BANK_TWIN_DAYS)),
             ("date", "<=", day + timedelta(days=BANK_TWIN_DAYS)),
@@ -2213,12 +2239,12 @@ class DistriMpCollection(models.Model):
         if record.kind != "income" or record.state != "draft" or not record.source_id:
             raise UserError("%s no es un ingreso pendiente del reporte de Mercado Pago: no se "
                             "registra ningún pago." % record.name)
-        # 19.0.1.124.0: the transfer already registered by hand in «Banco»
+        # 19.0.1.124.0: the transfer already registered by hand in «Banco».
+        # 19.0.1.129.0: only a person ties it (`action_tie_bank_twin`)
         twins = record._bank_twin_payments()
         record._check_one_bank_twin(twins)
-        if twins:
-            record._tie_bank_payment(twins)
-            return
+        if twins and not self.env.context.get("distri_not_bank_twin"):
+            raise UserError(BANK_TWIN_PROPOSAL % (record.name, twins.name))
         partner = record.partner_id.commercial_partner_id
         journal = self.env["account.journal"]._distri_mp_journal(record.company_id)
         payment = self.env["account.payment"].sudo().create({
@@ -2370,6 +2396,8 @@ class DistriMpCollection(models.Model):
             return self.reversal
         if self._hand_verified_card():
             return "ya tiene un pago verificado a mano"
+        if self.kind == "income" and self.state == "draft" and self._bank_twin_payments():
+            return "puede ser un pago cargado a mano en el banco"
         return ""
 
     @api.model

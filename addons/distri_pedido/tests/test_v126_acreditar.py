@@ -367,7 +367,10 @@ class TestV126Acreditar(CreditMixin, RepartoMixin, AccountTestInvoicingCommon):
             "source_id": "126999000001", "date": fields.Datetime.now(), "amount": 12345,
             "method_type": "bank_transfer", "payer_name": "PAGADOR PRUEBA",
             "partner_id": self.partner.id, "proposal": "manual"})
-        income.action_confirm()
+        # 19.0.1.129.0: proposed, a person confirms the tie
+        with self.assertRaises(UserError):
+            income.action_confirm()
+        income.action_tie_bank_twin()
         self.assertEqual(income.payment_id, manual)
         self.assertFalse(self._mp_payments())
 
@@ -453,7 +456,8 @@ class TestV126Acreditar(CreditMixin, RepartoMixin, AccountTestInvoicingCommon):
         with self.assertRaises(UserError):
             income.action_confirm()
         self.assertEqual(self._mp_payments(), payment)
-        self.assertEqual(self._card(msg).audit_state, "pendiente")
+        # 19.0.1.129.0: the audit marks the other amount «diferencia»
+        self.assertEqual(self._card(msg).audit_state, "diferencia")
 
     def test_income_already_in_the_report_refuses_crediting(self):
         when = fields.Datetime.now() - timedelta(minutes=30)
