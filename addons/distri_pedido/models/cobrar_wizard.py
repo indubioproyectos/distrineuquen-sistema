@@ -20,10 +20,14 @@
   Cajero. Checked on the user's own actions (not in sudo: the module's
   flows that already passed their gate, like the v126 crediting in «Mercado
   Pago», which is a bank journal, keep working).
+- 19.0.1.129.1: the wizard opens with one empty transfer row (ready for the
+  receipt) and a clear «+ Agregar transferencia» button; an empty row (no
+  file, no amount) is ignored on collect. Each transfer opens a form with
+  its receipt big (views/cobrar.xml, static/src/js/receipt_preview.js).
 """
 import base64
 
-from odoo import api, fields, models
+from odoo import Command, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
 from .caja import GRUPO_GERENCIA, is_cashier
@@ -177,8 +181,9 @@ class DistriCobrarWizard(models.TransientModel):
                               compute_sudo=True)
     owed = fields.Monetary(string="Debe la factura", compute="_compute_owed")
     cash_amount = fields.Monetary(string="Efectivo")
-    line_ids = fields.One2many("distri.cobrar.wizard.line", "wizard_id", string="Transferencias")
-    transfer_total = fields.Monetary(string="Transferencias", compute="_compute_total")
+    line_ids = fields.One2many("distri.cobrar.wizard.line", "wizard_id", string="Transferencias",
+                               default=lambda self: [Command.create({})])
+    transfer_total = fields.Monetary(string="Total transferencias", compute="_compute_total")
     total = fields.Monetary(string="Total a cobrar", compute="_compute_total")
     note = fields.Char(string="Nota", size=200)
     caja_hint = fields.Char(compute="_compute_caja_hint")
@@ -272,6 +277,8 @@ class DistriCobrarWizard(models.TransientModel):
             flags.add(self.question_field)
         transfers = []
         for line in self.line_ids:
+            if line._is_empty():
+                continue  # the row the wizard opens with, left unused
             transfers.append({
                 "line": line.id,
                 "amount": _amount_text(line.amount),
@@ -335,6 +342,20 @@ class DistriCobrarWizardLine(models.TransientModel):
     receipt_id = fields.Many2one("distri.whatsapp.message", string="Comprobante subido",
                                  readonly=True)
     read_note = fields.Char(string="Lectura", readonly=True)
+    receipt_label = fields.Char(string="Comprobante", compute="_compute_receipt_label")
+
+    @api.depends("receipt_file", "receipt_filename", "receipt_id")
+    def _compute_receipt_label(self):
+        for line in self:
+            if line.receipt_file or line.receipt_id:
+                line.receipt_label = line.receipt_filename or "Comprobante cargado"
+            else:
+                line.receipt_label = "Sin archivo: toque aquí para cargar la foto o el PDF"
+
+    def _is_empty(self):
+        """No file, no stored receipt and no amount: nothing to collect."""
+        self.ensure_one()
+        return not (self.receipt_file or self.receipt_id or self.amount > 0)
 
     @api.onchange("receipt_file")
     def _onchange_receipt_file(self):

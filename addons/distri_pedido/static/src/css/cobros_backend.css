@@ -143,3 +143,18 @@
 .o_distri_counter_older{background:rgba(220,140,0,.12)}
 .o_distri_counter_unknown,.o_distri_counter_apart{text-decoration:none}
 .o_distri_counter_without_receipt{text-decoration:none;color:#b42318;background:rgba(220,40,40,.08)}
+
+/* «Cobrar» (19.0.1.129.1, views/cobrar.xml): the «+ Agregar transferencia»
+   control is a real button, not the small «Agregar una línea» link, and the
+   receipt shows big in the transfer form (static/src/js/receipt_preview.js). */
+.o_distri_cobrar_transfers .o_field_x2many_list_row_add a{
+  display:inline-block;padding:6px 14px;border-radius:6px;font-weight:600;
+  background:#0a6b5c;color:#fff;text-decoration:none}
+.o_distri_cobrar_transfers .o_field_x2many_list_row_add a:hover,
+.o_distri_cobrar_transfers .o_field_x2many_list_row_add a:focus{background:#08584b;color:#fff}
+.o_distri_receipt_preview{width:100%;text-align:center}
+.o_distri_receipt_preview_img{max-width:100%;max-height:65vh;object-fit:contain;
+  border:1px solid #d8dde3;border-radius:6px;cursor:zoom-in}
+.o_distri_receipt_preview_pdf{width:100%;height:65vh;border:1px solid #d8dde3;border-radius:6px}
+.o_distri_receipt_preview_empty{padding:32px 16px;border:2px dashed #c3cad3;border-radius:6px;
+  color:#5b6573}

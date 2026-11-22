@@ -42,23 +42,47 @@
           </group>
           <group>
             <field name="cash_amount" widget="monetary"/>
-            <field name="transfer_total" widget="monetary"/>
+            <field name="transfer_total" widget="monetary" invisible="not transfer_total"/>
             <field name="total" widget="monetary" class="fw-bold"/>
             <field name="note" placeholder="Opcional"/>
           </group>
         </group>
+        <!-- 19.0.1.129.1: one empty row from the start, a real «+ Agregar
+             transferencia» button (static/src/css/cobros_backend.css) and a
+             form per transfer with its receipt big (receipt_preview.js) -->
         <label for="line_ids"/>
-        <div class="text-muted small">Cada transferencia lleva su comprobante (foto o PDF): se lee
-          solo y se acredita en el momento. Si no se lee a tiempo, escribí el importe.</div>
-        <field name="line_ids" nolabel="1">
-          <list editable="bottom">
+        <div class="text-muted small">Cada transferencia lleva su comprobante (foto o PDF): toque la
+          fila para cargarlo y verlo en grande. Se lee solo y se acredita en el momento; si no se
+          lee a tiempo, escriba el importe. Una fila sin archivo ni importe no se cobra.</div>
+        <field name="line_ids" nolabel="1" class="o_distri_cobrar_transfers">
+          <list>
+            <control>
+              <create string="+ Agregar transferencia"/>
+            </control>
             <field name="currency_id" column_invisible="1"/>
-            <field name="receipt_id" column_invisible="1"/>
+            <field name="receipt_id" column_invisible="1" force_save="1"/>
             <field name="receipt_filename" column_invisible="1"/>
-            <field name="receipt_file" filename="receipt_filename" widget="binary" required="1"/>
+            <field name="receipt_label"/>
             <field name="amount" widget="monetary"/>
-            <field name="read_note"/>
+            <field name="read_note" force_save="1"/>
           </list>
+          <form string="Transferencia">
+            <field name="currency_id" invisible="1"/>
+            <field name="receipt_id" invisible="1" force_save="1"/>
+            <field name="receipt_filename" invisible="1"/>
+            <group>
+              <group>
+                <field name="receipt_file" filename="receipt_filename" widget="binary"
+                       required="1"/>
+              </group>
+              <group>
+                <field name="amount" widget="monetary" class="fw-bold"/>
+                <field name="read_note" force_save="1"/>
+              </group>
+            </group>
+            <field name="receipt_file" widget="distri_receipt_preview" filename="receipt_filename"
+                   nolabel="1"/>
+          </form>
         </field>
         <footer>
           <button name="action_collect" type="object" string="Cobrar" class="btn-primary"

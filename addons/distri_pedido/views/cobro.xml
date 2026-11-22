@@ -51,6 +51,20 @@
     .tr:first-of-type{border-top:0}
     .tr .file{font-size:14px}
     .tr .hint{font-size:12px;color:var(--muted)}
+    /* 19.0.1.129.1: large preview of the picked receipt, tap for full screen */
+    .pv{display:flex;flex-direction:column;gap:6px}
+    .pv img{width:100%;max-height:60vh;object-fit:contain;border:1px solid var(--line-2);
+            border-radius:10px;background:#fff;cursor:zoom-in}
+    .pv iframe{width:100%;height:60vh;border:1px solid var(--line-2);border-radius:10px;background:#fff}
+    .pv .btn{width:auto}
+    #cobro-full{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.92);display:flex;
+                flex-direction:column}
+    #cobro-full .bar{display:flex;justify-content:flex-end;padding:10px 16px}
+    #cobro-full .bar button{font-size:16px;padding:8px 16px;border-radius:8px;border:0;
+                            background:#fff;color:#10243f;font-weight:700}
+    #cobro-full .view{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;
+                      padding:0 8px 8px}
+    #cobro-full img{max-width:100%;max-height:100%;object-fit:contain}
     .dest{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-top:8px}
     .opt em.online{font-style:normal;font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--muted);border-radius:4px;padding:0 4px;margin-left:4px}
   </style>
@@ -147,6 +161,7 @@
                   <input class="file" type="file" t-att-name="'comprobante_%s' % n"
                          accept="image/*,application/pdf" data-leer=""/>
                 </label>
+                <div t-if="not kept" class="pv" data-preview="" hidden="hidden"/>
                 <label class="stack">Importe de la transferencia
                   <input class="inp" type="text" t-att-name="'importe_transf_%s' % n" inputmode="decimal"
                          autocomplete="off" placeholder="Se lee del comprobante"
@@ -210,11 +225,62 @@
               if (next) { next.hidden = false; }
               if (!hidden().length) { more.hidden = true; }
             });
+            // 19.0.1.129.1: large preview of the picked receipt (an object URL,
+            // freed when the file is replaced); tap to see it full screen
+            function el(tag, attrs, text) {
+              var node = document.createElement(tag);
+              Object.keys(attrs || {}).forEach(function (k) { node.setAttribute(k, attrs[k]); });
+              if (text) { node.textContent = text; }
+              return node;
+            }
+            function fullScreen(url) {
+              var box = el('div', {id: 'cobro-full', role: 'dialog', 'aria-label': 'Comprobante'});
+              var bar = el('div', {'class': 'bar'});
+              var close = el('button', {type: 'button'}, 'Cerrar');
+              var view = el('div', {'class': 'view'});
+              view.appendChild(el('img', {src: url, alt: 'Comprobante'}));
+              bar.appendChild(close);
+              box.appendChild(bar);
+              box.appendChild(view);
+              function shut() { box.remove(); document.removeEventListener('keydown', onKey); }
+              function onKey(ev) { if (ev.key === 'Escape') { shut(); } }
+              close.addEventListener('click', shut);
+              view.addEventListener('click', shut);
+              document.addEventListener('keydown', onKey);
+              document.body.appendChild(box);
+              close.focus();
+            }
+            function preview(slot, file) {
+              var box = slot.querySelector('[data-preview]');
+              if (!box) { return; }
+              if (box.objectUrl) { URL.revokeObjectURL(box.objectUrl); box.objectUrl = null; }
+              box.textContent = '';
+              box.hidden = true;
+              if (!file || !window.URL || !URL.createObjectURL) { return; }
+              var url = URL.createObjectURL(file);
+              box.objectUrl = url;
+              var pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+              if (pdf) {
+                box.appendChild(el('iframe', {src: url, title: 'Comprobante (PDF)'}));
+                var open = el('a', {href: url, target: '_blank', rel: 'noopener', 'class': 'btn outline'},
+                              'Ver en pantalla completa');
+                box.appendChild(open);
+                box.appendChild(el('div', {'class': 'hint'},
+                                   'Si el PDF no se ve aquí, toque «Ver en pantalla completa».'));
+              } else {
+                var img = el('img', {src: url, alt: 'Comprobante: toque para verlo en pantalla completa'});
+                img.addEventListener('click', function () { fullScreen(url); });
+                box.appendChild(img);
+                box.appendChild(el('div', {'class': 'hint'}, 'Toque la foto para verla en pantalla completa.'));
+              }
+              box.hidden = false;
+            }
             Array.prototype.forEach.call(form.querySelectorAll('[data-leer]'), function (input) {
               input.addEventListener('change', function () {
                 var slot = input.closest('[data-tr]');
                 var amount = slot.querySelector('input[name^=importe_transf_]');
                 var hint = slot.querySelector('[data-hint]');
+                preview(slot, input.files.length ? input.files[0] : null);
                 if (!input.files.length) { return; }
                 var body = new FormData();
                 body.append('csrf_token', form.querySelector('[name=csrf_token]').value);

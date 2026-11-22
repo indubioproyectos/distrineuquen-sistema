@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Large preview of a transfer receipt in «Cobrar» (static/src/js/receipt_preview.js). -->
+<templates xml:space="preserve">
+
+    <t t-name="distri_pedido.ReceiptPreviewField">
+        <t t-set="preview" t-value="getPreview()"/>
+        <div class="o_distri_receipt_preview">
+            <t t-if="preview">
+                <iframe t-if="preview.pdf" class="o_distri_receipt_preview_pdf"
+                        t-att-src="preview.viewer" title="Comprobante (PDF)"/>
+                <a t-else="" t-att-href="preview.url" target="_blank" rel="noopener"
+                   title="Ver en pantalla completa">
+                    <img class="o_distri_receipt_preview_img" t-att-src="preview.url"
+                         alt="Comprobante"/>
+                </a>
+                <a class="btn btn-secondary mt-2" t-att-href="preview.open" target="_blank"
+                   rel="noopener">
+                    <i class="fa fa-expand me-1"/>Ver en pantalla completa
+                </a>
+            </t>
+            <div t-else="" class="o_distri_receipt_preview_empty">
+                <i class="fa fa-file-image-o fa-2x mb-2"/>
+                <div>Al cargar el comprobante, se muestra aquí en grande para revisar el importe.</div>
+            </div>
+        </div>
+    </t>
+
+</templates>

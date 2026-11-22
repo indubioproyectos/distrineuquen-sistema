@@ -422,6 +422,63 @@ class TestV128Cobrar(CobrarMixin, CajaMixin, AccountTestInvoicingCommon):
         self.assertEqual(result["res_id"], wizard.id)
         self.assertEqual(wizard.error_text, RECEIPT_MISSING % 1)
 
+    # 19.0.1.129.1: one empty transfer row from the start, ignored if unused
+
+    def test_backend_wizard_opens_with_one_empty_transfer(self):
+        invoice = self._invoice(5000)
+        action = invoice.with_user(self.admin_cashier).action_distri_cobrar()
+        wizard = self.env["distri.cobrar.wizard"].with_user(self.admin_cashier).browse(
+            action["res_id"])
+        self.assertEqual(len(wizard.line_ids), 1, "the row ready for the receipt")
+        line = wizard.line_ids
+        self.assertFalse(line.receipt_file or line.receipt_id or line.amount)
+        self.assertTrue(line._is_empty())
+        self.assertIn("toque aquí para cargar", line.receipt_label)
+        self.assertEqual(wizard.transfer_total, 0)
+        arch = self.env["distri.cobrar.wizard"].get_views(
+            [(self.env.ref("distri_pedido.view_cobrar_wizard_form").id, "form")]
+        )["views"]["form"]["arch"]
+        self.assertIn("+ Agregar transferencia", arch)
+        self.assertIn("distri_receipt_preview", arch)
+        self.assertIn('invisible="not transfer_total"', arch)
+        self.assertEqual(wizard._fields["transfer_total"].string, "Total transferencias")
+
+    def test_backend_wizard_ignores_the_empty_row(self):
+        self._caja(self.admin_cashier).open_session("0")
+        invoice = self._invoice(5000)
+        action = invoice.with_user(self.admin_cashier).action_distri_cobrar()
+        wizard = self.env["distri.cobrar.wizard"].with_user(self.admin_cashier).browse(
+            action["res_id"])
+        wizard.cash_amount = 5000
+        self.assertTrue(wizard.line_ids._is_empty())
+        result = wizard.action_collect()
+        self.assertEqual(result.get("tag"), "display_notification", wizard.error_text)
+        self.assertFalse(wizard.error_text)
+        cobro = self.env["distri.cobro"].search([("invoice_id", "=", invoice.id)])
+        self.assertEqual((cobro.cash_amount, cobro.transfer_amount), (5000, 0))
+        self.assertEqual(len(cobro.payment_ids), 1, "cash only: no transfer from the empty row")
+
+    def test_backend_wizard_empty_row_next_to_a_transfer(self):
+        self._caja(self.admin_cashier).open_session("0")
+        invoice = self._invoice(30000)
+        action = invoice.with_user(self.admin_cashier).action_distri_cobrar()
+        wizard = self.env["distri.cobrar.wizard"].with_user(self.admin_cashier).browse(
+            action["res_id"])
+        name, raw = self._file()
+        # the default empty row stays first; the transfer is added after it
+        wizard.write({"line_ids": [Command.create({
+            "receipt_file": base64.b64encode(raw), "receipt_filename": name, "amount": 30000})]})
+        self.assertEqual(len(wizard.line_ids), 2)
+        with self._read_as(30000):
+            result = wizard.action_collect()
+        self.assertEqual(result.get("tag"), "display_notification", wizard.error_text)
+        cobro = self.env["distri.cobro"].search([("invoice_id", "=", invoice.id)])
+        self.assertEqual(cobro.transfer_amount, 30000)
+        self.assertEqual(len(cobro.payment_ids), 1)
+        empty, filled = wizard.line_ids.sorted("id")
+        self.assertFalse(empty.receipt_id)
+        self.assertTrue(filled.receipt_id)
+
 
 @tagged("post_install", "-at_install", "distri_v128")
 class TestV128CobroHttp(CobrarMixin, HttpCase):
@@ -463,6 +520,7 @@ class TestV128CobroHttp(CobrarMixin, HttpCase):
         self.authenticate("vendedor_http_v128", "vendedor_http_v128")
         page = self.url_open("/cobro?cliente=%d" % self.partner.id).text
         self.assertIn('name="comprobante_1"', page)
+        self.assertIn("data-preview", page, "19.0.1.129.1: the large receipt preview")
         self.assertIn("Factura del sistema o de Online", page)
         history = self.env["distri.cuenta.movimiento"].sudo().search(
             [("comprobante", "=", "0001/2026/98128")])
