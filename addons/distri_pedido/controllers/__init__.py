@@ -22,3 +22,4 @@ from . import rutas
 from . import asignar
 from . import agilpedido
 from . import reparto_anteriores
+from . import rendiciones

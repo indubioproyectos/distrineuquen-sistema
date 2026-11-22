@@ -73,9 +73,12 @@ TILES = [
      IMG + "cuentas.png", "chart", "/cuentas"),
     # 19.0.1.127.0 (owner): planning is /rutas and loading /despacho, so this
     # tile opens «Rendición de caja»; the whole «Reparto» menu bar stays on top
-    # (the web client selects the app of a sub-menu), nothing is lost
+    # (the web client selects the app of a sub-menu), nothing is lost.
+    # 19.0.1.127.1: it opens the kit page /rendiciones (controllers/
+    # rendiciones.py); still shown by that menu, so tile_roots() keeps the
+    # «Reparto» app out of «Todas las aplicaciones»
     ("reparto", "distri_pedido.menu_reparto_settle", "Rendiciones y casos",
-     "Rendir rutas, casos, cargos y ajustes", IMG + "reparto.png", "pin", None),
+     "Rendir rutas, casos, cargos y ajustes", IMG + "reparto.png", "pin", "/rendiciones"),
     ("cobros", "distri_pedido.menu_cobros_root", "Cobros", "Tablero MP, tarjetas y planillas",
      IMG + "cobros.png", "card", None),
     # 19.0.1.105.0: every cashier's sessions and their closings, for gerencia

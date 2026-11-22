@@ -173,7 +173,9 @@ class TestViewsAndPages(HttpCase):
         settle = self.env.ref("distri_pedido.menu_reparto_settle")
         self.assertEqual((tile["title"], tile["subtitle"]),
                          ("Rendiciones y casos", "Rendir rutas, casos, cargos y ajustes"))
-        self.assertEqual(tile["url"], "/odoo?menu_id=%s" % settle.id)
+        # 19.0.1.127.1: the kit page, still shown by the settle menu
+        self.assertEqual(tile["url"], "/rendiciones")
+        self.assertEqual(tile["menu_id"], settle.id)
         root = self.env.ref("distri_pedido.menu_reparto_root")
         apps = tablero.other_apps(self.env(user=admin), tablero.tile_roots(self.env, tiles))
         self.assertNotIn(root.name, [a["title"] for a in apps], "no second «Reparto» app")
