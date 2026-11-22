@@ -24,7 +24,8 @@ Red rows («debe $ X», 19.0.1.99.0, priority passes since 19.0.1.123.0):
 every credit of the customer (payments, credit notes, refunds, reported
 returns) is applied to the debit rows in passes, each over what is still
 unallocated (mark_owed): first the reconciliations of this Odoo, then the
-invoice a memo names, then an exact amount nearest in date, and last oldest
+Online history invoice a /cobro payment is linked to by id (19.0.1.125.0),
+then the invoice a memo names, then an exact amount nearest in date, and last oldest
 debit first. What stays uncovered is owed, so the red total always equals
 the balance and a customer up to date or in credit has nothing red. A paid
 invoice no longer stays red because an older one took its payment. The
@@ -170,6 +171,12 @@ def mark_owed(rows):
     1. reconciliation: row["reconciled"] of a credit lists (debit line id,
        amount) pairs of account.partial.reconcile; each covers the debit row
        whose row["line_id"] matches, for that amount;
+    1b. history link (19.0.1.125.0): a credit whose row["history_target_id"]
+       is set (a /cobro payment of an Odoo Online invoice) covers the debit
+       row whose row["history_id"] is that id, up to what it still owes.
+       Such a credit skips pass 2: an Online number may also be the number
+       of another document of this Odoo (L4), so the id decides, not the
+       memo. If that row is not in the statement, pass 2 applies as usual;
     2. memo: a credit whose row["memo"] names an invoice number (full, or
        its 5-digit tail) covers that debit, up to what it still owes;
     3. same amount: a credit whose remaining amount equals a debit's
@@ -207,6 +214,15 @@ def mark_owed(rows):
             if line_id in by_line:
                 allocate(credit, by_line[line_id], amount)
 
+    # 1b. history link: by id, never by number
+    by_history = {d["row"]["history_id"]: d for d in debits if d["row"].get("history_id")}
+    linked = set()
+    for index, credit in enumerate(credits):
+        target = by_history.get(credit["row"].get("history_target_id"))
+        if target:
+            linked.add(index)
+            allocate(credit, target, credit["rem"])
+
     # 2. memo / ref
     by_number, by_tail = {}, {}
     for debit in debits:
@@ -216,7 +232,9 @@ def mark_owed(rows):
             match = _INVOICE_NUMBER.match(number)
             if match:
                 by_tail.setdefault(match.group(1), []).append(debit)
-    for credit in credits:
+    for index, credit in enumerate(credits):
+        if index in linked:
+            continue
         text = credit["row"].get("memo") or ""
         own = credit["row"].get("number") or ""
         if own:
@@ -420,8 +438,11 @@ class ResPartnerEstadoCuenta(models.Model):
         (sort key), line_key (stable identity of the row, see
         statement_line_key), line_id (account.move.line of this Odoo, else
         False), reconciled ((debit line id, amount) pairs reconciled with
-        this credit line) and memo (label/ref text that may name an
-        invoice); the last three feed mark_owed and are never shown.
+        this credit line), memo (label/ref text that may name an
+        invoice), history_id (the distri.cuenta.movimiento of an Online
+        history row, else False) and history_target_id (the history row a
+        /cobro payment of an Online invoice pays, 19.0.1.125.0, else False);
+        the last five feed mark_owed and are never shown.
         """
         self.ensure_one()
         partner = self.commercial_partner_id.sudo()
@@ -434,6 +455,11 @@ class ResPartnerEstadoCuenta(models.Model):
         ], order="date, id")
         seen = set()
         per_move = {}
+        # 19.0.1.125.0: /cobro payments of an Online invoice, by their move
+        targets = {p.move_id.id: p.distri_history_invoice_id.id
+                   for p in self.env["account.payment"].sudo().search([
+                       ("move_id", "in", lines.move_id.ids),
+                       ("distri_history_invoice_id", "!=", False)])} if lines else {}
         for line in lines:
             move = line.move_id
             per_move[move.id] = per_move.get(move.id, 0) + 1
@@ -476,6 +502,8 @@ class ResPartnerEstadoCuenta(models.Model):
                 "reconciled": [(p.debit_move_id.id, p.amount)
                                for p in line.matched_debit_ids.sorted("id")],
                 "memo": " ".join(dict.fromkeys(x for x in (line.name, move.ref) if x)),
+                "history_id": False,
+                "history_target_id": targets.get(move.id, False) if line.credit else False,
             })
         seen.discard(None)
 
@@ -509,6 +537,8 @@ class ResPartnerEstadoCuenta(models.Model):
                 "line_id": False,
                 "reconciled": [],
                 "memo": mov.concepto or "",
+                "history_id": mov.id,
+                "history_target_id": False,
             })
 
         for ret in self.env["distri.route.return"]._distri_provisional_for(partner):
@@ -537,6 +567,8 @@ class ResPartnerEstadoCuenta(models.Model):
                 "line_id": False,
                 "reconciled": [],
                 "memo": "",
+                "history_id": False,
+                "history_target_id": False,
             })
 
         # a payment registered from a Mercado Pago card links back to it

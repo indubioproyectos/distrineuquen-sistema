@@ -45,6 +45,7 @@
     .match:first-of-type{border-top:0}
     .match span{font-size:13px;color:var(--muted);display:block}
     .match em{font-style:normal;font-size:12px;font-weight:700;color:var(--teal)}
+    .opt em.online{font-style:normal;font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--muted);border-radius:4px;padding:0 4px;margin-left:4px}
   </style>
 </head>
 <body>
@@ -118,11 +119,12 @@
               <input type="radio" name="factura" value="" t-att-checked="not form.get('factura') or None"/>
               <div>A cuenta<span>Queda como pago a cuenta del cliente.</span></div>
             </label>
+            <!-- 19.0.1.125.0: what the statement says is still owed, Online history too -->
             <t t-foreach="account['invoices']" t-as="inv">
               <label class="opt">
-                <input type="radio" name="factura" t-att-value="inv['id']"
-                       t-att-checked="form.get('factura') == str(inv['id']) or None"/>
-                <div>Factura <t t-esc="inv['name']"/> · debe <b t-esc="money(inv['residual'])"/>
+                <input type="radio" name="factura" t-att-value="inv['value']"
+                       t-att-checked="form.get('factura') == inv['value'] or None"/>
+                <div>Factura <t t-esc="inv['name']"/><em t-if="inv['online']" class="online">Online</em> · debe <b t-esc="money(inv['owed'])"/>
                   <span><t t-esc="inv['date']"/><t t-if="inv['remito']"> · remito <t t-esc="inv['remito']"/></t>
                     · total <t t-esc="money(inv['total'])"/></span>
                   <span t-if="inv['route_note']" class="ruta" t-esc="inv['route_note']"/></div>

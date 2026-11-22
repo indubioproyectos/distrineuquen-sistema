@@ -18,9 +18,22 @@ invoice again within DUPLICATE_MINUTES is refused unless confirmed (a double
 tap or a page sent twice). An amount above the customer's debt (the
 statement balance, models/estado_cuenta.py) is asked first (19.0.1.99.0,
 audit F4): the difference stays in his favor.
+
+19.0.1.125.0 (pendientes L2): the invoices to choose come from the account
+statement (rows still owed, `_distri_statement_rows`), so /cobro and the
+statement never disagree: this Odoo's invoices and the old Odoo Online ones
+(distri.cuenta.movimiento, marked «Online»). An Online invoice is paid with a
+payment that is NOT reconciled (there is no invoice in this Odoo) and never
+goes oldest first: its memo ends with the invoice number and
+account.payment.distri_history_invoice_id links it by id to that history
+row, which the statement's red then clears (mark_owed, pass 1b). The amount
+may be partial, never above what the row still owes. It is not linked
+through distri.cuenta.movimiento.lab_payment_id: that would make it Online
+money the caja leaves out (distri.caja._not_plain_cash). The box and the
+journal are the same as for any other /cobro cash.
 """
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 
 from markupsafe import Markup
 
@@ -68,6 +81,15 @@ class RouteCashWarning(UserError):
     def __init__(self, message, field="ruta_ok"):
         super().__init__(message)
         self.field = field
+
+
+class AccountPaymentHistoryInvoice(models.Model):
+    _inherit = "account.payment"
+
+    distri_history_invoice_id = fields.Many2one(
+        "distri.cuenta.movimiento", string="Factura de Odoo Online", index=True,
+        readonly=True, copy=False, ondelete="set null",
+        help="Factura de la historia de Odoo Online que paga este cobro de /cobro.")
 
 
 class DistriCashCollection(models.Model):
@@ -192,11 +214,38 @@ class DistriCashCollection(models.Model):
         return invoice
 
     @api.model
-    def _cash_duplicate(self, user, partner, amount, invoice):
+    def _cash_history(self, partner, history_id, amount):
+        """The Odoo Online invoice (distri.cuenta.movimiento) of `partner`
+        that is still owed on his statement, and what it owes; refused when
+        it is not his, not in the statement or already paid, or when
+        `amount` is above what it owes."""
+        History = self.env["distri.cuenta.movimiento"].sudo()
+        if not history_id:
+            return History, 0.0
+        try:
+            wanted = int(history_id)
+        except (TypeError, ValueError):
+            wanted = 0
+        history = History.browse(wanted).exists() if wanted > 0 else History
+        if not history or history.partner_id != partner:
+            raise UserError("Esa factura no es de este cliente.")
+        row = next((r for r in partner._distri_statement_rows()
+                    if r.get("history_id") == history.id), None)
+        owed = row["owed"] if row else 0.0
+        if owed <= 0.004:
+            raise UserError("Esa factura ya está pagada.")
+        if amount > owed + 0.004:
+            raise UserError("El importe supera lo que falta pagar de la factura (%s). Cobrá ese "
+                            "saldo o registralo «a cuenta»." % _money(owed))
+        return history, owed
+
+    @api.model
+    def _cash_duplicate(self, user, partner, amount, invoice, history=None):
         since = fields.Datetime.now() - timedelta(minutes=DUPLICATE_MINUTES)
         return self.sudo().search([
             ("user_id", "=", user.id), ("partner_id", "=", partner.id),
             ("amount", "=", amount), ("invoice_id", "=", invoice.id or False),
+            ("payment_id.distri_history_invoice_id", "=", history.id if history else False),
             ("create_date", ">=", since)], limit=1)
 
     # ------------------------------------------------------------ routes (C1)
@@ -263,17 +312,29 @@ class DistriCashCollection(models.Model):
     # ------------------------------------------------------------ register
 
     @api.model
-    def _cash_memo(self, user, route, invoice, note):
-        parts = ["Efectivo", "cobró %s" % user.name, "caja %s" % route.date.strftime("%d/%m"),
-                 invoice.name if invoice else "a cuenta"]
+    def _cash_memo(self, user, route, invoice, note, history=None):
+        parts = ["Efectivo", "cobró %s" % user.name, "caja %s" % route.date.strftime("%d/%m")]
+        if history:
+            # 19.0.1.125.0: the Online invoice number last, as the cash sheets
+            # write it («… · planilla 17/11 · 0001/2026/07986»)
+            return " · ".join(parts + ([note] if note else []) + [history.comprobante or ""])
+        parts.append(invoice.name if invoice else "a cuenta")
         if note:
             parts.append(note)
         return " · ".join(parts)
 
     @api.model
+    def _cash_target_label(self, invoice, history):
+        if history:
+            return "factura %s (Odoo Online)" % (history.comprobante or "")
+        return "factura %s" % invoice.name if invoice else "a cuenta"
+
+    @api.model
     def cash_register(self, partner_id, amount, invoice_id=False, note="", confirmed=False,
-                      route_ok=False, force=False, over_ok=False):
+                      route_ok=False, force=False, over_ok=False, history_id=False):
         """Register and post one cash payment (see the module docstring).
+        `invoice_id` is an invoice of this Odoo, `history_id` an Odoo Online
+        invoice of the statement (19.0.1.125.0); neither: «a cuenta».
         Raises DuplicateCashError when it looks like a repeat and
         `confirmed` is not set, RouteCashWarning when the order is on a
         route and `route_ok` (or `force`) is not set, OverDebtWarning when
@@ -281,9 +342,16 @@ class DistriCashCollection(models.Model):
         user = self._cash_check_user()
         partner = self._cash_partner(partner_id)
         amount = self._cash_amount(amount)
+        if invoice_id and history_id:
+            raise UserError("Elegí una sola factura.")
         invoice = self._cash_invoice(partner, invoice_id, amount)
+        history, _owed = self._cash_history(partner, history_id, amount)
         note = " ".join((note or "").split())[:NOTE_MAX_LENGTH]
-        stops = self._cash_check_routes(partner, invoice, route_ok=route_ok, force=force)
+        if history:
+            # an Online invoice is older than any route of this Odoo
+            stops = self.env["distri.route.stop"].sudo()
+        else:
+            stops = self._cash_check_routes(partner, invoice, route_ok=route_ok, force=force)
         if not over_ok:
             self._cash_check_debt(partner, amount)
         # two pages sent at the same time for one customer: touching his row
@@ -291,18 +359,20 @@ class DistriCashCollection(models.Model):
         # and the retry sees the first one below
         self.env.cr.execute("UPDATE res_partner SET write_date = write_date WHERE id = %s",
                             [partner.id])
-        previous =self._cash_duplicate(user, partner, amount, invoice)
+        previous = self._cash_duplicate(user, partner, amount, invoice, history)
+        target = self._cash_target_label(invoice, history)
         if previous and not confirmed:
             raise DuplicateCashError(
                 "Ya registraste %s de %s%s hace un momento (%s). Si es otro cobro, confirmalo." % (
-                    _money(amount), partner.name, " por la factura %s" % invoice.name if invoice
-                    else " a cuenta", previous.memo))
+                    _money(amount), partner.name,
+                    " a cuenta" if target == "a cuenta" else " por la %s" % target,
+                    previous.memo))
         # every check passed: the box, the payment and the row with sudo, as
         # the depot delivery does (customer payments are otherwise reserved
         # to grupo_cobros, models/permisos_cobros.py)
         company = invoice.company_id or self.env.company
         route = self.env["distri.route"].sudo()._depot_route_for(user=user, company=company).sudo()
-        memo = self._cash_memo(user, route, invoice, note)
+        memo = self._cash_memo(user, route, invoice, note, history)
         payment = self.env["account.payment"].sudo().create({
             "payment_type": "inbound",
             "partner_type": "customer",
@@ -312,13 +382,16 @@ class DistriCashCollection(models.Model):
             "date": today_ar(),
             "memo": memo,
             "company_id": route.company_id.id,
+            "distri_history_invoice_id": history.id or False,
         })
         # 19.0.1.124.0: linked to the box below, so no caja takes it on post
         payment.with_context(distri_caja_no_instant=True).action_post()
         if invoice:
             self._cash_reconcile(payment, invoice)
-        else:
-            # C13: like the route's cash, the oldest open invoices first
+        elif not history:
+            # C13: like the route's cash, the oldest open invoices first. An
+            # Online invoice (19.0.1.125.0) stays unreconciled: the id link
+            # clears that row's red
             route._apply_oldest_first(payment, partner)
         route.payment_ids = [(4, payment.id)]
         collection = self.sudo().create({
@@ -328,8 +401,7 @@ class DistriCashCollection(models.Model):
         })
         partner.message_post(body=Markup(
             "Cobro en efectivo de <b>%s</b> (%s), registrado por %s en %s.") % (
-            _money(amount), "factura %s" % invoice.name if invoice else "a cuenta", user.name,
-            route.name) + (Markup("<br/>Nota: %s") % note if note else ""))
+            _money(amount), target, user.name, route.name) + (Markup("<br/>Nota: %s") % note if note else ""))
         # C1: the stops still to visit show what is left to collect, and
         # «Ya cobrado en el local» (the app gets it with the route)
         pending = stops.filtered(lambda s: s.state == "pending")
@@ -392,14 +464,24 @@ class DistriCashCollection(models.Model):
 
     @api.model
     def cash_account(self, partner_id):
-        """Balance, open invoices with what they still owe and the newest
-        movements of the statement (models/estado_cuenta.py)."""
+        """Balance, the invoices still owed and the newest movements of the
+        statement (models/estado_cuenta.py). 19.0.1.125.0: the invoices are
+        the statement's rows with «owed» (what the red says), oldest first:
+        this Odoo's invoices still open and the Odoo Online history ones
+        («online»; the form sends «online-<id>»)."""
         partner = self._cash_partner(partner_id)
         data = partner._distri_statement()
-        invoices = self.env["account.move"].sudo().search([
-            ("commercial_partner_id", "=", partner.id), ("move_type", "=", "out_invoice"),
-            ("state", "=", "posted"), ("amount_residual", ">", 0.004)],
-            order="invoice_date, id", limit=OPEN_INVOICES_LIMIT)
+        owed_moves, history_rows = {}, []
+        for row in data["rows"]:
+            if not row.get("owed"):
+                continue
+            if row["res_model"] == "account.move":
+                owed_moves[row["res_id"]] = owed_moves.get(row["res_id"], 0.0) + row["owed"]
+            elif row["res_model"] == "distri.cuenta.movimiento":
+                history_rows.append(row)
+        moves = self.env["account.move"].sudo().browse(list(owed_moves)).filtered(
+            lambda m: m.move_type == "out_invoice" and m.state == "posted"
+            and m.amount_residual > 0.004)
         rows = list(reversed(data["rows"]))[:RECENT_ROWS]
         # C1: what the routes say about each open invoice
         notes = {}
@@ -407,15 +489,24 @@ class DistriCashCollection(models.Model):
             note = self._cash_route_note(stop)
             for inv in stop.order_id._distri_facturas_emitidas() if note else ():
                 notes.setdefault(inv.id, []).append(note)
+        invoices = [{"id": inv.id, "value": str(inv.id), "online": False, "name": inv.name or "",
+                     "day": inv.invoice_date or inv.date,
+                     "remito": inv._distri_remito_texto() or "",
+                     "total": inv.amount_total, "residual": inv.amount_residual,
+                     "owed": round(owed_moves[inv.id], 2),
+                     "route_note": " ".join(notes.get(inv.id, []))} for inv in moves]
+        invoices += [{"id": row["res_id"], "value": "online-%d" % row["res_id"], "online": True,
+                      "name": row["number"] or row["concept"] or "", "day": row["date"],
+                      "remito": "", "total": row["debit"], "residual": row["owed"],
+                      "owed": row["owed"], "route_note": ""} for row in history_rows]
+        invoices.sort(key=lambda inv: (inv["day"] or date.min, inv["online"] is False, inv["id"]))
+        for inv in invoices:
+            day = inv.pop("day")
+            inv["date"] = day.strftime("%d/%m/%Y") if day else ""
         return {
             "partner": partner,
             "balance": data["balance"],
-            "invoices": [{"id": inv.id, "name": inv.name or "",
-                          "date": inv.invoice_date.strftime("%d/%m/%Y") if inv.invoice_date else "",
-                          "remito": inv._distri_remito_texto() or "",
-                          "total": inv.amount_total, "residual": inv.amount_residual,
-                          "route_note": " ".join(notes.get(inv.id, []))}
-                         for inv in invoices],
+            "invoices": invoices[:OPEN_INVOICES_LIMIT],
             "rows": [{"date": r["date"].strftime("%d/%m/%Y") if r["date"] else "",
                       "type": r["doc_type"] or "", "ref": r["number"] or r["remito"] or "",
                       "debit": r["debit"] or 0.0, "credit": r["credit"] or 0.0,

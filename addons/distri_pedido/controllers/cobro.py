@@ -18,6 +18,9 @@ from ..models.cobro_efectivo import DuplicateCashError, OverDebtWarning, RouteCa
 from .main import FICHA
 from .reparto import SHARED_CSS
 
+# the form value of an Odoo Online invoice (models/cobro_efectivo.py cash_account)
+ONLINE_PREFIX = "online-"
+
 
 def _money(amount):
     text = "{:,.2f}".format(amount or 0.0).replace(",", "X").replace(".", ",").replace("X", ".")
@@ -119,11 +122,15 @@ class CobroEfectivo(http.Controller):
         try:
             # a refusal after the payment was created must leave nothing behind:
             # the response below is a normal one, so the request commits
+            # 19.0.1.125.0: «online-<id>» is an Odoo Online invoice of the statement
+            invoice_id, history_id = factura or False, False
+            if str(factura or "").startswith(ONLINE_PREFIX):
+                invoice_id, history_id = False, factura[len(ONLINE_PREFIX):]
             with request.env.cr.savepoint():
                 collection = request.env["distri.cash.collection"].cash_register(
-                    cliente, importe, invoice_id=factura or False, note=nota,
+                    cliente, importe, invoice_id=invoice_id, note=nota,
                     confirmed=confirmado == "1", route_ok=ruta_ok == "1", force=forzar == "1",
-                    over_ok=deuda_ok == "1")
+                    over_ok=deuda_ok == "1", history_id=history_id)
         except RouteCashWarning as exc:
             return self._render({"account": account, "form": form,
                                  "route_warning": exc.args[0], "route_field": exc.field},

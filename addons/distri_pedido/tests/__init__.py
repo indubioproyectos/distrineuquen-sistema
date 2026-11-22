@@ -80,3 +80,4 @@ from . import test_v121_revisar_estado
 from . import test_v122
 from . import test_v123_facturas_rojo
 from . import test_v124_caja_mp
+from . import test_v125_cobro_online
