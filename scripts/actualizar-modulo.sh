@@ -8,16 +8,16 @@
 #   scripts/actualizar-modulo.sh --rollback <snapshot>
 #
 # Upgrade: exports `git archive <commit> addons` to prod/snapshots/<short>,
-# points prod/addons-current at it, stops Odoo, runs `-u <módulo>` in a one-off
+# stops Odoo, points prod/addons-current at it, runs `-u <módulo>` in a one-off
 # container on THAT snapshot, starts Odoo (docker resolves the symlink at start,
 # so it comes up on the new snapshot). With the default commit it refuses when
 # addons/ has uncommitted changes. If the -u fails, the symlink goes back to the
 # previous snapshot before Odoo starts. Keeps the last PROD_KEEP=10 snapshots
 # (always the previous one) and prints the rollback command.
 #
-# Rollback: points addons-current at an existing snapshot and restarts Odoo.
-# Code only, no -u: if the upgrade migrated data, restore the pre-upgrade
-# backup instead.
+# Rollback: stops Odoo, points addons-current at an existing snapshot, runs
+# -u distri_pedido on it and starts Odoo. Migrations do not run backwards: if
+# the upgrade transformed data, restore the pre-upgrade backup instead.
 #
 # Holds the maintenance lock (run/mantenimiento.lock), the same one the
 # automatic backup and its restore test use: they never run during an
@@ -59,7 +59,6 @@ docker run --rm --network none --entrypoint test -v "$PROD_SNAPS/$NEW/addons":/m
   die "snapshot $NEW not readable inside the Odoo image"
 echo "Código: ${PREV:-?} -> $NEW (distri_pedido $(prod_snapshot_version "$NEW"))"
 
-prod_snapshot_switch "$NEW"
 on_exit() {
   if [[ -z "${OK:-}" && -n "$PREV" ]]; then
     prod_snapshot_switch "$PREV"
@@ -67,19 +66,21 @@ on_exit() {
   fi
   docker compose start odoo
 }
+# stop first, then switch: Odoo never sees the symlink move while it runs
 docker compose stop odoo
 trap on_exit EXIT
-if [[ "$MODE" == upgrade ]]; then
-  LAB_ADDONS="$PROD_SNAPS/$NEW/addons" NAME=distri-actualizar-$$ "$LAB/scripts/l10n_ar/lab.sh" \
-    odoo -d distri_lab -u "$MODULE" --stop-after-init --no-http --log-level=warn
-fi
+prod_snapshot_switch "$NEW"
+# rollback runs -u too, so views, fields and data files match the code again
+[[ "$MODE" == rollback ]] && MODULE=distri_pedido
+LAB_ADDONS="$PROD_SNAPS/$NEW/addons" NAME=distri-actualizar-$$ "$LAB/scripts/l10n_ar/lab.sh" \
+  odoo -d distri_lab -u "$MODULE" --stop-after-init --no-http --log-level=warn
 OK=1
 prod_snapshot_prune "$PREV"
 if [[ "$MODE" == upgrade ]]; then
   echo "Actualizado: $MODULE en el snapshot $NEW"
 else
-  echo "Código vuelto a $NEW (sin -u)"
+  echo "Código vuelto a $NEW (con -u $MODULE)"
 fi
 [[ -n "$PREV" && "$PREV" != "$NEW" ]] &&
-  echo "Volver atrás (solo código): $LAB/scripts/actualizar-modulo.sh --rollback $PREV"
+  echo "Volver atrás: $LAB/scripts/actualizar-modulo.sh --rollback $PREV"
 exit 0
