@@ -15,6 +15,18 @@
     /comprobantes/intento/<id>   19.0.1.101.0: a refused duplicate of the user,
                                  the existing receipt it matched (few facts,
                                  read only); /archivo its file
+    /comprobantes/sugerir        19.0.1.126.1: reads a chosen file before the
+                                 upload (nothing stored): suggested customers
+                                 and the amount read
+    /comprobantes/<id>/cancelar, /cambiar-foto, /girar
+                                 19.0.1.126.1: the uploader manages his upload
+                                 (models/subir_v126_1.py)
+
+19.0.1.126.1: «/comprobantes/subir» takes «no_en_sistema» + «remitente» (who
+sent it, when the customer is not in the system) and «acreditar» («Subir y
+acreditar»); the customer is mandatory once the module is updated
+(`_distri_staff_upload`). «Compartir con Distri» opens the same form, so the
+same rule applies to it.
 
 19.0.1.100.0: an optional «Importe» and a «Girar» per file. comprobantes.js
 sends one «importes» and one «giros» value per «archivos» file, in the same
@@ -40,7 +52,7 @@ from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
 from ..models.acreditar import CREDIT_NOTICE, CreditWarning, can_credit
-from ..models.esquema_v126 import v126_ready
+from ..models.esquema_v126 import v126_1_ready, v126_ready
 from ..models.comprobante_subir import (
     ATTEMPT_FILTER, BUCKETS, LIST_DAYS, MAX_FILE_BYTES, MAX_FILES, can_upload, merge_rows)
 from ..models.reparto import _money
@@ -96,6 +108,7 @@ class Comprobantes(http.Controller):
             # 19.0.1.126.0: the one-time notice, also here (where they credit)
             "aviso_acreditar": CREDIT_NOTICE if user._distri_credit_notice_pending() else "",
             "puede_acreditar": can_credit(user) and v126_ready(request.env),
+            "v126_1": v126_1_ready(request.env),
         }
         base.update(values)
         html = request.env["ir.qweb"]._render("distri_pedido.comprobantes_page", base)
@@ -162,7 +175,8 @@ class Comprobantes(http.Controller):
         return self._json({"ok": True, "results": request.env["distri.cash.collection"].cash_search(q)})
 
     @http.route("/comprobantes/subir", type="http", auth="user", methods=["POST"], sitemap=False)
-    def upload(self, cliente_id="", compartido="", **kw):
+    def upload(self, cliente_id="", compartido="", no_en_sistema="", remitente="", acreditar="",
+               **kw):
         self._check()
         if (request.httprequest.content_length or 0) > MAX_BODY:
             return self._refuse("Son demasiados archivos juntos: subilos de a menos.", status=413)
@@ -186,8 +200,9 @@ class Comprobantes(http.Controller):
         partner = self._partner(cliente_id)
         try:
             with request.env.cr.savepoint():
-                results = request.env["distri.whatsapp.message"]._distri_upload_receipts(
-                    files, partner=partner, via="compartido" if stage else "pantalla",
+                results = request.env["distri.whatsapp.message"]._distri_staff_upload(
+                    files, partner=partner, unknown=bool(no_en_sistema), sender_note=remitente,
+                    credit=bool(acreditar), via="compartido" if stage else "pantalla",
                     amounts=amounts, rotations=turns)
         except (UserError, AccessError) as exc:
             return self._refuse(_error_text(exc))
@@ -243,6 +258,7 @@ class Comprobantes(http.Controller):
         base = {"r": msg._distri_upload_detail(), "parent": parent,
                 "credit": msg._distri_credit_form(user),
                 "credit_warnings": [], "credit_error": "", "credit_done": "",
+                "manage_error": "", "manage_done": "",
                 "csrf_token": request.csrf_token()}
         base.update(values)
         return self._page_response("distri_pedido.comprobante_ver_page", base)
@@ -257,14 +273,14 @@ class Comprobantes(http.Controller):
         user = request.env.user
         card = msg._distri_credit_card(user)
         if not card:
-            return self._view_page(msg, parent, credit_error="Este comprobante ya no se puede "
-                                   "acreditar desde acá.")
+            return self._credit_answer(msg, parent, credit_error="Este comprobante ya no se "
+                                       "puede acreditar desde acá.")
         msg._distri_read_now()
         partner = self._partner(cliente_id) or card.sudo().partner_id.commercial_partner_id
         try:
             amount = request.env["distri.cash.collection"]._cash_amount(importe)
         except (UserError, AccessError) as exc:
-            return self._view_page(msg, parent, credit_error=_error_text(exc))
+            return self._credit_answer(msg, parent, credit_error=_error_text(exc))
         try:
             with request.env.cr.savepoint():
                 payment = request.env["distri.mp.collection"].browse(card.id)._distri_credit(
@@ -273,11 +289,94 @@ class Comprobantes(http.Controller):
             form = msg._distri_credit_form(user) or {}
             form.update(amount_text=importe, partner_id=partner.id or "",
                         partner_name=partner.name or "")
-            return self._view_page(msg, parent, credit=form, credit_warnings=exc.warnings)
+            return self._credit_answer(msg, parent, credit=form, credit_warnings=exc.warnings)
         except (UserError, AccessError) as exc:
-            return self._view_page(msg, parent, credit_error=_error_text(exc))
-        return self._view_page(msg, parent, credit_done="Acreditado: %s a %s (pago %s)." % (
+            return self._credit_answer(msg, parent, credit_error=_error_text(exc))
+        return self._credit_answer(msg, parent, credit_done="Acreditado: %s a %s (pago %s)." % (
             _money(amount), partner.name, payment.name))
+
+    def _credit_answer(self, msg, parent, **values):
+        """«Ver comprobante» again, or JSON for the upload page's «Acreditar
+        igual» (19.0.1.126.1)."""
+        if not self._by_fetch():
+            return self._view_page(msg, parent, **values)
+        uploads, attempts = self._today(request.env.user)
+        data = {"ok": True, "uploads": uploads, "attempts": attempts,
+                "credited": bool(values.get("credit_done")),
+                "message": values.get("credit_done") or values.get("credit_error") or "",
+                "warnings": values.get("credit_warnings") or []}
+        return self._json(data)
+
+    # ---------------------------------------------------------------- 19.0.1.126.1
+
+    @http.route("/comprobantes/sugerir", type="http", auth="user", methods=["POST"],
+                sitemap=False)
+    def suggest(self, compartido="", indice="", giro="", **kw):
+        """Reads one chosen file (or a shared one, by its index) without
+        storing it: {suggestions, amount, amount_text, amount_sure}."""
+        self._check()
+        if (request.httprequest.content_length or 0) > MAX_FILE_BYTES + 1024 * 1024:
+            return self._json({"ok": False, "error": "El archivo es demasiado grande."},
+                              status=413)
+        raw = b""
+        storage = request.httprequest.files.get("archivo")
+        if storage and storage.filename:
+            raw = storage.read(MAX_FILE_BYTES + 1)
+        elif compartido:
+            stage = request.env["distri.receipt.share"]._distri_claim(compartido)
+            try:
+                index = int(indice or 0)
+            except ValueError:
+                index = -1
+            shared = stage._distri_files() if stage else []
+            if 0 <= index < len(shared):
+                raw = shared[index][1]
+        preview = request.env["distri.whatsapp.message"]._distri_upload_preview(raw, giro)
+        return self._json(dict(preview, ok=True))
+
+    def _manage(self, msg_id, action):
+        """Runs `action(msg)` (cancel, replace, turn) and shows «Ver
+        comprobante» with its answer."""
+        msg = self._receipt(msg_id)
+        parent = "/comprobantes/mios" if request.params.get("desde") == "mios" else "/comprobantes"
+        try:
+            with request.env.cr.savepoint():
+                done = action(msg.with_user(request.env.user).sudo(False))
+        except (UserError, AccessError) as exc:
+            if self._by_fetch():
+                return self._json({"ok": False, "error": _error_text(exc)}, status=400)
+            return self._view_page(msg, parent, manage_error=_error_text(exc))
+        if self._by_fetch():
+            uploads, attempts = self._today(request.env.user)
+            return self._json({"ok": True, "message": done, "uploads": uploads,
+                               "attempts": attempts})
+        return self._view_page(msg, parent, manage_done=done)
+
+    @http.route("/comprobantes/<int:msg_id>/cancelar", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def cancel(self, msg_id, motivo="", **kw):
+        return self._manage(msg_id, lambda msg: msg._distri_upload_cancel(motivo))
+
+    @http.route("/comprobantes/<int:msg_id>/cambiar-foto", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def replace(self, msg_id, giro="", **kw):
+        if (request.httprequest.content_length or 0) > MAX_FILE_BYTES + 1024 * 1024:
+            return self._refuse("La foto es demasiado grande (más de 10 MB).", status=413)
+        storage = request.httprequest.files.get("archivo")
+        name, raw = (storage.filename, storage.read(MAX_FILE_BYTES + 1)) \
+            if storage and storage.filename else ("", b"")
+
+        def replace(msg):
+            if not raw:
+                raise UserError("Elegí la foto nueva.")
+            return msg._distri_upload_replace(name, raw, giro)
+        return self._manage(msg_id, replace)
+
+    @http.route("/comprobantes/<int:msg_id>/girar", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def turn(self, msg_id, sentido="", **kw):
+        degrees = 270 if sentido == "izquierda" else 90
+        return self._manage(msg_id, lambda msg: msg._distri_upload_rotate(degrees))
 
     @http.route("/comprobantes/<int:msg_id>/archivo", type="http", auth="user", methods=["GET"],
                 sitemap=False)

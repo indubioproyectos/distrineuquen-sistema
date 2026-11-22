@@ -48,6 +48,10 @@ class TestSubirComprobante(HttpCase):
         return res, CSRF.search(res.text).group(1)
 
     def _upload(self, files, csrf, **data):
+        # 19.0.1.126.1: the customer is mandatory; these uploads stand for
+        # «No está en el sistema» when the test picks none
+        if "cliente_id" not in data:
+            data = dict(data, no_en_sistema="1", remitente="Cliente de la prueba")
         return self.url_open("/comprobantes/subir", data=dict(data, csrf_token=csrf),
                              files=[("archivos", f) for f in files], headers=FETCH)
 
@@ -92,10 +96,17 @@ class TestSubirComprobante(HttpCase):
     def test_without_customer_and_without_javascript(self):
         self.authenticate("vendedor_comp_v99", "vendedor_comp_v99")
         _page, csrf = self._page()
+        # 19.0.1.126.1: without customer it is refused, with a message
         res = self.url_open("/comprobantes/subir", data={"csrf_token": csrf},
                             files=[("archivos", ("sola.png", _png((1, 2, 3)), "image/png"))])
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("Elegí el cliente", res.text)
+        # «No está en el sistema» + who sent it: uploaded, pending assignment
+        res = self.url_open("/comprobantes/subir", data={
+            "csrf_token": csrf, "no_en_sistema": "1", "remitente": "Kiosco de la prueba"},
+            files=[("archivos", ("sola.png", _png((1, 2, 3)), "image/png"))])
         self.assertEqual(res.status_code, 200)
-        self.assertIn("Subido. Lo revisa administración.", res.text)
+        self.assertIn("Pendiente de asignación", res.text)
         msg = self.Message.search([("distri_upload", "=", True)], order="id desc", limit=1)
         self.assertFalse(msg.distri_partner_id)
         # nothing chosen: refused with a message

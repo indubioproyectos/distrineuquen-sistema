@@ -82,3 +82,4 @@ from . import test_v123_facturas_rojo
 from . import test_v124_caja_mp
 from . import test_v125_cobro_online
 from . import test_v126_acreditar
+from . import test_v126_1_subir

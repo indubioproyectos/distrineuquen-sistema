@@ -90,6 +90,7 @@ from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
 
 from .cobros import AMOUNT_TOLERANCE, CONFIDENCE_HIGH, CONFIDENCE_LOW
+from .esquema_v126 import v126_1_ready
 from .reparto_cliente import AR_TZ, today_ar
 
 _logger = logging.getLogger(__name__)
@@ -158,7 +159,12 @@ BUCKETS = {
     "aprobado": "Aprobado",
     "rechazado": "Rechazado",
     "cerrado": "Cerrado",
+    # 19.0.1.126.1: cancelled by whoever uploaded it (models/subir_v126_1.py)
+    "cancelado": "Cancelado",
 }
+# 19.0.1.126.1: a cancelled upload frees its key (the same file can be
+# uploaded again) and keeps the old one after this prefix
+CANCEL_KEY = "cancelado:%d:%s"
 # «Mis comprobantes» filter of the refused duplicates (19.0.1.101.0)
 ATTEMPT_FILTER = "repetido"
 ATTEMPT_FLAG = "No se cargó · ya estaba en el sistema"
@@ -340,17 +346,34 @@ class WhatsappMessageUpload(models.Model):
         if found:
             return found
         checksum = hashlib.sha1(raw).hexdigest()
-        attachment = self.env["ir.attachment"].sudo().search([
-            ("checksum", "=", checksum), ("res_model", "=", self._name)], limit=1)
-        found = Message.browse(attachment.res_id).exists() if attachment else Message.browse()
+        attachments = self.env["ir.attachment"].sudo().search([
+            ("checksum", "=", checksum), ("res_model", "=", self._name)])
+        # 19.0.1.126.1: a cancelled upload is not «ya estaba»: it is uploaded again
+        found = Message.browse(attachments.mapped("res_id")).exists().filtered(
+            lambda m: not m._distri_upload_cancelled() and m.attachment_id in attachments)[:1]
         # a photo turned after it arrived keeps the checksum of the original
-        return found or Message.search([("distri_original_checksum", "=", checksum)], limit=1)
+        return found or Message.search([("distri_original_checksum", "=", checksum)]).filtered(
+            lambda m: not m._distri_upload_cancelled())[:1]
+
+    def _distri_upload_cancelled(self):
+        """19.0.1.126.1: cancelled by whoever uploaded it (or administración)."""
+        self.ensure_one()
+        msg = self.sudo()
+        return msg.distri_receipt_state == "dismissed" and \
+            (msg.wa_message_id or "").startswith("cancelado:")
+
+    def _distri_partner_suggest_only(self):
+        """19.0.1.126.1: a receipt the staff uploaded without a customer
+        («No está en el sistema») only gets suggestions from its reading."""
+        self.ensure_one()
+        msg = self.sudo()
+        return bool(msg.distri_upload and msg.distri_forwarded_by_id and not msg.distri_partner_id)
 
     # ------------------------------------------------------------ upload
 
     @api.model
     def _distri_upload_receipts(self, files, partner=None, via="pantalla", amounts=None,
-                                rotations=None):
+                                rotations=None, sender_note=None):
         """Creates one pending receipt per new file.
 
         `files`: [(filename, raw bytes)]. `partner`: the customer the user
@@ -358,7 +381,9 @@ class WhatsappMessageUpload(models.Model):
         the same order (text, optional; a missing or empty one is no
         amount). An amount that cannot be understood refuses the whole
         upload before anything is created. `rotations`: the «Girar» of each
-        photo, same order (degrees clockwise; anything else is 0). Returns a list of {"name",
+        photo, same order (degrees clockwise; anything else is 0).
+        `sender_note` (19.0.1.126.1): who sent it, typed with «No está en el
+        sistema» (no customer then). Returns a list of {"name",
         "status", "message", "id"}: status «nuevo», «repetido» or «error»
         (a file that is not a photo or PDF, too big). Caller checks
         can_upload()."""
@@ -402,7 +427,7 @@ class WhatsappMessageUpload(models.Model):
                                 "message": "Ya estaba cargado (%s)." % existing._distri_upload_label()})
                 continue
             msg = self._distri_upload_create(name, raw, kind, user, customer, via, typed,
-                                             degrees)
+                                             degrees, sender_note=sender_note)
             created |= msg
             results.append({"name": name, "status": "nuevo", "id": msg.id,
                             "message": "Subido. Lo revisa administración."})
@@ -413,7 +438,7 @@ class WhatsappMessageUpload(models.Model):
 
     @api.model
     def _distri_upload_create(self, name, raw, kind, user, customer, via, typed=0.0,
-                              degrees=0, extra=None):
+                              degrees=0, extra=None, sender_note=None):
         """`extra` (19.0.1.103.0): values that replace the staff ones (the
         customer's upload from his order page, models/comprobante_cliente.py)."""
         mime, message_type, ext = kind
@@ -421,6 +446,9 @@ class WhatsappMessageUpload(models.Model):
         body = "Comprobante subido por %s (%s)" % (user.name, via)
         if customer:
             body += " · cliente %s" % customer.name
+        if sender_note:
+            # also in the text: readable before -u creates distri_sender_note
+            body += " · no está en el sistema, lo mandó: %s" % sender_note
         vals = {
             "wa_message_id": UPLOAD_KEY % file_key(raw),
             "direction": "in",
@@ -439,6 +467,8 @@ class WhatsappMessageUpload(models.Model):
             # apart from distri_amount until the file is read (_distri_file_values)
             "distri_amount_typed": typed or 0.0,
         }
+        if sender_note and v126_1_ready(self.env):
+            vals["distri_sender_note"] = sender_note
         vals.update(extra or {})
         # stored upright; the key above stays the one of the original bytes,
         # and so does the checksum the other channels compare
@@ -519,6 +549,8 @@ class WhatsappMessageUpload(models.Model):
         msg = self.sudo()
         card = msg.distri_collection_id
         state = msg.distri_receipt_state
+        if msg._distri_upload_cancelled():
+            return "cancelado"
         if state in ("duplicate", "outgoing"):
             # its card is discarded with it: not a rejection for the uploader
             return "cerrado"

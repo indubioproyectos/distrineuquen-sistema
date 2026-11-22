@@ -78,3 +78,4 @@ from . import rearmar
 from . import reparto_anteriores
 from . import esquema_v126
 from . import acreditar
+from . import subir_v126_1

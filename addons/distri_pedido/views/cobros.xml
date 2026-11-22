@@ -45,6 +45,7 @@
         <field name="receipt_is_image"/>
         <field name="receipt_amount_review"/>
         <field name="receipt_amount_typed_note"/>
+        <field name="receipt_sender_note"/>
         <field name="receipt_forwarded_by_id"/>
         <field name="proposal"/>
         <field name="proposal_note"/>
@@ -151,6 +152,10 @@
               </span>
               <span t-if="record.receipt_amount_review.raw_value" class="o_distri_badge o_distri_badge_warn">
                 <i class="fa fa-eye" aria-hidden="true"/> Revisar importe de la foto
+              </span>
+              <span t-if="record.receipt_sender_note.raw_value" class="o_distri_badge o_distri_badge_warn"
+                    title="Se subió con «No está en el sistema»: elegí el cliente y después acreditalo.">
+                <i class="fa fa-user-plus" aria-hidden="true"/> No está en el sistema · lo mandó: <t t-esc="record.receipt_sender_note.raw_value"/>
               </span>
               <span t-if="record.receipt_amount_typed_note.raw_value" class="o_distri_badge o_distri_badge_warn"
                     title="Quien subió el comprobante cargó un importe y la lectura dice otro: quedó el leído.">
@@ -542,6 +547,10 @@
                       icon="fa-rotate-left" class="btn-secondary"/>
               <button name="action_receipt_rotate_right" type="object" string="Girar a la derecha"
                       icon="fa-rotate-right" class="btn-secondary"/>
+            </div>
+            <div class="alert alert-warning" role="alert" invisible="not receipt_sender_note">
+              No está en el sistema. Lo mandó: <field name="receipt_sender_note" readonly="1" class="fw-bold"/>.
+              Elegí el cliente («Elegir cliente») y después acreditalo.
             </div>
             <div class="alert alert-warning" role="alert" invisible="not receipt_amount_typed_note">
               Importe distinto: <field name="receipt_amount_typed_note" readonly="1" class="fw-bold"/>.
@@ -999,6 +1008,10 @@
       <form string="Comprobante" create="0" delete="0">
         <sheet>
           <field name="distri_amount_typed_differs" invisible="1"/>
+          <div class="alert alert-warning" role="alert" invisible="not distri_sender_note">
+            No está en el sistema. Lo mandó: <field name="distri_sender_note" readonly="1" class="fw-bold"/>.
+            Elegí el cliente y después acreditalo.
+          </div>
           <div class="alert alert-warning" role="alert" invisible="not distri_amount_typed_note">
             Importe distinto: <field name="distri_amount_typed_note" readonly="1" class="fw-bold"/>.
             Quedó el leído; confirmalo mirando la foto y, si hace falta, escribí el importe.

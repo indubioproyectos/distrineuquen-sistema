@@ -33,3 +33,27 @@ def v126_ready(env):
     if ready:
         registry._distri_v126_ready = True
     return ready
+
+
+# 19.0.1.126.1: the same guard for the column of «No está en el sistema»
+V126_1_COLUMNS = V126_COLUMNS + (
+    ("distri_whatsapp_message", "distri_sender_note"),
+)
+
+
+def v126_1_ready(env):
+    """True once every 19.0.1.126.1 column exists (the module was updated
+    with this version: templates and views too). Until then the staff
+    upload keeps the 19.0.1.126.0 rules (customer optional, credit apart)."""
+    registry = env.registry
+    if getattr(registry, "_distri_v126_1_ready", False):
+        return True
+    env.cr.execute("""
+        SELECT count(*) FROM information_schema.columns
+         WHERE table_schema = current_schema()
+           AND (table_name, column_name) IN %s
+    """, [V126_1_COLUMNS])
+    ready = env.cr.fetchone()[0] == len(V126_1_COLUMNS)
+    if ready:
+        registry._distri_v126_1_ready = True
+    return ready

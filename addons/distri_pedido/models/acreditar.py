@@ -84,7 +84,7 @@ from .cobros import (
     AMOUNT_TOLERANCE, BANK_TWIN_DAYS, RECEIPT_TIME_CLOSE, _check_cobros, digits, local_day,
     local_when, operation_close, own_account,
 )
-from .esquema_v126 import NOT_READY, v126_ready
+from .esquema_v126 import NOT_READY, v126_1_ready, v126_ready
 from .ocr_comprobante import CONFIDENCE_HIGH, CONFIDENCE_LOW
 from .reparto import _money
 from .reparto_cliente import today_ar
@@ -133,6 +133,9 @@ APPROVE_DENIED = {
     "driver": "Este comprobante lo registró el repartidor en su reparto y la regla vigente "
               "(«rendicion» o «coincide») pide que lo acrediten administración, gerencia o el "
               "admin, en la rendición.",
+    # 19.0.1.126.1: uploaded with «No está en el sistema»
+    "unknown": "Este comprobante se subió sin cliente («No está en el sistema»): lo asignan y lo "
+               "acreditan administración, gerencia o el admin.",
 }
 TIE_NOTE = "Puede ser el comprobante acreditado %s (%s): vinculalo o, si es otro pago, " \
            "confirmalo como otro pago."
@@ -234,8 +237,17 @@ class DistriMpCollectionCredit(models.Model):
             return False
         flow = card._distri_credit_flow()
         approver_only = flow == "customer" or (
-            flow == "driver" and driver_rule(self.env) != "inmediato")
+            flow == "driver" and driver_rule(self.env) != "inmediato") \
+            or card._distri_unknown_sender()
         return can_approve(user) if approver_only else can_credit(user)
+
+    def _distri_unknown_sender(self):
+        """19.0.1.126.1: the receipt was uploaded with «No está en el
+        sistema» (who sent it, typed): an assignment, so only the approvers
+        credit it."""
+        self.ensure_one()
+        receipt = self.sudo().receipt_id
+        return bool(receipt and v126_1_ready(self.env) and receipt.distri_sender_note)
 
     def _distri_credit_flow(self):
         """«staff», «customer» or «driver»: decided by how the receipt
@@ -323,6 +335,9 @@ class DistriMpCollectionCredit(models.Model):
             if flow != "driver" or rule not in ("inmediato", "coincide"):
                 return ["Solo un comprobante del repartidor se acredita solo, con la regla "
                         "«inmediato» o «coincide»."], []
+        elif card._distri_unknown_sender():
+            if not can_approve(user):
+                return [APPROVE_DENIED["unknown"]], []
         elif flow == "customer" or (flow == "driver" and rule != "inmediato"):
             if not can_approve(user):
                 return [APPROVE_DENIED[flow]], []

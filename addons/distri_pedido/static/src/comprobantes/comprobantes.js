@@ -25,6 +25,23 @@
  *   drawn among the uploads, newest first («ts»), marked «No se cargó · ya
  *   estaba en el sistema», and open the receipt that was already there. The
  *   count stays the one of «uploads».
+ * - 19.0.1.126.1, only on a data-comp-api="126" page:
+ *   · the photo to upload is large (contain, never cropped), ↺ ↻ overlaid,
+ *     a tap opens it full screen (<dialog>, pinch-zoom; click-to-zoom on a
+ *     desktop);
+ *   · each chosen file is read by /comprobantes/sugerir (nothing stored):
+ *     the amount read fills an empty «Importe», and up to 3 «Sugerido:
+ *     cliente (por CUIT / por pedido / por nombre)» chips appear. A chip
+ *     only fills the customer when tapped: nothing is chosen by itself;
+ *   · the customer is mandatory: the button stays disabled until one is
+ *     chosen or «No está en el sistema» is checked (then «¿Quién lo
+ *     mandó?» is required);
+ *   · «Subir y acreditar» (data-comp-credit) credits in the same request;
+ *     the answer per file is shown in the results, a warning with
+ *     «Acreditar igual» (/comprobantes/<id>/acreditar, nothing uploaded
+ *     again);
+ *   · the rows show who sent it (no customer) and «Cancelar o cambiar la
+ *     foto».
  */
 (function () {
   'use strict';
@@ -84,8 +101,38 @@
 
   function turnPreview(li, degrees) {
     var img = li.querySelector('img');
-    if (img) { img.style.transform = degrees ? 'rotate(' + degrees + 'deg)' : ''; }
+    if (img) {
+      var scale = 1;
+      if (degrees % 180 && img.clientWidth && img.clientHeight) {
+        // a quarter turn keeps the photo inside its box
+        scale = Math.min(img.clientWidth, img.clientHeight) / Math.max(img.clientWidth, img.clientHeight);
+      }
+      img.style.transform = degrees ? 'rotate(' + degrees + 'deg)' + (scale < 1 ? ' scale(' + scale.toFixed(3) + ')' : '') : '';
+    }
     li.setAttribute('data-turn', String(degrees));
+  }
+
+  // 19.0.1.126.1: the photo full screen, pinch-zoom on a phone, click-to-zoom on a desktop
+  var zoomDialog = null;
+  function openZoom(src, degrees) {
+    if (!zoomDialog) {
+      zoomDialog = document.createElement('dialog');
+      zoomDialog.className = 'comp-zoom';
+      zoomDialog.innerHTML = '<button type="button" class="comp-zoom__x" aria-label="Cerrar">×</button>' +
+        '<div class="comp-zoom__wrap"><img alt="Comprobante en pantalla completa"></div>';
+      document.body.appendChild(zoomDialog);
+      zoomDialog.addEventListener('click', function (ev) {
+        if (ev.target.closest('.comp-zoom__x')) { zoomDialog.close(); return; }
+        if (ev.target.tagName === 'IMG' && window.matchMedia && window.matchMedia('(hover: hover)').matches) {
+          zoomDialog.classList.toggle('comp-zoom--big');
+        }
+      });
+    }
+    var img = zoomDialog.querySelector('img');
+    img.src = src;
+    img.style.transform = degrees ? 'rotate(' + degrees + 'deg)' : '';
+    zoomDialog.classList.remove('comp-zoom--big');
+    if (zoomDialog.showModal) { zoomDialog.showModal(); } else { window.open(src, '_blank'); }
   }
 
   function init() {
@@ -94,6 +141,8 @@
     var api = Number(form.getAttribute('data-comp-api') || 0);
     var v100 = api >= 100;
     var v101 = api >= 101;
+    var v126 = api >= 126;
+    var mayCredit = form.hasAttribute('data-comp-credit');
     var files = [];  // {file, amount, turn}
     var sel = DN.$('[data-comp-sel]');
     var thumbs = DN.$('[data-comp-thumbs]');
@@ -109,29 +158,58 @@
         li.className = 'comp-thumb';
         li.setAttribute('data-comp-new', String(n));
         var pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-        li.innerHTML = (pdf ? '<span class="comp-thumb__pdf">PDF</span>' : '<img alt="Comprobante elegido">') +
-          '<span class="comp-thumb__name">' + DN.h(file.name) + '</span>' +
-          (v100 && !pdf ? '<button type="button" class="dn-btn dn-btn--outline comp-thumb__turn" data-comp-rot="" aria-label="Girar la foto">↻ Girar</button>' : '') +
-          (v100 ? amountField(item.amount) : '') +
+        if (v126) {
+          li.innerHTML = '<div class="comp-thumb__media">' +
+            (pdf ? '<span class="comp-thumb__pdf">PDF</span>' : '<img alt="Comprobante elegido" data-comp-zoom="">' +
+              '<div class="comp-thumb__tools"><button type="button" class="comp-thumb__tool" data-comp-rotl="" aria-label="Girar a la izquierda">↺</button>' +
+              '<button type="button" class="comp-thumb__tool" data-comp-rot="" aria-label="Girar a la derecha">↻</button></div>') +
+            '</div><span class="comp-thumb__name">' + DN.h(file.name) + '</span>' + amountField(item.amount);
+        } else {
+          li.innerHTML = (pdf ? '<span class="comp-thumb__pdf">PDF</span>' : '<img alt="Comprobante elegido">') +
+            '<span class="comp-thumb__name">' + DN.h(file.name) + '</span>' +
+            (v100 && !pdf ? '<button type="button" class="dn-btn dn-btn--outline comp-thumb__turn" data-comp-rot="" aria-label="Girar la foto">↻ Girar</button>' : '') +
+            (v100 ? amountField(item.amount) : '');
+        }
+        li.innerHTML +=
           '<button type="button" class="comp-thumb__x" aria-label="Sacar este archivo" data-comp-x="' + n + '">×</button>';
         if (!pdf) {
-          var url = URL.createObjectURL(file);
+          // kept for the zoom while the file is in the list
+          item.url = item.url || URL.createObjectURL(file);
           var img = li.querySelector('img');
-          img.onload = function () { URL.revokeObjectURL(url); };
-          img.src = url;
+          img.onload = function () { turnPreview(li, item.turn); };
+          img.src = item.url;
           turnPreview(li, item.turn);
         }
         thumbs.appendChild(li);
       });
       sel.hidden = !files.length && !sharedCount;
-      sendBtn.textContent = (files.length + sharedCount) > 1 ? 'Subir ' + (files.length + sharedCount) : 'Subir';
+      updateSend();
+    }
+
+    // 19.0.1.126.1: the button says what it does and waits for the customer
+    var noesta = DN.$('[data-comp-noesta]', form);
+    var noestaBox = DN.$('[data-comp-noesta-box]', form);
+    var remitente = DN.$('[data-comp-remitente]', form);
+    function updateSend() {
+      var n = files.length + sharedCount;
+      var label = 'Subir';
+      if (v126 && mayCredit && !(noesta && noesta.checked)) { label = 'Subir y acreditar'; }
+      sendBtn.textContent = n > 1 ? label + ' ' + n : label;
+      if (v126) {
+        var chosen = (idInput && idInput.value) || (noesta && noesta.checked);
+        sendBtn.disabled = !chosen;
+        sendBtn.setAttribute('aria-disabled', chosen ? 'false' : 'true');
+      }
     }
 
     DN.$$('[data-comp-file]', form).forEach(function (input) {
       input.addEventListener('change', function () {
         Array.prototype.forEach.call(input.files || [], function (f) {
-          if (files.length + sharedCount < MAX) { files.push({file: f, amount: '', turn: 0}); }
-          else { DN.toast('Hasta ' + MAX + ' archivos por vez.', 'err'); }
+          if (files.length + sharedCount < MAX) {
+            var item = {file: f, amount: '', turn: 0};
+            files.push(item);
+            if (v126) { suggestFor(item); }
+          } else { DN.toast('Hasta ' + MAX + ' archivos por vez.', 'err'); }
         });
         input.value = '';
         paint();
@@ -140,14 +218,21 @@
     thumbs.addEventListener('click', function (ev) {
       var x = ev.target.closest('[data-comp-x]');
       if (x) {
-        files.splice(parseInt(x.getAttribute('data-comp-x'), 10), 1);
+        var gone = files.splice(parseInt(x.getAttribute('data-comp-x'), 10), 1)[0];
+        if (gone && gone.url) { URL.revokeObjectURL(gone.url); }
         paint();
         return;
       }
-      var rot = ev.target.closest('[data-comp-rot]');
+      var zoom = ev.target.closest('[data-comp-zoom]');
+      if (zoom) {
+        openZoom(zoom.src, parseInt(zoom.closest('li').getAttribute('data-turn') || '0', 10));
+        return;
+      }
+      var rot = ev.target.closest('[data-comp-rot], [data-comp-rotl]');
       if (!rot) { return; }
       var li = rot.closest('li');
-      var degrees = (parseInt(li.getAttribute('data-turn') || '0', 10) + 90) % 360;
+      var step = rot.hasAttribute('data-comp-rotl') ? 270 : 90;
+      var degrees = (parseInt(li.getAttribute('data-turn') || '0', 10) + step) % 360;
       turnPreview(li, degrees);
       var mine = li.getAttribute('data-comp-new');
       if (mine !== null) { files[parseInt(mine, 10)].turn = degrees; }
@@ -179,13 +264,89 @@
       if (id) {
         q.value = name;
         txt.innerHTML = 'Queda como comprobante de <b>' + DN.h(name) + '</b>. <button type="button" class="dn-link" data-comp-clear="">Cambiar</button>';
+        if (noesta && noesta.checked) { noesta.checked = false; showNoesta(); }
       } else {
         txt.innerHTML = defaultTxt;
       }
+      paintSug();
+      updateSend();
     }
+
+    // ---- 19.0.1.126.1: suggested customers and the amount read
+    var sugBox = DN.$('[data-comp-sug]', form);
+    var sugs = [];  // {id, name, reason}, best first, up to 3
+    var reading = 0;
+    function paintSug() {
+      if (!sugBox) { return; }
+      var chosen = idInput.value;
+      var html = sugs.map(function (sg) {
+        return '<button type="button" class="comp-sug__chip" data-comp-sug-id="' + sg.id + '" data-name="' + DN.h(sg.name) + '"' +
+          ' aria-pressed="' + (String(sg.id) === chosen ? 'true' : 'false') + '">Sugerido: ' + DN.h(sg.name) +
+          '<small>' + DN.h(sg.reason) + '</small></button>';
+      }).join('');
+      if (reading) { html += '<span class="comp-sug__hint">Leyendo el comprobante…</span>'; }
+      else if (sugs.length && !chosen) { html += '<span class="comp-sug__hint">Tocá la sugerencia si es ese cliente, o buscalo.</span>'; }
+      sugBox.innerHTML = html;
+      sugBox.hidden = !html;
+    }
+    function takePreview(r, amtInput, item) {
+      (r.suggestions || []).forEach(function (sg) {
+        if (sugs.length < 3 && !sugs.some(function (o) { return o.id === sg.id; })) { sugs.push(sg); }
+      });
+      if (r.amount_text && amtInput && !amtInput.value.trim()) {
+        amtInput.value = r.amount_text;
+        if (item) { item.amount = r.amount_text; }
+        checkAmount(amtInput);
+      }
+    }
+    function suggestFor(item) {
+      var body = new FormData();
+      body.append('csrf_token', DN.$('[name=csrf_token]', form).value);
+      body.append('archivo', item.file, item.file.name);
+      reading++; paintSug();
+      DN.api('/comprobantes/sugerir', {body: body, timeout: 90000}).then(function (r) {
+        reading--;
+        var n = files.indexOf(item);
+        var li = n >= 0 ? DN.$('li[data-comp-new="' + n + '"]', thumbs) : null;
+        if (n >= 0) { takePreview(r, li && li.querySelector('[data-comp-amt]'), item); }
+        paintSug();
+      }, function () { reading--; paintSug(); });
+    }
+    function suggestShared(li) {
+      var body = new FormData();
+      body.append('csrf_token', DN.$('[name=csrf_token]', form).value);
+      body.append('compartido', shared.value);
+      body.append('indice', li.getAttribute('data-comp-index') || '0');
+      reading++; paintSug();
+      DN.api('/comprobantes/sugerir', {body: body, timeout: 90000}).then(function (r) {
+        reading--;
+        takePreview(r, li.querySelector('[data-comp-amt]'), null);
+        paintSug();
+      }, function () { reading--; paintSug(); });
+    }
+    if (sugBox) {
+      sugBox.addEventListener('click', function (ev) {
+        var chip = ev.target.closest('[data-comp-sug-id]');
+        if (chip) { choose(chip.getAttribute('data-comp-sug-id'), chip.getAttribute('data-name')); }
+      });
+    }
+    function showNoesta() {
+      if (!noestaBox) { return; }
+      noestaBox.hidden = !noesta.checked;
+      if (noesta.checked) {
+        idInput.value = ''; q.value = ''; txt.innerHTML = defaultTxt; res.hidden = true;
+        paintSug();
+        remitente.focus();
+      }
+      updateSend();
+    }
+    if (noesta) { noesta.addEventListener('change', showNoesta); noestaBox.hidden = !noesta.checked; }
+
     q.addEventListener('input', function () {
       idInput.value = '';
       txt.innerHTML = defaultTxt;
+      paintSug();
+      updateSend();
       clearTimeout(timer);
       var text = q.value.trim();
       if (text.length < 2) { res.hidden = true; return; }
@@ -223,6 +384,12 @@
         '<small class="comp-item__note">Llegó el ' + DN.h(u.existing_when) + ' · ' + DN.h(u.existing_channel) +
         ' · ' + DN.h(u.bucket_label) + ' · intentado ' + DN.h(u.date) + '</small></a></li>';
     }
+    function rowExtras(u) {
+      return u.sender_note ? '<small class="comp-item__note">Lo mandó: ' + DN.h(u.sender_note) + '</small>' : '';
+    }
+    function manageLink(u) {
+      return u.can_manage && u.url ? '<a class="dn-link comp-item__manage" href="' + DN.h(u.url) + '#gestionar" data-dn="down">Cancelar o cambiar la foto</a>' : '';
+    }
     function paintUploads(rows, attempts) {
       count.textContent = rows.length;
       var all = rows;
@@ -247,9 +414,9 @@
         var inner = '<span class="comp-item__st comp-item__st--' + (u.reading ? 'reading' : DN.h(u.state || 'pending')) + '">' + mark + '</span>' +
           '<span class="comp-item__amt dn-num">' + (amount ? money(amount) : (u.reading ? 'leyendo…' : 'sin importe')) + '</span>' +
           '<span class="comp-item__who">' + DN.h(u.partner || 'sin cliente') + '</span>' +
-          '<small class="comp-item__state">' + DN.h(u.state_label) + '</small>' + note;
+          '<small class="comp-item__state">' + DN.h(u.state_label) + '</small>' + note + rowExtras(u);
         return u.url
-          ? '<li><a class="comp-item comp-item--link" href="' + DN.h(u.url) + '" data-dn="down">' + inner + '</a></li>'
+          ? '<li><a class="comp-item comp-item--link" href="' + DN.h(u.url) + '" data-dn="down">' + inner + '</a>' + manageLink(u) + '</li>'
           : '<li><div class="comp-item">' + inner + '</div></li>';
       }).join('');
       var reading = rows.some(function (u) { return u.reading; });
@@ -269,6 +436,16 @@
         DN.toast('Primero sacá una foto o elegí el comprobante.', 'err');
         return;
       }
+      if (v126 && !idInput.value && !(noesta && noesta.checked)) {
+        DN.toast('Elegí el cliente, o marcá «No está en el sistema».', 'err');
+        q.focus();
+        return;
+      }
+      if (v126 && noesta && noesta.checked && !remitente.value.trim()) {
+        DN.toast('Escribí quién mandó el comprobante (nombre, negocio o teléfono).', 'err');
+        remitente.focus();
+        return;
+      }
       var wrong = DN.$$('[data-comp-amt]', thumbs).filter(function (input) { return !checkAmount(input); });
       if (wrong.length) {
         var name = wrong[0].closest('li').querySelector('.comp-thumb__name');
@@ -279,6 +456,13 @@
       var body = new FormData();
       body.append('csrf_token', DN.$('[name=csrf_token]', form).value);
       body.append('cliente_id', idInput.value || '');
+      if (v126) {
+        if (noesta && noesta.checked) {
+          body.append('no_en_sistema', '1');
+          body.append('remitente', remitente.value.trim());
+        }
+        if (mayCredit) { body.append('acreditar', '1'); }
+      }
       if (shared) {
         body.append('compartido', shared.value);
         if (v100) {
@@ -309,8 +493,12 @@
         if (repeated.length) { parts.push(repeated.length === 1 ? '1 ya estaba cargado: ' + repeated[0].message.replace(/^Ya estaba cargado /, '') : repeated.length + ' ya estaban cargados'); }
         if (repeated.length && v101) { parts.push('No se cargó de nuevo: queda en la lista para que lo revises'); }
         if (bad.length) { parts.push(bad.map(function (x) { return x.name + ': ' + x.message; }).join(' · ')); }
+        if (v126) { paintResults(results); }
         DN.toast(parts.join('. ') + '.', bad.length || (repeated.length && !fresh) ? 'err' : 'ok');
+        files.forEach(function (item) { if (item.url) { URL.revokeObjectURL(item.url); } });
         files = [];
+        sugs = [];
+        if (noesta) { noesta.checked = false; remitente.value = ''; noestaBox.hidden = true; }
         if (shared) {
           shared.remove(); shared = null; sharedCount = 0;
           DN.$$('li', thumbs).forEach(function (li) { li.remove(); });
@@ -325,6 +513,42 @@
         DN.fail(e);
       });
     });
+
+    // ---- 19.0.1.126.1: the answer per file, «Acreditar igual» without uploading again
+    var resultsBox = DN.$('[data-comp-results]');
+    function paintResults(results) {
+      if (!resultsBox) { return; }
+      resultsBox.innerHTML = results.map(function (r) {
+        var confirm = '';
+        if (r.credit === 'aviso') {
+          confirm = '<div class="comp-r__confirm"><ul>' + (r.warnings || []).map(function (w) { return '<li>' + DN.h(w) + '</li>'; }).join('') +
+            '</ul><button type="button" class="dn-btn" data-comp-confirm="' + r.id + '" data-importe="' + DN.h(r.amount_text || '') +
+            '" data-cliente="' + DN.h(String(r.partner_id || '')) + '">Acreditar igual</button></div>';
+        }
+        return '<li class="comp-r comp-r--' + DN.h(r.status) + ' comp-r--c-' + DN.h(r.credit || 'none') + '"><b>' + DN.h(r.name) + '</b> ' +
+          '<span data-comp-msg="">' + DN.h(r.message) + '</span>' + confirm + '</li>';
+      }).join('');
+      resultsBox.hidden = !results.length;
+    }
+    if (resultsBox) {
+      resultsBox.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('[data-comp-confirm]');
+        if (!btn) { return; }
+        ev.preventDefault();
+        btn.disabled = true;
+        DN.api('/comprobantes/' + btn.getAttribute('data-comp-confirm') + '/acreditar', {body: {
+          csrf_token: DN.$('[name=csrf_token]', form).value, importe: btn.getAttribute('data-importe'),
+          cliente_id: btn.getAttribute('data-cliente'), confirmado: '1'}}).then(function (r) {
+          var li = btn.closest('li');
+          li.querySelector('[data-comp-msg]').textContent = r.message || '';
+          li.className = 'comp-r comp-r--nuevo comp-r--c-' + (r.credited ? 'acreditado' : 'pendiente');
+          btn.closest('.comp-r__confirm').remove();
+          DN.toast(r.message || 'Listo.', r.credited ? 'ok' : 'err');
+          if (r.uploads) { paintUploads(r.uploads, r.attempts); }
+        }, function (e) { btn.disabled = false; DN.fail(e); });
+      });
+    }
+    if (v126 && shared) { DN.$$('li[data-comp-index]', thumbs).forEach(suggestShared); }
     paint();
   }
   // 19.0.1.126.0: «Acreditar» on «Ver comprobante» (form.comp-credit): the

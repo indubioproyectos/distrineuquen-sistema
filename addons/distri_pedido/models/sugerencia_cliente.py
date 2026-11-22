@@ -217,6 +217,11 @@ class WhatsappMessageSugerencia(models.Model):
             if msg.distri_is_receipt and not msg.distri_partner_id and not msg.distri_conflict \
                     and (msg.distri_forwarded_by_id or msg.distri_chat_import_id):
                 partner_id, line = index.suggest(msg._distri_receipt_text()[0])
+            if not partner_id and msg._distri_partner_suggest_only() \
+                    and msg.distri_suggested_partner_id:
+                # 19.0.1.126.1: the suggestion the reading of a staff upload
+                # left (CUIT, order) stays
+                continue
             vals = {"distri_suggested_partner_id": partner_id,
                     "distri_suggestion_note": "Por el texto «%s»" % line if partner_id else False}
             if msg.distri_suggested_partner_id.id != partner_id or \

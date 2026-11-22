@@ -3296,6 +3296,11 @@ class WhatsappMessageComprobante(models.Model):
             if income.kind == "income" and income.state == "draft":
                 income._propose()
 
+    def _distri_partner_suggest_only(self):
+        """The customer found by the reading is only suggested, never set
+        (19.0.1.126.1: the staff uploads, models/comprobante_subir.py)."""
+        return False
+
     def _distri_is_open(self):
         """Still waiting for the report, or tied to a transfer not confirmed yet."""
         self.ensure_one()
@@ -3440,6 +3445,11 @@ class WhatsappMessageComprobante(models.Model):
                 if conflict:
                     # who paid is another customer: a person decides
                     vals["distri_conflict"] = conflict
+                elif partner and msg._distri_partner_suggest_only():
+                    # 19.0.1.126.1: a staff upload never takes its customer
+                    # from the reading, only a suggestion a person confirms
+                    vals["distri_suggested_partner_id"] = partner.id
+                    vals["distri_suggestion_note"] = source
                 elif partner:
                     vals["distri_partner_id"] = partner.id
                     vals["distri_partner_source"] = source

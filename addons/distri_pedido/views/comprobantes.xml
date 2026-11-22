@@ -8,7 +8,12 @@
        served before the module is updated).
        19.0.1.101.0: data-comp-api="101"; the refused duplicates are rows of
        «Subidos hoy por vos» and «Mis comprobantes» (attempt_row) and open
-       comprobante_intento_page. -->
+       comprobante_intento_page.
+       19.0.1.126.1: data-comp-api="126": the customer is mandatory («No
+       está en el sistema» + who sent it otherwise), «Subir y acreditar»,
+       suggested customers (/comprobantes/sugerir), the large photo with ↺ ↻
+       and a zoom, and «Cancelar» / «Cambiar foto» / «Girar» on «Ver
+       comprobante» (models/subir_v126_1.py). -->
 
   <!-- a refused duplicate in a list; `u` is DistriReceiptUploadAttempt._distri_row,
        `href` the link -->
@@ -54,7 +59,8 @@
   </form>
   <main class="dn-main">
     <form id="comp-form" class="comp-form" method="post" action="/comprobantes/subir"
-          enctype="multipart/form-data" data-comp-form="" data-comp-api="101">
+          enctype="multipart/form-data" data-comp-form="" data-comp-api="126"
+          t-att-data-comp-credit="'1' if puede_acreditar else None">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <input t-if="stage" type="hidden" name="compartido" t-att-value="stage.token"/>
 
@@ -75,15 +81,19 @@
       <section class="comp-sel" data-comp-sel="" t-att-hidden="None if preview else 'hidden'">
         <h2 class="dn-label">Para subir</h2>
         <ul class="comp-thumbs comp-thumbs--rows" data-comp-thumbs="">
-          <li t-foreach="preview" t-as="f" class="comp-thumb">
-            <img t-if="not f['pdf']" t-att-src="f['src']" alt="Comprobante compartido"/>
-            <span t-else="" class="comp-thumb__pdf"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'doc'"/></t>PDF</span>
+          <li t-foreach="preview" t-as="f" class="comp-thumb" t-att-data-comp-index="f['index']">
+            <div class="comp-thumb__media">
+              <img t-if="not f['pdf']" t-att-src="f['src']" alt="Comprobante compartido" data-comp-zoom=""/>
+              <span t-else="" class="comp-thumb__pdf"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'doc'"/></t>PDF</span>
+              <div t-if="not f['pdf']" class="comp-thumb__tools">
+                <button type="button" class="comp-thumb__tool" data-comp-rotl="" aria-label="Girar a la izquierda">↺</button>
+                <button type="button" class="comp-thumb__tool" data-comp-rot="" aria-label="Girar a la derecha">↻</button>
+              </div>
+            </div>
             <span class="comp-thumb__name" t-esc="f['name']"/>
             <input type="hidden" name="giro_compartido" value="0" data-comp-turn=""/>
-            <button t-if="not f['pdf']" type="button" class="dn-btn dn-btn--outline comp-thumb__turn"
-                    data-comp-rot="" aria-label="Girar la foto">↻ Girar</button>
             <label class="comp-thumb__amt">
-              <span>Importe (opcional)</span>
+              <span>Importe</span>
               <input class="dn-input dn-num" type="text" name="importe_compartido" inputmode="decimal"
                      autocomplete="off" maxlength="20" placeholder="Ej.: 150.000" enterkeyhint="done"
                      data-comp-amt=""/>
@@ -96,25 +106,49 @@
       </section>
 
       <div class="dn-field comp-cliente">
-        <label for="comp-q">¿De qué cliente? (opcional)</label>
+        <label for="comp-q">¿De qué cliente?</label>
+        <div class="comp-sug" data-comp-sug="" hidden="hidden" aria-live="polite"></div>
         <input type="hidden" name="cliente_id" data-comp-cliente-id=""/>
         <input id="comp-q" class="dn-input" type="search" autocomplete="off" maxlength="80"
                placeholder="Buscar cliente…" data-comp-q=""/>
         <ul class="comp-res" data-comp-res="" hidden="hidden"></ul>
-        <p class="comp-muted" data-comp-cliente-txt="">Si no lo elegís, el sistema lo propone con el CUIT
-          o el pedido que lea del comprobante.</p>
+        <p class="comp-muted" data-comp-cliente-txt="">Elegí el cliente: es obligatorio. El sistema puede
+          sugerirlo, pero lo confirmás vos.</p>
       </div>
-
-      <ul t-if="results" class="comp-results" role="status">
-        <li t-foreach="results" t-as="r" t-att-class="'comp-r comp-r--%s' % r['status']">
-          <b t-esc="r['name']"/> <span t-esc="r['message']"/>
-        </li>
-      </ul>
+      <div class="dn-field comp-noesta">
+        <label class="comp-check">
+          <input type="checkbox" name="no_en_sistema" value="1" data-comp-noesta=""/>
+          <span>No está en el sistema</span>
+        </label>
+        <div class="comp-noesta__box" data-comp-noesta-box="">
+          <label for="comp-remitente">¿Quién lo mandó? (nombre, negocio o teléfono)</label>
+          <input id="comp-remitente" class="dn-input" type="text" name="remitente" maxlength="200"
+                 autocomplete="off" data-comp-remitente=""/>
+          <p class="comp-muted">Queda pendiente de asignación, sin acreditar: administración elige el
+            cliente y lo acredita. No se crea ningún cliente.</p>
+        </div>
+      </div>
+      <input t-if="puede_acreditar" type="hidden" name="acreditar" value="1"/>
     </form>
 
+    <ul class="comp-results" role="status" data-comp-results="" t-att-hidden="None if results else 'hidden'">
+      <li t-foreach="results" t-as="r" t-att-class="'comp-r comp-r--%s comp-r--c-%s' % (r['status'], r.get('credit') or 'none')">
+        <b t-esc="r['name']"/> <span t-esc="r['message']"/>
+        <form t-if="r.get('credit') == 'aviso'" class="comp-r__confirm" method="post"
+              t-att-action="'/comprobantes/%d/acreditar' % r['id']">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="importe" t-att-value="r['amount_text']"/>
+          <input type="hidden" name="cliente_id" t-att-value="r['partner_id']"/>
+          <input type="hidden" name="confirmado" value="1"/>
+          <ul><li t-foreach="r['warnings']" t-as="w" t-esc="w"/></ul>
+          <button type="submit" class="dn-btn">Acreditar igual</button>
+        </form>
+      </li>
+    </ul>
+
     <h2 class="dn-label">Subidos hoy por vos: <span data-comp-count="" t-esc="len(uploads)"/></h2>
-    <p t-if="puede_acreditar" class="comp-muted">Tocá un comprobante de la lista para acreditarlo:
-      se acredita en el momento.</p>
+    <p t-if="puede_acreditar" class="comp-muted">Tocá un comprobante pendiente para acreditarlo, cancelarlo
+      o cambiar la foto.</p>
     <div class="dn-empty" t-if="not rows" data-comp-empty="">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
       <p>Todavía no subiste comprobantes hoy.</p>
@@ -131,7 +165,10 @@
         <small t-if="u['amount_differs']" class="comp-item__note comp-item__note--warn"
                t-esc="'Cargaste %s y el comprobante dice %s: lo revisa administración.' % (money(u['amount_typed']), money(u['amount']))"/>
         <small t-elif="u['amount_typed'] and u['reading']" class="comp-item__note">Importe cargado por vos · leyendo el comprobante…</small>
-      </a></li>
+        <small t-if="u.get('sender_note')" class="comp-item__note">Lo mandó: <t t-esc="u['sender_note']"/></small>
+      </a>
+      <a t-if="u.get('can_manage')" class="dn-link comp-item__manage" t-att-href="u['url'] + '#gestionar'"
+         data-dn="down">Cancelar o cambiar la foto</a></li>
       </t>
     </ul>
     <p class="comp-more"><a class="dn-link" href="/comprobantes/mios" data-dn="down">Ver mis comprobantes de los
@@ -139,7 +176,8 @@
   </main>
   <div class="dn-bottom">
     <div class="dn-foot dn-foot--one">
-      <button type="submit" form="comp-form" class="dn-btn dn-btn--lg" data-comp-send="">Subir</button>
+      <button type="submit" form="comp-form" class="dn-btn dn-btn--lg" data-comp-send=""
+              t-esc="'Subir y acreditar' if puede_acreditar else 'Subir'"/>
     </div>
   </div>
 </body>
@@ -175,6 +213,24 @@
     </p>
     <div t-if="r['note']" class="dn-card dn-card--warn comp-ver__note">
       <b>Aclaración de administración:</b> <span t-esc="r['note']"/>
+    </div>
+    <div t-if="manage_done" class="dn-card comp-ver__note" role="status">
+      <b>✓</b> <span t-esc="manage_done"/>
+    </div>
+    <div t-if="manage_error" class="dn-card dn-card--warn comp-ver__note" role="alert">
+      <span t-esc="manage_error"/>
+    </div>
+    <div t-if="r.get('cancel_note')" class="dn-card dn-card--warn comp-ver__note">
+      <b t-esc="r['cancel_note']"/>
+    </div>
+    <div t-if="r.get('sender_note')" class="dn-card dn-card--warn comp-ver__note">
+      <b>No está en el sistema.</b> Lo mandó: <span t-esc="r['sender_note']"/>.
+      <t t-if="not r['partner']">Pendiente de asignación: administración elige el cliente y lo acredita.</t>
+    </div>
+    <div t-if="r.get('suggestions')" class="dn-card comp-ver__note">
+      <b>Sugeridos:</b>
+      <t t-foreach="r['suggestions']" t-as="sg"><span class="dn-chip dn-chip--neutral"><t t-esc="sg['name']"/> (<t t-esc="sg['reason']"/>)</span> </t>
+      <small class="comp-muted">Asignalo en Cobros con «Elegir cliente».</small>
     </div>
     <div t-if="r['typed_note']" class="dn-card dn-card--warn comp-ver__note">
       <b>Importe distinto.</b> <span t-esc="r['typed_note']"/>. Lo revisa administración.
@@ -237,6 +293,40 @@
               t-esc="'Acreditar igual' if credit_warnings else 'Acreditar'"/>
     </form>
     <p t-if="not credit" class="comp-muted">Lo aprueba o lo descarta administración en Cobros.</p>
+    <!-- 19.0.1.126.1: «Girar», «Cambiar foto», «Cancelar» (controllers/comprobantes.py _manage) -->
+    <section t-if="r.get('manage')" id="gestionar" class="comp-manage">
+      <h2 class="dn-label">Corregir</h2>
+      <div t-if="r['image'] and not r['credited']" class="comp-manage__row">
+        <form method="post" t-att-action="'/comprobantes/%d/girar' % r['id']">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="sentido" value="izquierda"/>
+          <button type="submit" class="dn-btn dn-btn--outline" aria-label="Girar a la izquierda">↺ Girar</button>
+        </form>
+        <form method="post" t-att-action="'/comprobantes/%d/girar' % r['id']">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="sentido" value="derecha"/>
+          <button type="submit" class="dn-btn dn-btn--outline" aria-label="Girar a la derecha">↻ Girar</button>
+        </form>
+      </div>
+      <form class="comp-manage__form" method="post" enctype="multipart/form-data"
+            t-att-action="'/comprobantes/%d/cambiar-foto' % r['id']">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <label for="comp-nueva">Cambiar foto</label>
+        <input id="comp-nueva" class="dn-input" type="file" name="archivo" required="required"
+               accept="image/*,application/pdf,.pdf"/>
+        <p t-if="r['credited']" class="comp-muted">Está acreditado: al cambiar la foto se anula la
+          acreditación y después lo acreditás de nuevo.</p>
+        <button type="submit" class="dn-btn dn-btn--outline">Cambiar foto</button>
+      </form>
+      <form class="comp-manage__form" method="post" t-att-action="'/comprobantes/%d/cancelar' % r['id']">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <label for="comp-motivo">Cancelar el comprobante</label>
+        <input id="comp-motivo" class="dn-input" type="text" name="motivo" maxlength="200"
+               required="required" placeholder="Motivo (ej.: lo subí dos veces)"/>
+        <p t-if="r['credited']" class="comp-muted">Está acreditado: al cancelarlo se anula la acreditación.</p>
+        <button type="submit" class="dn-btn dn-btn--danger">Cancelar comprobante</button>
+      </form>
+    </section>
   </main>
 </body>
 </html>

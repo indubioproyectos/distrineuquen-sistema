@@ -61,6 +61,10 @@ class TestComprobantesV100(HttpCase):
         return res, CSRF.search(res.text).group(1)
 
     def _upload(self, files, csrf, amounts=None, turns=None, **data):
+        # 19.0.1.126.1: the customer is mandatory; these uploads stand for
+        # «No está en el sistema» when the test picks none
+        if "cliente_id" not in data:
+            data = dict(data, no_en_sistema="1", remitente="Cliente de la prueba")
         form = [("csrf_token", csrf)] + list(data.items())
         form += [("importes", a) for a in (amounts or [])]
         form += [("giros", t) for t in (turns or [])]
@@ -217,7 +221,7 @@ class TestComprobantesV100(HttpCase):
         self.assertIn('name="giro_compartido"', page.text)
         res = self.url_open("/comprobantes/subir", headers=FETCH, data=[
             ("csrf_token", csrf), ("compartido", token), ("importe_compartido", "9.999,90"),
-            ("giro_compartido", "90")])
+            ("giro_compartido", "90"), ("no_en_sistema", "1"), ("remitente", "Prueba")])
         msg = self._created(res)
         self.assertEqual(msg.distri_amount_typed, 9999.9)
         self.assertEqual(_size(msg.attachment_id.raw), (30, 40))
