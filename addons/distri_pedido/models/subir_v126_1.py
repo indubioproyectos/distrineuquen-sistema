@@ -58,6 +58,7 @@ from .comprobante_subir import (
 )
 from .esquema_v126 import v126_1_ready, v126_ready
 from .ocr_comprobante import CONFIDENCE_HIGH, parse_receipt, pdf_images, read_image
+from .paquete_v127 import invoice_suggestions
 from .reparto import _money
 from .reparto_cliente import AR_TZ, today_ar
 from .sugerencia_cliente import note_tokens
@@ -134,6 +135,9 @@ class WhatsappMessageStaffUpload(models.Model):
                 ("name", "ilike", "%s-%s" % (point, number))], limit=1)
             if move:
                 add(move.partner_id, "por factura %s" % move.name)
+        # 19.0.1.127.0: «0001/2026/07963» and a bare 5-digit tail, lab and Online
+        for partners, reason in invoice_suggestions(self.env, text):
+            add(partners, reason)
         words = note_tokens(payer_name or "")
         if words and len(out) < SUGGESTIONS_MAX:
             ids = Partner._distri_name_index().match(words)

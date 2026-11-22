@@ -71,8 +71,11 @@ TILES = [
     # app_scope: drivers too, who had it only as a link of /reparto)
     ("cuentas", "cuentas", "Cuentas", "Deudores y estado de cuenta",
      IMG + "cuentas.png", "chart", "/cuentas"),
-    ("reparto", "distri_pedido.menu_reparto_root", "Reparto", "Rutas, rendiciones y casos",
-     IMG + "reparto.png", "pin", None),
+    # 19.0.1.127.0 (owner): planning is /rutas and loading /despacho, so this
+    # tile opens «Rendición de caja»; the whole «Reparto» menu bar stays on top
+    # (the web client selects the app of a sub-menu), nothing is lost
+    ("reparto", "distri_pedido.menu_reparto_settle", "Rendiciones y casos",
+     "Rendir rutas, casos, cargos y ajustes", IMG + "reparto.png", "pin", None),
     ("cobros", "distri_pedido.menu_cobros_root", "Cobros", "Tablero MP, tarjetas y planillas",
      IMG + "cobros.png", "card", None),
     # 19.0.1.105.0: every cashier's sessions and their closings, for gerencia
@@ -371,6 +374,16 @@ def other_apps(env, taken):
             if menu.id in visible and menu.id not in taken]
 
 
+def tile_roots(env, tiles):
+    """The menus of the tiles and the root menu of each (19.0.1.127.0)."""
+    ids = {t["menu_id"] for t in tiles if t["menu_id"]}
+    for menu in env["ir.ui.menu"].sudo().browse(sorted(ids)).exists():
+        root = (menu.parent_path or "").split("/")[0]
+        if root.isdigit():
+            ids.add(int(root))
+    return ids
+
+
 def wants_tablero(user):
     """Internal users without their own screen (see res.users._distri_landing)."""
     return not user.share and not user._distri_landing()
@@ -395,8 +408,9 @@ class Tablero(http.Controller):
         if locked:
             tiles = [t for t in tiles if not (t["url"] or "").startswith("/odoo")]
         banner = tile_badges(env, tiles)
-        # the root menus behind our tiles (Armado/Despacho tiles are not root menus)
-        taken = {t["menu_id"] for t in tiles}
+        # the root menus behind our tiles (Armado/Despacho tiles are not root menus;
+        # 19.0.1.127.0: a tile on a sub-menu takes its root too)
+        taken = tile_roots(env, tiles)
         html = env["ir.qweb"]._render("distri_pedido.tablero_page", {
             "tiles": tiles,
             "banner": banner,

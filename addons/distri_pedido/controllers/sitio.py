@@ -210,9 +210,10 @@ class SitioPublico(http.Controller):
     def inicio(self, **kw):
         values = contexto_sitio(
             "Distri Neuquén · Distribuidora mayorista para kioscos y almacenes en Neuquén",
-            "Distribuidora mayorista en Neuquén. Cigarrillos Red Point, Master y Kiel, "
-            "tabaco, golosinas, galletitas, gaseosas, vinos, farmacia y más para kioscos y "
-            "almacenes de Neuquén y la región. Hacé tu pedido online.",
+            # 19.0.1.127.0 (owner): no brands nor «farmacia» in the description
+            "Distribuidora mayorista en Neuquén. Cigarrillos, tabaco, golosinas, galletitas, "
+            "gaseosas, vinos y más para kioscos y almacenes de Neuquén y la región. "
+            "Hacé tu pedido online.",
             "/")
         values.update({
             "portada": foto("portada3", (640, 960, 1280)),

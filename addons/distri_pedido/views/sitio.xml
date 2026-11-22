@@ -149,8 +149,9 @@
         <div class="marco portada__in">
           <p class="volanta volanta--claro">Mayorista · Kioscos y almacenes</p>
           <h1 id="portada-tit">Tu kiosco o almacén abastecido, sin salir del local.</h1>
-          <p class="portada__bajada">Cigarrillos Red Point, Master y Kiel, tabaco, golosinas, galletitas,
-            gaseosas, vinos, farmacia y mucho más. Hacé tu pedido desde el celular, a cualquier hora, y te lo llevamos el día de
+          <!-- 19.0.1.127.0 (owner): no brands nor «farmacia» in the subtitle -->
+          <p class="portada__bajada">Cigarrillos, tabaco, golosinas, galletitas,
+            gaseosas, vinos, y mucho más. Hacé tu pedido desde el celular, a cualquier hora, y te lo llevamos el día de
             reparto de tu zona.</p>
           <div class="acciones">
             <a class="btn btn--turq btn--grande" href="/pedido">Hacé tu pedido</a>

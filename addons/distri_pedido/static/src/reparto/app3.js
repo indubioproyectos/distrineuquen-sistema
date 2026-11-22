@@ -1466,6 +1466,20 @@
       inner + "</div></div>" : "";
   }
 
+  // 19.0.1.127.0: who packed the order, when, in how many packages and what
+  // was missing: «Armado por Juan 10:42 · 3 bultos · Faltó: 2 Coca 2,25»
+  function packedHtml(stop) {
+    var missing = stop.missing || [];
+    if (!stop.packed_by && !missing.length) return "";
+    var parts = [];
+    if (stop.packed_by) parts.push("Armado por " + stop.packed_by + (stop.packed_at ? " " + stop.packed_at : ""));
+    if (stop.parcels) parts.push(stop.parcels + (stop.parcels === 1 ? " bulto" : " bultos"));
+    if (missing.length) {
+      parts.push("Faltó: " + missing.map(function (m) { return qty(m.qty) + " " + m.product; }).join(", "));
+    }
+    return '<div class="packed">' + h(parts.join(" · ")) + "</div>";
+  }
+
   // «Llegué»: the first thing at a customer, before the visit form
   function needsArrival(stop) {
     return !!gpsConf() && !stop.parcel && !!S.local.departed && !S.local.closed && !visitOf(stop) &&
@@ -1477,6 +1491,7 @@
       '<div class="sub">' + h([stop.address, stop.order, (stop.parcels || 0) + (stop.parcels === 1 ? " bulto" : " bultos")]
         .filter(Boolean).join(" · ")) + "</div></div>" +
       '<div id="status">' + statusBanner() + "</div>" +
+      packedHtml(stop) +
       '<a class="place" href="#cliente/' + stop.id + '">' + ICON_PIN +
       '<span class="txt"><b>Ubicación y horarios</b><span>' +
       h([daysHoursText(c), (c.note || "").split("\n")[0]].filter(Boolean).join(" · ") || "Sin datos cargados") +
@@ -1518,6 +1533,7 @@
       '<div class="sub">' + h([stop.address, stop.order, (stop.parcels || 0) + (stop.parcels === 1 ? " bulto" : " bultos")]
         .filter(Boolean).join(" · ")) + "</div></div>" +
       '<div id="status">' + statusBanner() + "</div>" +
+      packedHtml(stop) +
       '<a class="place" href="#cliente/' + stop.id + '">' + ICON_PIN +
       '<span class="txt"><b>Ubicación y horarios</b><span>' +
       h([daysHoursText(c), (c.note || "").split("\n")[0]].filter(Boolean).join(" · ") || "Sin datos cargados") +
@@ -1834,6 +1850,7 @@
       '<div class="sub">' + h([p.remito || stop.order, (stop.parcels || 0) + (stop.parcels === 1 ? " bulto" : " bultos")]
         .join(" · ")) + "</div></div>" +
       '<div id="status">' + statusBanner() + "</div>" +
+      packedHtml(stop) +
       '<div class="parcel-hero"><div class="k">Encomienda · Terminal de ómnibus</div>' +
       '<div class="dest">Destino: terminal de <b>' + h(p.town) + "</b></div>" +
       '<div class="carrier">Transportista: <b>' + h(p.carrier || "a elegir en la terminal") + "</b></div>" +

@@ -94,8 +94,13 @@
             <group>
               <field name="media_is_image" invisible="1"/>
               <field name="media_name" invisible="1"/>
+              <!-- 19.0.1.127.0: zoom like the MP card, and the photo in a new tab -->
               <field name="media_data" string="Comprobante" widget="image"
-                     invisible="not media_is_image" options="{'size': [0, 400]}"/>
+                     invisible="not media_is_image" options="{'size': [0, 900], 'zoom': true}"/>
+              <div invisible="not attachment_id" class="d-flex gap-2" colspan="2">
+                <button name="action_tab_receipt" type="object" string="Foto en pestaña nueva"
+                        icon="fa-external-link" class="btn-secondary"/>
+              </div>
               <field name="media_data" string="Comprobante" widget="binary"
                      filename="media_name" invisible="not attachment_id or media_is_image"/>
               <field name="attachment_id" invisible="1"/>

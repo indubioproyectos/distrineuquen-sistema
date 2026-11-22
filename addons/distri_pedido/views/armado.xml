@@ -43,7 +43,8 @@
           <t t-foreach="g['pedidos']" t-as="p">
             <t t-set="res" t-value="resumen(p)"/>
             <t t-set="n" t-value="res['n']"/>
-            <a t-att-class="'dn-card arm-ped arm-ped--%s' % p.distri_armado" t-att-href="'/armado/pedido/%s' % p.id" data-dn="down">
+            <a t-att-class="'dn-card arm-ped arm-ped--%s' % p.distri_armado" t-att-href="'/armado/pedido/%s' % p.id" data-dn="down"
+               t-att-data-pedido="p.name">
               <span class="arm-ped__txt">
                 <span class="arm-ped__nom"><t t-esc="p._distri_nombre_cliente()"/></span>
                 <span class="arm-ped__det">
@@ -137,9 +138,20 @@
     y lo puede tomar cualquiera.</span>
   </div>
   <div class="dn-banner dn-banner--err" t-if="error_ya" role="alert"><span t-esc="error_ya"/></div>
-  <main class="dn-main arm-main" id="lista" aria-live="polite">
-    <t t-call="distri_pedido.armado_lista_cuerpo"/>
-    <t t-call="distri_pedido.armado_facturados"/>
+  <main class="dn-main arm-main">
+    <!-- 19.0.1.127.0: filters the cards on the phone (armado.js); outside
+         #lista so the 60 s refresh keeps what was typed -->
+    <form class="arm-search" role="search" onsubmit="return false">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>
+      <label for="arm-q" class="dn-sr">Buscar cliente o pedido</label>
+      <input id="arm-q" class="dn-input" type="search" placeholder="Buscar cliente o pedido"
+             autocomplete="off" data-arm-buscar=""/>
+    </form>
+    <p class="arm-search__nada" hidden="hidden" data-arm-nada="">Ningún pedido coincide con la búsqueda.</p>
+    <div id="lista" class="arm-lista-box" aria-live="polite">
+      <t t-call="distri_pedido.armado_lista_cuerpo"/>
+      <t t-call="distri_pedido.armado_facturados"/>
+    </div>
   </main>
   <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
 </body>
@@ -761,6 +773,10 @@
       </xpath>
       <xpath expr="//page[@name='other_information']" position="before">
         <page string="Armado" name="distri_armado">
+          <!-- 19.0.1.127.0: the same sentence as /armado's banner -->
+          <div class="alert alert-success" role="status" invisible="not distri_armado_resumen">
+            <field name="distri_armado_resumen" readonly="1" class="d-inline"/>
+          </div>
           <div class="alert alert-danger" role="alert" invisible="not distri_factura_error">
             No salió la factura del armado: <field name="distri_factura_error" readonly="1" class="d-inline"/>
           </div>

@@ -956,7 +956,10 @@
     <field name="model">distri.whatsapp.message</field>
     <field name="priority">30</field>
     <field name="arch" type="xml">
+      <!-- 19.0.1.127.0: the amount is typed in the form, next to the photo
+           (open_form_view: the arrow of each row opens it) -->
       <list string="Comprobantes por WhatsApp" create="0" delete="0" editable="bottom"
+            open_form_view="1"
             decoration-warning="distri_amount_typed_differs"
             decoration-muted="distri_receipt_state in ('matched', 'dismissed', 'duplicate', 'registered')"
             decoration-info="distri_receipt_state == 'outgoing'"
@@ -967,7 +970,7 @@
         <field name="distri_forwarded_by_id" readonly="1" optional="show"/>
         <field name="body" readonly="1" optional="show"/>
         <field name="distri_partner_id" options="{'no_create': True}"/>
-        <field name="distri_amount"/>
+        <field name="distri_amount" readonly="1"/>
         <field name="distri_amount_confidence" widget="badge" optional="show"
                decoration-success="distri_amount_confidence == 'high'"
                decoration-warning="distri_amount_confidence in ('low', 'none')"
@@ -1052,8 +1055,13 @@
               <field name="media_is_image" invisible="1"/>
               <field name="media_name" invisible="1"/>
               <field name="attachment_id" invisible="1"/>
+              <!-- 19.0.1.127.0: zoom like the MP card, and the photo in a new tab -->
               <field name="media_data" string="Comprobante" widget="image" readonly="1"
-                     invisible="not media_is_image" options="{'size': [0, 520]}"/>
+                     invisible="not media_is_image" options="{'size': [0, 900], 'zoom': true}"/>
+              <div invisible="not attachment_id" class="d-flex gap-2" colspan="2">
+                <button name="action_tab_receipt" type="object" string="Foto en pestaña nueva"
+                        icon="fa-external-link" class="btn-secondary"/>
+              </div>
               <div invisible="not media_is_image" class="d-flex gap-2" colspan="2"
                    groups="distri_pedido.grupo_administracion,distri_pedido.grupo_cobros,base.group_system">
                 <button name="action_distri_rotate_left" type="object" string="Girar a la izquierda"

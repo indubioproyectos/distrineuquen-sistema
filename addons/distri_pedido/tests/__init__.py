@@ -85,3 +85,4 @@ from . import test_v126_acreditar
 from . import test_v126_1_subir
 from . import test_v126_2_subir
 from . import test_v126_3_pago_dividido
+from . import test_v127_paquete

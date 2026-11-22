@@ -819,9 +819,11 @@ class DistriRoute(models.Model):
             if route.departure_controlled_at:
                 raise UserError("La salida de %s ya se controló." % route.name)
             if route.state == "draft":
-                if route.driver_id == self.env.user:
-                    raise UserError("La carga la controla otra persona, no el repartidor de la ruta.")
+                # 19.0.1.127.0: administración/gerencia may control their own load
+                route._check_own_load(self.env.user)
                 route._check_dispatch_complete("No se puede dar por controlada")
+                if route.driver_id == self.env.user:
+                    route._note_self_dispatch(self.env.user)
                 body = route._dispatch_summary()
             else:
                 body = "Salida controlada por %s: %s de %s bultos cargados." % (

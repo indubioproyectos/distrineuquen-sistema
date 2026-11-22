@@ -46,7 +46,7 @@ controllers/reparto.py and static/src/reparto/app.js):
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-from .despacho import ar_time, first_name
+from .despacho import ar_time, can_self_dispatch, first_name
 from .reparto import TRIPS, _money
 from .reparto_cliente import today_ar
 
@@ -321,7 +321,8 @@ class DistriRoutePlanning(models.Model):
             raise UserError("%s ya empezó a cargar la %s: el repartidor no se cambia. Pasá los "
                             "pedidos a otra ruta." % (first_name(self.driver_id),
                                                       self._planning_title()))
-        if driver and self.stop_ids.filtered(lambda s: s.dispatch_checked_by_id == driver):
+        if driver and not can_self_dispatch(driver) \
+                and self.stop_ids.filtered(lambda s: s.dispatch_checked_by_id == driver):
             raise UserError("%s controló pedidos de esta ruta en el depósito: la carga la "
                             "controla otra persona, no el repartidor." % driver.name)
         old = self.driver_id

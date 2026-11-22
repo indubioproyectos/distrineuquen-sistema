@@ -15,6 +15,12 @@
 .arm-ped__det b{color:var(--dn-ink)}
 .arm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .arm-ped--en_armado{box-shadow:inset 4px 0 0 var(--dn-navy)}
+/* 19.0.1.127.0: «Buscar cliente o pedido», like /deposito's search */
+.arm-lista-box{display:flex;flex-direction:column;gap:12px}
+.arm-search{position:relative}
+.arm-search .dn-i{position:absolute;left:12px;top:14px;color:var(--dn-muted)}
+.arm-search .dn-input{padding-left:44px}
+.arm-search__nada{margin:0;color:var(--dn-muted)}
 
 /* lines of an order */
 .arm-ren{display:flex;flex-direction:column;gap:8px}

@@ -80,3 +80,4 @@ from . import esquema_v126
 from . import acreditar
 from . import subir_v126_1
 from . import subir_v126_2
+from . import paquete_v127

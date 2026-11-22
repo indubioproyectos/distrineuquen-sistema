@@ -71,13 +71,14 @@ class TestDespacho(RepartoMixin, HttpCase):
             with self.assertRaises(UserError):
                 self._as(user, self.s3).action_dispatch_check()
         self.assertFalse(self.s3.dispatch_checked)
-        # an admin who drives this route does not check his own load
+        # 19.0.1.127.0: an admin who drives this route may check his own load
+        # (autodespacho, tests/test_v127_paquete.py); a plain driver may not
         own = self._route(self._order(self.s1.partner_id, self.s1.order_id.order_line.product_id),
                           driver=self.admin_driver)
+        self._as(self.admin_driver, own.stop_ids).action_dispatch_check()
+        self.assertTrue(own.stop_ids.dispatch_checked)
         with self.assertRaisesRegex(UserError, "otra persona"):
-            self._as(self.admin_driver, own.stop_ids).action_dispatch_check()
-        with self.assertRaisesRegex(UserError, "otra persona"):
-            self._as(self.admin_driver, own).action_mark_controlled()
+            self.route.stop_ids[:1].with_user(self.driver).sudo().action_dispatch_check()
 
     def test_despacho_page_and_api_only_for_admin(self):
         self.authenticate(self.driver.login, self.driver.login)

@@ -26,6 +26,11 @@ from odoo.exceptions import UserError
 from .reparto_cliente import today_ar
 
 GROUP_DISPATCH = "distri_pedido.grupo_administracion"
+# 19.0.1.127.0 (owner): who may control the load of a route he drives himself
+# (loose or out-of-zone orders): «Administración contable» and gerencia. A
+# driver without those groups keeps the double control by someone else.
+SELF_DISPATCH_GROUPS = ("distri_pedido.grupo_administracion", "distri_pedido.grupo_gerencia")
+SELF_DISPATCH_NOTE = "Autodespacho: %s controló su propia carga"
 AR_TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 
 LOAD_STATES = [
@@ -46,6 +51,11 @@ LEAVE_DEFAULT_REASON = "Bajado en el despacho"
 
 def first_name(user):
     return (user.name or "").split(" ")[0] if user else ""
+
+
+def can_self_dispatch(user):
+    """19.0.1.127.0: the user may control the load of his own route."""
+    return bool(user) and any(user.has_group(group) for group in SELF_DISPATCH_GROUPS)
 
 
 def ar_time(moment):
@@ -244,19 +254,38 @@ class DistriRouteDispatch(models.Model):
     # ------------------------------------------------------------ checks
 
     def _check_dispatcher(self):
-        """Administración or gerencia, and not the route's own driver."""
+        """Administración or gerencia, and not the route's own driver unless
+        he may self-dispatch (19.0.1.127.0, noted on the route)."""
         user = self.env.user
         if not (self.env.su or user.has_group(GROUP_DISPATCH)):
             raise UserError("Solo administración y gerencia controlan la carga.")
         for route in self:
-            if route.driver_id == user:
-                raise UserError("La carga la controla otra persona, no el repartidor de la ruta.")
+            route._check_own_load(user)
             if route.kind != "route":
                 raise UserError("Solo para las rutas de reparto.")
             if route.state != "draft":
                 raise UserError("La ruta %s ya salió." % route.name)
             if route.departure_controlled_at:
                 raise UserError("La salida de %s ya se controló." % route.name)
+        for route in self.filtered(lambda r: r.driver_id == user):
+            route._note_self_dispatch(user)
+
+    def _check_own_load(self, user):
+        """The route's own driver controls his load only with
+        SELF_DISPATCH_GROUPS (19.0.1.127.0)."""
+        self.ensure_one()
+        if self.driver_id == user and not can_self_dispatch(user):
+            raise UserError("La carga la controla otra persona, no el repartidor de la ruta.")
+
+    def _note_self_dispatch(self, user):
+        """«Autodespacho: X controló su propia carga», once per route."""
+        self.ensure_one()
+        body = SELF_DISPATCH_NOTE % user.name
+        if self.env["mail.message"].sudo().search_count([
+                ("model", "=", self._name), ("res_id", "=", self.id),
+                ("body", "ilike", body)], limit=1):
+            return
+        self.sudo().message_post(body=body)
 
     def _dispatch_missing_lines(self):
         """One line per order still without both ticks."""
@@ -372,7 +401,10 @@ class DistriRouteDispatch(models.Model):
             "zones_text": ", ".join(self.zone_ids.mapped("name")),
             "state": self.state,
             "is_driver": self.driver_id == me,
-            "editable": self.state == "draft" and not controlled and self.driver_id != me,
+            "editable": self.state == "draft" and not controlled
+            and (self.driver_id != me or can_self_dispatch(me)),
+            # 19.0.1.127.0: the driver controls his own load (autodespacho)
+            "self_dispatch": self.driver_id == me and can_self_dispatch(me),
             "controlled": controlled,
             "orders_total": len(self.stop_ids),
             "orders_checked": self.checked_stop_count,

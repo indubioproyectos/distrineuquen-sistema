@@ -409,8 +409,40 @@
   }
 
   // ------------------------------------------------------------ list
+  // 19.0.1.127.0: «Buscar cliente o pedido» hides the cards that do not
+  // match (customer name or order number, without accents) and the zones
+  // left empty; the query survives the refresh of #lista.
+  function fold(text) {
+    return String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+  function buscar(DN, box) {
+    var input = DN.$('[data-arm-buscar]');
+    var nada = DN.$('[data-arm-nada]');
+    function apply() {
+      if (!input) { return; }
+      var words = fold(input.value).split(/\s+/).filter(Boolean);
+      var shown = 0;
+      DN.$$('.arm-zona', box).forEach(function (zona) {
+        var visible = 0;
+        DN.$$('.arm-ped', zona).forEach(function (card) {
+          var nom = card.querySelector('.arm-ped__nom');
+          var text = fold((nom ? nom.textContent : '') + ' ' + (card.getAttribute('data-pedido') || ''));
+          var ok = words.every(function (w) { return text.indexOf(w) !== -1; });
+          card.hidden = !ok;
+          if (ok) { visible += 1; }
+        });
+        zona.hidden = visible === 0;
+        shown += visible;
+      });
+      if (nada) { nada.hidden = !(words.length && shown === 0); }
+    }
+    if (input) { input.addEventListener('input', apply); }
+    return apply;
+  }
+
   function lista(DN) {
     var box = DN.$('#lista');
+    var filtrar = buscar(DN, box);
     var last = Date.now();
     var busy = false;
     function refresh() {
@@ -419,7 +451,7 @@
       DN.api(location.pathname).then(function (html) {
         var doc = new DOMParser().parseFromString(html, 'text/html');
         var fresh = doc.getElementById('lista');
-        if (fresh) { box.innerHTML = fresh.innerHTML; }
+        if (fresh) { box.innerHTML = fresh.innerHTML; filtrar(); }
         last = Date.now();
       }, function () { /* keep what is shown; next round tries again */ }).then(function () { busy = false; });
     }

@@ -199,7 +199,11 @@
       '<div class="kicker">Despacho · Viaje ' + h(r.trip) + " · " + h(r.day) + "</div>" +
       "<h1>" + h(r.driver) + '</h1><div class="sub">' + h(r.zones_text || "Sin zonas") + "</div></div>" +
       '<div id="status">' + statusBanner() + "</div>";
-    if (r.is_driver) {
+    if (r.is_driver && r.self_dispatch) {
+      // 19.0.1.127.0: administración/gerencia control their own load (noted on the route)
+      out += '<div class="banner info">Sos el repartidor de esta ruta: podés controlar tu propia carga. ' +
+        "Queda anotado como autodespacho.</div>";
+    } else if (r.is_driver) {
       out += '<div class="banner warn">Sos el repartidor de esta ruta: la carga la controla otra persona.</div>';
     }
     if (r.controlled) {

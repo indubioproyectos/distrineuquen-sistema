@@ -90,6 +90,8 @@
       .etq .enc .rem__emp { white-space: nowrap; overflow: hidden; }
       .etq .ped { position: absolute; right: 3mm; top: 28.3mm; width: 32mm; text-align: center;
                   font-size: 7pt; line-height: 1.15; white-space: nowrap; overflow: hidden; }
+      /* 19.0.1.127.0: «Armó: Juan» right under the package box, above the barcode */
+      .etq .ped.armo { top: 32.9mm; }
     </style>
   </template>
 
@@ -128,6 +130,8 @@
           <span class="num" t-attf-style="font-size:{{e['number_size']}}pt" t-esc="e['number_text']"/>
           <span class="de">de <t t-esc="e['total']"/> <t t-esc="'bulto' if e['total'] == 1 else 'bultos'"/></span>
         </div>
+        <!-- 19.0.1.127.0: who packed it (first name), common label only -->
+        <div t-if="e.get('packer') and not e.get('parcel')" class="ped armo">Armó: <t t-esc="e['packer']"/></div>
         <div class="cod">
           <img t-att-src="'data:image/png;base64,%s' % e['barcode']" alt=""/>
           <span t-esc="e['code']"/>

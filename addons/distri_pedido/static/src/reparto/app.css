@@ -143,6 +143,9 @@ a.opt{display:block;text-decoration:none}
         padding:8px 12px;font-size:14px;line-height:1.35}
 .notice b{font-weight:800}
 .place-notice{margin:12px 20px 0}
+/* 19.0.1.127.0: «Armado por Juan 10:42 · 3 bultos · Faltó: ...» on the stop */
+.packed{margin:10px 20px 0;padding:6px 12px;border:1px solid var(--line-2);border-radius:10px;
+        background:var(--card);color:var(--muted);font-size:13px;line-height:1.35}
 .cust-loc{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-top:1px solid var(--line-2);
           text-decoration:none;color:var(--text)}
 .cust-loc b{font-size:14px;color:var(--teal)}
