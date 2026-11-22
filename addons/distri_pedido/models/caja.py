@@ -514,25 +514,29 @@ class DistriCaja(models.Model):
             active_test=False).search([("lab_payment_id", "in", payments.ids)])
         return (cards.payment_id | history.lab_payment_id) & payments
 
-    def _pending_invoice_cash(self):
+    def _pending_invoice_cash(self, only=None):
         """The invoice cash payments this open session takes: neither
-        routed, nor in any caja, nor anything but plain cash."""
+        routed, nor in any caja, nor anything but plain cash. `only`
+        (19.0.1.124.0, the sync on post) limits the search to those payments."""
         self.ensure_one()
-        payments = self.env["account.payment"].sudo().search(
-            self._invoice_cash_domain(), order="id")
+        domain = self._invoice_cash_domain()
+        if only is not None:
+            domain.append(("id", "in", only.ids))
+        payments = self.env["account.payment"].sudo().search(domain, order="id")
         if not payments:
             return payments
         payments -= self.env["distri.caja.movimiento"].sudo().search(
             [("payment_id", "in", payments.ids)]).payment_id
         return payments - self._routed_payments(payments) - self._not_plain_cash(payments)
 
-    def _sync_invoice_collections(self):
+    def _sync_invoice_collections(self, only=None):
         """Every pending invoice cash payment becomes a «Cobro registrado en
         la factura» of the open session, once (the unique index on
-        `payment_id` settles two syncs at the same time)."""
+        `payment_id` settles two syncs at the same time). `only`: see
+        `_pending_invoice_cash`."""
         Movement = self.env["distri.caja.movimiento"].sudo()
         for caja in self.sudo().filtered(lambda c: c.state == "open"):
-            for payment in caja._pending_invoice_cash():
+            for payment in caja._pending_invoice_cash(only):
                 try:
                     with self.env.cr.savepoint():
                         Movement.create({

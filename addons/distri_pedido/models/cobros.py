@@ -82,6 +82,9 @@ WITHOUT_RECEIPT_NOTICE = (
 
 MP_JOURNAL_CODE = "MP"
 MP_JOURNAL_NAME = "Mercado Pago"
+# 19.0.1.124.0: a payment registered by hand in «Banco» is the same transfer as
+# an income of the report when dated within this many days of it
+BANK_TWIN_DAYS = 2
 
 PARAM_FOLDER = "distri_pedido.mp_carpeta_reportes"
 DEFAULT_FOLDER = "/var/lib/odoo/mercadopago/entrada"
@@ -2041,7 +2044,79 @@ class DistriMpCollection(models.Model):
                     "%s ya tiene un pago: el comprobante %s se verificó a mano (pago %s). Si el "
                     "importe verificado estaba mal, deshacé primero esa verificación." % (
                         rec.name, card.name, card.payment_id.name or ""))
+        # 19.0.1.124.0: before anything is confirmed, so a bulk confirmation
+        # never stops halfway
+        for rec in todo:
+            rec._check_one_bank_twin(rec._bank_twin_payments())
         return todo
+
+    # ------------------------------------------------------------ bank twin
+    # 19.0.1.124.0: a cashier registered the transfer by hand in «Banco»
+    # (usually with the invoice number as memo) and the report brings it
+    # later as an income: confirming it must not credit the customer twice.
+
+    def _bank_twin_payments(self):
+        """The posted customer payments of this income's customer in a bank
+        journal other than «Mercado Pago», of the same amount, dated within
+        BANK_TWIN_DAYS of the income and not tied to any card yet."""
+        self.ensure_one()
+        record = self.sudo()
+        Payment = self.env["account.payment"].sudo()
+        partner = record.partner_id.commercial_partner_id
+        if record.kind != "income" or not partner or not record.amount:
+            return Payment
+        day = record.date_day or fields.Date.context_today(self)
+        mp_journal = self.env["account.journal"]._distri_mp_journal(record.company_id)
+        payments = Payment.search([
+            ("company_id", "=", record.company_id.id), ("payment_type", "=", "inbound"),
+            ("partner_type", "=", "customer"), ("state", "in", ("in_process", "paid")),
+            ("journal_id.type", "=", "bank"), ("journal_id", "!=", mp_journal.id),
+            ("partner_id", "child_of", partner.id), ("amount", "=", record.amount),
+            ("date", ">=", day - timedelta(days=BANK_TWIN_DAYS)),
+            ("date", "<=", day + timedelta(days=BANK_TWIN_DAYS)),
+        ], order="date, id")
+        payments = payments.filtered(
+            lambda p: p.currency_id == record.currency_id
+            and not record.currency_id.compare_amounts(p.amount, record.amount))
+        if payments:
+            payments -= record.with_context(active_test=False).search(
+                [("payment_id", "in", payments.ids)]).payment_id
+        return payments
+
+    def _check_one_bank_twin(self, twins):
+        """More than one candidate: a person decides which one it is."""
+        self.ensure_one()
+        if len(twins) > 1:
+            raise UserError(
+                "%s: hay %s pagos cargados a mano que pueden ser esta misma transferencia (%s). "
+                "Revisá cuál es antes de confirmar, para no acreditarla dos veces." % (
+                    self.name, len(twins), ", ".join(
+                        "%s del %s en %s" % (p.name, p.date.strftime("%d/%m/%Y"),
+                                             p.journal_id.name) for p in twins)))
+
+    def _tie_bank_payment(self, payment):
+        """Confirms the income with the payment registered by hand, the way
+        `_tie_hand_verified` ties: no new payment."""
+        self.ensure_one()
+        record = self.sudo()
+        partner = record.partner_id.commercial_partner_id
+        where = "%s del %s en %s" % (payment.name, payment.date.strftime("%d/%m/%Y"),
+                                     payment.journal_id.name)
+        record.write({
+            "state": "confirmed",
+            "partner_id": partner.id,
+            "payment_id": payment.id,
+            "confirmed_by_id": self.env.user.id,
+            "confirmed_at": fields.Datetime.now(),
+            "receipt_candidate": False,
+            "proposal_note": "Ya estaba cargado a mano: pago %s" % where,
+        })
+        record.message_post(body="Confirmado por %s con el pago %s, que ya estaba cargado a mano: "
+                                 "no se registra otro pago y el cliente no se acredita dos "
+                                 "veces." % (self.env.user.name, where))
+        payment.message_post(body="Es la transferencia %s del reporte de Mercado Pago (%s): se "
+                                  "confirmó con este pago, sin registrar otro." % (
+                                      record.name, _money(record.amount)))
 
     def action_approve_candidate(self):
         """«Aprobar» in the customer's statement: a candidate whose WhatsApp
@@ -2095,6 +2170,12 @@ class DistriMpCollection(models.Model):
         if record.kind != "income" or record.state != "draft" or not record.source_id:
             raise UserError("%s no es un ingreso pendiente del reporte de Mercado Pago: no se "
                             "registra ningún pago." % record.name)
+        # 19.0.1.124.0: the transfer already registered by hand in «Banco»
+        twins = record._bank_twin_payments()
+        record._check_one_bank_twin(twins)
+        if twins:
+            record._tie_bank_payment(twins)
+            return
         partner = record.partner_id.commercial_partner_id
         journal = self.env["account.journal"]._distri_mp_journal(record.company_id)
         payment = self.env["account.payment"].sudo().create({

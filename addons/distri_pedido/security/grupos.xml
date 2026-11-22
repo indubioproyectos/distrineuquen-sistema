@@ -39,7 +39,7 @@
     </record>
 
     <record id="grupo_administracion" model="res.groups">
-      <field name="name">Administración</field>
+      <field name="name">Administración contable</field>
       <field name="privilege_id" ref="privilegio_distri"/>
       <field name="sequence">40</field>
       <field name="implied_ids" eval="[(4, ref('grupo_vendedor')), (4, ref('grupo_armador')), (4, ref('grupo_reparto')), (4, ref('sales_team.group_sale_salesman_all_leads')), (4, ref('account.group_account_invoice')), (4, ref('account.group_account_user')), (4, ref('base.group_partner_manager'))]"/>

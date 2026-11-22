@@ -313,7 +313,8 @@ class DistriCashCollection(models.Model):
             "memo": memo,
             "company_id": route.company_id.id,
         })
-        payment.action_post()
+        # 19.0.1.124.0: linked to the box below, so no caja takes it on post
+        payment.with_context(distri_caja_no_instant=True).action_post()
         if invoice:
             self._cash_reconcile(payment, invoice)
         else:

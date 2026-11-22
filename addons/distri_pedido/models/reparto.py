@@ -570,7 +570,8 @@ class DistriRoute(models.Model):
             "memo": "%s %s · %s" % (label, self.name, stop.order_id.name),
             "company_id": self.company_id.id,
         })
-        payment.action_post()
+        # 19.0.1.124.0: linked to the route below, so no caja takes it on post
+        payment.with_context(distri_caja_no_instant=True).action_post()
         self._apply_oldest_first(payment, partner)
         self.payment_ids = [(4, payment.id)]
         return payment
