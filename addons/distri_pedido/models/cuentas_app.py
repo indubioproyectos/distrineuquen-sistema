@@ -369,6 +369,9 @@ class DistriAccountApp(models.AbstractModel):
             "scope": scope,
             "can_filter_seller": scope == "all",
             "can_see_uncollectible": not hide_uncollectible,
+            # 19.0.1.129.8: «Transferencias» (models/cuentas_transferencias.py);
+            # the API checks the same groups again
+            "can_see_transfers": self._app_can_see_transfers(),
             "seller": seller,
             "zone": (zone or "").strip(),
             "zones": zones,

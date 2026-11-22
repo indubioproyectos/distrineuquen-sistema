@@ -11,6 +11,9 @@ date_to), /cuentas/api/statement_pdf prints the existing statement report
 («Compartir PDF», «Imprimir») and the debtors take the PC filters (zone,
 min_balance, min_age). The page loads cuentas_app.js / cuentas_app.css;
 the old cuentas.js / cuentas.css are no longer loaded (19.0.1.113.0).
+
+19.0.1.129.8: «Transferencias» (/cuentas/api/transfers, transfer_receipt),
+the loaded transfers for administración, gerencia and sistemas only.
 """
 import hashlib
 import json
@@ -180,6 +183,31 @@ class Cuentas(http.Controller):
             raise Forbidden()
         try:
             data, mimetype, name = self._app().app_receipt(id, int(card or 0))
+        except (AccessError, ValueError, TypeError):
+            raise Forbidden()
+        return self._file(data, mimetype, name)
+
+    @http.route("/cuentas/api/transfers", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def transfers(self, period="today", date_from="", date_to="", user="0", state="all",
+                  offset=0, **kw):
+        """19.0.1.129.8 «Transferencias»: the loaded transfers, only for
+        administración, gerencia and sistemas (models/cuentas_transferencias.py)."""
+        try:
+            offset = int(offset or 0)
+        except (TypeError, ValueError):
+            offset = 0
+        return self._call("app_transfers", period=period, date_from=date_from,
+                          date_to=date_to, user_id=user, state=state, offset=offset)
+
+    @http.route("/cuentas/api/transfer_receipt", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def transfer_receipt(self, id=None, **kw):
+        """The receipt of one loaded transfer, same groups as /transfers."""
+        if not app_scope(request.env):
+            raise Forbidden()
+        try:
+            data, mimetype, name = self._app().app_transfer_receipt(id)
         except (AccessError, ValueError, TypeError):
             raise Forbidden()
         return self._file(data, mimetype, name)

@@ -4,6 +4,9 @@
  *   (empty)                  the debtors, highest debt first
  *   #cuenta/<id>             the account of one customer
  *   #cuenta/<id>/mov/<key>   one statement row, as a bottom sheet
+ *   #transferencias[/<id>]   19.0.1.129.8: the loaded transfers (administración,
+ *                            gerencia, sistemas; the server checks) and one
+ *                            receipt, as a bottom sheet
  * From 1024 px (19.0.1.112.0, mockup «pc-cuentas-deudores») the debtors are
  * a table with the PC filters and the account sits beside it. The account
  * takes a free date range, «Compartir PDF» (Web Share API when the browser
@@ -20,6 +23,10 @@
     ["180", "Más de 180 días"]];
   var WIDE = window.matchMedia ? window.matchMedia("(min-width: 1024px)") : { matches: false };
   var SELLERS = [["all", "Todos"], ["italo", "Italo"], ["distrineuquen", "Distrineuquén"]];
+  // 19.0.1.129.8 «Transferencias»
+  var T_PERIODS = [["today", "Hoy"], ["yesterday", "Ayer"], ["week", "Semana"], ["month", "Mes"], ["custom", "Fechas"]];
+  var T_STATES = [["all", "Todas"], ["not_matched", "No cruzadas"], ["anomaly", "Con anomalía"], ["no_receipt", "Sin comprobante"]];
+  var AUDIT_PILL = { pendiente: "warn", verificado: "ok", diferencia: "err", sin_transferencia: "err", revertido: "err", anulado: "" };
 
   var S = {
     online: true,
@@ -43,6 +50,12 @@
     draft: "",          // comment being written on the account
     lineDraft: "",
     busy: false,
+    tr: null,           // 19.0.1.129.8: the transfers payload {.., rows}
+    trf: { period: "today", from: "", to: "", user: "0", state: "all" },
+    trMore: false,      // loading the next page
+    trOpen: null,       // the open transfer row
+    trPeople: false,    // the «por persona» subtotals unfolded
+    lastList: "#",      // where «‹» of an account goes back to
   };
 
   // ------------------------------------------------------------- format
@@ -67,6 +80,12 @@
     return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : iso;
   }
   function shortDay(iso) { return day(iso).slice(0, 5); }
+  // $ 1.234.568: no cents (the transfers list)
+  function moneyInt(amount) {
+    amount = Math.round(+amount || 0);
+    var sign = amount < 0 ? "-" : "";
+    return sign + "$ " + String(Math.abs(amount)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   function norm(text) {
     return String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -118,6 +137,8 @@
   // ------------------------------------------------------------- routing
 
   function route() {
+    var t = location.hash.match(/^#transferencias(?:\/(\d+))?$/);
+    if (t) return { id: null, key: null, transfers: true, transfer: t[1] ? +t[1] : null };
     var m = location.hash.match(/^#cuenta\/(\d+)(?:\/mov\/(.+))?$/);
     return m ? { id: +m[1], key: m[2] ? decodeURIComponent(m[2]) : null } : { id: null, key: null };
   }
@@ -125,6 +146,16 @@
   function onRoute() {
     var r = route();
     S.zoom = null;
+    if (r.transfers) {
+      S.line = null;
+      S.lastList = "#transferencias";
+      S.trOpen = r.transfer && S.tr ? S.tr.rows.filter(function (x) { return x.id === r.transfer; })[0] || null : null;
+      if (r.transfer && !S.trOpen && S.tr) { location.replace("#transferencias"); return; }
+      if (!S.tr) loadTransfers(); else render();
+      return;
+    }
+    S.trOpen = null;
+    if (!r.id) S.lastList = "#";
     if (!r.id) {
       S.line = null;
       if (WIDE.matches) S.account = null;
@@ -236,6 +267,50 @@
     }).catch(function (err) { S.line = null; fail(err); });
   }
 
+  // 19.0.1.129.8 «Transferencias»: the filter is a query; «Ver más» adds a page
+  function transferQuery() {
+    var f = S.trf;
+    var q = "period=" + f.period + "&user=" + encodeURIComponent(f.user) + "&state=" + f.state;
+    if (f.period === "custom") {
+      q += "&date_from=" + encodeURIComponent(f.from || "") + "&date_to=" + encodeURIComponent(f.to || "");
+    }
+    return q;
+  }
+
+  function loadTransfers() {
+    var query = transferQuery();
+    var people = S.tr && S.tr.people;
+    S.trLoading = true;
+    if (S.tr) S.tr.error = "";
+    render();
+    return get("transfers?" + query).then(function (data) {
+      if (query !== transferQuery()) return;  // a newer filter is loading
+      data.people = data.people || people || [];
+      data._query = query;
+      S.tr = data;
+      var r = route();
+      if (r.transfer) {
+        S.trOpen = data.rows.filter(function (x) { return x.id === r.transfer; })[0] || null;
+        if (!S.trOpen) location.replace("#transferencias");
+      }
+    }).catch(function (err) {
+      if (err.message !== "auth") S.tr = { error: err.message, rows: [], people: people || [], by_person: [] };
+      fail(err);
+    }).then(function () { S.trLoading = false; render(); });
+  }
+
+  function loadMoreTransfers() {
+    var T = S.tr;
+    if (!T || S.trMore) return;
+    S.trMore = true;
+    render();
+    get("transfers?" + T._query + "&offset=" + T.rows.length).then(function (data) {
+      if (S.tr !== T) return;
+      T.rows = T.rows.concat(data.rows);
+      T.more = data.more;
+    }).catch(fail).then(function () { S.trMore = false; render(); });
+  }
+
   // ------------------------------------------------------------- render
 
   var app = document.getElementById("app");
@@ -271,18 +346,20 @@
     var focus = document.activeElement && document.activeElement.id;
     var caret = focus && document.activeElement.selectionStart;
     var y = window.scrollY;
-    var keepScroll = WIDE.matches || render.lastId === (r.id || 0);
-    render.lastId = r.id || 0;
+    var rid = r.transfers ? "t" : (r.id || 0);
+    var keepScroll = (WIDE.matches && !r.transfers) || render.lastId === rid;
+    render.lastId = rid;
     var side = document.querySelector(".dacc");
     var sideY = side && render.lastSide === (r.id || 0) ? side.scrollTop : 0;
     var csRows = document.getElementById("cs-rows");
     var csKeep = csRows && S.line && csRows.dataset.line === S.line.line_key ? csRows.scrollTop : null;
     document.body.classList.toggle("wide", !!WIDE.matches);
-    app.innerHTML = WIDE.matches ? viewDesk() : r.id ? viewAccount() : viewDebtors();
+    app.innerHTML = r.transfers ? viewTransfers() : WIDE.matches ? viewDesk() : r.id ? viewAccount() : viewDebtors();
     side = document.querySelector(".dacc");
     if (side) side.scrollTop = sideY;
     render.lastSide = r.id || 0;
-    sheetRoot.innerHTML = (S.line ? viewLine() : "") + (S.zoom ? viewZoom() : "");
+    sheetRoot.innerHTML = (S.line ? viewLine() : "") + (r.transfers && S.trOpen ? viewTransfer(S.trOpen) : "") +
+      (S.zoom ? viewZoom() : "");
     csRows = document.getElementById("cs-rows");
     if (csRows) {
       csRows.dataset.line = S.line.line_key;
@@ -293,7 +370,7 @@
         if (hit.scrollIntoView) hit.scrollIntoView({ block: "nearest" });
       }
     }
-    document.body.style.overflow = S.line || S.zoom ? "hidden" : "";
+    document.body.style.overflow = S.line || S.zoom || (r.transfers && S.trOpen) ? "hidden" : "";
     if (focus) {
       var el = document.getElementById(focus);
       if (el) {
@@ -347,6 +424,8 @@
       '<span class="headbtns">' +
       (load ? '<button type="button" id="lastload" class="loadbtn' + (S.showLoad ? " on" : "") + '" aria-expanded="' +
         (S.showLoad ? "true" : "false") + '">Última carga</button>' : "") +
+      // 19.0.1.129.8: only administración, gerencia and sistemas (the API checks again)
+      (D && D.can_see_transfers ? '<a class="loadbtn" href="#transferencias">Transferencias</a>' : "") +
       // 19.0.1.92.0: register a cash payment of any customer (controllers/cobro.py)
       '<a class="loadbtn" href="/cobro">Cobro en efectivo</a>' +
       // the only way out for a seller locked to this app (distri_pedido.vendedor_solo_cuentas)
@@ -628,7 +707,8 @@
     var d = acc && acc.data;
     var p = d && d.partner;
     var head = '<div class="sticky"><div class="head compact">' +
-      '<a class="back" href="#">‹ Deudores</a>';
+      (S.lastList === "#transferencias" ? '<a class="back" href="#transferencias">‹ Transferencias</a>' :
+        '<a class="back" href="#">‹ Deudores</a>');
     if (acc && acc.error) {
       return head + "<h1>Cuenta</h1></div>" + banner() + '</div><div class="body"><div class="denied">' +
         '<div class="banner err">' + h(acc.error) + '</div><p><a href="#">Volver a deudores</a></p></div></div>';
@@ -693,7 +773,9 @@
     var head = '<header class="dbar"><span class="logo">DN</span><span class="dtitle">Deudores y estado de cuenta</span>' +
       '<span class="dsub">' + (D ? "Al " + String(today.getDate()).padStart(2, "0") + "/" + String(today.getMonth() + 1).padStart(2, "0") +
         " · " + h(D.user) : "") + (S.refreshing ? ' · <span class="upd">actualizando…</span>' : "") + "</span>" +
-      '<span class="grow"></span><a class="loadbtn" href="/cobro">Cobro en efectivo</a>' +
+      '<span class="grow"></span>' +
+      (D && D.can_see_transfers ? '<a class="loadbtn" href="#transferencias">Transferencias</a>' : "") +
+      '<a class="loadbtn" href="/cobro">Cobro en efectivo</a>' +
       '<a class="loadbtn logout" href="/web/session/logout?redirect=%2Fweb%2Flogin">Salir</a></header>';
     var f = '<div class="dfilters"><div class="frow">';
     if (D && D.can_filter_seller) {
@@ -739,6 +821,111 @@
       " · ordenado por deuda</span>";
     return '<div class="desk">' + head + banner() + '<main class="dwrap">' + f + kpis +
       '<div class="dcols"><section class="panel dlist">' + tabs + body + "</section>" + deskAccount() + "</div></main></div>";
+  }
+
+  // ---- 19.0.1.129.8 «Transferencias»: loaded transfers, newest first
+
+  function transferBadges(t) {
+    var out = "";
+    if (t.audit_label) out += '<span class="pill ' + (AUDIT_PILL[t.audit_state] || "") + '">' + h(t.audit_label) + "</span>";
+    else if (t.load_state === "pending") out += '<span class="pill warn">' + h(t.load_label) + "</span>";
+    if (!t.matched) out += '<span class="pill err">no cruzada</span>';
+    if (t.with_anomaly) out += '<span class="pill err">anomalía</span>';
+    if (t.without_receipt) out += '<span class="pill warn">sin comprobante</span>';
+    return out;
+  }
+
+  function transferRow(t) {
+    return '<button type="button" class="debtor trow" data-trow="' + t.id + '">' +
+      '<div class="who"><b>' + h(t.partner || "Sin cliente") + "</b>" +
+      '<span class="d">' + shortDay(t.date) + " " + h(t.time) + " · " + h(t.loaded_by || "Sin usuario") + "</span>" +
+      '<div class="chips">' + transferBadges(t) + "</div></div>" +
+      '<div class="amt"><b class="num">' + moneyInt(t.amount) + "</b></div></button>";
+  }
+
+  function viewTransfers() {
+    var T = S.tr;
+    var f = S.trf;
+    var head = '<div class="sticky"><div class="head compact"><a class="back" href="#">‹ Deudores</a>' +
+      '<div class="kicker">Cuentas de clientes · Transferencias cargadas</div>';
+    if (T && !T.error && T.count != null) {
+      head += '<div class="total num">' + moneyInt(T.amount) + "</div>" +
+        '<div class="sub">' + plural(T.count, "transferencia", "transferencias") +
+        (S.trLoading ? ' · <span class="upd">actualizando…</span>' : "") + "</div>";
+    } else {
+      head += "<h1>Transferencias</h1>";
+    }
+    var people = (T && T.people) || [];
+    head += "</div>" + banner() + '<div class="tools">' +
+      '<div class="seg">' + T_PERIODS.map(function (x) {
+        return '<button type="button" data-tperiod="' + x[0] + '" class="' + (f.period === x[0] ? "on" : "") + '">' + x[1] + "</button>";
+      }).join("") + "</div>" +
+      (f.period === "custom" ? '<div class="range">' +
+        '<label class="fld">Desde<input id="t-from" class="inp" type="date" value="' + h(f.from) + '"/></label>' +
+        '<label class="fld">Hasta<input id="t-to" class="inp" type="date" value="' + h(f.to) + '"/></label></div>' : "") +
+      '<select id="t-user" class="inp" aria-label="Quién la cargó"><option value="0">Todas las personas</option>' +
+      people.map(function (p) {
+        return '<option value="' + p.id + '"' + (String(p.id) === String(f.user) ? " selected" : "") + ">" + h(p.name) + "</option>";
+      }).join("") + "</select>" +
+      '<div class="seg">' + T_STATES.map(function (x) {
+        return '<button type="button" data-tstate="' + x[0] + '" class="' + (f.state === x[0] ? "on" : "") + '">' + x[1] + "</button>";
+      }).join("") + "</div></div></div>";
+    var body;
+    if (!T) {
+      body = '<div class="cargando">Cargando…</div>';
+    } else if (T.error) {
+      body = '<div class="denied"><div class="banner err">' + h(T.error) + '</div><p><a href="#">Volver a deudores</a></p></div>';
+    } else {
+      var out = [];
+      if (T.by_person && T.by_person.length > 1) {
+        out.push('<details class="block tper"' + (S.trPeople ? " open" : "") + '><summary class="link" id="t-people">Por persona</summary>' +
+          '<div class="card">' + T.by_person.map(function (p) {
+            return '<div class="ci-top"><span>' + h(p.name) + ' <span class="muted">· ' + p.count + '</span></span><b class="num">' +
+              moneyInt(p.amount) + "</b></div>";
+          }).join("") + "</div></details>");
+      }
+      out.push(T.rows.length ? T.rows.map(transferRow).join("") :
+        '<div class="empty">No hay transferencias con este filtro.</div>');
+      if (T.more) {
+        out.push('<button type="button" class="btn outline more" id="tmore"' + (S.trMore ? " disabled" : "") + ">" +
+          (S.trMore ? "Cargando…" : "Ver más (" + (T.count - T.rows.length) + ")") + "</button>");
+      }
+      body = out.join("");
+    }
+    return '<div class="trf">' + head + '<div class="body">' + body + "</div></div>";
+  }
+
+  function viewTransfer(t) {
+    var url = API + "transfer_receipt?id=" + t.id;
+    var file;
+    if (!t.has_file) file = '<div class="note">Sin comprobante adjunto.</div>';
+    else if (t.file_kind === "image") {
+      file = '<img class="receipt big" alt="Comprobante" data-zoom="' + h(url) + '" src="' + h(url) + '"/>';
+    } else if (t.file_kind === "pdf") {
+      file = '<iframe class="receipt-pdf" title="Comprobante" src="' + h(url) + '"></iframe>' +
+        '<a class="btn outline" href="' + h(url) + '" target="_blank" rel="noopener">Abrir el PDF</a>';
+    } else {
+      file = '<a class="btn outline" href="' + h(url) + '" download>Descargar el comprobante</a>';
+    }
+    var details = kv([
+      ["Fecha", day(t.date) + " " + h(t.time)],
+      ["Cargó o acreditó", h(t.loaded_by)],
+      ["Subió el comprobante", t.uploaded_by && t.uploaded_by !== t.loaded_by ? h(t.uploaded_by) : ""],
+      ["Carga", h(t.load_label)],
+      ["Cliente", h(t.partner)],
+      ["Importe", '<span class="num">' + money(t.amount) + "</span>"],
+      ["Operación", h(t.operation)],
+      ["Paga", h(t.destination)],
+      ["Control con MP", t.audit_label ? '<span class="pill ' + (AUDIT_PILL[t.audit_state] || "") + '">' + h(t.audit_label) + "</span>" : ""],
+      ["Reporte de MP", t.matched ? "Cruzada" + (t.income_date ? " · " + h(t.income_date) : "") : '<span class="pill err">no cruzada</span>'],
+      ["Anomalía", t.with_anomaly || t.anomaly ? h(t.anomaly || "Sí") : ""],
+      ["Comprobante", t.without_receipt ? '<span class="pill warn">sin comprobante</span>' : ""],
+    ]);
+    var link = t.partner_id ? '<a class="btn outline" href="#cuenta/' + t.partner_id + '">Ver estado de cuenta</a>' : "";
+    return '<div class="overlay" data-tclose="1"><div class="sheet" role="dialog" aria-modal="true">' +
+      '<div class="grab"><b>' + moneyInt(t.amount) + " · " + h(t.partner || "Sin cliente") + '</b>' +
+      '<button type="button" class="close" data-tclose="1" aria-label="Cerrar">×</button></div>' +
+      '<div class="inner">' + file + details + link + "</div></div></div>";
   }
 
   // ---- line detail
@@ -991,9 +1178,30 @@
 
   document.addEventListener("click", function (ev) {
     var t = ev.target.closest("[data-seller],[data-period],[data-line],[data-close],[data-send],[data-delete]," +
-      "[data-zoom],[data-unzoom],[data-zoomtoggle],[data-tab],[data-pick],#more,#opts,#lastload,#share-pdf,#refresh");
+      "[data-zoom],[data-unzoom],[data-zoomtoggle],[data-tab],[data-pick],#more,#opts,#lastload,#share-pdf,#refresh," +
+      "[data-tperiod],[data-tstate],[data-trow],[data-tclose],#tmore,#t-people");
     if (!t) return;
-    if (t.dataset.pick) {
+    if (t.dataset.tperiod) {
+      if (t.dataset.tperiod === "custom") {
+        if (S.trf.period !== "custom") {
+          S.trf.period = "custom";
+          S.trf.from = S.trf.from || (S.tr && S.tr.date_from) || "";
+          S.trf.to = S.trf.to || (S.tr && S.tr.date_to) || "";
+          loadTransfers();
+        }
+      } else if (S.trf.period !== t.dataset.tperiod) { S.trf.period = t.dataset.tperiod; loadTransfers(); }
+    } else if (t.dataset.tstate) {
+      if (S.trf.state !== t.dataset.tstate) { S.trf.state = t.dataset.tstate; loadTransfers(); }
+    } else if (t.dataset.trow) {
+      location.hash = "#transferencias/" + t.dataset.trow;
+    } else if (t.dataset.tclose) {
+      if (ev.target === t) location.hash = "#transferencias";
+    } else if (t.id === "tmore") {
+      loadMoreTransfers();
+    } else if (t.id === "t-people") {
+      ev.preventDefault();
+      S.trPeople = !S.trPeople; render();
+    } else if (t.dataset.pick) {
       if (ev.target.closest("a")) return;  // the name link goes by itself
       location.hash = "#cuenta/" + t.dataset.pick;
     } else if (t.dataset.tab) {
@@ -1057,6 +1265,13 @@
   document.addEventListener("change", function (ev) {
     var id = ev.target.id;
     if (id === "r-from" || id === "r-to") { setRange(); return; }
+    if (id === "t-user") { S.trf.user = ev.target.value; loadTransfers(); return; }
+    if (id === "t-from" || id === "t-to") {
+      S.trf[id === "t-from" ? "from" : "to"] = ev.target.value;
+      if (S.trf.from && S.trf.to && S.trf.from > S.trf.to) { toast("La fecha «Desde» es posterior a «Hasta».", true); return; }
+      loadTransfers();
+      return;
+    }
     if (id === "f-seller") { S.seller = ev.target.value; loadDebtors(); return; }
     if (id === "f-zone") { S.zone = ev.target.value; loadDebtors(); return; }
     if (id === "f-age") { S.minAge = ev.target.value; loadDebtors(); return; }
@@ -1071,6 +1286,7 @@
   document.addEventListener("keydown", function (ev) {
     if (ev.key !== "Escape") return;
     if (S.zoom) { S.zoom = null; render(); } else if (S.line) closeLine();
+    else if (S.trOpen && route().transfers) location.hash = "#transferencias";
   });
 
   window.addEventListener("hashchange", onRoute);

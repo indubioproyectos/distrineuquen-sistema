@@ -518,10 +518,12 @@ class TestCuentasApp(HttpCase):
         self.assertEqual(writes, {"/cuentas/api/comment", "/cuentas/api/comment/delete"})
         public = {name for name in dir(type(self.env["distri.account.app"]))
                   if name.startswith("app_")}
-        # 19.0.1.112.0: app_statement_pdf prints the statement report (a read)
+        # 19.0.1.112.0: app_statement_pdf prints the statement report (a read);
+        # 19.0.1.129.8: app_transfers / app_transfer_receipt («Transferencias», reads)
         self.assertEqual(public, {"app_debtors", "app_account", "app_line", "app_receipt",
                                   "app_sheet_file", "app_add_comment", "app_delete_comment",
-                                  "app_statement_pdf"})
+                                  "app_statement_pdf", "app_transfers",
+                                  "app_transfer_receipt"})
 
         def money_state():
             return (self.env["account.payment"].search_count([]),

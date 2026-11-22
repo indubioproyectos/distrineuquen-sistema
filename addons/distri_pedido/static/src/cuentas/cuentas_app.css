@@ -269,3 +269,15 @@ body.wide #app{max-width:none}
 .stbl .pill{font-size:10.5px;padding:1px 6px}
 body.wide .overlay{align-items:center}
 body.wide .sheet{border-radius:16px;max-height:86vh}
+
+/* ---- 19.0.1.129.8 «Transferencias»: loaded transfers, phone first (also on the PC) */
+.trf{width:100%;max-width:560px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.trf .tools select.inp{font-size:16px;min-height:40px;padding:6px 10px;background:#fff}
+.trow{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.trow .chips{gap:4px;margin-top:2px}
+.trow .pill{font-size:10.5px;padding:1px 6px}
+.tper .card{display:flex;flex-direction:column;gap:6px;padding:8px 10px;margin-top:4px}
+.tper .ci-top{font-size:13px}
+.receipt.big{max-height:70vh;object-fit:contain}
+.receipt-pdf{width:100%;height:70vh;border:1px solid var(--line);border-radius:12px;background:#fff}
+.sheet .inner > .btn{display:flex;align-items:center;justify-content:center;min-height:44px;text-decoration:none}

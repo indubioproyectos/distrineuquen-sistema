@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.7",
+    "version": "19.0.1.129.8",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -526,6 +526,17 @@
     # day, week, month, range, customer, audit state, «no cruzadas» and «con
     # anomalía»; groups with totals. «Resumen diario por persona» lines open
     # it filtered by that person and day («Ver transferencias»).
+    # 19.0.1.129.8 (owner): «Transferencias» inside /cuentas, so Gerencia
+    # reviews the loaded transfers from the phone: a «Transferencias» button
+    # in the header (only Administración, Gerencia and Sistemas; the API
+    # /cuentas/api/transfers checks the same groups and answers 403 to anyone
+    # else), newest first, 50 per page with «Ver más»; period Hoy / Ayer /
+    # Semana / Mes / Fechas, person and the chips Todas / No cruzadas / Con
+    # anomalía / Sin comprobante, with the count, the amount and «Por
+    # persona» of the filter. A row opens its receipt big (image or PDF), its
+    # details and the customer's statement. Read-only, over the
+    # distri.loaded.transfer model of 19.0.1.129.7 (models/
+    # cuentas_transferencias.py). No migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth", "mail_bot", "digest"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",
