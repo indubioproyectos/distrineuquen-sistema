@@ -28,6 +28,15 @@
     </div>
   </header>
 
+  <!-- 19.0.1.126.0: the one-time notice of the instant crediting, until «Entendido» -->
+  <form t-if="aviso_acreditar" class="dn-card dn-card--warn tab-aviso" method="post"
+        action="/tablero/aviso-acreditar" role="alert" data-aviso="acreditar">
+    <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+    <input type="hidden" name="volver" value="/tablero"/>
+    <p t-esc="aviso_acreditar"/>
+    <button type="submit" class="dn-btn">Entendido</button>
+  </form>
+
   <!-- 19.0.1.113.0: agil_banner, the stopped AgilPedido sync (controllers/tablero.py) -->
   <div t-if="banner or agil_banner" class="tab-banners">
     <a t-if="agil_banner" class="tab-alerta tab-alerta--err" t-att-href="agil_banner['url']" role="alert">

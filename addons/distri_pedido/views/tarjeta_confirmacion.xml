@@ -20,6 +20,12 @@
       <xpath expr="//chatter" position="replace"/>
       <xpath expr="//sheet" position="replace">
         <sheet>
+          <!-- 19.0.1.126.0 (models/acreditar.py) -->
+          <field name="can_credit" invisible="1"/>
+          <field name="credited_candidate_count" invisible="1"/>
+          <div class="alert alert-warning o_distri_card_alert" role="alert" invisible="not can_credit">
+            <field name="credit_reminder" readonly="1" class="oe_inline"/>
+          </div>
           <widget name="web_ribbon" title="Sin comprobante" bg_color="text-bg-danger"
                   invisible="not confirmed_without_receipt"/>
           <div class="alert alert-danger o_distri_card_alert" role="alert"

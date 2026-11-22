@@ -437,6 +437,7 @@
     if (row.provisional) tags += ' <span class="pill warn">a controlar</span>';
     if (row.owed) tags += ' <span class="pill err">debe ' + money(row.owed) + "</span>";
     if (row.review_note) tags += ' <span class="pill info" title="' + h(row.review_note) + '">nota de revisión</span>';
+    if (row.confirmed) tags += ' <span class="ok-check" style="color:#198754;font-weight:bold" title="Pago confirmado" role="img" aria-label="Pago confirmado">✓</span>';
     if (row.card_id) tags += ' <span class="pill ok">MP</span>';
     if (row.comment_count) tags += ' <span class="pill info">' + plural(row.comment_count, "comentario", "comentarios") + "</span>";
     var concept = [row.remito ? "Remito " + row.remito : "", row.concept].filter(Boolean).join(" · ");
@@ -547,6 +548,7 @@
         var concept = [row.remito ? "Remito " + row.remito : "", row.concept].filter(Boolean).join(" · ");
         var tags = "";
         if (row.provisional) tags += ' <span class="pill warn">a controlar</span>';
+        if (row.confirmed) tags += ' <span class="ok-check" style="color:#198754;font-weight:bold" title="Pago confirmado" role="img" aria-label="Pago confirmado">✓</span>';
         if (row.card_id) tags += ' <span class="pill ok">MP</span>';
         if (row.comment_count) tags += ' <span class="pill info">' + row.comment_count + "</span>";
         return '<tr class="' + (row.provisional ? "prov" : row.owed ? "owed" : "") + '" data-line="' + h(row.line_key) + '">' +

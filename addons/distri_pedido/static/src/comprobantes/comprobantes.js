@@ -327,5 +327,47 @@
     });
     paint();
   }
-  if (window.DN && DN.ready) { init(); } else { document.addEventListener('dn:ready', init); }
+  // 19.0.1.126.0: «Acreditar» on «Ver comprobante» (form.comp-credit): the
+  // customer search of the upload form; without JavaScript the customer
+  // proposed for the receipt is kept.
+  function initCredit() {
+    var form = DN.$('form.comp-credit');
+    if (!form) { return; }
+    var q = DN.$('[data-comp-q]', form);
+    var res = DN.$('[data-comp-res]', form);
+    var idInput = DN.$('[data-comp-cliente-id]', form);
+    var txt = DN.$('[data-comp-cliente-txt]', form);
+    var initialId = idInput.value, initialTxt = txt.textContent;
+    var timer = null, seq = 0;
+    q.addEventListener('input', function () {
+      clearTimeout(timer);
+      var text = q.value.trim();
+      if (text.length < 2) { res.hidden = true; idInput.value = initialId; txt.textContent = initialTxt; return; }
+      idInput.value = '';
+      txt.textContent = 'Elegí el cliente de la lista.';
+      timer = setTimeout(function () {
+        var mine = ++seq;
+        DN.api('/comprobantes/clientes?q=' + encodeURIComponent(text)).then(function (r) {
+          if (mine !== seq) { return; }
+          var items = (r && r.results) || [];
+          res.innerHTML = items.length ? items.map(function (p) {
+            return '<li><button type="button" data-comp-pick="' + p.id + '" data-name="' + DN.h(p.name) + '">' +
+              '<b>' + DN.h(p.name) + '</b>' + (p.ref || p.town ? '<small>' + DN.h([p.ref, p.town].filter(Boolean).join(' · ')) + '</small>' : '') +
+              '</button></li>';
+          }).join('') : '<li class="comp-res__none">Ningún cliente con ese nombre.</li>';
+          res.hidden = false;
+        }, function () {});
+      }, 250);
+    });
+    form.addEventListener('click', function (ev) {
+      var pick = ev.target.closest('[data-comp-pick]');
+      if (!pick) { return; }
+      idInput.value = pick.getAttribute('data-comp-pick');
+      q.value = pick.getAttribute('data-name');
+      txt.textContent = 'Se acredita a ' + pick.getAttribute('data-name') + '.';
+      res.hidden = true;
+    });
+  }
+  function start() { init(); initCredit(); }
+  if (window.DN && DN.ready) { start(); } else { document.addEventListener('dn:ready', start); }
 })();

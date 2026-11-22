@@ -109,10 +109,13 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
     # ------------------------------------------------------------ parsing
 
     def test_board_columns_are_named_by_the_task(self):
-        # from the most likely valid to the one that needs most attention
+        # from the most likely valid to the one that needs most attention.
+        # 19.0.1.126.0 (D11 replaced): «Esperando reporte MP» became «Para
+        # acreditar» (same key) and «Acreditado · a verificar» was added
         self.assertEqual(COLUMNS, [
             ("confirm", "Confirmado contra reporte MP"),
-            ("verify", "Esperando reporte MP"),
+            ("verify", "Para acreditar"),
+            ("credited", "Acreditado · a verificar"),
             ("review", "Revisar"),
             ("unidentified", "Asignar cliente"),
             ("no_money", "Sin transferencia"),
@@ -127,13 +130,18 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         for column in board:
             self.assertEqual(column["label"], labels[column["key"]])
             self.assertEqual(column["help"], COLUMN_HELP[column["key"]])
-        self.assertIn("«Visto en MP: autorizar entrega»", COLUMN_HELP["verify"])
+        # 19.0.1.126.0: «Visto en MP» is no longer offered; the help still
+        # explains the cards already authorized
+        self.assertIn("«Visto en MP»", COLUMN_HELP["verify"])
         self.assertIn(AUTHORIZED_LABEL, COLUMN_HELP["verify"])
-        # only the transfers of the report register a payment
+        self.assertIn("«Acreditar»", COLUMN_HELP["verify"])
+        # the transfers of the report register a payment when confirmed;
+        # 19.0.1.126.0: a receipt registers it when credited («Acreditar»)
         for key in ("confirm", "review", "unidentified"):
             self.assertIn("se registra el pago", COLUMN_HELP[key])
-        for key in ("verify", "no_money"):
-            self.assertIn("no se registra ningún pago", COLUMN_HELP[key])
+        self.assertIn("no se registra ningún pago", COLUMN_HELP["no_money"])
+        self.assertIn("se registra el pago en el momento", COLUMN_HELP["verify"])
+        self.assertIn("sin registrar otro", COLUMN_HELP["credited"])
         self.assertIn("confirmar todas juntas", COLUMN_HELP["confirm"])
         # the kanban shows the columns in the order of the selection
         self.assertEqual(self.Collection._fields["column"].selection, COLUMNS)
@@ -601,9 +609,11 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
     def test_board_filter_matches_the_view(self):
         arch = self.env.ref("distri_pedido.view_mp_collection_search").arch_db
         node = etree.fromstring(arch.encode()).find(".//filter[@name='pending']")
+        # 19.0.1.126.0: plus the credited receipts waiting for the report
         self.assertEqual(safe_eval(node.get("domain")), [
-            "|", "|", ("state", "=", "draft"), ("report_review", "=", True),
-            "&", ("state", "=", "authorized"), ("income_id", "=", False)])
+            "|", "|", "|", ("state", "=", "draft"), ("report_review", "=", True),
+            "&", ("state", "=", "authorized"), ("income_id", "=", False),
+            "&", ("column", "=", "credited"), ("income_id", "=", False)])
 
     def _mp_payments(self, operation):
         journal = self.env["account.journal"]._distri_mp_journal()
@@ -646,7 +656,8 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         return receipt, card
 
     def test_pending_receipt_gets_one_verify_card(self):
-        self.assertEqual(dict(COLUMNS)["verify"], "Esperando reporte MP")
+        # 19.0.1.126.0: the same column, now «Para acreditar»
+        self.assertEqual(dict(COLUMNS)["verify"], "Para acreditar")
         receipt = self._receipt("5492995000111", datetime(2026, 9, 24, 14, 40),
                                 caption="Comprobante $ 38.777 operación 900000000002")
         self.assertEqual(receipt.distri_receipt_state, "pending")
@@ -734,7 +745,9 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         # the board card says it: «Autorizado para entregar · falta el reporte»
         arch = self.env.ref("distri_pedido.view_mp_collection_kanban").arch_db
         self.assertIn(AUTHORIZED_LABEL, arch)
-        self.assertIn("Visto en MP: autorizar entrega", arch)
+        # 19.0.1.126.0: no new authorizations are offered: «Acreditar» instead
+        self.assertNotIn('name="action_verify"', arch)
+        self.assertIn('name="action_credit"', arch)
 
     def test_undo_authorization_before_the_report(self):
         receipt, card = self._authorized_receipt()

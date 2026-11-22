@@ -10,6 +10,8 @@
                                  amount, customer, state; read only
     /comprobantes/<id>/archivo   the stored file, for that page
     /comprobantes/mios           «Mis comprobantes»: last 30 days, by state
+    /comprobantes/<id>/acreditar 19.0.1.126.0: «Acreditar» (POST), the staff
+                                 who may credit it (models/acreditar.py)
     /comprobantes/intento/<id>   19.0.1.101.0: a refused duplicate of the user,
                                  the existing receipt it matched (few facts,
                                  read only); /archivo its file
@@ -37,6 +39,8 @@ from odoo import http
 from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
+from ..models.acreditar import CREDIT_NOTICE, CreditWarning, can_credit
+from ..models.esquema_v126 import v126_ready
 from ..models.comprobante_subir import (
     ATTEMPT_FILTER, BUCKETS, LIST_DAYS, MAX_FILE_BYTES, MAX_FILES, can_upload, merge_rows)
 from ..models.reparto import _money
@@ -89,6 +93,9 @@ class Comprobantes(http.Controller):
             "stage": None,
             "preview": [],
             "cliente": None,
+            # 19.0.1.126.0: the one-time notice, also here (where they credit)
+            "aviso_acreditar": CREDIT_NOTICE if user._distri_credit_notice_pending() else "",
+            "puede_acreditar": can_credit(user) and v126_ready(request.env),
         }
         base.update(values)
         html = request.env["ir.qweb"]._render("distri_pedido.comprobantes_page", base)
@@ -225,8 +232,52 @@ class Comprobantes(http.Controller):
     def view(self, msg_id, desde="", **kw):
         msg = self._receipt(msg_id)
         parent = "/comprobantes/mios" if desde == "mios" else "/comprobantes"
-        return self._page_response("distri_pedido.comprobante_ver_page", {
-            "r": msg._distri_upload_detail(), "parent": parent})
+        return self._view_page(msg, parent)
+
+    def _view_page(self, msg, parent, **values):
+        """«Ver comprobante», with the «Acreditar» form for who may credit it."""
+        user = request.env.user
+        if msg._distri_credit_card(user):
+            # 19.0.1.126.0: the amount read is shown before crediting
+            msg._distri_read_now()
+        base = {"r": msg._distri_upload_detail(), "parent": parent,
+                "credit": msg._distri_credit_form(user),
+                "credit_warnings": [], "credit_error": "", "credit_done": "",
+                "csrf_token": request.csrf_token()}
+        base.update(values)
+        return self._page_response("distri_pedido.comprobante_ver_page", base)
+
+    @http.route("/comprobantes/<int:msg_id>/acreditar", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def credit(self, msg_id, importe="", cliente_id="", confirmado="", desde="", **kw):
+        """«Acreditar» (19.0.1.126.0): the amount (the one read, editable),
+        the customer and, after a warning, «Acreditar igual»."""
+        msg = self._receipt(msg_id)
+        parent = "/comprobantes/mios" if desde == "mios" else "/comprobantes"
+        user = request.env.user
+        card = msg._distri_credit_card(user)
+        if not card:
+            return self._view_page(msg, parent, credit_error="Este comprobante ya no se puede "
+                                   "acreditar desde acá.")
+        msg._distri_read_now()
+        partner = self._partner(cliente_id) or card.sudo().partner_id.commercial_partner_id
+        try:
+            amount = request.env["distri.cash.collection"]._cash_amount(importe)
+        except (UserError, AccessError) as exc:
+            return self._view_page(msg, parent, credit_error=_error_text(exc))
+        try:
+            with request.env.cr.savepoint():
+                payment = request.env["distri.mp.collection"].browse(card.id)._distri_credit(
+                    partner, amount, confirmed=bool(confirmado))
+        except CreditWarning as exc:
+            form = msg._distri_credit_form(user) or {}
+            form.update(amount_text=importe, partner_id=partner.id or "",
+                        partner_name=partner.name or "")
+            return self._view_page(msg, parent, credit=form, credit_warnings=exc.warnings)
+        except (UserError, AccessError) as exc:
+            return self._view_page(msg, parent, credit_error=_error_text(exc))
+        return self._view_page(msg, parent, credit_done="Acreditado: %s a %s (pago %s)." % (
+            _money(amount), partner.name, payment.name))
 
     @http.route("/comprobantes/<int:msg_id>/archivo", type="http", auth="user", methods=["GET"],
                 sitemap=False)

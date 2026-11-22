@@ -154,7 +154,9 @@
           </t>
           <tr t-foreach="v['data']['rows']" t-as="r">
             <td t-esc="r['date'].strftime('%d/%m/%Y') if r['date'] else ''"/>
-            <td><t t-esc="r['doc_type']"/><t t-if="r['provisional']"> (a controlar)</t></td>
+            <td><t t-esc="r['doc_type']"/><t t-if="r['provisional']"> (a controlar)</t>
+              <!-- 19.0.1.126.0: tied to the Mercado Pago report -->
+              <t t-if="r.get('confirmed')"> · ✓ Confirmado</t></td>
             <td t-esc="r['number']"/>
             <td t-esc="r['remito']"/>
             <td t-esc="r['concept']"/>

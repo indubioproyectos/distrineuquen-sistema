@@ -54,6 +54,7 @@ from odoo.exceptions import AccessError, UserError
 from odoo.tools import consteq, html_escape
 from odoo.tools.misc import hmac as odoo_hmac
 
+from .esquema_v126 import v126_ready
 from .ajuste_cuenta import AJC_JOURNAL_CODE
 from .cuenta import clave_documento
 from .remito import es_numero_de_factura
@@ -387,13 +388,26 @@ def statement_line_key(kind, record_id, nth=1):
     return key if nth <= 1 else "%s:%d" % (key, nth)
 
 
+# 19.0.1.126.0: a credited receipt the Mercado Pago report already tied
+# (row["confirmed"]): a green check on screens, plain text where an icon may
+# not render (PDF, text). Nothing for a payment not verified yet.
+CONFIRMED_LABEL = "Pago confirmado"
+CONFIRMED_TEXT = "✓ Confirmado"
+CONFIRMED_MARK_HTML = (
+    " <span class='o_distri_confirmado' style='color:#198754;font-weight:bold' "
+    "title='%s' aria-label='%s' role='img'>✓</span>" % (CONFIRMED_LABEL, CONFIRMED_LABEL))
+
+
 def _statement_number(row):
     """The row's number; a payment from a Mercado Pago card links to the card."""
     number = html_escape(row["number"])
     if not row.get("card_id"):
         return number
+    mark = (" <span class='badge text-bg-light o_distri_estado_verificar' title='Comprobante "
+            "acreditado: falta verlo en el reporte de Mercado Pago'>a verificar con MP</span>"
+            if row.get("audit_pending") else "")
     return ("%s <a href='/odoo/distri.mp.collection/%d' target='_blank' "
-            "class='o_distri_estado_tarjeta'>Ver tarjeta</a>" % (number, row["card_id"]))
+            "class='o_distri_estado_tarjeta'>Ver tarjeta</a>%s" % (number, row["card_id"], mark))
 
 
 def _money(amount):
@@ -577,9 +591,24 @@ class ResPartnerEstadoCuenta(models.Model):
             cards = self.env["distri.mp.collection"].sudo().search(
                 [("payment_id.move_id", "in", move_ids)])
             by_move = {c.payment_id.move_id.id: c.id for c in cards}
+            # 19.0.1.126.0: the receipt cards credited at once. «confirmed»
+            # (shown to everybody as «Pago confirmado»): the report tied it;
+            # «audit_pending» (staff only, «a verificar con MP»): not yet
+            pending, confirmed = set(), set()
+            if v126_ready(self.env):
+                for card in cards.filtered(lambda c: c.kind == "verify" and c.credited_at):
+                    move = card.payment_id.move_id.id
+                    if card.audit_state == "verificado":
+                        confirmed.add(move)
+                    elif card.audit_state == "pendiente":
+                        pending.add(move)
             for row in rows:
                 if row["res_model"] == "account.move" and row["res_id"] in by_move:
                     row["card_id"] = by_move[row["res_id"]]
+                    row["audit_pending"] = row["res_id"] in pending
+                    row["confirmed"] = row["res_id"] in confirmed
+        for row in rows:
+            row.setdefault("confirmed", False)
         rows.sort(key=lambda r: (r["key"][0] or date.min,) + r["key"][1:])
         balance = 0.0
         for row in rows:
@@ -695,6 +724,8 @@ class ResPartnerEstadoCuenta(models.Model):
             elif row.get("owed"):
                 badges += " <span class='badge text-bg-danger'>debe %s</span>" % html_escape(
                     _money(row["owed"]))
+            if row.get("confirmed"):
+                badges += CONFIRMED_MARK_HTML
             if note:
                 badges += (" <span class='badge text-bg-secondary o_distri_estado_nota' "
                            "title='%s'>Revisión: %s</span>" % (

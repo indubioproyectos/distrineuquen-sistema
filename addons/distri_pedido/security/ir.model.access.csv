@@ -215,3 +215,6 @@ access_receipt_upload_attempt_sistema,distri.receipt.upload.attempt sistema,mode
 access_provisorio_unir_admin,distri.provisorio.unir administracion,model_distri_provisorio_unir,distri_pedido.grupo_administracion,1,1,1,1
 access_provisorio_unir_gerencia,distri.provisorio.unir gerencia,model_distri_provisorio_unir,distri_pedido.grupo_gerencia,1,1,1,1
 access_provisorio_unir_sistema,distri.provisorio.unir sistema,model_distri_provisorio_unir,base.group_system,1,1,1,1
+access_mp_credit_user,distri.mp.credit staff,model_distri_mp_credit,base.group_user,1,1,1,0
+access_mp_tie_credited_cobros,distri.mp.tie.credited cobros,model_distri_mp_tie_credited,distri_pedido.grupo_cobros,1,1,1,0
+access_mp_tie_credited_sistema,distri.mp.tie.credited sistema,model_distri_mp_tie_credited,base.group_system,1,1,1,0

@@ -15,6 +15,7 @@ from odoo import fields, http
 from odoo.fields import Domain
 from odoo.http import request
 
+from ..models.acreditar import CREDIT_NOTICE
 from .main import FICHA
 from .kit import LOGO_V, kit_context
 from .reparto import SHARED_CSS
@@ -407,9 +408,21 @@ class Tablero(http.Controller):
             "dn": kit_context("tablero.css"),
             # the v107 template (until the module is updated) uses these
             "shared_css": SHARED_CSS,
+            # 19.0.1.126.0: the one-time notice of the instant crediting
+            "aviso_acreditar": CREDIT_NOTICE if user._distri_credit_notice_pending() else "",
+            "csrf_token": request.csrf_token(),
         })
         return request.make_response(html, headers=[("Content-Type", "text/html; charset=utf-8"),
                                                     ("Cache-Control", "no-store")])
+
+    @http.route("/tablero/aviso-acreditar", type="http", auth="user", methods=["POST"],
+                sitemap=False)
+    def aviso_acreditar(self, volver="", **kw):
+        """«Entendido» on the notice of the instant crediting (19.0.1.126.0):
+        the moment is kept on the user (res.users.distri_aviso_acreditar_visto)."""
+        request.env.user._distri_credit_notice_seen()
+        target = volver if volver in ("/tablero", "/comprobantes") else "/tablero"
+        return request.redirect(target, 303)
 
     @http.route("/tablero/manifest.webmanifest", type="http", auth="public", sitemap=False)
     def manifest(self, **kw):

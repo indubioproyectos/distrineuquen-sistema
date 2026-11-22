@@ -17,12 +17,16 @@ Mercado Pago» and «Comprobantes pendientes» (comprobante_pendiente.py).
   «Confirmado contra reporte MP», «Revisar» or «Asignar cliente».
 - A receipt received by WhatsApp that the next report does not bring becomes
   a card of the last column, «Sin transferencia».
-- Nothing is registered in a customer's account unless the report brings the
-  transfer. A receipt waiting in «Esperando reporte MP» seen in the Mercado
-  Pago app can only be authorized for delivery («Visto en MP: autorizar
-  entrega», state «authorized»): no payment. The report that brings its
-  operation proposes the income with that customer; one that covers its
-  moment without it sends the card to «Sin transferencia», with an alert.
+- 19.0.1.126.0 (decision D11 replaced, models/acreditar.py): a receipt
+  checked by the staff is credited at once («Acreditar»): its payment is
+  registered in «Mercado Pago» and the card waits in «Acreditado · a
+  verificar» until a report brings the transfer, which then ties to that
+  payment instead of creating a second one. Receipts sent by the customer
+  wait in «Para acreditar» for administración, gerencia or the admin.
+  Before 19.0.1.126.0 nothing was registered unless the report brought the
+  transfer: a receipt seen in the Mercado Pago app could only be authorized
+  for delivery («Visto en MP: autorizar entrega», state «authorized»); the
+  cards already authorized keep that flow, no new ones are offered.
 - Nothing reaches accounting until the administrator confirms: then the
   collection becomes a customer payment in the «Mercado Pago» bank journal,
   applied oldest invoice first. The amount comes from Mercado Pago and is
@@ -55,6 +59,7 @@ from odoo.exceptions import AccessError, UserError
 from odoo.modules import module as odoo_module
 from odoo.tools.pdf import PdfReader
 
+from .esquema_v126 import v126_ready
 from .ocr_comprobante import (
     CONFIDENCE_HIGH, CONFIDENCE_LOW, OWN_ACCOUNT_DEFAULT, PARAM_OWN_ACCOUNT, local_to_utc,
     ocr_image, own_account_values, parse_receipt, pdf_images, read_image,
@@ -139,7 +144,10 @@ _CUIT_RE = re.compile(r"\b(\d{2})[-. ]?(\d{8})[-. ]?(\d)\b")
 # only the labels are shown.
 COLUMNS = [
     ("confirm", "Confirmado contra reporte MP"),
-    ("verify", "Esperando reporte MP"),
+    # 19.0.1.126.0: the draft receipts wait to be credited (the key stays
+    # «verify», the label changed); the credited ones wait for the report
+    ("verify", "Para acreditar"),
+    ("credited", "Acreditado · a verificar"),
     ("review", "Revisar"),
     ("unidentified", "Asignar cliente"),
     ("no_money", "Sin transferencia"),
@@ -162,13 +170,19 @@ COLUMN_HELP = {
                "comprobante por WhatsApp, también coincide. Solo hace falta una mirada rápida: "
                "cliente e importe. Por eso se pueden confirmar todas juntas: al confirmar se "
                "registra el pago.",
-    "verify": "El comprobante llegó por WhatsApp y espera el reporte de Mercado Pago. Desde acá "
-              "no se registra ningún pago: cuando se cargue el reporte, la transferencia pasa "
-              "sola a «Confirmado contra reporte MP» (o a «Revisar», si el pagador todavía no es "
-              "conocido) y se registra al confirmarla. Si hay que entregar mercadería antes, "
-              "buscá la operación en la app de Mercado Pago y tocá «Visto en MP: autorizar "
-              "entrega»: la tarjeta queda «Autorizado para entregar · falta el reporte», sin "
-              "tocar el saldo del cliente.",
+    "verify": "Comprobantes que todavía no se acreditaron: los que manda el cliente (por WhatsApp, "
+              "su página o el chat) y los que el personal subió sin acreditar. Revisá el importe, "
+              "el cliente y que el comprobante sea real, y tocá «Acreditar»: se registra el pago "
+              "en el momento y la tarjeta pasa a «Acreditado · a verificar». Los que mandó el "
+              "cliente los acreditan solo administración, gerencia o el admin. Si no se acredita, "
+              "cuando llegue el reporte la transferencia pasa sola a «Confirmado contra reporte "
+              "MP» o a «Revisar». Las entregas ya autorizadas con «Visto en MP» siguen "
+              "«Autorizado para entregar · falta el reporte», sin tocar el saldo del cliente.",
+    "credited": "Comprobantes acreditados: el pago ya está registrado y bajó el saldo del cliente. "
+                "Esperan el reporte de Mercado Pago: cuando la transferencia llega (mismo número "
+                "de operación, o mismo importe y hora), se vincula sola con este pago, sin "
+                "registrar otro, y la tarjeta sale del tablero. Si el reporte no la trae, la "
+                "tarjeta pasa a «Sin transferencia».",
     "review": "La transferencia está en el reporte de Mercado Pago, pero todavía no se pudo "
               "establecer con seguridad de qué cliente es: el CUIT no es conocido, hay varios "
               "clientes posibles, el cliente salió solo de la foto o del texto del vendedor, o "
@@ -196,6 +210,8 @@ PROPOSALS = [
     ("manual", "Asignado por el administrador"),
     ("verified", "Verificado a mano en Mercado Pago"),
     ("authorized", "Entrega autorizada a mano"),
+    # 19.0.1.126.0: tied (or possibly tied) to a credited receipt
+    ("credited", "Comprobante acreditado"),
     ("none", "Sin propuesta"),
 ]
 # Columns an income of the report can land in (the summary of an import).
@@ -203,6 +219,14 @@ INCOME_COLUMNS = ("confirm", "review", "unidentified")
 # before 19.0.1.21.0 «Verificado en MP» registered the payment at once
 HAND_VERIFIED_MISSING = ("Pago registrado a mano con el sistema anterior, sin transferencia en el "
                          "reporte de Mercado Pago: revisalo")
+# 19.0.1.126.0: a receipt credited at once whose transfer the report lacks
+CREDITED_MISSING = ("Comprobante acreditado sin transferencia en el reporte de Mercado Pago: "
+                    "revisalo")
+CREDITED_MISSING_HELP = (
+    "El comprobante se acreditó al validarlo y el pago bajó el saldo del cliente, pero el reporte "
+    "que cubre ese momento no trae la transferencia. Buscá la operación en la app de Mercado "
+    "Pago: si llegó en otro reporte, tocá «Revisado»; si no existe, tocá «Deshacer» para anular "
+    "el pago y avisá al gerente.")
 HAND_VERIFIED_MISSING_HELP = (
     "Antes, «Verificado en MP» registraba el pago en el momento. Este pago quedó registrado en la "
     "cuenta del cliente, pero el reporte que cubre ese momento no trae la transferencia. Buscá la "
@@ -970,8 +994,12 @@ class DistriMpReport(models.Model):
             ("income_id", "=", False), ("report_review", "=", False),
             ("date", ">=", start - timedelta(hours=1)), ("date", "<=", end),
         ])
+        ready = v126_ready(self.env)
         for card in cards:
             note = AUTHORIZED_MISSING if card.state == "authorized" else HAND_VERIFIED_MISSING
+            if card.state == "confirmed" and ready and card.credited_at:
+                # 19.0.1.126.0: credited at once; the audit is v128
+                note = CREDITED_MISSING
             card.write({"report_review": True, "report_id": self.id, "proposal_note": note})
             card.message_post(body="%s (%s). Revisá la operación %s en la app%s." % (
                 note, self.name, card.operation or "",
@@ -1312,8 +1340,11 @@ class DistriMpCollection(models.Model):
 
     @api.depends("kind", "state", "proposal", "partner_id", "receipt_id.distri_forwarded_by_id",
                  "report_review", "amount", "receipt_id.distri_amount", "authorized_conflict",
-                 "reversal", "conflict_note", "receipt_candidate", "receipt_id.wa_sin_telefono")
+                 "reversal", "conflict_note", "receipt_candidate", "receipt_id.wa_sin_telefono",
+                 "credited_at", "income_id")
     def _compute_column(self):
+        # 19.0.1.126.0: `credited_at` is read only once its column exists
+        ready = v126_ready(self.env)
         for rec in self:
             if rec.receipt_candidate and not rec.receipt_id and rec.state == "draft":
                 # a candidate waits for its WhatsApp receipt: never confirmed
@@ -1333,7 +1364,12 @@ class DistriMpCollection(models.Model):
             elif rec.kind == "verify":
                 # authorized (or, before 19.0.1.21.0, paid) by hand and the
                 # report that covers its moment does not bring it
-                rec.column = "no_money" if rec.report_review else "verify"
+                if rec.report_review:
+                    rec.column = "no_money"
+                elif ready and rec.state == "confirmed" and rec.credited_at:
+                    rec.column = "credited"
+                else:
+                    rec.column = "verify"
             elif rec.kind == "receipt":
                 rec.column = "no_money"
             elif rec.proposal == "authorized":
@@ -1342,8 +1378,9 @@ class DistriMpCollection(models.Model):
                 # the payer's CUIT is already another customer's
                 rec.column = "review" if (rec._authorized_other_amount()
                                           or rec.authorized_conflict) else "confirm"
-            elif rec.proposal == "verified":
-                # tied to a receipt verified by hand: never paid twice
+            elif rec.proposal in ("verified", "credited"):
+                # tied to a receipt verified by hand, or possibly to a
+                # credited one (19.0.1.126.0): never paid twice
                 rec.column = "review"
             elif rec.receipt_id.distri_forwarded_by_id and rec.proposal != "manual":
                 # a photo forwarded by a seller is always checked by a person
@@ -1358,7 +1395,7 @@ class DistriMpCollection(models.Model):
 
     @api.depends("column")
     def _compute_card_color(self):
-        colors = {"verify": 4, "confirm": 10, "review": 2, "unidentified": 1, "no_money": 9}
+        colors = {"verify": 4, "credited": 10, "confirm": 10, "review": 2, "unidentified": 1, "no_money": 9}
         for rec in self:
             rec.card_color = colors.get(rec.column, 0)
 
@@ -1413,6 +1450,8 @@ class DistriMpCollection(models.Model):
         if self.proposal == "verified":
             return ("Verificado a mano con otro importe" if self.amount_mismatch
                     else "Verificado a mano: revisar antes de confirmar")
+        if self.proposal == "credited":
+            return self.proposal_note or "Puede ser un comprobante ya acreditado: revisá"
         reasons = []
         if self._receipt_without_phone():
             reasons.append(NO_PHONE_REASON)
@@ -1491,9 +1530,10 @@ class DistriMpCollection(models.Model):
             return "Varios"
         if not self.partner_id:
             return False
-        if self.proposal in ("cuit", "link", "promise", "manual", "authorized"):
+        if self.proposal in ("cuit", "link", "promise", "manual", "authorized", "credited"):
             return {"cuit": "CUIT", "link": "Link", "promise": "Reparto",
-                    "manual": "A mano", "authorized": "Entrega autorizada"}[self.proposal]
+                    "manual": "A mano", "authorized": "Entrega autorizada",
+                    "credited": "Acreditado"}[self.proposal]
         if self.proposal not in ("photo", "operation", "none"):
             return False
         source = self.receipt_id.distri_partner_source or ""
@@ -1536,6 +1576,9 @@ class DistriMpCollection(models.Model):
             return "%s. %s" % (AUTHORIZED_WAITING, AUTHORIZED_WAITING_HELP)
         if self.kind == "verify" and self.state == "authorized":
             return "%s. %s" % (AUTHORIZED_MISSING, AUTHORIZED_MISSING_HELP)
+        if self.kind == "verify" and self.state == "confirmed" and self.report_review \
+                and self.proposal_note == CREDITED_MISSING:
+            return "%s. %s" % (CREDITED_MISSING, CREDITED_MISSING_HELP)
         if self.kind == "verify" and self.state == "confirmed":
             return "%s. %s" % (HAND_VERIFIED_MISSING, HAND_VERIFIED_MISSING_HELP)
         return COLUMN_HELP[self.column]
@@ -1627,7 +1670,7 @@ class DistriMpCollection(models.Model):
         """Proposed customer and column of each draft transfer."""
         Partner = self.env["res.partner"].sudo()
         todo = self.filtered(lambda c: c.kind == "income" and c.state == "draft"
-                             and c.proposal not in ("manual", "verified", "authorized"))
+                             and c.proposal not in ("manual", "verified", "authorized", "credited"))
         by_amount = todo._pair_receipts_by_amount()
         for rec in todo:
             partner = Partner.browse()
@@ -1870,7 +1913,7 @@ class DistriMpCollection(models.Model):
         the incomes tied."""
         tied = self.browse()
         for rec in self.filtered(lambda c: c.kind == "income" and c.state == "draft"
-                                 and c.proposal not in ("verified", "authorized")):
+                                 and c.proposal not in ("verified", "authorized", "credited")):
             numbers = [n for n in (rec.source_id, rec.bank_transfer_id) if n]
             if not numbers:
                 continue
@@ -2152,6 +2195,10 @@ class DistriMpCollection(models.Model):
         later report can be matched against it."""
         self.ensure_one()
         payer = (" · " + friendly_case(self.payer_name)) if self.payer_name else ""
+        if self.kind == "verify" and self.env.context.get("distri_crediting"):
+            # 19.0.1.126.0 (models/acreditar.py)
+            return " · ".join(p for p in ("Mercado Pago %s" % (self.operation or "sin operación"),
+                                          "comprobante acreditado") if p) + payer
         if self.kind == "verify":
             return "Mercado Pago %s · verificado a mano%s" % (self.operation or "", payer)
         return "Mercado Pago %s%s" % (self.source_id, payer)

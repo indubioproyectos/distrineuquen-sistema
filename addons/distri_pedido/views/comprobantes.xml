@@ -44,6 +44,14 @@
     </div>
   </header>
   <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
+  <!-- 19.0.1.126.0: the one-time notice of the instant crediting -->
+  <form t-if="aviso_acreditar" class="dn-card dn-card--warn comp-aviso" method="post"
+        action="/tablero/aviso-acreditar" role="alert">
+    <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+    <input type="hidden" name="volver" value="/comprobantes"/>
+    <p t-esc="aviso_acreditar"/>
+    <button type="submit" class="dn-btn">Entendido</button>
+  </form>
   <main class="dn-main">
     <form id="comp-form" class="comp-form" method="post" action="/comprobantes/subir"
           enctype="multipart/form-data" data-comp-form="" data-comp-api="101">
@@ -105,6 +113,8 @@
     </form>
 
     <h2 class="dn-label">Subidos hoy por vos: <span data-comp-count="" t-esc="len(uploads)"/></h2>
+    <p t-if="puede_acreditar" class="comp-muted">Tocá un comprobante de la lista para acreditarlo:
+      se acredita en el momento.</p>
     <div class="dn-empty" t-if="not rows" data-comp-empty="">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
       <p>Todavía no subiste comprobantes hoy.</p>
@@ -186,7 +196,47 @@
         <t t-esc="'Ver la foto en pantalla completa' if r['image'] else 'Abrir el PDF'"/>
       </a>
     </t>
-    <p class="comp-muted">Lo aprueba o lo descarta administración en Cobros.</p>
+    <!-- 19.0.1.126.0: «Acreditar» (controllers/comprobantes.py credit) -->
+    <div t-if="credit_done" class="dn-card comp-ver__note" role="status">
+      <b>✓</b> <span t-esc="credit_done"/>
+    </div>
+    <div t-if="credit_error" class="dn-card dn-card--warn comp-ver__note" role="alert">
+      <span t-esc="credit_error"/>
+    </div>
+    <form t-if="credit and not credit_done" class="comp-credit" method="post"
+          t-att-action="'/comprobantes/%d/acreditar' % r['id']">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input type="hidden" name="desde" t-att-value="'mios' if parent == '/comprobantes/mios' else ''"/>
+      <h2 class="dn-label">Acreditar</h2>
+      <p class="dn-card dn-card--warn comp-ver__note" t-esc="credit['reminder']"/>
+      <div class="dn-field">
+        <label for="credit-importe">Importe a acreditar</label>
+        <input id="credit-importe" class="dn-input dn-num" type="text" name="importe"
+               inputmode="decimal" maxlength="20" required="required"
+               t-att-value="credit['amount_text']"/>
+        <p class="comp-muted">
+          <t t-if="credit['read_amount']">Leído en el comprobante: <t t-esc="money(credit['read_amount'])"/>.</t>
+          <t t-else="">No se pudo leer el importe: escribilo mirando el comprobante.</t>
+          <t t-if="credit['typed_amount']"> Cargado al subirlo: <t t-esc="money(credit['typed_amount'])"/>.</t>
+        </p>
+      </div>
+      <div class="dn-field comp-cliente">
+        <label for="comp-q">Cliente</label>
+        <input type="hidden" name="cliente_id" data-comp-cliente-id="" t-att-value="credit['partner_id']"/>
+        <input id="comp-q" class="dn-input" type="search" autocomplete="off" maxlength="80"
+               placeholder="Buscar cliente…" data-comp-q=""/>
+        <ul class="comp-res" data-comp-res="" hidden="hidden"></ul>
+        <p class="comp-muted" data-comp-cliente-txt="" t-esc="credit['partner_name'] or 'Elegí el cliente.'"/>
+      </div>
+      <div t-if="credit_warnings" class="dn-card dn-card--warn comp-ver__note" role="alert">
+        <b>Revisá antes de acreditar:</b>
+        <ul><li t-foreach="credit_warnings" t-as="w" t-esc="w"/></ul>
+        <input type="hidden" name="confirmado" value="1"/>
+      </div>
+      <button type="submit" class="dn-btn dn-btn--lg"
+              t-esc="'Acreditar igual' if credit_warnings else 'Acreditar'"/>
+    </form>
+    <p t-if="not credit" class="comp-muted">Lo aprueba o lo descarta administración en Cobros.</p>
   </main>
 </body>
 </html>

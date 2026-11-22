@@ -1350,7 +1350,7 @@
       <t t-foreach="movimientos" t-as="m">
         <div t-att-class="'mov prov' if m['provisorio'] else 'mov'">
           <div class="izq">
-            <div class="fecha"><t t-esc="m['fecha']"/> · <t t-esc="m['tipo']"/><span class="ctrl" t-if="m['provisorio']">a controlar</span></div>
+            <div class="fecha"><t t-esc="m['fecha']"/> · <t t-esc="m['tipo']"/><span class="ctrl" t-if="m['provisorio']">a controlar</span><span t-if="m.get('confirmado')" class="confirmado" style="color:#198754;font-weight:bold" title="Pago confirmado" role="img" aria-label="Pago confirmado"> ✓</span></div>
             <div class="det" t-if="m['comprobante']"><t t-esc="m['comprobante']"/></div>
           </div>
           <div class="der">

@@ -447,6 +447,8 @@ class DistriAccountApp(models.AbstractModel):
             "res_model": row["res_model"],
             "res_id": row["res_id"],
             "card_id": row.get("card_id") or False,
+            # 19.0.1.126.0: a credited receipt tied to the Mercado Pago report
+            "confirmed": bool(row.get("confirmed")),
             "comment_count": counts.get(row["line_key"], 0),
         }
 

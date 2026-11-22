@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.126.0: «Acreditar» and «Es un comprobante acreditado»
+       (models/acreditar.py) -->
+
+  <record id="view_mp_credit_form" model="ir.ui.view">
+    <field name="name">distri.mp.credit.form</field>
+    <field name="model">distri.mp.credit</field>
+    <field name="arch" type="xml">
+      <form string="Acreditar comprobante">
+        <div class="alert alert-warning" role="alert">
+          <field name="reminder" readonly="1" class="oe_inline"/>
+        </div>
+        <div class="alert alert-danger" role="alert" invisible="not errors_text">
+          <b>No se puede acreditar:</b>
+          <field name="errors_text" readonly="1" nolabel="1"/>
+        </div>
+        <div class="alert alert-warning" role="alert" invisible="not warnings_text">
+          <b>Revisá antes de acreditar:</b>
+          <field name="warnings_text" readonly="1" nolabel="1"/>
+          <field name="confirm"/>
+        </div>
+        <group>
+          <group>
+            <field name="collection_id" invisible="1"/>
+            <field name="currency_id" invisible="1"/>
+            <field name="partner_id" options="{'no_create': True}" required="1"/>
+            <field name="amount" widget="monetary" required="1"/>
+            <field name="read_amount" readonly="1"/>
+            <field name="typed_amount" readonly="1" invisible="not typed_amount"/>
+          </group>
+          <group>
+            <field name="operation" readonly="1"/>
+            <field name="receipt_date_label" readonly="1"/>
+            <field name="pays_label" readonly="1"/>
+          </group>
+        </group>
+        <field name="receipt_image" widget="image" readonly="1" invisible="not receipt_image"
+               options="{'size': [0, 420]}"/>
+        <footer>
+          <button name="action_apply" type="object" string="Acreditar" class="btn-primary"
+                  invisible="errors_text"/>
+          <button string="Cancelar" special="cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_mp_tie_credited_form" model="ir.ui.view">
+    <field name="name">distri.mp.tie.credited.form</field>
+    <field name="model">distri.mp.tie.credited</field>
+    <field name="arch" type="xml">
+      <form string="Vincular con un comprobante acreditado">
+        <p>El ingreso del reporte es la transferencia de un comprobante ya acreditado: se
+          confirma con ese pago, sin registrar otro.</p>
+        <group>
+          <field name="income_id" readonly="1"/>
+          <field name="candidate_ids" invisible="1"/>
+          <field name="card_id" options="{'no_create': True}" required="1"/>
+        </group>
+        <footer>
+          <button name="action_apply" type="object" string="Vincular" class="btn-primary"/>
+          <button string="Cancelar" special="cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+</odoo>

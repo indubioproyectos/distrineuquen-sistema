@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.125.0",
+    "version": "19.0.1.126.0",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -329,11 +329,27 @@
     # mark_owed clears that row by id before any memo match (pass 1b): an
     # Online number may also be a lab number (L4). Same box and journal as
     # any /cobro cash. New column only: no migration, past records untouched.
+    # 19.0.1.126.0 (D11 replaced, analisis-cobro-un-paso-2026-11-21): a
+    # receipt is credited when validated («Acreditar», models/acreditar.py):
+    # payment in «Mercado Pago» at once, card «Acreditado · a verificar»
+    # (credited_by_id, credited_at, audit_state); the report later ties to it
+    # by operation, operation with one OCR slip, amount and time, or amount,
+    # customer and day (unique), never a second payment. «Acreditar
+    # comprobantes»: cajero, reparto, vendedor, administración, gerencia,
+    # admin; customer-sent receipts wait in «Para acreditar» for
+    # administración, gerencia or admin; drivers' receipts follow
+    # distri_pedido.acreditar_repartidor (inmediato by default). Warning over
+    # $ 100.000 in favor (distri_pedido.acreditar_aviso_saldo_a_favor). The
+    # statements show «Pago confirmado» (✓) once the report tied the payment.
+    # One-time notice on /tablero (res.users.distri_aviso_acreditar_visto).
+    # New columns are prefetch=False and guarded (models/esquema_v126.py) so
+    # a restart before -u keeps v125 behaviour. No migration: past payments,
+    # cards and balances untouched.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",
              "views/vendedor_web.xml", "data/vendedores_web.xml",
-             "views/comprobantes.xml", "views/errores.xml",
+             "views/comprobantes.xml", "views/errores.xml", "views/acreditar.xml",
              "views/pegar_numero.xml", "views/comprobante_cliente.xml",
              "views/cliente_provisorio.xml", "views/revisar_app.xml", "views/deposito_app.xml",
              "views/rutas_app.xml", "views/hoja_ruta.xml", "views/asignar_app.xml",

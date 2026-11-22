@@ -36,6 +36,10 @@
         <field name="kind"/>
         <field name="state"/>
         <field name="can_authorize"/>
+        <field name="can_credit"/>
+        <field name="credit_flow"/>
+        <field name="credited_label"/>
+        <field name="credit_reminder"/>
         <field name="partner_id"/>
         <field name="receipt_id"/>
         <field name="receipt_is_image"/>
@@ -107,8 +111,20 @@
                     class="o_distri_badge o_distri_badge_ok" title="También llegó el comprobante por WhatsApp">
                 <i class="fa fa-check" aria-hidden="true"/> Comprobante ✓
               </span>
-              <span t-if="kind == 'verify' and draft" class="o_distri_badge o_distri_badge_info">
-                <i class="fa fa-hourglass-half" aria-hidden="true"/> Aún sin registro en Mercado Pago
+              <!-- 19.0.1.126.0: who sent it decides who credits it (models/acreditar.py) -->
+              <span t-if="kind == 'verify' and draft and record.credit_flow.raw_value == 'customer'"
+                    class="o_distri_badge o_distri_badge_info"
+                    title="Lo acreditan administración, gerencia o el admin.">
+                <i class="fa fa-user" aria-hidden="true"/> Enviado por el cliente
+              </span>
+              <span t-if="kind == 'verify' and draft and record.credit_flow.raw_value == 'driver'"
+                    class="o_distri_badge o_distri_badge_info"
+                    title="Registrado por el repartidor en su reparto.">
+                <i class="fa fa-truck" aria-hidden="true"/> Del repartidor
+              </span>
+              <span t-if="col == 'credited'" class="o_distri_badge o_distri_badge_ok"
+                    t-att-title="record.credited_label.raw_value">
+                <i class="fa fa-check" aria-hidden="true"/> Acreditado · a verificar con MP
               </span>
               <span t-if="kind == 'verify' and authorized and !record.report_review.raw_value"
                     class="o_distri_badge o_distri_badge_warn"
@@ -242,10 +258,15 @@
             </div>
             <!-- primary action of the column, full width -->
             <div class="o_distri_primary">
-              <button t-if="col == 'verify' and kind == 'verify' and draft and record.can_authorize.raw_value"
-                      name="action_verify" type="object" class="btn btn-primary"
-                      confirm="¿Viste esta transferencia en la app de Mercado Pago, con el mismo importe y número de operación? Se autoriza entregar la mercadería. No se registra ningún pago: se registra cuando el reporte traiga la transferencia.">
-                <i class="fa fa-truck" aria-hidden="true"/> Visto en MP: autorizar entrega
+              <!-- 19.0.1.126.0: «Acreditar» replaces «Visto en MP» for new cards;
+                   the ones already authorized keep their flow -->
+              <button t-if="col == 'verify' and kind == 'verify' and draft and record.can_credit.raw_value"
+                      name="action_credit" type="object" class="btn btn-primary">
+                <i class="fa fa-check" aria-hidden="true"/> Acreditar
+              </button>
+              <button t-elif="col == 'credited' and record.receipt_id.raw_value"
+                      name="action_view_receipt" type="object" class="btn btn-primary">
+                <i class="fa fa-picture-o" aria-hidden="true"/> Ver foto
               </button>
               <button t-elif="col == 'confirm' and kind == 'income' and record.partner_id.raw_value and draft and record.can_authorize.raw_value"
                       name="action_confirm_board" type="object" class="btn btn-primary">
@@ -263,6 +284,10 @@
                       name="action_view_receipt" type="object" class="btn btn-primary">
                 <i class="fa fa-picture-o" aria-hidden="true"/> Ver foto
               </button>
+            </div>
+            <div t-if="col == 'verify' and record.can_credit.raw_value" class="o_distri_reason">
+              <i class="fa fa-exclamation-circle" aria-hidden="true"/>
+              <span><field name="credit_reminder"/></span>
             </div>
             <!-- the other actions, compact -->
             <div class="o_distri_secondary">
@@ -293,6 +318,11 @@
               <button t-if="record.report_review.raw_value and !authorized and record.can_authorize.raw_value"
                       name="action_undo" type="object" class="btn btn-sm btn-link text-danger"
                       confirm="Se anula el pago registrado y el comprobante vuelve a «Esperando reporte MP». ¿Seguir?">
+                Deshacer
+              </button>
+              <button t-if="col == 'credited' and record.can_authorize.raw_value" name="action_undo"
+                      type="object" class="btn btn-sm btn-link text-danger"
+                      confirm="Se anula el pago acreditado y el comprobante vuelve a «Para acreditar». ¿Seguir?">
                 Deshacer
               </button>
               <button t-if="authorized and record.can_authorize.raw_value" name="action_undo"
@@ -356,10 +386,17 @@
           <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"
                   invisible="state != 'draft' or kind != 'income' or not partner_id or (receipt_candidate and not receipt_id)"
                   groups="distri_pedido.grupo_cobros,base.group_system"/>
-          <button name="action_verify" type="object" string="Visto en MP: autorizar entrega"
-                  class="btn-primary" invisible="state != 'draft' or kind != 'verify'"
+          <!-- 19.0.1.126.0: «Visto en MP» is no longer offered (models/acreditar.py) -->
+          <button name="action_credit" type="object" string="Acreditar" class="btn-primary"
+                  invisible="not can_credit"/>
+          <button name="action_open_tie_credited" type="object"
+                  string="Es un comprobante acreditado" class="btn-primary"
+                  invisible="kind != 'income' or state != 'draft' or not credited_candidate_count"
+                  groups="distri_pedido.grupo_cobros,base.group_system"/>
+          <button name="action_confirm_other_payment" type="object" string="Confirmar: es otro pago"
+                  invisible="kind != 'income' or state != 'draft' or not credited_candidate_count or not partner_id"
                   groups="distri_pedido.grupo_cobros,base.group_system"
-                  confirm="¿Viste esta transferencia en la app de Mercado Pago, con el mismo importe y número de operación? Se autoriza entregar la mercadería. No se registra ningún pago: se registra cuando el reporte traiga la transferencia."/>
+                  confirm="¿Revisaste que esta transferencia no es la de un comprobante ya acreditado? Se registra otro pago."/>
           <button name="action_clear_review" type="object" string="Revisado"
                   invisible="not report_review or state == 'authorized'"
                   groups="distri_pedido.grupo_administracion"/>
@@ -387,6 +424,15 @@
           <field name="state" widget="statusbar"/>
         </header>
         <sheet>
+          <field name="can_credit" invisible="1"/>
+          <field name="credited_candidate_count" invisible="1"/>
+          <div class="alert alert-warning" role="alert" invisible="not can_credit">
+            <field name="credit_reminder" readonly="1" class="oe_inline"/>
+          </div>
+          <div class="alert alert-info" role="status" invisible="not credited_label">
+            <field name="credited_label" readonly="1" class="oe_inline"/> ·
+            <field name="audit_state" readonly="1" class="oe_inline"/>
+          </div>
           <widget name="web_ribbon" title="Sin comprobante" bg_color="text-bg-danger"
                   invisible="not confirmed_without_receipt"/>
           <div class="alert alert-danger" role="alert" invisible="not confirmed_without_receipt">
@@ -547,8 +593,9 @@
         <field name="amount"/>
         <filter name="to_act" string="Para actuar (minoristas)"
                 domain="['&amp;', ('column', '!=', 'unidentified'),
-                         '|', '|', ('state', '=', 'draft'), ('report_review', '=', True),
-                         '&amp;', ('state', '=', 'authorized'), ('income_id', '=', False)]"/>
+                         '|', '|', '|', ('state', '=', 'draft'), ('report_review', '=', True),
+                         '&amp;', ('state', '=', 'authorized'), ('income_id', '=', False),
+                         '&amp;', ('column', '=', 'credited'), ('income_id', '=', False)]"/>
         <filter name="unknown" string="Sin identificar"
                 domain="[('state', '=', 'draft'), ('column', '=', 'unidentified')]"/>
         <filter name="apartados" string="Mayoristas apartados" domain="[('state', '=', 'apartado')]"/>
@@ -557,8 +604,9 @@
                 domain="[('date_day', '&gt;=', (context_today() - relativedelta(days=60)).strftime('%Y-%m-%d'))]"/>
         <separator/>
         <filter name="pending" string="Pendientes"
-                domain="['|', '|', ('state', '=', 'draft'), ('report_review', '=', True),
-                         '&amp;', ('state', '=', 'authorized'), ('income_id', '=', False)]"/>
+                domain="['|', '|', '|', ('state', '=', 'draft'), ('report_review', '=', True),
+                         '&amp;', ('state', '=', 'authorized'), ('income_id', '=', False),
+                         '&amp;', ('column', '=', 'credited'), ('income_id', '=', False)]"/>
         <filter name="confirmed" string="Confirmados" domain="[('state', '=', 'confirmed')]"/>
         <filter name="ignored" string="Descartados" domain="[('state', '=', 'ignored')]"/>
         <separator/>
@@ -567,7 +615,11 @@
         <filter name="authorized" string="Entregas autorizadas a mano"
                 domain="[('kind', '=', 'verify'), ('state', '=', 'authorized')]"/>
         <filter name="hand_verified" string="Pagos registrados a mano (sistema anterior)"
-                domain="[('kind', '=', 'verify'), ('state', '=', 'confirmed')]"/>
+                domain="[('kind', '=', 'verify'), ('state', '=', 'confirmed'), ('credited_at', '=', False)]"/>
+        <filter name="credited" string="Comprobantes acreditados"
+                domain="[('kind', '=', 'verify'), ('credited_at', '!=', False)]"/>
+        <filter name="credited_pending" string="Acreditados a verificar con MP"
+                domain="[('audit_state', '=', 'pendiente')]"/>
         <filter name="confirmed_without_receipt" string="Confirmado sin comprobante"
                 domain="[('confirmed_without_receipt', '=', True)]"/>
         <filter name="receipt_candidate" string="Candidatos sin comprobante"
@@ -600,13 +652,10 @@
          con el cliente propuesto. También se puede subir un reporte a mano con «Importar
          reporte».</p>
       <p>Las columnas van de lo más seguro a lo que pide más atención: «Confirmado contra
-         reporte MP», «Esperando reporte MP», «Revisar», «Asignar cliente» y «Sin
-         transferencia». Solo se registran pagos desde las transferencias del reporte:
-         «Confirmado contra reporte MP», «Revisar» y «Asignar cliente».
-         La «i» de cada columna explica qué es y qué hacer.</p>
-      <p>Los comprobantes que llegan por WhatsApp antes del reporte esperan en «Esperando
-         reporte MP» y no registran ningún pago. Si hay que entregar mercadería antes, se mira
-         la operación en la app de Mercado Pago y se toca «Visto en MP: autorizar entrega».</p>
+         reporte MP», «Para acreditar», «Acreditado · a verificar», «Revisar», «Asignar
+         cliente» y «Sin transferencia». La «i» de cada columna explica qué es y qué hacer.</p>
+      <p>Un comprobante se acredita al validarlo («Acreditar»): el pago se registra en el
+         momento y el reporte de Mercado Pago lo verifica después, sin registrar otro.</p>
     </field>
   </record>
 

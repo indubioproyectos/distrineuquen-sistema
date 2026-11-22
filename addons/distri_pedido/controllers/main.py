@@ -681,6 +681,8 @@ class TomaDePedidos(http.Controller):
                     "comprobante": f["customer_ref"],
                     "tipo": f["customer_type"],
                     "provisorio": f["provisional"],
+                    # 19.0.1.126.0: a credited receipt tied to the Mercado Pago report
+                    "confirmado": bool(f.get("confirmed")),
                     "debe": self._plata(f["debit"]) if f["debit"] else "",
                     "haber": self._plata(f["credit"]) if f["credit"] else "",
                     "saldo": ("- " if f["balance"] < -0.004 else "") + self._plata(abs(f["balance"])),
