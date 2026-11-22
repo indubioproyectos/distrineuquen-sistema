@@ -32,7 +32,7 @@
       <field name="code">pedidos</field>
       <field name="sequence">20</field>
       <field name="name">Toma de pedidos</field>
-      <field name="description">La pantalla tipo AgilPedido dentro de Odoo, sin registro, en /pedido, con la lista mayorista general. Las distribuidoras y los revendedores autorizados entran con su usuario y ven además su lista. El pedido entra como presupuesto, el cliente lo confirma con un mensaje de WhatsApp que lleva el código del pedido, y el administrador le asigna el cliente comparando lo que escribió el comprador con la ficha de cada candidato.</field>
+      <field name="description">La pantalla tipo AgilPedido dentro del sistema, sin registro, en /pedido, con la lista mayorista general. Las distribuidoras y los revendedores autorizados entran con su usuario y ven además su lista. El pedido entra como presupuesto, el cliente lo confirma con un mensaje de WhatsApp que lleva el código del pedido, y el administrador le asigna el cliente comparando lo que escribió el comprador con la ficha de cada candidato.</field>
       <field name="stage">lab</field>
       <field name="next_step">Día de prueba con clientes reales, con AgilPedido todavía encendido. El gerente decide el precio de la lista oculta cuando el cliente asignado tiene otra lista y la compra mínima (consulta pendiente). «Confirmar pedidos por WhatsApp» se activa el día que se conecte el número real de la empresa, al final del proyecto.</field>
       <field name="presentation_url">/presentacion</field>
@@ -43,7 +43,7 @@
       <field name="code">armado</field>
       <field name="sequence">30</field>
       <field name="name">Armado de pedidos</field>
-      <field name="description">El armador toma el pedido en el celular, marca solo lo que falta y carga los bultos. Al terminar salen solos el remito y la factura por lo entregado, y el código de recibido. Tiene su propia aplicación «Armado» en Odoo, y el pedido de venta tiene el botón «Armar este pedido».</field>
+      <field name="description">El armador toma el pedido en el celular, marca solo lo que falta y carga los bultos. Al terminar salen solos el remito y la factura por lo entregado, y el código de recibido. Tiene su propia aplicación «Armado» en el sistema, y el pedido de venta tiene el botón «Armar este pedido».</field>
       <field name="stage">lab</field>
       <field name="next_step">Probarlo en el día de prueba con el armador real en el depósito y confirmar con el gerente las zonas, los días y los viajes.</field>
       <field name="presentation_url">/presentacion#armador</field>
@@ -54,7 +54,7 @@
       <field name="code">cuenta</field>
       <field name="sequence">40</field>
       <field name="name">Cuenta corriente y «Cómo pagar»</field>
-      <field name="description">El cliente ve su saldo y toda su historia desde el enlace del pedido: remitos, pagos y devoluciones, sin números de factura. El personal ve el estado de cuenta completo de cada cliente, con la historia de Odoo Online, filtro por fechas y PDF. Con la factura emitida, «Cómo pagar» muestra el importe final y el alias para transferir.</field>
+      <field name="description">El cliente ve su saldo y toda su historia desde el enlace del pedido: remitos, pagos y devoluciones, sin números de factura. El personal ve el estado de cuenta completo de cada cliente, con la historia del sistema anterior, filtro por fechas y PDF. Con la factura emitida, «Cómo pagar» muestra el importe final y el alias para transferir.</field>
       <field name="stage">lab</field>
       <field name="next_step">Probar el importe copiado en las apps de los bancos y de Mercado Pago el día de prueba.</field>
       <field name="presentation_url">/presentacion#cliente</field>
@@ -64,8 +64,8 @@
     <record id="project_contabilidad" model="distri.project.module">
       <field name="code">contabilidad</field>
       <field name="sequence">45</field>
-      <field name="name">Contabilidad y apariencia de Odoo</field>
-      <field name="description">Plan de cuentas argentino para Monotributo, como en Odoo Online, sin factura electrónica de ARCA. Las facturas siguen la numeración de Online. Menús con los nombres y colores de Online, la aplicación PRESUPUESTOS y la hora de Argentina en todos los usuarios.</field>
+      <field name="name">Contabilidad y apariencia del sistema</field>
+      <field name="description">Plan de cuentas argentino para Monotributo, como en el sistema anterior, sin factura electrónica de ARCA. Las facturas siguen la numeración de Online. Menús con los nombres y colores de Online, la aplicación PRESUPUESTOS y la hora de Argentina en todos los usuarios.</field>
       <field name="stage">lab</field>
       <field name="next_step">Revisar con el contador el plan de cuentas y las cuentas de los gastos del repartidor.</field>
       <field name="depends_on_ids" eval="[(6, 0, [ref('project_cuenta')])]"/>
@@ -75,9 +75,9 @@
       <field name="code">whatsapp</field>
       <field name="sequence">50</field>
       <field name="name">WhatsApp entrante y comprobantes</field>
-      <field name="description">Los mensajes, las fotos y los PDF que llegan al WhatsApp de la empresa entran solos a Odoo. Odoo lee en el propio servidor el importe, el número de operación y el CUIT de cada comprobante; si el importe no es seguro, queda «Revisar importe».</field>
+      <field name="description">Los mensajes, las fotos y los PDF que llegan al WhatsApp de la empresa entran solos al sistema. El sistema lee en el propio servidor el importe, el número de operación y el CUIT de cada comprobante; si el importe no es seguro, queda «Revisar importe».</field>
       <field name="stage">lab</field>
-      <field name="next_step">Probar un PDF real. El número de la empresa se conecta a Odoo al final del proyecto, cuando se apruebe; hasta entonces funciona con el número de prueba de Meta.</field>
+      <field name="next_step">Probar un PDF real. El número de la empresa se conecta al sistema al final del proyecto, cuando se apruebe; hasta entonces funciona con el número de prueba de Meta.</field>
       <field name="presentation_url">/presentacion/cobranza#whatsapp</field>
     </record>
 
@@ -87,7 +87,7 @@
       <field name="name">Reparto</field>
       <field name="description">App del repartidor que funciona sin señal: carga de la camioneta, visitas, devoluciones, código de recibido, gastos, encomiendas y cierre de la ruta. Administración controla la carga en «Salida de viajes». Administración y gerencia también pueden ser repartidores de una ruta.</field>
       <field name="stage">lab</field>
-      <field name="next_step">Probarla en el día de prueba, en el celular del repartidor. El código de recibido se manda a mano por WhatsApp hasta que Odoo envíe mensajes.</field>
+      <field name="next_step">Probarla en el día de prueba, en el celular del repartidor. El código de recibido se manda a mano por WhatsApp hasta que el sistema envíe mensajes.</field>
       <field name="presentation_url">/presentacion/reparto</field>
       <field name="depends_on_ids" eval="[(6, 0, [ref('project_armado'), ref('project_cuenta')])]"/>
     </record>
@@ -150,7 +150,7 @@
       <field name="code">conciliacion</field>
       <field name="sequence">90</field>
       <field name="name">Cobros por transferencia y conciliación con Mercado Pago (en exploración)</field>
-      <field name="description">Módulo en exploración. Regla «Sin reporte, no hay pago»: un cobro por transferencia se registra solo cuando el reporte de Mercado Pago trae la transferencia. El tablero tiene cinco columnas: «Confirmado contra reporte MP», «Esperando reporte MP», «Revisar», «Asignar cliente» y «Sin transferencia»; solo la primera, la tercera y la cuarta registran pagos. «Visto en MP: autorizar entrega» autoriza la entrega de forma provisoria, sin registrar el pago. Odoo lee en el propio servidor los comprobantes en foto y en PDF y los une con su transferencia por el número de operación y por la fecha y hora del comprobante. Reconoce los comprobantes repetidos, manda a «Revisar» el mismo comprobante presentado por dos clientes y avisa cada hora lo que sigue sin resolver. Prueba con datos reales del 25 al 28/09, más lo pendiente del 14 al 24/09: 49 comprobantes y 220 transferencias; los 31 comprobantes con número de operación quedaron unidos a su transferencia exacta. Cruce histórico de 21 meses: 13.062 transferencias y 5.893 comprobantes vinculados; al menos 76 cobros hasta el 24/09 no figuran cargados en Odoo Online.</field>
+      <field name="description">Módulo en exploración. Regla «Sin reporte, no hay pago»: un cobro por transferencia se registra solo cuando el reporte de Mercado Pago trae la transferencia. El tablero tiene cinco columnas: «Confirmado contra reporte MP», «Esperando reporte MP», «Revisar», «Asignar cliente» y «Sin transferencia»; solo la primera, la tercera y la cuarta registran pagos. «Visto en MP: autorizar entrega» autoriza la entrega de forma provisoria, sin registrar el pago. El sistema lee en el propio servidor los comprobantes en foto y en PDF y los une con su transferencia por el número de operación y por la fecha y hora del comprobante. Reconoce los comprobantes repetidos, manda a «Revisar» el mismo comprobante presentado por dos clientes y avisa cada hora lo que sigue sin resolver. Prueba con datos reales del 25 al 28/09, más lo pendiente del 14 al 24/09: 49 comprobantes y 220 transferencias; los 31 comprobantes con número de operación quedaron unidos a su transferencia exacta. Cruce histórico de 21 meses: 13.062 transferencias y 5.893 comprobantes vinculados; al menos 76 cobros hasta el 24/09 no figuran cargados en el sistema anterior.</field>
       <field name="stage">lab</field>
       <field name="next_step">Fase 2 del reporte: que Mercado Pago lo deje programado en la carpeta del servidor, con la clave de acceso y el horario a definir. Mientras tanto, el reporte se sube a mano con «Importar reporte». Queda por decidir si la conciliación sigue en este módulo o se separa en varios, y si se apoya en módulos de la OCA o en desarrollo propio.</field>
       <field name="presentation_url">/presentacion/cobranza#conciliacion</field>
@@ -163,7 +163,7 @@
       <field name="name">Pedidos y comprobantes del vendedor</field>
       <field name="description">El vendedor toma el pedido con su usuario, elige el cliente y se lo manda con «Enviar al cliente». El cliente manda su comprobante con «Mandar comprobante»; la foto que reenvía un vendedor va a «Revisar». Los pedidos de la página se confirman con el WhatsApp del cliente.</field>
       <field name="stage">programmed</field>
-      <field name="next_step">Probarlo el día de prueba. Cargar el WhatsApp de cada vendedor y la etiqueta de su cartera. Activar «Confirmar pedidos por WhatsApp» cuando el número real de la empresa esté conectado a Odoo.</field>
+      <field name="next_step">Probarlo el día de prueba. Cargar el WhatsApp de cada vendedor y la etiqueta de su cartera. Activar «Confirmar pedidos por WhatsApp» cuando el número real de la empresa esté conectado al sistema.</field>
       <field name="presentation_url">/presentacion/cobranza#vendedor</field>
       <field name="depends_on_ids" eval="[(6, 0, [ref('project_pedidos'), ref('project_whatsapp')])]"/>
     </record>
@@ -194,7 +194,7 @@
       <field name="name">Stock e inventario</field>
       <field name="description">Compras cargadas, un conteo inicial del depósito y cada entrega que descuenta lo entregado.</field>
       <field name="stage">pending</field>
-      <field name="next_step">Arranca cuando todos los pedidos entren por Odoo. Solo el gerente carga las compras y ajusta el stock.</field>
+      <field name="next_step">Arranca cuando todos los pedidos entren por el sistema. Solo el gerente carga las compras y ajusta el stock.</field>
       <field name="depends_on_ids" eval="[(6, 0, [ref('project_pedidos'), ref('project_armado')])]"/>
     </record>
 
@@ -202,7 +202,7 @@
       <field name="code">migracion</field>
       <field name="sequence">140</field>
       <field name="name">Migración desde AgilPedido</field>
-      <field name="description">Catálogo, contactos, listas de precios y saldos al Odoo propio, con AgilPedido funcionando en paralelo hasta que los clientes se muden.</field>
+      <field name="description">Catálogo, contactos, listas de precios y saldos al sistema propio, con AgilPedido funcionando en paralelo hasta que los clientes se muden.</field>
       <field name="stage">programmed</field>
       <field name="next_step">Ensayada en el lab con datos reales: el catálogo reorganizado y los 21.011 movimientos de cuenta corriente cargados. Falta el servidor de producción y la pasada definitiva, con los saldos controlados cliente por cliente.</field>
       <field name="presentation_url">/presentacion/migracion</field>
@@ -237,7 +237,7 @@
       <field name="code">agilpedido_wa</field>
       <field name="sequence">25</field>
       <field name="name">Pedidos de AgilPedido por WhatsApp</field>
-      <field name="description">Los mensajes de AgilPedido que llegan por WhatsApp se convierten solos en pedidos en borrador, con la tabla de equivalencias entre los productos de AgilPedido y los de Odoo.</field>
+      <field name="description">Los mensajes de AgilPedido que llegan por WhatsApp se convierten solos en pedidos en borrador, con la tabla de equivalencias entre los productos de AgilPedido y los del sistema.</field>
       <field name="stage">lab</field>
       <field name="next_step">Probarlo el día de prueba con mensajes reales y completar la tabla de equivalencias con lo que se corrija.</field>
       <field name="presentation_url">/presentacion#transicion</field>
@@ -270,7 +270,7 @@
       <field name="code">compras</field>
       <field name="sequence">135</field>
       <field name="name">Módulo de compras</field>
-      <field name="description">Se escanean las facturas y los remitos de los proveedores, y Odoo propone los precios nuevos para que el gerente los apruebe.</field>
+      <field name="description">Se escanean las facturas y los remitos de los proveedores, y el sistema propone los precios nuevos para que el gerente los apruebe.</field>
       <field name="stage">pending</field>
       <field name="next_step">Arranca después de las listas de precios desde el costo.</field>
       <field name="depends_on_ids" eval="[(6, 0, [ref('project_precios_costo'), ref('project_stock')])]"/>
@@ -280,7 +280,7 @@
       <field name="code">cambios_producto</field>
       <field name="sequence">145</field>
       <field name="name">Cambios de producto aprobados por el gerente</field>
-      <field name="description">Un panel donde el gerente aprueba los cambios de productos y Odoo los aplica en AgilPedido mientras los dos sistemas conviven.</field>
+      <field name="description">Un panel donde el gerente aprueba los cambios de productos y el sistema los aplica en AgilPedido mientras los dos sistemas conviven.</field>
       <field name="stage">designed</field>
       <field name="next_step">Programar el panel y el archivo para AgilPedido con los cambios aprobados.</field>
       <field name="presentation_url">/presentacion/migracion#transicion</field>
@@ -291,7 +291,7 @@
       <field name="code">presupuesto</field>
       <field name="sequence">900</field>
       <field name="name">Presupuesto</field>
-      <field name="description">Odoo Online (la versión alquilada de hoy) contra un Odoo Community propio, las licencias por usuario y qué incluye el servicio mensual, todo junto.</field>
+      <field name="description">El sistema anterior (la versión alquilada de hoy) contra un sistema propio, las licencias por usuario y qué incluye el servicio mensual, todo junto.</field>
       <field name="stage">designed</field>
       <field name="next_step">Que la gerencia lo revise y apruebe.</field>
       <field name="presentation_url">/presentacion/presupuesto</field>

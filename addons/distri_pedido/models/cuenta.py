@@ -44,7 +44,7 @@ class CuentaMovimiento(models.Model):
         "res.currency", string="Moneda",
         default=lambda self: self.env.company.currency_id,
     )
-    origen_id = fields.Integer(string="Id en el Odoo real", index=True)
+    origen_id = fields.Integer(string="Id en el sistema anterior", index=True)
 
 
 class ResPartnerCuenta(models.Model):

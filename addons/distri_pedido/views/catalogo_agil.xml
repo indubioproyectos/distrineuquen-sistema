@@ -36,7 +36,7 @@
         <separator/>
         <filter name="distri_agil_temporal" string="Catálogo AgilPedido (temporal)"
                 domain="[('distri_agil_temporal', '=', True)]"/>
-        <filter name="distri_no_agil" string="Productos de Odoo (no temporales)"
+        <filter name="distri_no_agil" string="Productos del sistema (no temporales)"
                 domain="[('distri_agil_temporal', '=', False)]"/>
         <filter name="distri_agil_por_seccion" string="Sección de AgilPedido"
                 context="{'group_by': 'distri_agil_seccion'}"/>
@@ -155,7 +155,7 @@
         <div class="text-muted mb8">
           Copia la tienda de AgilPedido tal cual: crea los productos nuevos, actualiza
           nombre, precio y sección, y oculta (sin borrar) los que AgilPedido ya no muestra.
-          Los productos de siempre de Odoo no se tocan. Si la página llega vacía o con
+          Los productos de siempre del sistema no se tocan. Si la página llega vacía o con
           menos de la mitad de los productos, no se cambia nada.
         </div>
         <group>
@@ -172,7 +172,7 @@
                   invisible="catalogo_activo" groups="distri_pedido.grupo_gerencia,base.group_system"
                   confirm="Desde ahora /pedido muestra solo los productos copiados de AgilPedido. ¿Seguimos?"/>
           <button name="action_volver_catalogo_odoo" type="object" class="btn-secondary"
-                  string="Volver al catálogo de Odoo en /pedido"
+                  string="Volver al catálogo del sistema en /pedido"
                   invisible="not catalogo_activo" groups="distri_pedido.grupo_gerencia,base.group_system"/>
           <button string="Cerrar" class="btn-secondary" special="cancel"/>
         </footer>

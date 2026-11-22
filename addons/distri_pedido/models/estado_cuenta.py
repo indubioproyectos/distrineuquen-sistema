@@ -75,8 +75,8 @@ SOURCE_ODOO = "odoo"
 SOURCE_RETURN = "return"
 _SOURCE_ORDER = {SOURCE_ONLINE: 0, SOURCE_ODOO: 1, SOURCE_RETURN: 2}
 SOURCE_LABELS = {
-    SOURCE_ONLINE: "Odoo Online",
-    SOURCE_ODOO: "Odoo",
+    SOURCE_ONLINE: "Sistema anterior",
+    SOURCE_ODOO: "DistriNeuquén",
     SOURCE_RETURN: "Reparto",
 }
 
@@ -514,7 +514,7 @@ class ResPartnerEstadoCuenta(models.Model):
     distri_statement_balance = fields.Monetary(
         string="Saldo de la cuenta", compute="_compute_distri_statement_html",
         currency_field="currency_id", groups=VE_SALDOS,
-        help="Historia de Odoo Online más lo registrado en este Odoo y las "
+        help="Historia del sistema anterior más lo registrado en este sistema y las "
              "devoluciones informadas. Positivo: debe. Negativo: saldo a favor.")
 
     # ------------------------------------------------------------ rows

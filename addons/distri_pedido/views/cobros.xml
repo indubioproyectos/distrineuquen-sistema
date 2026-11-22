@@ -27,7 +27,7 @@
           <button name="action_import_report" type="object" display="always"
                   string="Importar reporte"/>
           <button name="action_open_export" type="object" display="always"
-                  string="Exportar para Odoo Online" groups="distri_pedido.grupo_cobros,base.group_system"/>
+                  string="Exportar para el sistema anterior" groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_check_alerts" type="object" display="always"
                   string="Revisar alertas" groups="distri_pedido.grupo_administracion"/>
         </header>

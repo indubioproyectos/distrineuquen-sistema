@@ -116,7 +116,7 @@ BOX_HELP = {
     "waiting_money": "Comprobante de WhatsApp sin movimiento de Mercado Pago. Nunca es un pago: se "
                      "resuelve con el próximo reporte, o se cierra como copia, devolución u otra "
                      "cuenta.",
-    "online": "Ya cargado en Odoo Online (o un cobro del lab que Online ya tiene: posible doble "
+    "online": "Ya cargado en el sistema anterior (o un cobro del lab que Online ya tiene: posible doble "
               "carga).",
     "confirmed": "Confirmado en el lab: curación, se revisa por la fuerza de su evidencia.",
     "closed": "Copias, devoluciones, descartados y mayoristas apartados.",

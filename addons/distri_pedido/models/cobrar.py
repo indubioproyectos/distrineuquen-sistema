@@ -422,7 +422,7 @@ class DistriCobro(models.Model):
             parts.append("%s %s" % ("transferencia" if count == 1 else "%d transferencias" % count,
                                     _money(transfers)))
         target = "factura %s" % invoice.name if invoice else (
-            "factura %s (Odoo Online)" % (history.comprobante or "") if history else "a cuenta")
+            "factura %s (sistema anterior)" % (history.comprobante or "") if history else "a cuenta")
         text = " + ".join(parts)
         return " · ".join((text[:1].upper() + text[1:], target, "cobró %s" % user.name))
 

@@ -548,7 +548,7 @@
       <div class="galeria" id="galeria"></div>
       <p class="nota" style="margin-top:1.2rem">Ilustración con datos de ejemplo. Las pantallas de
          celular son las del repartidor; la salida de viajes, la rendición de caja y la entrega en
-         depósito son pantallas de Odoo.</p>
+         depósito son pantallas del sistema.</p>
     </div>
   </section>
 
@@ -613,7 +613,7 @@
             <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor', 'administrador']"/><t t-set="mini" t-value="True"/></t>
             <ul>
               <li>La descarga se hace <b>antes de salir</b>, con conexión.</li>
-              <li>Sin ruta asignada, la app lo avisa. El administrador la asigna en Odoo y el repartidor la vuelve a descargar.</li>
+              <li>Sin ruta asignada, la app lo avisa. El administrador la asigna en el sistema y el repartidor la vuelve a descargar.</li>
               <li>La ruta trae fecha, viaje, zona, pedidos, bultos y el saldo de cada cliente.</li>
             </ul>
           </div>
@@ -685,7 +685,7 @@
       <p class="eyebrow">Paso 2b · Antes de salir</p>
       <h2>Despacho y salida de viajes</h2>
       <p class="bajada">Mientras el repartidor tilda cada pedido en su celular, administración o gerencia
-         tilda el mismo pedido en <b>«Despacho»</b>, una pantalla para el celular (en Odoo:
+         tilda el mismo pedido en <b>«Despacho»</b>, una pantalla para el celular (en el sistema:
          <b>Reparto › Despacho (celular)</b>). Cuando todo tiene los dos tildes, marca
          <b>«Controlado»</b>.</p>
       <div class="etapa">
@@ -727,11 +727,11 @@
           </div>
         </div>
       </div>
-      <p class="bajada" style="margin-top:1.4rem">En Odoo, <b>Reparto › Salida de viajes</b> muestra todos
+      <p class="bajada" style="margin-top:1.4rem">En el sistema, <b>Reparto › Salida de viajes</b> muestra todos
          los viajes del día con el mismo doble control.</p>
     </div>
     <div class="marco ancho">
-      <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla de administración en Odoo</span></div>
+      <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla de administración en el sistema</span></div>
       <div class="pc" data-vista="Salida de viajes" data-num="2b" data-ir="salida">
         <div class="pc-barra"><i></i><i></i><i></i><em>distrineuquen.piadevs.com/odoo · Salida de viajes</em></div>
         <div class="pc-scroll"><div class="od">
@@ -764,7 +764,7 @@
           </div>
         </div></div>
       </div>
-      <p class="nota solo-movil" style="margin-top:.6rem">La pantalla de Odoo se desplaza hacia el costado.</p>
+      <p class="nota solo-movil" style="margin-top:.6rem">La pantalla del sistema se desplaza hacia el costado.</p>
       <p class="nota" style="margin-top:.6rem">Ilustración con datos de ejemplo.</p>
     </div>
     <div class="marco">
@@ -1483,7 +1483,7 @@
     <div class="marco">
       <p class="eyebrow">Paso 7 · En el depósito</p>
       <h2>Rendición de caja</h2>
-      <p class="bajada">La registra el administrador en Odoo, en <b>Reparto › Rendición de caja</b>.
+      <p class="bajada">La registra el administrador en el sistema, en <b>Reparto › Rendición de caja</b>.
          La ruta aparece ahí cuando el repartidor la cierra en el celular. Generalmente se rinde al
          día siguiente a primera hora; también puede ser el mismo día, cuando el repartidor vuelve.</p>
     </div>
@@ -1572,15 +1572,15 @@
           </div>
         </div></div>
       </div>
-      <p class="nota solo-movil" style="margin-top:.6rem">La pantalla de Odoo se desplaza hacia el costado.</p>
+      <p class="nota solo-movil" style="margin-top:.6rem">La pantalla del sistema se desplaza hacia el costado.</p>
       <p class="nota" style="margin-top:.6rem">Ilustración con datos de ejemplo.</p>
     </div>
     <div class="marco">
       <ol class="cadena">
         <li><span class="quien">Efectivo</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador', 'repartidor']"/><t t-set="mini" t-value="True"/></t><b>El administrador carga el efectivo contado</b> y
-            Odoo lo compara con el esperado, que es la suma de los cobros en efectivo de la app menos
+            El sistema lo compara con el esperado, que es la suma de los cobros en efectivo de la app menos
             los gastos del día. Con
-            una diferencia, Odoo sugiere candidatos: clientes que no pagaron o transfieren después, o
+            una diferencia, el sistema sugiere candidatos: clientes que no pagaron o transfieren después, o
             cobros cuyo monto la explica. La diferencia queda como <b>caso abierto</b> contra la ruta,
             con la explicación del repartidor.</li>
         <li><span class="quien">Gastos</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>Cada gasto aparece con su foto.</b> El administrador
@@ -1677,7 +1677,7 @@
          app del repartidor y aplica las mismas reglas.</p>
     </div>
     <div class="marco ancho">
-      <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla de administración en Odoo</span></div>
+      <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla de administración en el sistema</span></div>
       <div class="pc" data-vista="Entrega en depósito" data-num="8" data-ir="deposito">
         <div class="pc-barra"><i></i><i></i><i></i><em>distrineuquen.piadevs.com/odoo · Pedido S00107</em></div>
         <div class="pc-scroll"><div class="od">
@@ -1727,7 +1727,7 @@
           </div>
         </div></div>
       </div>
-      <p class="nota solo-movil" style="margin-top:.6rem">La pantalla de Odoo se desplaza hacia el costado.</p>
+      <p class="nota solo-movil" style="margin-top:.6rem">La pantalla del sistema se desplaza hacia el costado.</p>
       <p class="nota" style="margin-top:.6rem">Ilustración con datos de ejemplo.</p>
     </div>
     <div class="marco">
@@ -1748,8 +1748,8 @@
         <li><span class="quien">Venta en mostrador</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente', 'administrador']"/><t t-set="mini" t-value="True"/></t>Desde un presupuesto con cliente real,
             <b>«Venta en mostrador»</b> confirma el pedido, lo arma completo tal como se pidió, valida el
             remito, emite la factura y genera el código de recibido. Después abre el mismo asistente, donde
-            el código se reemplaza por «Venta en mostrador (cliente presente)». No usa el Punto de Venta de
-            Odoo.</li>
+            el código se reemplaza por «Venta en mostrador (cliente presente)». No usa el Punto de Venta del
+            sistema.</li>
         <li><span class="quien">Cierre de caja depósito</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t>Cada usuario tiene una caja por día con
             sus entregas en depósito. Administración carga el efectivo contado y el sistema lo compara con
             los cobros registrados; una diferencia abre un caso, igual que en la rendición de una ruta.</li>

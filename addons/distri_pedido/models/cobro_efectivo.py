@@ -87,9 +87,9 @@ class AccountPaymentHistoryInvoice(models.Model):
     _inherit = "account.payment"
 
     distri_history_invoice_id = fields.Many2one(
-        "distri.cuenta.movimiento", string="Factura de Odoo Online", index=True,
+        "distri.cuenta.movimiento", string="Factura del sistema anterior", index=True,
         readonly=True, copy=False, ondelete="set null",
-        help="Factura de la historia de Odoo Online que paga este cobro de /cobro.")
+        help="Factura de la historia del sistema anterior que paga este cobro de /cobro.")
 
 
 class DistriCashCollection(models.Model):
@@ -332,7 +332,7 @@ class DistriCashCollection(models.Model):
     @api.model
     def _cash_target_label(self, invoice, history):
         if history:
-            return "factura %s (Odoo Online)" % (history.comprobante or "")
+            return "factura %s (sistema anterior)" % (history.comprobante or "")
         return "factura %s" % invoice.name if invoice else "a cuenta"
 
     @api.model

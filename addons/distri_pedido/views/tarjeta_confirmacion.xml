@@ -159,7 +159,7 @@
         <p class="text-muted">
           Por defecto el pago va <b>a cuenta</b> (se aplica a las facturas más viejas del lab).
           Si el cliente dice qué factura paga, elegila: el pago la cita en el memo
-          (por ejemplo «· 0001/2026/07369») y, si es una factura de este Odoo, se concilia
+          (por ejemplo «· 0001/2026/07369») y, si es una factura de este sistema, se concilia
           primero con ella.
         </p>
         <group>

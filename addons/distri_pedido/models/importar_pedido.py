@@ -636,7 +636,7 @@ class ImportarPedido(models.TransientModel):
         if sin_regla:
             raise UserError(_(
                 "Estos productos vinieron con «May» pero no tienen precio "
-                "mayorista cargado en Odoo. Cargáselo primero:\n\n- %s"
+                "mayorista cargado en el sistema. Cargáselo primero:\n\n- %s"
             ) % "\n- ".join(sin_regla))
         valores = {
             "partner_id": self.partner_id.id,
@@ -780,7 +780,7 @@ class ImportarPedidoLinea(models.TransientModel):
         plantilla = variante.product_tmpl_id
         # «PRODUCTO A CORREGIR» is not sold either (agilpedido_wa.py)
         if not variante or not plantilla.sale_ok:
-            raise UserError(_("Elegí el producto de Odoo."))
+            raise UserError(_("Elegí el producto del sistema."))
         if unidad not in unidades_de_venta(plantilla):
             raise UserError(_("%(p)s no se vende en %(u)s.", p=variante.display_name, u=unidad.name))
         if not factor or factor <= 0:
@@ -842,7 +842,7 @@ class ImportarPedidoKit(models.TransientModel):
         self.ensure_one()
         plantilla = variante.product_tmpl_id
         if not variante or not plantilla.sale_ok:
-            raise UserError(_("Elegí el producto de Odoo."))
+            raise UserError(_("Elegí el producto del sistema."))
         if unidad not in unidades_de_venta(plantilla):
             unidad = unidad_de_venta(plantilla)[0]
         if not cantidad or cantidad <= 0:

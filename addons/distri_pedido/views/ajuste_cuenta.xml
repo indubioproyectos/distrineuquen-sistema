@@ -150,7 +150,7 @@
     <field name="context">{'search_default_to_online': 1}</field>
     <field name="help" type="html">
       <p>Cada saldo ajustado con «Ajustar saldo» (ficha del cliente o «Revisión por cliente»),
-         para replicarlo en Odoo Online. Marcá «Pasado a Online» cuando esté hecho.</p>
+         para replicarlo en el sistema anterior. Marcá «Pasado a Online» cuando esté hecho.</p>
     </field>
   </record>
 

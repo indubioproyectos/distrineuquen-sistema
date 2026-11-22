@@ -713,7 +713,7 @@
       '<label class="fld grow">Buscar<input id="q" class="inp" type="search" autocomplete="off" placeholder="Nombre, ref. o teléfono" value="' +
       h(S.search) + '"/></label></div><div class="frow btns">' +
       '<button type="button" class="btn ghost sm" id="refresh">Actualizar</button>' +
-      (D && D.report_url ? '<a class="btn ghost sm" href="' + h(D.report_url) + '" target="_blank" rel="noopener">PDF y Excel (Odoo)</a>' : "") +
+      (D && D.report_url ? '<a class="btn ghost sm" href="' + h(D.report_url) + '" target="_blank" rel="noopener">PDF y Excel</a>' : "") +
       "</div></div>";
     if (!D) return '<div class="desk">' + head + banner() + '<main class="dwrap">' + f + '<div class="cargando">Cargando…</div></main></div>';
     var kpis = '<div class="kpis"><div class="kpi"><span>Clientes que deben</span><b class="num">' + D.debtor_count + "</b></div>" +
@@ -794,7 +794,7 @@
       }
       if (L.cash) parts.push(cashView(L.cash));
       if (L.online) {
-        parts.push('<div class="block"><div class="label">Historia de Odoo Online</div>' + kv([
+        parts.push('<div class="block"><div class="label">Historia del sistema anterior</div>' + kv([
           ["Comprobante", h(L.online.comprobante)],
           ["Concepto", h(L.online.concepto)],
           ["Tipo", h(L.online.tipo)],

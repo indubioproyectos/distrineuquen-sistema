@@ -496,10 +496,10 @@
       </li>
       <!-- 19.0.1.115.0: seller orders stay quotations after packing -->
       <li class="paso">
-        <div class="paso-cab"><span class="cuando">Después del armado</span><h3>Confirmar los pedidos de los vendedores</h3><span class="url">Odoo › Ventas</span></div>
+        <div class="paso-cab"><span class="cuando">Después del armado</span><h3>Confirmar los pedidos de los vendedores</h3><span class="url">Ventas</span></div>
         <ol>
           <li>Los pedidos que toma un vendedor quedan como <b>presupuesto</b> aunque el armador ya los haya terminado: la factura no sale hasta que los confirmás.</li>
-          <li>En Odoo entrá a <b>Ventas</b>, abrí los presupuestos armados, revisá el cliente y tocá <span class="k">Confirmar</span>.</li>
+          <li>En el sistema entrá a <b>Ventas</b>, abrí los presupuestos armados, revisá el cliente y tocá <span class="k">Confirmar</span>.</li>
           <li>Si el cliente no tiene WhatsApp, cargalo y tocá <span class="k">Guardar y confirmar</span> (o <span class="k2">Confirmar sin WhatsApp</span>). Al confirmar, la factura de lo armado sale sola.</li>
         </ol>
       </li>
@@ -537,7 +537,7 @@
         <h3><svg class="dn-i"><use href="#alert"/></svg>Si pasa esto…</h3>
         <dl>
           
-          <dt>Armaste una ruta de prueba o por error</dt><dd>Desde el formulario de la ruta en Odoo, <b>Anular ruta</b>: solo antes de que salga y si no tiene plata; se deshace y los pedidos quedan libres. Si ya salió, usá <b>Reabrir para el repartidor</b> o rendila en la caja.</dd>
+          <dt>Armaste una ruta de prueba o por error</dt><dd>Desde el formulario de la ruta en el sistema, <b>Anular ruta</b>: solo antes de que salga y si no tiene plata; se deshace y los pedidos quedan libres. Si ya salió, usá <b>Reabrir para el repartidor</b> o rendila en la caja.</dd>
           <dt>Un producto de AgilPedido entra siempre mal</dt><dd>Corregilo con <span class="k2">Corregir y recordar</span>. Las correcciones guardadas están en <span class="k2">Equivalencias aprendidas</span>.</dd>
           <dt>Ya existe el número de WhatsApp en otro cliente</dt><dd>La pantalla avisa <span class="txt">Ya tienen este número</span>. Revisá si es el mismo cliente antes de guardar.</dd>
         </dl>
@@ -734,7 +734,7 @@
           <li><a href="/presentacion/reparto">La app del repartidor</a> <span>Carga, despacho, visitas, encomiendas, gastos, rendición y depósito.</span></li>
           <li><a href="/presentacion/cobranza">Registro de cobranzas</a> <span>Rutas, rendición, comprobantes por WhatsApp y Mercado Pago.</span></li>
           <li><a href="/presentacion/migracion">La migración desde AgilPedido</a> <span>Por qué se empezó por el catálogo y cómo conviven los dos sistemas.</span></li>
-          <li><a href="/presentacion/presupuesto">Presupuesto</a> <span>Odoo Online o un Odoo propio.</span></li>
+          <li><a href="/presentacion/presupuesto">Presupuesto</a> <span>El sistema anterior o uno propio.</span></li>
         </ul>
         <h3>Cada parte, en qué etapa está</h3>
         <ul class="mods">
@@ -778,7 +778,7 @@
             los días y los viajes del reparto. Catriel ya está
             decidido: sus clientes retiran en el depósito.</li>
         <li><span class="cuando">Al final del proyecto</span><b>El número real de WhatsApp</b>Se conecta
-            a Odoo cuando se apruebe el proyecto. Ese día se activa «Confirmar pedidos por WhatsApp»
+            al sistema cuando se apruebe el proyecto. Ese día se activa «Confirmar pedidos por WhatsApp»
             y los pedidos de la página pasan a esperar el mensaje del cliente.</li>
       </ul>
       </div>

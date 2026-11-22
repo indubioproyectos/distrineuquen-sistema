@@ -75,12 +75,12 @@ class DistriMpCollectionCard(models.Model):
     pay_invoice_id = fields.Many2one(
         "distri.cuenta.movimiento", string="Paga la factura", ondelete="set null", copy=False,
         tracking=True, index="btree_not_null",
-        help="Factura de la historia de Odoo Online que paga esta transferencia. El pago la cita "
+        help="Factura de la historia del sistema anterior que paga esta transferencia. El pago la cita "
              "en el memo. Vacío: a cuenta.")
     pay_move_id = fields.Many2one(
         "account.move", string="Paga la factura del lab", ondelete="set null", copy=False,
         tracking=True, index="btree_not_null",
-        help="Factura abierta de este Odoo que paga esta transferencia: el pago la cita en el "
+        help="Factura abierta de este sistema que paga esta transferencia: el pago la cita en el "
              "memo y se concilia primero con ella. Vacío: a cuenta.")
     pay_partner_id = fields.Many2one("res.partner", compute="_compute_pay_partner")
     pay_has_lab_invoices = fields.Boolean(compute="_compute_pay_partner")

@@ -199,9 +199,9 @@
           <p><b>Activado:</b> un pedido de la página espera el WhatsApp del cliente con el
             código antes de entrar a la operación (lista «Pedidos sin WhatsApp»).</p>
           <p><b>Desactivado:</b> el pedido entra directo, como antes. El botón «Enviar por
-            WhatsApp» sigue y, si el mensaje con el código llega a Odoo, el teléfono del
+            WhatsApp» sigue y, si el mensaje con el código llega al sistema, el teléfono del
             cliente queda verificado.</p>
-          <p>Se activa el día que el número de la empresa queda conectado a Odoo. Con el
+          <p>Se activa el día que el número de la empresa queda conectado al sistema. Con el
             número de prueba de Meta solo pueden escribir hasta 5 teléfonos registrados.</p>
         </div>
         <footer>

@@ -168,7 +168,7 @@
     <div class="marco">
       <p class="rotulo">Distri Neuquén</p>
       <h1>Presupuesto del proyecto</h1>
-      <p>Qué cuesta hoy Odoo Online, qué cuesta un Odoo Community propio y qué incluye el
+      <p>Qué cuesta hoy el sistema anterior, qué cuesta un sistema propio y qué incluye el
          servicio, en una sola página.</p>
     </div>
   </div>
@@ -176,24 +176,24 @@
   <section>
     <div class="marco">
       <p class="eyebrow">La decisión de fondo</p>
-      <h2>Por qué conviene un Odoo propio</h2>
-      <p class="bajada">Hoy el sistema corre en Odoo Online, la versión alquilada. Todo lo que se
+      <h2>Por qué conviene un sistema propio</h2>
+      <p class="bajada">Hoy todo corre en el sistema anterior, la versión alquilada. Todo lo que se
          mostró acá está construido como un módulo propio, y <b>en la versión alquilada no se
          puede instalar código propio</b>. Para que esto funcione de verdad, el sistema tiene
          que vivir en un servidor de la empresa.</p>
 
       <div class="comparo">
         <div class="col hoy">
-          <h3>Odoo Online (hoy)</h3>
+          <h3>Sistema anterior (hoy)</h3>
           <ul>
             <li>Se paga todos los meses, por usuario, para siempre.</li>
             <li>No admite el módulo de pedidos que ya está hecho.</li>
             <li>Los datos viven en el servidor del proveedor.</li>
-            <li>Las copias y las actualizaciones las maneja Odoo.</li>
+            <li>Las copias y las actualizaciones las maneja el proveedor del sistema anterior.</li>
           </ul>
         </div>
         <div class="col nueva">
-          <h3>Odoo Community, propio</h3>
+          <h3>Sistema propio</h3>
           <ul>
             <li>Sin licencia por usuario: se puede dar acceso a todo el personal.</li>
             <li>Corre el módulo de pedidos, el de cuenta corriente y lo que venga después.</li>
@@ -219,7 +219,7 @@
             <th style="width:24%">Por año (USD)</th></tr>
         <tr><td><b>Hoy: 2 usuarios</b></td><td>US$ 34</td><td>US$ 408</td></tr>
         <tr><td><b>Lo que el proyecto necesita: 8</b></td><td>US$ 136</td><td>US$ 1.632</td></tr>
-        <tr><td><b>Con Odoo Community</b>Todos los usuarios que hagan falta</td>
+        <tr><td><b>Con el sistema propio</b>Todos los usuarios que hagan falta</td>
             <td style="color:#1f7a4d">US$ 0</td><td style="color:#1f7a4d">US$ 0</td></tr>
       </table>
       <p class="bajada" style="margin-top:1.1rem">Con servidor propio, <b>pasar de 2 a 8 personas
@@ -232,7 +232,7 @@
     <div class="marco">
       <p class="eyebrow">Lo que hay que tener en cuenta</p>
       <h2>Qué incluye el servicio</h2>
-      <p class="bajada">Con un servidor propio, algunas tareas que hoy hace Odoo pasan a estar
+      <p class="bajada">Con un servidor propio, algunas tareas que hoy hace el proveedor pasan a estar
          de este lado. Ninguna queda librada al azar: todas están contempladas y presupuestadas.</p>
 
       <table class="costos">
@@ -243,7 +243,7 @@
         </tr>
         <tr>
           <td><b>Servicio mensual, todo incluido</b>Servidor, copias de seguridad con prueba de
-              restauración, seguridad, mantenimiento, actualizaciones de Odoo y atención ante
+              restauración, seguridad, mantenimiento, actualizaciones del sistema y atención ante
               fallas.</td>
           <td><b style="color:var(--azul)">USD 100</b><br/><span style="font-size:.8rem;color:var(--tenue)">dólares</span></td>
           <td class="cuando">Por mes</td>

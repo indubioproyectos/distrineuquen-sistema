@@ -149,7 +149,7 @@ def _same_customer(card, pay, owners):
 
 class DistriOnlinePayment(models.Model):
     _name = "distri.online.payment"
-    _description = "Cobro registrado en Odoo Online (copia de lectura)"
+    _description = "Cobro registrado en el sistema anterior (copia de lectura)"
     _order = "date desc, id desc"
 
     online_id = fields.Integer(string="Id en Online", required=True, index=True, readonly=True)
@@ -562,7 +562,7 @@ class CuentaMovimientoOnline(models.Model):
 
 class DistriOnlineExport(models.Model):
     _name = "distri.online.export"
-    _description = "Lote exportado para Odoo Online"
+    _description = "Lote exportado para el sistema anterior"
     _order = "id desc"
 
     name = fields.Char(string="Lote", required=True, readonly=True)
@@ -629,11 +629,11 @@ class DistriOnlineExport(models.Model):
             sheet.column_dimensions[col].width = width
         sheet.freeze_panes = "A2"
         helper = book.create_sheet("Ayuda")
-        helper.append(["Columna", "Campo en Odoo (si no se asigna solo)", "Contenido"])
+        helper.append(["Columna", "Campo en el sistema (si no se asigna solo)", "Contenido"])
         for line in (
                 ("id", "ID externo", "Clave fija por cobro; reimportar la misma fila actualiza"),
                 ("partner_id/.id", "Cliente/Proveedor > ID de la base de datos",
-                 "Número interno del cliente en Odoo Online"),
+                 "Número interno del cliente en el sistema anterior"),
                 ("date", "Fecha", "Fecha del cobro"),
                 ("amount", "Importe", "Importe en pesos"),
                 ("journal_id/.id", "Diario > ID de la base de datos", "Banco"),
@@ -650,7 +650,7 @@ class DistriOnlineExport(models.Model):
 class DistriOnlineExportWizard(models.TransientModel):
     """«Exportar para Odoo Online»: the check first, then the batch."""
     _name = "distri.online.export.wizard"
-    _description = "Exportar cobros para Odoo Online"
+    _description = "Exportar cobros para el sistema anterior"
 
     date_from = fields.Date(string="Desde", help="Opcional: cobros de MP desde ese día.")
     date_to = fields.Date(string="Hasta", help="Opcional: hasta ese día inclusive.")
@@ -728,7 +728,7 @@ class DistriOnlineExportWizard(models.TransientModel):
             "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})
         cards.write({"export_batch_id": batch.id})
         for card in cards:
-            card.message_post(body="Exportado para Odoo Online en el %s." % name)
+            card.message_post(body="Exportado para el sistema anterior en el %s." % name)
         self.batch_id = batch
         return batch.action_download()
 
@@ -739,7 +739,7 @@ class DistriOnlineExportWizard(models.TransientModel):
 class DistriOnlineBalance(models.TransientModel):
     """«Saldos lab vs Online»: per customer, after the sync."""
     _name = "distri.online.balance"
-    _description = "Saldo del lab comparado con Odoo Online"
+    _description = "Saldo del lab comparado con el sistema anterior"
     _order = "abs_difference desc"
 
     partner_id = fields.Many2one("res.partner", string="Cliente", readonly=True)

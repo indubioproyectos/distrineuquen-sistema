@@ -22,7 +22,7 @@
         <page string="Estado de cuenta" name="distri_estado_cuenta" invisible="not id or distri_generic_partner"
               groups="distri_pedido.grupo_vendedor,distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia">
           <p class="text-muted">
-            Historia completa: Odoo Online, este Odoo y las devoluciones informadas por el
+            Historia completa: el sistema anterior, este sistema y las devoluciones informadas por el
             repartidor (a controlar hasta la rendición). Lo más nuevo arriba. Para filtrar por
             fecha o imprimir, tocá «Estado de cuenta» arriba.
           </p>

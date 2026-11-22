@@ -410,7 +410,7 @@ class Deposito(http.Controller):
                 action = order.action_distri_counter_sale()
                 if (action or {}).get("res_model") != "distri.depot.delivery":
                     raise UserError("No se pudo hacer la venta en mostrador desde acá: abrí el "
-                                    "presupuesto en Odoo.")
+                                    "presupuesto en el sistema.")
         except (UserError, AccessError, ValidationError) as exc:
             return self._refuse(exc, lambda text: self._mostrador(error=text, status=400))
         url = "/deposito/entrega/%s?mostrador=1" % order.id

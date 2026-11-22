@@ -579,7 +579,7 @@ class TestAgilEquivalencias(TransactionCase):
                 self.assertEqual(subtotal, precio, fila[1])
                 if con_codigo:
                     self.assertIn("Por código %s" % fila[0], valores["distri_agil_nota"])
-                    self.assertNotIn("no es el de Odoo", valores["distri_agil_nota"], fila[1])
+                    self.assertNotIn("no es el del sistema", valores["distri_agil_nota"], fila[1])
         # and a whole message with the exported names, with the store's code in
         # front in some of the forms it may take: difference 0
         order = self._text(mensaje(
@@ -660,7 +660,7 @@ class TestAgilEquivalencias(TransactionCase):
         self.assertEqual(line.product_id, self.duracell.product_variant_id)
         self.assertEqual(line.product_uom_id, self.bulto120)
         self.assertFalse(line.distri_agil_corregir)
-        self.assertIn("el nombre no es el de Odoo", line.distri_agil_nota)
+        self.assertIn("el nombre no es el del sistema", line.distri_agil_nota)
         # «May» in the name sets the wholesale price even with the main row's code
         order = self._text(mensaje("- 1 x 999002 - May Duracell AAA Pruebagil ($ 120,000.00)",
                                    total=120000))

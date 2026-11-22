@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.4: the system is «DistriNeuquén»; no «Odoo» a user or a
+       customer can see. Base Odoo is Community (LGPL), so its branding may go.
+       Only template inheritance here: technical names, URLs (/odoo, /web) and
+       core files stay as they are. JS side: static/src/js/marca.js. -->
+
+  <!-- Every page built on web.layout (backend, frontend, login, offline):
+       tab title and favicon when the page sets none. -->
+  <template id="marca_layout" inherit_id="web.layout" name="DistriNeuquén: título y favicon">
+    <xpath expr="//title" position="attributes">
+      <attribute name="t-esc">title or 'DistriNeuquén'</attribute>
+    </xpath>
+    <xpath expr="//link[@rel='shortcut icon']" position="attributes">
+      <attribute name="t-att-href">x_icon or '/distri_pedido/static/src/img/iconos/app-192.png'</attribute>
+    </xpath>
+  </template>
+
+  <!-- «Powered by Odoo» of the website/portal/survey footers: the message
+       renders nothing (callers keep calling it, so their xpaths still match). -->
+  <template id="marca_brand_promotion" inherit_id="web.brand_promotion_message"
+            name="DistriNeuquén: sin «Powered by»">
+    <xpath expr="//t[@t-set='odoo_logo']" position="replace"/>
+    <xpath expr="//t[@t-set='final_message']" position="replace"/>
+    <xpath expr="//t[@t-out]" position="replace"/>
+  </template>
+
+  <!-- Core login card (2FA, passkey and other pages on web.login_layout):
+       no «Powered by Odoo» and no «Manage Databases» link. -->
+  <template id="marca_login_layout" inherit_id="web.login_layout" name="DistriNeuquén: ingreso sin Odoo">
+    <xpath expr="//a[contains(@href, 'odoo.com')]" position="replace"/>
+    <xpath expr="//a[@href='/web/database/manager']" position="replace"/>
+  </template>
+
+  <!-- Portal documents (quote, invoice): the «Powered by» under the sidebar -->
+  <template id="marca_portal_sidebar" inherit_id="portal.portal_record_sidebar"
+            name="DistriNeuquén: portal sin «Powered by»">
+    <xpath expr="//a[contains(@href, 'odoo.com')]/.." position="replace"/>
+  </template>
+
+  <!-- Logged-in staff on a website page: the apps button tooltip -->
+  <template id="marca_website_layout" inherit_id="website.layout" name="DistriNeuquén: botón de aplicaciones">
+    <xpath expr="//a[hasclass('o_frontend_to_backend_apps_btn')]" position="attributes">
+      <attribute name="title">Ir a las aplicaciones</attribute>
+    </xpath>
+  </template>
+
+  <!-- PDF reports: the document title a PDF viewer shows -->
+  <template id="marca_report_layout" inherit_id="web.report_layout" name="DistriNeuquén: título del PDF">
+    <xpath expr="//title/t" position="attributes">
+      <attribute name="t-esc">title or 'DistriNeuquén'</attribute>
+    </xpath>
+  </template>
+  <template id="marca_report_preview_layout" inherit_id="web.report_preview_layout"
+            name="DistriNeuquén: título de la vista previa">
+    <xpath expr="//title/t" position="attributes">
+      <attribute name="t-esc">title or 'DistriNeuquén'</attribute>
+    </xpath>
+  </template>
+
+  <!-- The page the installed app shows without connection -->
+  <template id="marca_offline" inherit_id="web.webclient_offline" name="DistriNeuquén: sin conexión">
+    <xpath expr="//t[@t-set='title']" position="replace">
+      <t t-set="title">Sin conexión · DistriNeuquén</t>
+    </xpath>
+    <xpath expr="//div[hasclass('card')]/img" position="attributes">
+      <attribute name="alt">DistriNeuquén</attribute>
+    </xpath>
+    <xpath expr="//div[hasclass('card')]/h1" position="replace">
+      <h1>Sin conexión</h1>
+    </xpath>
+    <xpath expr="//div[hasclass('card')]/p" position="replace">
+      <p>Revisá la conexión a internet. DistriNeuquén vuelve a cargar solo cuando haya señal.</p>
+    </xpath>
+    <xpath expr="//div[hasclass('card')]/button" position="replace">
+      <button onclick="location.reload()">Reintentar</button>
+    </xpath>
+  </template>
+
+  <!-- Public Discuss page (meeting/channel invitation link) -->
+  <template id="marca_discuss_public" inherit_id="mail.discuss_public_channel_template"
+            name="DistriNeuquén: Discuss público">
+    <xpath expr="//title" position="attributes">
+      <attribute name="t-esc">title or 'DistriNeuquén'</attribute>
+    </xpath>
+    <xpath expr="//link[@rel='shortcut icon']" position="attributes">
+      <attribute name="t-att-href">x_icon or '/distri_pedido/static/src/img/iconos/app-192.png'</attribute>
+    </xpath>
+  </template>
+
+  <!-- Notification emails (chatter messages, documents sent by email): no
+       «Powered by Odoo»; the «Unfollow» link stays (same span id, which
+       mail.mail_notification_invite replaces). -->
+  <template id="marca_mail_layout" inherit_id="mail.mail_notification_layout"
+            name="DistriNeuquén: correo sin «Powered by»">
+    <xpath expr="//div[@t-if='show_footer'][a[contains(@href, 'odoo.com')]]" position="replace">
+      <div t-if="show_footer and show_unfollow" style="color: #555555; font-size:11px;">
+        <span t-if="show_unfollow" id="mail_unfollow">
+          <a href="/mail/unfollow" style="text-decoration:none; color:#555555;">Dejar de seguir</a>
+        </span>
+      </div>
+    </xpath>
+  </template>
+  <template id="marca_mail_light" inherit_id="mail.mail_notification_light"
+            name="DistriNeuquén: correo simple sin «Powered by»">
+    <xpath expr="//tr[td/a[contains(@href, 'odoo.com')]]" position="replace">
+      <tr t-if="show_unfollow"><td align="center" style="min-width: 590px;">
+        <span id="mail_unfollow">
+          <a href="/mail/unfollow" style="text-decoration:none; color:#555555;">Dejar de seguir</a>
+        </span>
+      </td></tr>
+    </xpath>
+  </template>
+
+  <!-- «Restablecer contraseña» email -->
+  <template id="marca_reset_password_email" inherit_id="auth_signup.reset_password_email"
+            name="DistriNeuquén: correo de contraseña sin «Powered by»">
+    <xpath expr="//a[contains(@href, 'odoo.com')]/ancestor::tr[2]" position="replace"/>
+  </template>
+
+  <!-- Periodic KPI digest (administrators): no «Sent by / Powered by Odoo»,
+       no Odoo Mobile banner -->
+  <template id="marca_digest" inherit_id="digest.digest_mail_main" name="DistriNeuquén: resumen sin Odoo">
+    <xpath expr="//div[hasclass('by_odoo')]" position="replace">
+      <div style="margin-bottom: 15px;">
+        <a t-if="unsubscribe_token" target="_blank" style="text-decoration: none;"
+           t-attf-href="/digest/#{object.id}/unsubscribe?token=#{unsubscribe_token}&amp;user_id=#{user.id}">
+          <span style="color: #878d97;">Darse de baja</span>
+        </a>
+        <a t-elif="object and object._name == 'digest.digest'" target="_blank" style="text-decoration: none;"
+           t-att-href="'/odoo/digest.digest/%s' % object.id">
+          <span style="color: #878d97;">Darse de baja</span>
+        </a>
+      </div>
+    </xpath>
+    <xpath expr="//p[@id='powered']" position="replace"/>
+    <xpath expr="//tr[@t-if='display_mobile_banner']" position="replace"/>
+  </template>
+</odoo>

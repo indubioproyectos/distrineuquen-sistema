@@ -75,7 +75,7 @@
       <form string="Exportar catálogo para AgilPedido">
         <div class="text-muted mb8">
           Genera el Excel con el formato que AgilPedido acepta: precios al día
-          y cada producto en visible u oculto según cómo esté en Odoo.
+          y cada producto en visible u oculto según cómo esté en el sistema.
           Las fotos no viajan en el archivo.
         </div>
         <group>

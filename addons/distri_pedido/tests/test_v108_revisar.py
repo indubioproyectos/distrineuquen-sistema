@@ -140,7 +140,7 @@ class TestRevisarApp(HttpCase):
         self.assertIn("Kiosco de la Web V108", text, "typed name of an order without customer")
         self.assertIn("Escribió: 299 000-3333", text)
         self.assertIn("$ 900", text)
-        self.assertIn('href="/odoo/sale.order/%s"' % self.rojo.id, text, "«Abrir en Odoo»")
+        self.assertIn('href="/odoo/sale.order/%s"' % self.rojo.id, text, "«Abrir en el sistema»")
         # without customer first, then not confirmed, the confirmed last
         self.assertLess(text.index('id="rv-%s"' % self.web.id),
                         text.index('id="rv-%s"' % self.rojo.id))
@@ -370,7 +370,7 @@ class TestRevisarApp(HttpCase):
         self.assertIn("Tomar un pedido", text)
         self.assertRegex(text, r"\d+ pedidos? sin cliente esperan? que")
         self.assertRegex(text, r'class="tab-badge dn-num tab-badge--err">\d+ sin confirmar( · [^<]*)?<')
-        self.assertIn("Todas las aplicaciones de Odoo", text)
+        self.assertIn("Todas las aplicaciones del sistema", text)
         self.assertIn('href="/deposito"', text, "19.0.1.109.0: the «Depósito» tile")
         self.assertNotIn("Aprobar", text)
         self._login(self.cajero)

@@ -201,7 +201,7 @@
       <p>La cobranza es lo que más urge en el día a día. Cada cobro se aplica a una factura,
          la factura sale del pedido y el pedido sale del catálogo. <b>Con el catálogo mal
          armado, todo lo que viene después arrastra el error.</b></p>
-      <p>El paso de AgilPedido a Odoo empezó por ordenar el catálogo. Los dos sistemas conviven
+      <p>El paso de AgilPedido al sistema empezó por ordenar el catálogo. Los dos sistemas conviven
          mientras los clientes se mudan.</p>
       <div class="cifras">
         <div class="cifra"><b>955</b><span>productos en AgilPedido</span></div>
@@ -272,7 +272,7 @@
       </div>
 
       <table class="tabla">
-        <tr><th>En el nombre decía</th><th>Lo que faltaba</th><th>En Odoo va en</th></tr>
+        <tr><th>En el nombre decía</th><th>Lo que faltaba</th><th>En el sistema va en</th></tr>
         <tr><td><code>x 24</code>, <code>Bulto x 30 u.</code></td><td>El envase de venta</td><td><b>Unidad de venta</b></td></tr>
         <tr><td><code>May Actron 400</code></td><td>El precio mayorista</td><td><b>Lista de precios</b></td></tr>
         <tr><td><code>10 bultos Heineken</code></td><td>El descuento por cantidad</td><td><b>Regla por cantidad</b></td></tr>
@@ -295,7 +295,7 @@
       <ul class="problemas">
         <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>El stock nunca podía cerrar</b>El mismo Actron figuraba dos veces. Vender el
             «May» no descontaba el otro, y los «10 bultos» eran productos aparte.</li>
-        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><b>El precio mayorista dependía de qué producto tocaba el cliente</b>En Odoo el
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente']"/><t t-set="mini" t-value="True"/></t><b>El precio mayorista dependía de qué producto tocaba el cliente</b>En el sistema el
             precio sale de la lista del cliente. Con un producto por precio, no hay lista que
             asignar.</li>
         <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'gerente']"/><t t-set="mini" t-value="True"/></t><b>El revendedor pedía por dos caminos</b>Los medicamentos en AgilPedido y los
@@ -313,7 +313,7 @@
   <section class="rol-sec" id="en-odoo">
     <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['sistema']"/></t>
     <div class="marco">
-      <p class="eyebrow">Cómo quedó en Odoo</p>
+      <p class="eyebrow">Cómo quedó en el sistema</p>
       <h2>Un producto, sus envases y sus precios</h2>
       <p class="bajada">Cada dato pasó a su campo. El nombre quedó limpio y el producto es uno solo.</p>
 
@@ -379,7 +379,7 @@
         </div></li>
         <li class="eslabon"><span class="n">2</span><div class="tarjeta">
           <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'vendedor']"/><t t-set="mini" t-value="True"/></t><h3>Pedido</h3>
-          <p class="usa">El cliente elige del catálogo en la pantalla tipo AgilPedido, dentro de Odoo.</p>
+          <p class="usa">El cliente elige del catálogo en la pantalla tipo AgilPedido, dentro del sistema.</p>
           <p class="mal">el cliente pide «1» y el sistema entiende una lata en lugar de un bulto de 24.</p>
         </div></li>
         <li class="eslabon"><span class="n">3</span><div class="tarjeta">
@@ -410,7 +410,7 @@
       </ol>
       <div class="puerta">
         <p><b>Todo empieza en la pantalla de pedidos.</b> El pedido entra por la pantalla tipo
-           AgilPedido dentro de Odoo, con el producto, la unidad y el precio tal como están en el
+           AgilPedido dentro del sistema, con el producto, la unidad y el precio tal como están en el
            catálogo. Desde ahí ningún puesto vuelve a escribir el dato: el armador, la factura, la
            cuenta y el repartidor usan el mismo registro.</p>
       </div>
@@ -425,15 +425,15 @@
       <p class="bajada">AgilPedido sigue funcionando mientras los clientes se mudan. Hay comercios
          que compran una vez por mes, así que la convivencia se mide en meses.</p>
       <div class="flujo">
-        <div class="caja"><h3>Odoo</h3>
+        <div class="caja"><h3>DistriNeuquén</h3>
           <p>Manda. Ahí viven los productos, los precios y las listas de cada cliente.</p></div>
         <p class="flecha">↓ Un Excel al cierre de cada jornada, con precios y visibilidad</p>
         <div class="caja"><h3>AgilPedido</h3>
           <p>El cliente que todavía no se mudó pide igual que siempre. Los precios «May» se
              generan desde la lista Distribuidoras.</p></div>
         <p class="flecha">↓ El administrador pega el mensaje que llegó</p>
-        <div class="caja"><h3>Odoo, otra vez</h3>
-          <p>El pedido vuelve como presupuesto estructurado. Odoo reconoce los productos aunque
+        <div class="caja"><h3>DistriNeuquén, otra vez</h3>
+          <p>El pedido vuelve como presupuesto estructurado. El sistema reconoce los productos aunque
              cambien mayúsculas o acentos, y pide confirmación cuando duda.</p></div>
       </div>
 
@@ -441,7 +441,7 @@
       <ol class="cadena">
         <li><span class="quien">Catálogo</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Ordenar los productos</b>: envases, listas y
             categorías.<span class="hecho-lab">Hecho en el lab</span></li>
-        <li><span class="quien">Desarrollo</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>La pantalla de pedidos dentro de Odoo</b>, con
+        <li><span class="quien">Desarrollo</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>La pantalla de pedidos dentro del sistema</b>, con
             la mecánica de AgilPedido.<span class="hecho-lab">Hecho en el lab</span></li>
         <li><span class="quien">Desarrollo · controla administración</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>Pasar las cuentas de
             los clientes</b>: 665 comercios y 21.011 movimientos de cuenta corriente. En la prueba,
@@ -449,14 +449,14 @@
         <li><span class="quien">Gerencia de ventas</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente', 'cliente']"/><t t-set="mini" t-value="True"/></t><b>Invitar a los clientes de a grupos</b>,
             empezando por comercios de confianza. AgilPedido sigue encendido.</li>
         <li><span class="quien">Administración</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>Asignar el cliente</b> a cada pedido que
-            entra, comparando lo escrito con la ficha de cada candidato. Ahí Odoo aplica la lista de
+            entra, comparando lo escrito con la ficha de cada candidato. Ahí el sistema aplica la lista de
             ese cliente.<span class="hecho-lab">Probado en el lab</span></li>
         <li><span class="quien">Depósito</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['armador']"/><t t-set="mini" t-value="True"/></t><b>El armador trabaja con su usuario</b> y la factura
             sale por lo entregado.<span class="hecho-lab">Probado en el lab</span></li>
         <li><span class="quien">Reparto</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['repartidor']"/><t t-set="mini" t-value="True"/></t><b>La app del repartidor</b>, con el cobro marcado en
             la puerta del cliente.<span class="hecho-lab">Probado en el lab</span></li>
         <li><span class="quien">Gerencia</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>Compras y stock</b>, cuando todos los pedidos
-            entren por Odoo.</li>
+            entren por el sistema.</li>
         <li><span class="quien">Gerencia</span><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><b>Baja de AgilPedido</b>, cuando la mayoría de los
             clientes se haya adaptado. Se dejan de pagar $ 16.000 por mes.</li>
       </ol>
@@ -479,8 +479,8 @@
         </div>
         <div class="col nueva">
           <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'gerente']"/><t t-set="mini" t-value="True"/></t><span class="et">Pedido del vendedor</span>
-          <h3>Queda en Odoo</h3>
-          <p>El vendedor lo toma con su usuario y queda en Odoo a nombre del cliente, con el vendedor
+          <h3>Queda en el sistema</h3>
+          <p>El vendedor lo toma con su usuario y queda en el sistema a nombre del cliente, con el vendedor
              asignado. El vendedor se lo manda al cliente por WhatsApp; a la empresa no hace falta.</p>
         </div>
       </div>
@@ -507,7 +507,7 @@
       <h2>Qué pasa al sistema nuevo</h2>
       <table class="tabla">
         <tr><th>Dato</th><th>Viene de</th><th>Cómo pasa</th></tr>
-        <tr><td><b>Contactos</b></td><td>El Odoo actual</td>
+        <tr><td><b>Contactos</b></td><td>El sistema anterior</td>
             <td>665 comercios. La letra inicial del nombre marca la localidad y de ahí sale la zona de reparto.
               <div class="prefijos">
                 <span><b>X -</b> Centenario</span><span><b>Y -</b> Plottier</span>
@@ -520,11 +520,11 @@
         <tr><td><b>Listas de precios</b></td><td>AgilPedido y la app de cigarrillos</td>
             <td>General, Distribuidoras y las diez de revendedores. Los precios de revendedores se
                 cargan desde una planilla.</td></tr>
-        <tr><td><b>Facturas</b></td><td>El Odoo actual</td>
+        <tr><td><b>Facturas</b></td><td>El sistema anterior</td>
             <td>La numeración sigue la de Online (0001/2026/…). Plan de cuentas argentino para
                 Monotributo, como en Online, sin factura electrónica de ARCA. El cliente ve el remito,
                 nunca la factura.</td></tr>
-        <tr><td><b>Saldos</b></td><td>El Odoo actual</td>
+        <tr><td><b>Saldos</b></td><td>El sistema anterior</td>
             <td>21.011 movimientos: 15.497 facturas y 5.513 pagos. Cada saldo se controla contra el
                 sistema actual antes de seguir.</td></tr>
       </table>
@@ -545,10 +545,10 @@
               tanto.</div></li>
         <li><div class="r">Que el gerente crea que no entran pedidos</div>
             <div class="c">Todo pedido de la página sigue llegando por WhatsApp, con su código, y los
-              del vendedor aparecen en Odoo con su nombre.</div></li>
+              del vendedor aparecen en el sistema con su nombre.</div></li>
         <li><div class="r">Que un pedido de AgilPedido no se reconozca</div>
-            <div class="c">El Excel diario sale de Odoo, con los nombres de Odoo y los «May» armados
-              desde la lista Distribuidoras. Al pegar el mensaje, Odoo compara sin mayúsculas ni acentos
+            <div class="c">El Excel diario sale del sistema, con los nombres del sistema y los «May» armados
+              desde la lista Distribuidoras. Al pegar el mensaje, el sistema compara sin mayúsculas ni acentos
               y, cuando duda, el administrador elige el producto.</div></li>
         <li><div class="r">Ocultar productos que sí hay</div>
             <div class="c">Ningún producto se oculta sin la confirmación del administrador. El

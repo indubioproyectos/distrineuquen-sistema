@@ -269,7 +269,7 @@
       <p class="rotulo">Distri Neuquén</p>
       <h1>Registro de cobranzas</h1>
       <p>Cada cobro queda registrado <b>en el momento</b>, en el celular del repartidor. Las
-         transferencias llegan a Odoo cada mañana en el reporte de Mercado Pago, listas para que
+         transferencias llegan al sistema cada mañana en el reporte de Mercado Pago, listas para que
          el administrador las confirme.</p>
       <p>Todo usa los canales que el cliente ya conoce: <b>WhatsApp y Mercado Pago</b>. El
          cliente no instala nada ni aprende pantallas nuevas.</p>
@@ -309,7 +309,7 @@
     <div class="marco">
       <p class="eyebrow">Cómo se cobra hoy</p>
       <h2>Papel, memoria y fotos reenviadas</h2>
-      <p class="bajada">Así llega la plata desde el comercio hasta Odoo.</p>
+      <p class="bajada">Así llega la plata desde el comercio hasta el sistema.</p>
       <ol class="cadena">
         <li><span class="quien"><span class="rol mini rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Administrador</span></span>Exporta las facturas del día a Excel e
             <b>imprime la hoja de ruta</b>. La reparte entre los dos repartidores según la carga.</li>
@@ -322,7 +322,7 @@
         <li><span class="quien"><span class="rol mini rol-repartidor"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-repartidor"/></svg>Repartidor</span></span>Al día siguiente <b>rinde la caja</b> con la
             planilla.</li>
         <li><span class="quien"><span class="rol mini rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Administrador</span></span>Cuenta el efectivo y <b>carga cada
-            comprobante a mano</b> en Odoo.</li>
+            comprobante a mano</b> en el sistema.</li>
       </ol>
       <div class="dato">
         <p><b>El 99% de las transferencias entra a una sola cuenta de Mercado Pago.</b> Aun así,
@@ -360,11 +360,11 @@
       <p class="eyebrow">La propuesta en un vistazo</p>
       <h2>Del depósito a la cuenta del cliente</h2>
       <p class="bajada">Cada visita termina con un estado cargado en el celular. Lo que entra por
-         Mercado Pago llega a Odoo con el cliente propuesto.</p>
+         Mercado Pago llega al sistema con el cliente propuesto.</p>
       <div class="flujo">
         <div class="caja">
           <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><h3>1 · Asignación</h3>
-          <p>El administrador reparte las facturas del día entre los repartidores, en Odoo.</p>
+          <p>El administrador reparte las facturas del día entre los repartidores, en el sistema.</p>
         </div>
         <p class="flecha">↓ el celular descarga la ruta antes de salir</p>
         <div class="caja">
@@ -412,14 +412,14 @@
     <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['administrador', 'repartidor']"/></t>
     <div class="marco">
       <p class="eyebrow">Paso 1 · Asignación diaria</p>
-      <h2>La hoja de ruta sale de Odoo</h2>
+      <h2>La hoja de ruta sale del sistema</h2>
       <p class="bajada">Una pantalla del administrador reemplaza el Excel impreso. Las facturas
          del día aparecen agrupadas por ciudad del cliente —Neuquén, Plottier, Centenario— y se
          asignan en bloque a cada repartidor.</p>
       <div class="antes-despues">
         <div class="fila">
           <span class="et">Hoy</span>
-          Exportar, imprimir y repartir hojas de papel. Lo que se anota ahí vuelve a Odoo a mano.
+          Exportar, imprimir y repartir hojas de papel. Lo que se anota ahí vuelve al sistema a mano.
         </div>
         <div class="fila">
           <span class="et">Con el módulo</span>
@@ -560,7 +560,7 @@
         <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Cada ingreso arma un cobro en borrador con un cliente propuesto.</b> Lo propone
             por el CUIT de quien pagó, que el reporte trae en las transferencias desde Mercado
             Pago. Si no hay CUIT, busca una foto de comprobante llegada por WhatsApp con el mismo
-            número de operación, o con monto y hora parecidos. Odoo lee esos datos de la foto.</li>
+            número de operación, o con monto y hora parecidos. El sistema lee esos datos de la foto.</li>
         <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['administrador']"/><t t-set="mini" t-value="True"/></t><b>Si el CUIT es nuevo</b>, el administrador elige el cliente una sola vez. Desde ahí,
             ese CUIT queda asociado al comercio. Sirve también para los comercios que pagan desde
             dos o tres cuentas distintas.</li>
@@ -589,7 +589,7 @@
       <div class="dato">
         <p><b>Sin comisión.</b> La transferencia a la cuenta de Mercado Pago no tiene costo.
            <b>Mismo canal, sin aplicación nueva para el cliente.</b> Las transferencias del día
-           aparecen en Odoo a la mañana siguiente, sin carga manual.</p>
+           aparecen en el sistema a la mañana siguiente, sin carga manual.</p>
       </div>
     </div>
   </section>
@@ -600,7 +600,7 @@
       <p class="eyebrow">WhatsApp de la empresa</p>
       <h2>Pedidos y comprobantes en el mismo WhatsApp</h2>
       <p class="bajada">El cliente sigue escribiendo al mismo número de siempre. Ese WhatsApp
-         Business se conecta a Odoo con la API oficial de Meta, en modo coexistencia. El número
+         Business se conecta al sistema con la API oficial de Meta, en modo coexistencia. El número
          sigue funcionando en la app como hasta hoy.</p>
 
       <div class="wachat">
@@ -631,7 +631,7 @@
       <p class="nota" style="margin-top:.6rem">Mensajes de dos clientes, vistos desde el WhatsApp
          de la empresa. Ilustración con datos ficticios.</p>
 
-      <p class="paso-celu">↓ En menos de un minuto, en Odoo</p>
+      <p class="paso-celu">↓ En menos de un minuto, en el sistema</p>
       <div class="odoo">
         <div class="top">Mensajes WhatsApp <small>· Ventas</small></div>
         <div class="fila cab"><span style="width:34px">📎</span><span class="quien2">Remitente</span>
@@ -650,8 +650,8 @@
       <p class="nota" style="margin-top:.6rem">Ilustración con datos ficticios.</p>
 
       <ul class="lista-p">
-        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Odoo solo recibe mensajes.</b> Los pedidos y los comprobantes entran solos.</li>
-        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t>Las fotos y los PDF de los comprobantes se guardan en Odoo como adjuntos <b>en menos
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>El sistema solo recibe mensajes.</b> Los pedidos y los comprobantes entran solos.</li>
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t>Las fotos y los PDF de los comprobantes se guardan en el sistema como adjuntos <b>en menos
             de un minuto</b>.</li>
         <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente', 'administrador']"/><t t-set="mini" t-value="True"/></t><b>El gerente y el administrador responden a mano</b> desde la app WhatsApp Business,
             en el celular de la empresa o en WhatsApp Web.</li>
@@ -659,8 +659,8 @@
             queda guardado en el cliente.</li>
       </ul>
 
-      <h3 style="margin-top:1.8rem;font-size:1.15rem">Odoo lee cada comprobante</h3>
-      <p class="bajada" style="font-size:.97rem">Cuando llega una foto o un PDF, Odoo lee el texto
+      <h3 style="margin-top:1.8rem;font-size:1.15rem">El sistema lee cada comprobante</h3>
+      <p class="bajada" style="font-size:.97rem">Cuando llega una foto o un PDF, el sistema lee el texto
          <b>dentro del propio servidor</b>: ningún comprobante de un cliente sale a un servicio externo.
          Saca el importe, el número de operación, la fecha y hora, quién pagó con su CUIT, el destino
          (alias, CVU o CBU) y el banco o la billetera.</p>
@@ -701,7 +701,7 @@
       </div>
       <p class="nota" style="margin-top:.6rem">Pantalla final de /pedido. Ilustración con datos ficticios.</p>
 
-      <p class="paso-celu">↓ Mientras esperan, en Odoo</p>
+      <p class="paso-celu">↓ Mientras esperan, en el sistema</p>
       <div class="vista"><span class="rol rol-administrador"><svg class="rol-ic" aria-hidden="true"><use href="#rol-ic-administrador"/></svg>Pantalla del administrador</span></div>
       <div class="odoo">
         <div class="top">Pedidos sin WhatsApp <small>· Ventas</small></div>
@@ -755,7 +755,7 @@
         <div class="cifra"><b>$ 0</b><span>por responder desde la app</span></div>
       </div>
       <p class="nota" style="text-align:left;margin-top:.9rem">Meta cobra solo los mensajes que
-         se envían por la API. Odoo no envía mensajes, así que WhatsApp no genera gasto.</p>
+         se envían por la API. El sistema no envía mensajes, así que WhatsApp no genera gasto.</p>
     </div>
   </section>
 
@@ -765,7 +765,7 @@
       <p class="eyebrow">Pedidos del vendedor</p>
       <h2>El vendedor le manda el pedido al cliente</h2>
       <p class="bajada">El vendedor, por ejemplo, Italo, levanta el pedido en la app de pedidos
-         con su usuario y el pedido queda en Odoo. En la pantalla final toca <b>«Enviar al
+         con su usuario y el pedido queda en el sistema. En la pantalla final toca <b>«Enviar al
          cliente»</b>: se abre su WhatsApp con el chat del cliente y el mensaje ya escrito.</p>
       <ul class="lista-p">
         <li>La cabecera dice <b>«Pedido tomado por»</b> y el nombre del vendedor.</li>
@@ -817,7 +817,7 @@
         <div class="fila">
           <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor']"/><t t-set="mini" t-value="True"/></t><span class="et">El vendedor lo reenvía, como hoy</span>
           Escribe abajo el cliente o su CUIT. El WhatsApp de cada vendedor se carga en su usuario
-          de Odoo, así que la foto entra marcada <b>«Reenviado por»</b> con el nombre del vendedor.
+          del sistema, así que la foto entra marcada <b>«Reenviado por»</b> con el nombre del vendedor.
           El sistema busca el cliente por el texto escrito, nunca por el número del vendedor, y la
           tarjeta va siempre a la columna «Revisar».
         </div>
@@ -825,16 +825,16 @@
       <p class="bajada" style="font-size:.95rem">En los dos casos, Mercado Pago identifica la
          plata por el CUIT. La foto queda como respaldo.</p>
 
-      <h3 style="margin-top:1.8rem;font-size:1.15rem">La empresa ve el pedido en Odoo</h3>
+      <h3 style="margin-top:1.8rem;font-size:1.15rem">La empresa ve el pedido en el sistema</h3>
       <div class="antes-despues">
         <div class="fila">
           <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['vendedor', 'gerente']"/><t t-set="mini" t-value="True"/></t><span class="et">Pedido del vendedor</span>
-          El pedido que toma el vendedor con su usuario ya queda en Odoo, a nombre del cliente y con
+          El pedido que toma el vendedor con su usuario ya queda en el sistema, a nombre del cliente y con
           el vendedor asignado. No pasa por el WhatsApp de la empresa.
         </div>
         <div class="fila">
           <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['cliente', 'gerente']"/><t t-set="mini" t-value="True"/></t><span class="et">Pedido de la página</span>
-          El cliente lo manda al WhatsApp de la empresa con su código, como antes de Odoo. El gerente
+          El cliente lo manda al WhatsApp de la empresa con su código, como antes del sistema nuevo. El gerente
           lo sigue viendo llegar por WhatsApp.
         </div>
       </div>
@@ -846,7 +846,7 @@
     <div class="marco">
       <p class="eyebrow">Conexión con Mercado Pago</p>
       <h2>Un reporte cada mañana, sin llaves en el servidor</h2>
-      <p class="bajada">Hay dos formas de traer las transferencias a Odoo. Elegimos la que no deja
+      <p class="bajada">Hay dos formas de traer las transferencias al sistema. Elegimos la que no deja
          ninguna llave de la cuenta de Mercado Pago en el servidor.</p>
 
       <div class="fase lista">
@@ -861,7 +861,7 @@
         <p class="n">ETAPA 2</p><h3>Conexión en el momento</h3>
         <p>Muestra las transferencias en el momento y con el CUIT también en las que llegan
            desde un banco. Se suma cuando la llave de Mercado Pago quede asegurada en un entorno
-           independiente de Odoo, o cuando se logre darle solo permiso de lectura.</p>
+           independiente del sistema, o cuando se logre darle solo permiso de lectura.</p>
         <span class="chip luego">Etapa 2</span>
       </div>
 
@@ -901,7 +901,7 @@
          foto se puede editar o reenviar vieja. Por eso <b>una foto nunca genera un pago por sí
          sola</b>. Sirve para saber quién pagó y queda como respaldo.</p>
       <p class="bajada">Los cobros en borrador se ordenan en un tablero de cuatro columnas, en el menú
-         <b>Cobros</b> de Odoo. Cada 15 minutos Odoo toma el reporte que Mercado Pago deja en la carpeta
+         <b>Cobros</b> del sistema. Cada 15 minutos el sistema toma el reporte que Mercado Pago deja en la carpeta
          del servidor; durante el día el administrador también puede subir uno con <b>«Importar
          reporte»</b>. Cada operación se carga una sola vez.</p>
 
@@ -1165,7 +1165,7 @@
          <b>Nadie recibe la contraseña</b> y el servidor no guarda ninguna llave de la cuenta, así
          que un ataque al servidor no alcanza la cuenta de Mercado Pago.</p>
       <p class="nota" style="text-align:left;margin-top:.7rem">La conexión en el momento sigue en
-         la etapa 2: se suma cuando la llave quede asegurada en un entorno independiente de Odoo,
+         la etapa 2: se suma cuando la llave quede asegurada en un entorno independiente del sistema,
          o cuando se logre darle solo permiso de lectura.</p>
 
       <ul class="lista-p">
@@ -1176,7 +1176,7 @@
             Mercado Pago y una llave de firma aparte. El sistema no pide ninguna de las dos.</li>
         <li><b>Recomendamos activar la verificación en dos pasos</b> y la «persona de
             confianza» en la cuenta de la empresa.</li>
-        <li><b>Todo queda registrado</b> en Odoo: cada cobro, cada transferencia reconocida, cada
+        <li><b>Todo queda registrado</b> en el sistema: cada cobro, cada transferencia reconocida, cada
             devolución, con fecha y número de operación.</li>
         <li>El monto de un pago se toma siempre del pedido guardado en el sistema. Nadie puede
             cambiarlo desde el celular o la computadora del cliente.</li>
@@ -1204,7 +1204,7 @@
       </div>
       <div class="fase">
         <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><p class="n">MERCADO PAGO</p><h3>Reporte diario por SFTP</h3>
-        <p>Programado, sin llaves en el servidor: Odoo toma el reporte de una carpeta del servidor
+        <p>Programado, sin llaves en el servidor: el sistema toma el reporte de una carpeta del servidor
            cada 15 minutos y también se puede subir a mano. Probado con seis reportes reales: trae
            el CUIT en las transferencias desde Mercado Pago y no en las que llegan desde un banco.
            Falta crear en el servidor el usuario SFTP que solo deja archivos y que la gerencia
@@ -1246,8 +1246,8 @@
       </div>
       <div class="fase lista">
         <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><p class="n">WHATSAPP</p><h3>Recepción de mensajes y descarga de comprobantes</h3>
-        <p>Los mensajes, las fotos y los PDF entran a Odoo con el número de prueba gratuito de
-           Meta, y Odoo lee cada comprobante dentro del servidor. Falta conectar el número de la
+        <p>Los mensajes, las fotos y los PDF entran al sistema con el número de prueba gratuito de
+           Meta, y el sistema lee cada comprobante dentro del servidor. Falta conectar el número de la
            empresa, al final del proyecto.</p>
         <span class="chip ok">Funciona en el lab</span>
       </div>
@@ -1266,7 +1266,7 @@
         <span class="chip luego">Casos especiales</span>
       </div>
       <p class="bajada" style="font-size:.9rem;color:var(--ambar)">El módulo se construye sobre el
-         Odoo propio, junto con el sistema de pedidos. Entra en uso cuando se haga la migración.</p>
+         sistema propio, junto con el sistema de pedidos. Entra en uso cuando se haga la migración.</p>
     </div>
   </section>
 
@@ -1290,7 +1290,7 @@
         <div class="caja">
           <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['gerente']"/><t t-set="mini" t-value="True"/></t><h3>Conectar el WhatsApp de la empresa</h3>
           <p>Una cuenta de Meta Business a nombre de la empresa y acceso al WhatsApp Business de
-             siempre, para conectarlo a Odoo por coexistencia sin cambiar de número. No tiene
+             siempre, para conectarlo al sistema por coexistencia sin cambiar de número. No tiene
              costo. Se conecta al final del proyecto, cuando se apruebe.</p>
         </div>
         <div class="caja">

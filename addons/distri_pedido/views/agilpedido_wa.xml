@@ -27,7 +27,7 @@
         <field name="distri_agil_por_corregir" string="A corregir"
                decoration-danger="distri_agil_por_corregir" decoration-bf="distri_agil_por_corregir"/>
         <field name="distri_agil_total" string="Total AgilPedido" sum="Total"/>
-        <field name="amount_total" string="Total Odoo" sum="Total"/>
+        <field name="amount_total" string="Total sistema" sum="Total"/>
         <field name="distri_agil_diferencia" string="Diferencia" sum="Total"
                decoration-warning="distri_agil_diferencia"/>
         <field name="distri_agil_cierra" string="Suma OK" optional="hide"/>
@@ -104,7 +104,7 @@
         <div class="alert alert-info mb-0" role="status" invisible="not distri_origen">
           <strong>Entró por WhatsApp (AgilPedido).</strong>
           Total de AgilPedido <field name="distri_agil_total" readonly="1" class="d-inline"/>
-          · diferencia con Odoo <field name="distri_agil_diferencia" readonly="1" class="d-inline"/>
+          · diferencia con el sistema <field name="distri_agil_diferencia" readonly="1" class="d-inline"/>
           <span invisible="not distri_agil_cliente_sugerido_id or not distri_partner_generic">
             · por el teléfono parece ser <strong><field name="distri_agil_cliente_sugerido_id"
             readonly="1" class="d-inline" options="{'no_open': True}"/></strong></span>

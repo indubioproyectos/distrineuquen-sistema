@@ -49,7 +49,7 @@ class DistriAgilEquivalencia(models.Model):
         help="El nombre sin mayúsculas, acentos ni puntuación: así se busca al cargar el "
              "mensaje.")
     product_id = fields.Many2one(
-        "product.product", string="Producto de Odoo", required=True, tracking=True,
+        "product.product", string="Producto del sistema", required=True, tracking=True,
         ondelete="cascade", domain=[("sale_ok", "=", True)])
     product_uom_id = fields.Many2one(
         "uom.uom", string="Cómo viene en AgilPedido", required=True, tracking=True,
@@ -61,7 +61,7 @@ class DistriAgilEquivalencia(models.Model):
         string="Cantidad por 1 de AgilPedido", default=1.0, required=True, tracking=True,
         digits="Product Unit",
         help="Cuántas de esa unidad es 1 de AgilPedido. Con la unidad correcta es 1; otro "
-             "número solo si la unidad no existe en Odoo.")
+             "número solo si la unidad no existe en el sistema.")
     equivale = fields.Char(string="Equivale a", compute="_compute_equivale")
     pedido_id = fields.Many2one(
         "sale.order", string="Aprendida en el pedido", readonly=True, ondelete="set null",
@@ -206,7 +206,7 @@ class DistriAgilCorregirRenglon(models.TransientModel):
                                  compute="_compute_renglon_agil", digits="Product Unit")
     es_mayorista = fields.Boolean(string="Vino con «May»", compute="_compute_renglon_agil")
     product_id = fields.Many2one(
-        "product.product", string="Producto de Odoo", required=True,
+        "product.product", string="Producto del sistema", required=True,
         domain=[("sale_ok", "=", True)])
     unidades_ids = fields.Many2many("uom.uom", compute="_compute_unidades_ids")
     product_uom_id = fields.Many2one(
@@ -215,12 +215,12 @@ class DistriAgilCorregirRenglon(models.TransientModel):
         help="1 de AgilPedido es 1 de esta unidad. Si el producto se vende solo por bulto, "
              "solo aparece el bulto.")
     otra_cantidad = fields.Boolean(
-        string="La unidad no está en Odoo",
-        help="Solo si ninguna unidad sirve: AgilPedido vende un envase que en Odoo no existe.")
+        string="La unidad no está en el sistema",
+        help="Solo si ninguna unidad sirve: AgilPedido vende un envase que en el sistema no existe.")
     factor = fields.Float(
-        string="¿Cuántas unidades de Odoo es 1 de AgilPedido?", default=1.0, required=True,
+        string="¿Cuántas unidades del sistema es 1 de AgilPedido?", default=1.0, required=True,
         digits="Product Unit")
-    cantidad_odoo = fields.Float(string="Cantidad en Odoo", compute="_compute_cantidad_odoo",
+    cantidad_odoo = fields.Float(string="Cantidad en el sistema", compute="_compute_cantidad_odoo",
                                  digits="Product Unit")
     resumen = fields.Char(string="Queda en el pedido", compute="_compute_cantidad_odoo")
 
@@ -311,7 +311,7 @@ class DistriAgilCorregirRenglon(models.TransientModel):
         if linea.order_id.state not in ("draft", "sent"):
             raise UserError("El pedido ya está aprobado.")
         if not self.product_id or (a_corregir and self.product_id == a_corregir):
-            raise UserError("Elegí el producto de Odoo.")
+            raise UserError("Elegí el producto del sistema.")
         if self.product_uom_id not in unidades_de_venta(self.product_id.product_tmpl_id):
             raise UserError("%s no se vende en %s." % (
                 self.product_id.display_name, self.product_uom_id.name))

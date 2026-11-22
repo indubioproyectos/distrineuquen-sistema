@@ -46,10 +46,10 @@ class ResPartner(models.Model):
     _inherit = "res.partner"
 
     saldo_odoo = fields.Monetary(
-        string="Saldo en Odoo real",
+        string="Saldo en el sistema anterior",
         currency_field="currency_id",
         groups=VE_SALDOS,
-        help="Saldo de cuenta corriente traido del Odoo de produccion.",
+        help="Saldo de cuenta corriente traido del sistema anterior.",
     )
     facturas_sin_conciliar = fields.Integer(
         string="Facturas sin conciliar",

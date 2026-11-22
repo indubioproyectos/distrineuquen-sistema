@@ -525,7 +525,7 @@ class AgilPedido(http.Controller):
     def _producto_y_unidad(self, kw):
         variante = request.env["product.product"].browse(_int(kw.get("product_id"))).exists()
         if not variante:
-            raise UserError("Elegí el producto de Odoo.")
+            raise UserError("Elegí el producto del sistema.")
         unidad = request.env["uom.uom"].browse(_int(kw.get("uom_id"))).exists()
         if not unidad:
             unidad = unidad_de_venta(variante.product_tmpl_id)[0]

@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.3",
+    "version": "19.0.1.129.4",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -478,8 +478,22 @@
     # token>); «Enviar al cliente» and the thank-you page use /p/ too. The
     # AgilPedido auto-import skips the page's own text (its code line or /p/
     # link, models/agilpedido_wa.py es_mensaje_de_la_pagina). No migration.
+    # 19.0.1.129.4 (owner): no user-visible «Odoo»; the system is
+    # «DistriNeuquén» (base Odoo is Community, LGPL). views/marca.xml: tab
+    # title and favicon of web.layout, no «Powered by Odoo» (brand promotion,
+    # core login card, portal sidebar, notification emails, password email,
+    # digest), PDF report title, offline page. static/src/js/marca.js(.xml):
+    # backend tab title, user menu without Help/Shortcuts/«My Odoo.com
+    # Account», error dialog titles, session expired, toasts, «Install Odoo».
+    # models/marca.py + data/marca.xml (every update): core email templates
+    # cleaned in every language, system partner «DistriNeuquén», mail_bot
+    # silent (no onboarding chat). controllers/marca.py: /web/database/*
+    # answers 404 while list_db is off. The module's own texts: «Odoo
+    # Online» is «el sistema anterior», this Odoo is «el sistema»;
+    # migrations/19.0.1.129.4 renames them in the noupdate project records.
+    # New dependencies (already installed): mail_bot, digest.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
-                "auth_signup", "auth_oauth"],
+                "auth_signup", "auth_oauth", "mail_bot", "digest"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",
              "views/vendedor_web.xml", "data/vendedores_web.xml",
              "views/comprobantes.xml", "views/errores.xml", "views/acreditar.xml",
@@ -489,12 +503,15 @@
              "views/rutas_app.xml", "views/hoja_ruta.xml", "views/asignar_app.xml",
              "views/agilpedido_app.xml", "views/reparto_anteriores.xml",
              "views/rendiciones_app.xml", "views/auditoria.xml", "data/auditoria_cron.xml",
-             "views/efectivo_a_rendir.xml"],
+             "views/efectivo_a_rendir.xml", "views/marca.xml", "data/marca.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare
         "web.assets_frontend_lazy": [
             "distri_pedido/static/src/js/cache_buster.js",
+        ],
+        "web.assets_frontend": [
+            "distri_pedido/static/src/js/marca_frontend.js",
         ],
         "web.assets_backend": [
             "distri_pedido/static/src/css/cobros_backend.css",
@@ -512,6 +529,8 @@
             "distri_pedido/static/src/js/card_chat.xml",
             "distri_pedido/static/src/js/copiar_codigo.js",
             "distri_pedido/static/src/js/copiar_codigo.xml",
+            "distri_pedido/static/src/js/marca.js",
+            "distri_pedido/static/src/js/marca.xml",
         ],
     },
     "installable": True,

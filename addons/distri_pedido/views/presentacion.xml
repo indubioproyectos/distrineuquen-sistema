@@ -224,10 +224,10 @@
   <div class="tapa">
     <div class="marco">
       <p class="rotulo">Distri Neuquén</p>
-      <h1>Ahora AgilPedido vive dentro de Odoo</h1>
-      <p>Construimos un módulo dentro de Odoo que recibe pedidos <b>sin registración</b>, en una
+      <h1>Ahora AgilPedido vive dentro del sistema</h1>
+      <p>Construimos un módulo dentro del sistema que recibe pedidos <b>sin registración</b>, en una
          plataforma que replica visualmente a AgilPedido.</p>
-      <p>Y al vivir adentro de Odoo, ese pedido usa <b>todo el ecosistema de forma nativa</b>:
+      <p>Y al vivir adentro del sistema, ese pedido usa <b>todo el ecosistema de forma nativa</b>:
          clientes, listas de precios, facturación, inventario y cuentas corrientes. Ya no hay
          dos sistemas que alguien tiene que mantener sincronizados a mano.</p>
       <a class="cta" href="/pedido">Probar la plataforma ahora</a>
@@ -345,7 +345,7 @@
     <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['cliente', 'administrador', 'armador', 'repartidor', 'sistema']"/></t>
     <div class="marco">
       <p class="eyebrow">Cómo queda</p>
-      <h2>Todo eso, adentro de Odoo</h2>
+      <h2>Todo eso, adentro del sistema</h2>
       <p class="bajada">El pedido deja de ser un mensaje que circula y pasa a ser un registro
          que cada uno consulta desde su puesto.</p>
       <div class="antes-despues">
@@ -373,8 +373,8 @@
           <a href="/presentacion/reparto">la app del repartidor</a>.
         </div>
       </div>
-      <p class="bajada" style="margin-top:1.2rem">Buena parte de esto <b>ya existe dentro de
-         Odoo</b>: usuarios por puesto, permisos, facturación y trazabilidad. Lo que se
+      <p class="bajada" style="margin-top:1.2rem">Buena parte de esto <b>ya existe dentro del
+         sistema</b>: usuarios por puesto, permisos, facturación y trazabilidad. Lo que se
          desarrolló es lo que faltaba para que encaje con la forma de trabajar de
          Distri Neuquén.</p>
       <p class="bajada" style="font-size:.9rem;color:var(--ambar)">Los puestos marcados como
@@ -416,7 +416,7 @@
     <t t-call="distri_pedido.rol_cab"><t t-set="roles" t-value="['gerente']"/></t>
     <div class="marco">
       <p class="eyebrow">La pregunta obvia</p>
-      <h2>¿Por qué no conectar AgilPedido con Odoo?</h2>
+      <h2>¿Por qué no conectar AgilPedido con el sistema?</h2>
       <p class="bajada">Fue lo primero que se evaluó. Se consultó al área técnica de AgilPedido
          y la respuesta fue clara: <b>no tienen integración disponible</b>. No hay forma de que
          los pedidos pasen solos de un sistema al otro.</p>
@@ -427,7 +427,7 @@
       <p class="bajada" style="margin-top:1.2rem">De ahí se desprende el resto: la pantalla
          propia tiene que ser <b>tan fácil como AgilPedido</b>, porque si no el cliente no se
          muda. Y esa facilidad —comprar sin registrarse, en dos toques— <b>no se puede armar en
-         la versión alquilada de Odoo</b>, que no admite código propio.</p>
+         la versión alquilada del sistema anterior</b>, que no admite código propio.</p>
     </div>
   </section>
 
@@ -436,7 +436,7 @@
     <div class="marco">
       <p class="eyebrow">La respuesta</p>
       <h2>Módulos propios, uno por problema</h2>
-      <p class="bajada">Odoo Community es de código abierto: se puede modificar. Sobre esa base
+      <p class="bajada">La base del sistema propio es de código abierto: se puede modificar. Sobre esa base
          se construyeron módulos pensados para la operación de Distri Neuquén.</p>
       <div class="modulos">
         <div class="modulo">
@@ -510,7 +510,7 @@
       </div>
       <div class="fase lista">
         <p class="n">FASE 2</p><h3>Transición</h3>
-        <p>AgilPedido sigue operando. Odoo manda: actualiza precios y visibilidad todos los días.</p>
+        <p>AgilPedido sigue operando. El sistema manda: actualiza precios y visibilidad todos los días.</p>
         <span class="chip ok">Funcionando</span>
       </div>
       <div class="fase">
@@ -569,7 +569,7 @@
 
       <div class="paso">
         <h3>3 · Manda por WhatsApp</h3>
-        <p>Se abre WhatsApp con el pedido ya escrito. El cliente solo aprieta enviar, y en Odoo
+        <p>Se abre WhatsApp con el pedido ya escrito. El cliente solo aprieta enviar, y en el sistema
            queda el presupuesto armado.</p>
         <p class="nota" style="text-align:left;margin:0 0 .9rem">Mientras dure la prueba, el
            mensaje sale a un <b>WhatsApp de prueba</b>. Al pasar a producción se cambia por el
@@ -716,15 +716,15 @@
         <li><b>Terminar armado.</b> Pide la cantidad de bultos. Un pedido sin faltantes se
             arma con tres toques: tomar, terminar y cargar los bultos. El repartidor la usa para controlar la carga de la camioneta. El cliente no
             ve los bultos.</li>
-        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Al terminar, Odoo hace el resto solo:</b> valida el remito (R-…), emite la factura
+        <li><t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['sistema']"/><t t-set="mini" t-value="True"/></t><b>Al terminar, el sistema hace el resto solo:</b> valida el remito (R-…), emite la factura
             por lo entregado y genera el código de recibido. Si un pedido todavía no tiene cliente, la
             factura sale cuando el administrador lo asigna.</li>
       </ol>
 
       <div class="antes-despues">
         <div class="fila">
-          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['armador', 'administrador']"/><t t-set="mini" t-value="True"/></t><span class="et">En Odoo, también para administración</span>
-          La pantalla del armador tiene su propia aplicación, <b>«Armado»</b>, en el menú de Odoo, y
+          <t t-call="distri_pedido.rol_chips"><t t-set="roles" t-value="['armador', 'administrador']"/><t t-set="mini" t-value="True"/></t><span class="et">En el sistema, también para administración</span>
+          La pantalla del armador tiene su propia aplicación, <b>«Armado»</b>, en el menú del sistema, y
           cada pedido de venta tiene el botón <b>«Armar este pedido»</b>. Así administración también arma
           cuando hay mucho trabajo. Al iniciar sesión, el armador entra directo a su pantalla.
         </div>
@@ -735,7 +735,7 @@
         </div>
         <div class="fila">
           <span class="et">Productos agotados <span class="luego">Diseñado</span></span>
-          Mientras no haya inventario cargado en Odoo, <b>el administrador oculta los
+          Mientras no haya inventario cargado en el sistema, <b>el administrador oculta los
           productos agotados</b>. Si no, siguen entrando pedidos de productos que no hay.
           Lo que el armador marca como «faltan todas» se junta en una lista. El administrador
           toca <b>Verificar faltantes del día</b>, confirma cuáles están agotados y esos se
@@ -746,7 +746,7 @@
         </div>
         <div class="fila">
           <span class="et">Stock, con la operación migrada</span>
-          Con el inventario cargado, Odoo sabe cuánto hay de cada producto. <b>Solo el
+          Con el inventario cargado, el sistema sabe cuánto hay de cada producto. <b>Solo el
           gerente carga las compras y ajusta el stock.</b> El resto del personal mueve stock
           únicamente con la operación: cada entrega descuenta lo entregado, y el armador
           anota faltantes sin tocar el stock. Un faltante pasa a ser una alerta para el
@@ -769,13 +769,13 @@
         </div>
         <div class="fila">
           <span class="et">Zonas <span class="luego">A confirmar</span></span>
-          La zona sale de la ciudad del cliente, y la tabla la edita el gerente en Odoo. Esquema
+          La zona sale de la ciudad del cliente, y la tabla la edita el gerente en el sistema. Esquema
           conocido: Neuquén todos los días, Plottier los jueves, Centenario los viernes. Los
           viajes se confirman con el gerente, porque ahora hay dos repartidores.
         </div>
         <div class="fila">
           <span class="et">Etiquetas de bultos <span class="luego lab">Funciona en el lab</span></span>
-          Odoo imprime una etiqueta de 100 x 50 mm por bulto en la impresora térmica del
+          El sistema imprime una etiqueta de 100 x 50 mm por bulto en la impresora térmica del
           depósito: cliente, localidad, pedido, «Bulto 2 de 3» y un código de barras. Se
           imprimen al terminar el armado, desde el pedido o todas las de un viaje desde la ruta.
           Falta probarlas en la impresora real.
@@ -795,7 +795,7 @@
          los clientes se haya adaptado al sistema nuevo. Recién entonces se da de baja.</p>
       <div class="flujo">
         <div class="caja">
-          <h3>Odoo</h3>
+          <h3>DistriNeuquén</h3>
           <p>Manda. Ahí viven los productos, los precios y las listas por cliente.</p>
         </div>
         <p class="flecha">Excel al cierre de cada jornada · precios y visibilidad ↓</p>
@@ -805,7 +805,7 @@
         </div>
         <p class="flecha">↓ El administrador pega el mensaje que llegó</p>
         <div class="caja">
-          <h3>Odoo, otra vez</h3>
+          <h3>DistriNeuquén, otra vez</h3>
           <p>El pedido de AgilPedido vuelve convertido en presupuesto estructurado.</p>
         </div>
       </div>
@@ -818,7 +818,7 @@
       <p class="eyebrow">El administrador</p>
       <h2>Cómo se trabaja del otro lado</h2>
       <p class="bajada">El pedido llega solo. El trabajo del administrador es asignarle el
-         cliente; ahí Odoo recalcula los precios con la lista que le corresponde.</p>
+         cliente; ahí el sistema recalcula los precios con la lista que le corresponde.</p>
       <div class="paso">
         <h3>«Asignar cliente»: lo escrito al lado de la ficha</h3>
         <p>El botón <b>«Asignar cliente»</b> muestra lado a lado lo que escribió el comprador y la
@@ -856,7 +856,7 @@
           <li>En un pedido de la página, el campo Cliente está bloqueado: el cliente se cambia solo con
               «Asignar cliente». Los contactos genéricos de los pedidos web tampoco se pueden editar,
               así ningún pedido queda a nombre equivocado.</li>
-          <li>Al asignar, Odoo recalcula los precios con la lista del cliente.</li>
+          <li>Al asignar, el sistema recalcula los precios con la lista del cliente.</li>
         </ul>
       </div>
       <div class="paso">
@@ -867,11 +867,11 @@
       <div class="paso">
         <h3>Un archivo por día para AgilPedido</h3>
         <p><b>Todos los días, al terminar la jornada</b>, se sube a AgilPedido una actualización
-           de precios y visibilidad. Es un paso manual, pero simple: se aprieta un botón en Odoo,
+           de precios y visibilidad. Es un paso manual, pero simple: se aprieta un botón en el sistema,
            se descarga un Excel y se sube. No hay que revisar producto por producto ni cargar
            precios en dos lugares.</p>
         <img class="ancha" src="/distri_pedido/static/src/img/exportar.png" alt="Exportar catálogo"/>
-        <p class="nota" style="text-align:left;margin-top:.7rem">El archivo lo prepara Odoo con
+        <p class="nota" style="text-align:left;margin-top:.7rem">El archivo lo prepara el sistema con
            los precios del día y cada producto marcado como visible u oculto según corresponda.</p>
       </div>
     </div>
@@ -883,7 +883,7 @@
       <p class="eyebrow">Qué sigue</p>
       <h2>Primero el dato, después el stock</h2>
       <ul class="lista-p">
-        <li>Cuando el último cliente deje de pedir por fuera, Odoo ve el 100% de la salida.</li>
+        <li>Cuando el último cliente deje de pedir por fuera, el sistema ve el 100% de la salida.</li>
         <li>Ahí se cuenta el depósito una vez y ese número pasa a ser el punto de partida.</li>
         <li>Desde entonces cada compra suma y cada pedido resta: el stock se sostiene solo.</li>
         <li>Con el stock firme, la reposición deja de decidirse de memoria.</li>

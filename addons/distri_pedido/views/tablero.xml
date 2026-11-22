@@ -73,7 +73,7 @@
       </a>
     </t>
     <details t-if="apps" class="tab-apps">
-      <summary class="dn-link">Todas las aplicaciones de Odoo</summary>
+      <summary class="dn-link">Todas las aplicaciones del sistema</summary>
       <div class="tab-apps__grid">
         <a t-foreach="apps" t-as="app" class="tab-app" t-att-href="app['url']"><img t-att-src="app['icon']" alt="" loading="lazy"/><t t-esc="app['title']"/></a>
       </div>

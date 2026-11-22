@@ -166,7 +166,7 @@ class DistriBalanceReview(models.Model):
     currency_id = fields.Many2one("res.currency", default=lambda s: s.env.company.currency_id)
     online_balance = fields.Monetary(string="Saldo en Online", readonly=True,
                                      help="Todas las filas de la historia, también las "
-                                          "archivadas: es el saldo de Odoo Online.")
+                                          "archivadas: es el saldo del sistema anterior.")
     history_receipt_count = fields.Integer(string="Recibos en la historia", readonly=True)
     history_receipt_amount = fields.Monetary(string="Importe de los recibos", readonly=True)
     matched_count = fields.Integer(

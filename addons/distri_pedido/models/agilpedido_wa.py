@@ -50,7 +50,7 @@ ORIGENES = [(ORIGEN_AGILPEDIDO_WA, "Entró por WhatsApp (AgilPedido)")]
 PRODUCTO_A_CORREGIR = "producto_agilpedido_a_corregir"
 # Diferencia de redondeo que se tolera entre la suma del mensaje y su total.
 TOLERANCIA = 1.0
-MOTIVO_SIN_MAYORISTA = "Vino con «May» y no tiene precio mayorista cargado en Odoo"
+MOTIVO_SIN_MAYORISTA = "Vino con «May» y no tiene precio mayorista cargado en el sistema"
 
 
 def cantidad_texto(valor):
@@ -233,7 +233,7 @@ class SaleOrderAgilpedido(models.Model):
     distri_agil_diferencia = fields.Monetary(
         string="Diferencia con AgilPedido", currency_field="currency_id",
         compute="_compute_distri_agil_diferencia", store=True,
-        help="Total de Odoo menos el total que mostró AgilPedido. Una diferencia grande "
+        help="Total del sistema menos el total que mostró AgilPedido. Una diferencia grande "
              "suele ser un producto mal elegido o un precio distinto.")
     distri_agil_cierra = fields.Boolean(
         string="El mensaje suma su total", copy=False, readonly=True,
@@ -516,7 +516,7 @@ class SaleOrderAgilpedido(models.Model):
             motivo = MOTIVO_SIN_MAYORISTA
         nota = "Por código %s" % renglon["codigo"]
         if por_codigo["nombre_distinto"]:
-            nota += "; en AgilPedido el nombre no es el de Odoo"
+            nota += "; en AgilPedido el nombre no es el del sistema"
         valores.update(precio, product_id=variante.id, product_uom_id=unidad.id,
                        distri_agil_nota=nota, distri_agil_corregir=bool(motivo),
                        distri_agil_motivo=motivo or False)
@@ -763,7 +763,7 @@ class SaleOrderLineAgilpedido(models.Model):
         if equivalencia:
             texto += " %s" % self._distri_agil_aprendido_texto(equivalencia)
         if sin_regla:
-            texto += " Falta el precio mayorista en Odoo: el renglón sigue marcado."
+            texto += " Falta el precio mayorista en el sistema: el renglón sigue marcado."
         self.order_id.message_post(body=texto)
         return True
 

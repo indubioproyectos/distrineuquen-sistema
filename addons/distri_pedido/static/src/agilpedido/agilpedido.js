@@ -242,7 +242,7 @@
       P.cant.addEventListener('input', preview);
       P.guardar.addEventListener('click', function () {
         var unit = selectedUnit();
-        if (!picked || !unit) { DN.toast('Elegí el producto de Odoo.', 'err'); return; }
+        if (!picked || !unit) { DN.toast('Elegí el producto del sistema.', 'err'); return; }
         var body = {product_id: picked.id, uom_id: unit.id};
         var url;
         if (mode === 'nuevo') {

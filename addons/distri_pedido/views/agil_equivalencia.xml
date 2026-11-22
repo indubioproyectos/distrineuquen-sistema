@@ -38,7 +38,7 @@
             <h1><field name="nombre_agil" placeholder="Bulto DURACELL AAA X 120U."/></h1>
           </div>
           <group>
-            <group string="En Odoo">
+            <group string="En el sistema">
               <field name="product_id" options="{'no_create': True}"/>
               <field name="unidades_ids" invisible="1"/>
               <field name="product_uom_id" options="{'no_create': True, 'no_open': True}"/>
@@ -58,7 +58,7 @@
           <div class="text-muted">
             Cuando llega un pedido de AgilPedido con este nombre (con o sin «May» adelante,
             sin importar mayúsculas, acentos ni puntuación), el renglón entra solo con este
-            producto y esta unidad, al precio de Odoo, sin marcar para corregir.
+            producto y esta unidad, al precio del sistema, sin marcar para corregir.
             Archivala para que deje de usarse.
           </div>
         </sheet>
@@ -140,7 +140,7 @@
         </group>
         <div class="alert alert-success mb-0" role="status" invisible="not resumen">
           Queda en el pedido: <strong><field name="resumen" readonly="1" class="d-inline"/></strong>,
-          al precio de Odoo. Se recuerda: la próxima vez que llegue este nombre entra solo.
+          al precio del sistema. Se recuerda: la próxima vez que llegue este nombre entra solo.
         </div>
         <footer>
           <button name="action_corregir" type="object" string="Corregir y recordar"

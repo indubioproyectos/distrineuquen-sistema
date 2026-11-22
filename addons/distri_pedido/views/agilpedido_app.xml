@@ -46,7 +46,7 @@
         </div>
         <div class="ag-tot">
           <span>Total AgilPedido<b t-esc="c['total_agil']"/></span>
-          <span>Total Odoo<b t-esc="c['total_odoo']"/></span>
+          <span>Total sistema<b t-esc="c['total_odoo']"/></span>
           <span t-att-class="'ag-tot--warn' if c['dif_warn'] else None">Diferencia<b t-esc="c['dif']"/></span>
         </div>
         <div t-if="c['can_fix'] and c['can_asignar']" class="dn-grid2">
@@ -111,13 +111,13 @@
     <div class="ag-board" t-att-data-pendientes="b['pendientes']" t-att-data-base="b['base']" t-att-data-kind="b['kind']">
       <div class="ag-tot ag-tot--big">
         <span>Total AgilPedido<b t-esc="b['total_agil']"/></span>
-        <span>Total Odoo<b t-esc="b['total_odoo']"/></span>
+        <span>Total sistema<b t-esc="b['total_odoo']"/></span>
         <span t-att-class="'ag-tot--err' if b['dif_warn'] else None">Diferencia<b t-esc="b['dif']"/></span>
       </div>
       <p class="dn-label ag-only-phone">Renglones</p>
       <div class="ag-scroll"><table class="ag-tbl">
-        <thead><tr><th>Como vino en AgilPedido</th><th>Producto de Odoo</th><th class="ag-r">Cant.</th>
-          <th class="ag-r">Subtotal AgilPedido</th><th class="ag-r">Subtotal Odoo</th><th>Qué revisar</th><th><span class="dn-sr">Acciones</span></th></tr></thead>
+        <thead><tr><th>Como vino en AgilPedido</th><th>Producto del sistema</th><th class="ag-r">Cant.</th>
+          <th class="ag-r">Subtotal AgilPedido</th><th class="ag-r">Subtotal sistema</th><th>Qué revisar</th><th><span class="dn-sr">Acciones</span></th></tr></thead>
         <tbody>
           <tr t-foreach="b['filas']" t-as="f" t-att-class="'ag-row ag-row--%s%s' % (f['estado'], ' ag-row--none' if f['sin_producto'] else '')"
               t-att-data-id="f['id']" t-att-data-texto="f['texto']" t-att-data-motivo="f['motivo']"
@@ -186,7 +186,7 @@
           <dt data-ag-ro-why-t="">Qué revisar</dt><dd class="ag-red" data-ag-ro-why=""/>
         </dl>
         <div class="dn-field">
-          <label for="ag-q">Producto de Odoo</label>
+          <label for="ag-q">Producto del sistema</label>
           <input id="ag-q" class="dn-input" type="search" autocomplete="off" maxlength="100"
                  placeholder="Buscá por nombre o código" data-ag-q=""/>
         </div>
@@ -195,9 +195,9 @@
           <label for="ag-uom" data-ag-uom-l="">¿Cómo viene en AgilPedido?</label>
           <select id="ag-uom" class="dn-input" data-ag-uom=""/>
         </div>
-        <label class="ag-chk" data-ag-otra-box="" hidden="hidden"><input type="checkbox" data-ag-otra=""/>La unidad no está en Odoo</label>
+        <label class="ag-chk" data-ag-otra-box="" hidden="hidden"><input type="checkbox" data-ag-otra=""/>La unidad no está en el sistema</label>
         <div class="dn-field" data-ag-factor-box="" hidden="hidden">
-          <label for="ag-factor">¿Cuántas unidades de Odoo es 1 de AgilPedido?</label>
+          <label for="ag-factor">¿Cuántas unidades del sistema es 1 de AgilPedido?</label>
           <input id="ag-factor" class="dn-input dn-num ag-factor" type="text" inputmode="decimal" value="1" data-ag-factor=""/>
         </div>
         <div class="dn-field" data-ag-cant-box="" hidden="hidden">
@@ -335,7 +335,7 @@
       </div>
       <div data-ag-board=""><t t-call="distri_pedido.agil_board"/></div>
       <a class="dn-link ag-center" t-att-href="'/odoo/sale.order/%s' % o.id">
-        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en Odoo</a>
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en el sistema</a>
     </section>
     <t t-call="distri_pedido.agil_panel"/>
   </main>
@@ -383,7 +383,7 @@
       <div class="ag-line ag-line--tot"><span/><b>Total</b><b class="dn-num" t-esc="total"/></div>
     </div>
     <a class="dn-btn" t-att-href="'/odoo/sale.order/%s' % o.id">
-      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en Odoo para aprobarlo</a>
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en el sistema para aprobarlo</a>
     <a class="dn-btn dn-btn--ghost" href="/agilpedido/cargar" data-dn="side">Cargar otro pedido</a>
     <a class="dn-link ag-center" href="/agilpedido" data-dn-back="">Volver a Pedidos de AgilPedido</a>
   </main>

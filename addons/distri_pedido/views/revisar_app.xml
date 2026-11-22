@@ -76,7 +76,7 @@
             <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'play'"/></t>Liberar</button>
         </form>
         <a class="dn-link rv-odoo" t-att-href="c['odoo_url']">
-          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en Odoo</a>
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en el sistema</a>
       </t>
     </article>
   </template>
@@ -122,7 +122,7 @@
       <t t-set="oculto" t-value="not (ver == 'todos' or (ver == 'pendientes' and c['pendiente']) or (ver == 'confirmados' and c['color'] == 'verde') or (ver == 'retenidos' and c['retenido']))"/>
       <t t-call="distri_pedido.revisar_card"/>
     </t>
-    <p t-if="full" class="rv-legend">Se muestran los primeros pedidos: el resto, en «Abrir en Odoo».</p>
+    <p t-if="full" class="rv-legend">Se muestran los primeros pedidos: el resto, en «Abrir en el sistema».</p>
     <p class="rv-legend">Verde: confirmado. Amarillo: falta confirmarlo. Rojo: falta confirmarlo y no tiene cliente
       asignado. Las etiquetas (cliente nuevo, sin compras anteriores, importe alto) dicen qué mirar antes de
       confirmarlo.</p>

@@ -96,7 +96,7 @@ class ProductCategoryAgil(models.Model):
     distri_agil_temporal = fields.Boolean(
         string="Sección temporal de AgilPedido", copy=False, readonly=True,
         help="Creada por la actualización desde AgilPedido para una sección que no existía "
-             "en Odoo.")
+             "en el sistema.")
 
 
 class AgilSincronizacion(models.Model):

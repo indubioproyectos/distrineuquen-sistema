@@ -86,3 +86,4 @@ from . import pago_proveedor
 from . import auditoria
 from . import mp_sftp
 from . import efectivo_a_rendir
+from . import marca

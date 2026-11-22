@@ -291,7 +291,7 @@
     <field name="search_view_id" ref="view_balance_review_search"/>
     <field name="context">{'search_default_to_review': 1}</field>
     <field name="help" type="html">
-      <p>Por cliente: el saldo de Odoo Online y, en orden, los pagos nuevos del lab y las
+      <p>Por cliente: el saldo del sistema anterior y, en orden, los pagos nuevos del lab y las
          tarjetas pendientes del tablero, con el saldo corrido. Primero los que tienen alerta
          de posible venta sin registrar. Mayoristas y revendedores no entran.</p>
     </field>

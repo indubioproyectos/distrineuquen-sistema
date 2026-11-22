@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.4 (models/marca.py): core email templates without «Odoo» and
+       the system partner named «DistriNeuquén». Runs on every update. -->
+  <function model="mail.template" name="_distri_debrand_templates"/>
+  <function model="res.partner" name="_distri_brand_partner_root"/>
+</odoo>

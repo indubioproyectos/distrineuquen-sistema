@@ -13,7 +13,7 @@
       <xpath expr="//div[@invisible='report_id']/p" position="replace">
         <p>Reporte «Todas las transacciones» de Mercado Pago, en .csv o .xlsx. Cada operación se
            carga una sola vez: se puede subir un reporte que se superpone con otro. Al cargar, las
-           operaciones que ya están en Odoo Online salen del tablero como «Ya cargado en Online»
+           operaciones que ya están en el sistema anterior salen del tablero como «Ya cargado en Online»
            y los pagadores mayoristas quedan apartados.</p>
       </xpath>
       <xpath expr="//field[@name='filename']" position="after">
@@ -80,7 +80,7 @@
     <field name="view_id" ref="view_mp_collection_list_online"/>
     <field name="domain">[('online_status', '=', 'already')]</field>
     <field name="help" type="html">
-      <p>Ingresos de Mercado Pago que Odoo Online ya tiene registrados (mismo importe y fecha en
+      <p>Ingresos de Mercado Pago que el sistema anterior ya tiene registrados (mismo importe y fecha en
          el diario Banco). No pasan por el tablero y nunca se exportan. Si uno no corresponde,
          «No está en Online» lo devuelve al tablero.</p>
     </field>
@@ -92,8 +92,8 @@
     <field name="name">distri.online.export.wizard.form</field>
     <field name="model">distri.online.export.wizard</field>
     <field name="arch" type="xml">
-      <form string="Exportar para Odoo Online">
-        <p>Arma la planilla para <b>Importar registros</b> en Odoo Online (Contabilidad ›
+      <form string="Exportar para el sistema anterior">
+        <p>Arma la planilla para <b>Importar registros</b> en el sistema anterior (Contabilidad ›
            Clientes › Pagos). Lleva solo los cobros confirmados en el lab que Online no tiene y
            que no se exportaron antes. Los cobros entran en Online como borrador.</p>
         <group>
@@ -124,7 +124,7 @@
   </record>
 
   <record id="action_online_export_wizard" model="ir.actions.act_window">
-    <field name="name">Exportar para Odoo Online</field>
+    <field name="name">Exportar para el sistema anterior</field>
     <field name="res_model">distri.online.export.wizard</field>
     <field name="view_mode">form</field>
     <field name="target">new</field>
@@ -199,7 +199,7 @@
     <field name="name">distri.online.payment.list</field>
     <field name="model">distri.online.payment</field>
     <field name="arch" type="xml">
-      <list string="Pagos de Odoo Online" create="0" edit="0" delete="0">
+      <list string="Pagos del sistema anterior" create="0" edit="0" delete="0">
         <field name="date"/>
         <field name="name"/>
         <field name="partner_id"/>
@@ -232,11 +232,11 @@
   </record>
 
   <record id="action_online_payment" model="ir.actions.act_window">
-    <field name="name">Pagos de Odoo Online</field>
+    <field name="name">Pagos del sistema anterior</field>
     <field name="res_model">distri.online.payment</field>
     <field name="view_mode">list</field>
     <field name="help" type="html">
-      <p>Copia de lectura de los cobros de Odoo Online, de la última sincronización
+      <p>Copia de lectura de los cobros del sistema anterior, de la última sincronización
          (scripts/online/leer_online.py). Sirve para saber qué ya está cargado allá.</p>
     </field>
   </record>
@@ -356,13 +356,13 @@
             action="action_chat_import" sequence="25"/>
   <menuitem id="menu_puesta_online" name="Ya cargados en Online" parent="menu_cobros_puesta"
             action="action_mp_online_already" sequence="30"/>
-  <menuitem id="menu_puesta_export" name="Exportar para Odoo Online" parent="menu_cobros_puesta"
+  <menuitem id="menu_puesta_export" name="Exportar para el sistema anterior" parent="menu_cobros_puesta"
             action="action_online_export_wizard" sequence="40" groups="distri_pedido.grupo_cobros,base.group_system"/>
   <menuitem id="menu_puesta_batches" name="Lotes exportados" parent="menu_cobros_puesta"
             action="action_online_export" sequence="45"/>
   <menuitem id="menu_puesta_balances" name="Saldos lab vs Online" parent="menu_cobros_puesta"
             action="action_online_balance" sequence="50"/>
-  <menuitem id="menu_puesta_online_payments" name="Pagos de Odoo Online (lectura)"
+  <menuitem id="menu_puesta_online_payments" name="Pagos del sistema anterior (lectura)"
             parent="menu_cobros_puesta" action="action_online_payment" sequence="60"/>
 
 </odoo>

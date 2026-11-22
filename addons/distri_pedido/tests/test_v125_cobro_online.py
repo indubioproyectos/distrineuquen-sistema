@@ -171,7 +171,7 @@ class TestV125CobroOnline(_OnlineMixin, AccountTestInvoicingCommon):
         self.assertEqual((data["owed_count"], data["owed_total"]), (1, 800.0))
         # not Online money for the caja (no lab_payment_id link)
         self.assertFalse(self.env["distri.caja"]._not_plain_cash(payment))
-        self.assertIn("factura 0001/2025/07011 (Odoo Online)", self.partner.message_ids[:1].body)
+        self.assertIn("factura 0001/2025/07011 (sistema anterior)", self.partner.message_ids[:1].body)
 
     def test_partial_payment_keeps_the_rest_red(self):
         older = self._history("0001/2025/07020", 400.0, day="2025-10-01")
@@ -219,7 +219,7 @@ class TestV125CobroOnline(_OnlineMixin, AccountTestInvoicingCommon):
     def test_double_submit_is_asked_per_target(self):
         online = self._history("0001/2025/07041", 1000.0)
         self._cash().cash_register(self.partner.id, "100", history_id=online.id)
-        with self.assertRaisesRegex(DuplicateCashError, r"factura 0001/2025/07041 \(Odoo Online\)"):
+        with self.assertRaisesRegex(DuplicateCashError, r"factura 0001/2025/07041 \(sistema anterior\)"):
             self._cash().cash_register(self.partner.id, "100", history_id=online.id)
         # «a cuenta» of the same amount is another payment
         self._cash().cash_register(self.partner.id, "100")

@@ -284,7 +284,7 @@
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <span class="dp-row__txt"><b t-esc="r['cliente']"/><span class="dp-meta" t-esc="r['meta']"/>
         <span t-if="r['sin_wa']" class="dp-chips"><span class="dn-chip dn-chip--warn">Sin WhatsApp</span>
-          <a class="dp-meta" t-att-href="r['odoo_url']">Cargarlo en Odoo</a></span></span>
+          <a class="dp-meta" t-att-href="r['odoo_url']">Cargarlo en el sistema</a></span></span>
       <button type="submit" class="dn-btn dp-btn-sm" data-confirm-ok="Sí, vender">Vender</button>
     </form>
     <div class="dn-empty" t-att-hidden="'hidden' if rows else None" data-dp-nada="">
