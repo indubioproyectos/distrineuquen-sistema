@@ -36,6 +36,14 @@ PARAM_ALERT_DAYS (3) becomes an alert for Gerencia: an activity on the
 anomaly and a post on the receipt card. Coverage, never wall clock: without
 a new report nothing is alerted.
 
+19.0.1.129.2 (models/efectivo_a_rendir.py): a driver's cash payment still
+«a rendir» (credited at the visit, the route not received in a caja yet)
+older than PARAM_DRIVER_CASH_DAYS (1) days, by the wall clock this time, is
+an «efectivo_a_rendir» anomaly with the same alert to Gerencia. It is
+checked with or without a Mercado Pago report, and the daily cron runs for
+it too. Those payments are cash: never «sin comprobante», never matched
+against the report.
+
 `distri.credit.summary`: what each user credited that day, built by a daily
 cron, with an activity for Gerencia (the backend, not email: SMTP fails).
 """
@@ -60,6 +68,10 @@ GERENCIA_GROUP = "distri_pedido.grupo_gerencia"
 PARAM_ALERT_DAYS = "distri_pedido.auditoria_dias_alerta"
 DEFAULT_ALERT_DAYS = 3
 ALERT_SUMMARY = "Acreditado sin transferencia en el reporte"
+# 19.0.1.129.2: the driver's cash credited at the visit and not settled yet
+PARAM_DRIVER_CASH_DAYS = "distri_pedido.auditoria_dias_efectivo_a_rendir"
+DEFAULT_DRIVER_CASH_DAYS = 1
+DRIVER_CASH_ALERT_SUMMARY = "Efectivo del repartidor sin rendir"
 DAILY_SUMMARY = "Resumen diario de lo acreditado"
 # same customer and amount within this many days: a possible duplicate
 DUP_DAYS = 2
@@ -76,6 +88,7 @@ ANOMALY_KINDS = [
     ("manual_sin_transferencia", "Pago manual en Mercado Pago sin transferencia"),
     ("mellizo_banco", "Pago del banco que puede ser una transferencia del reporte"),
     ("sin_comprobante", "Pago electrónico sin comprobante"),
+    ("efectivo_a_rendir", "Efectivo del repartidor sin rendir"),
 ]
 # found again: the money may be missing; the rest are checks
 ALERT_KINDS = ("sin_transferencia", "manual_sin_transferencia")
@@ -103,6 +116,23 @@ def alert_days(env):
         return max(int(value), 1) if value not in (None, False, "") else DEFAULT_ALERT_DAYS
     except ValueError:
         return DEFAULT_ALERT_DAYS
+
+
+def driver_cash_days(env):
+    value = env["ir.config_parameter"].sudo().get_param(PARAM_DRIVER_CASH_DAYS)
+    try:
+        return max(int(value), 1) if value not in (None, False, "") else DEFAULT_DRIVER_CASH_DAYS
+    except ValueError:
+        return DEFAULT_DRIVER_CASH_DAYS
+
+
+def overdue_driver_cash(env, company):
+    """The «a rendir» payments of the company older than the parameter."""
+    limit = fields.Datetime.now() - timedelta(days=driver_cash_days(env))
+    return env["account.payment"].sudo().search([
+        ("company_id", "=", company.id), ("distri_driver_cash_state", "=", "a_rendir"),
+        ("state", "in", ("in_process", "paid")), ("create_date", "<=", limit)],
+        order="create_date, id")
 
 
 def gerencia_users(env):
@@ -317,7 +347,8 @@ class DistriMpAnomaly(models.Model):
             rec.state_order = order.get(rec.state, 9)
 
     def _close_alerts(self, feedback):
-        alerts = self.sudo().activity_ids.filtered(lambda a: a.summary == ALERT_SUMMARY)
+        alerts = self.sudo().activity_ids.filtered(
+            lambda a: a.summary in (ALERT_SUMMARY, DRIVER_CASH_ALERT_SUMMARY))
         if alerts:
             alerts.action_feedback(feedback=feedback)
 
@@ -363,6 +394,12 @@ class DistriMpAnomaly(models.Model):
         payment = self.sudo().payment_id
         if not payment or payment.state in ("draft", "canceled"):
             raise UserError("La anomalía no tiene un pago vigente para anular.")
+        if payment.distri_driver_cash_state:
+            # 19.0.1.129.2: the customer paid the driver; a missing cash is
+            # the driver's (the route's cash case), never the customer's
+            raise UserError("Es efectivo que cobró el repartidor: el cliente ya pagó y no se le "
+                            "anula. Se resuelve cuando un cajero recibe la ruta; un faltante "
+                            "queda a cargo del repartidor.")
         Collection = self.env["distri.mp.collection"].sudo()
         cards = Collection.with_context(active_test=False).search([("payment_id", "=", payment.id)])
         credited = cards.filtered(lambda c: c.kind == "verify" and c.credited_at)
@@ -486,6 +523,8 @@ class DistriMpAudit(models.Model):
     bank_twin_count = fields.Integer(string="Mellizos del banco propuestos", readonly=True)
     open_count = fields.Integer(string="Anomalías abiertas", readonly=True)
     alert_count = fields.Integer(string="Alertas nuevas a Gerencia", readonly=True)
+    driver_cash_count = fields.Integer(string="Efectivo del repartidor sin rendir",
+                                       readonly=True)
     summary = fields.Text(string="Resumen", readonly=True)
 
     def _compute_name(self):
@@ -512,8 +551,10 @@ class DistriMpAudit(models.Model):
             run._audit_payments(found, stats)
             run._audit_duplicates(found, stats)
             run._audit_bank_twins(found, stats)
+        # 19.0.1.129.2: by the wall clock, with or without a report
+        run._audit_driver_cash(found, stats)
         run._sync_anomalies(found)
-        stats["alerts"] = len(run._alert_overdue())
+        stats["alerts"] = len(run._alert_overdue()) + len(run._alert_driver_cash())
         Anomaly = self.env["distri.mp.anomaly"].sudo()
         stats["open"] = Anomaly.search_count([("company_id", "=", company.id),
                                               ("state", "=", "open"),
@@ -527,6 +568,7 @@ class DistriMpAudit(models.Model):
             "without_receipt_count": stats["sin_comprobante"],
             "duplicate_count": stats["duplicates"], "bank_twin_count": stats["bank_twins"],
             "open_count": stats["open"], "alert_count": stats["alerts"],
+            "driver_cash_count": stats["driver_cash"],
         })
         run.summary = run._summary_text()
         _logger.info("Collections audit %s: %s", run.id, run.summary)
@@ -534,8 +576,10 @@ class DistriMpAudit(models.Model):
 
     def _summary_text(self):
         self.ensure_one()
+        cash = (" %s cobros en efectivo del repartidor sin rendir." % self.driver_cash_count
+                if self.driver_cash_count else "")
         if not self.covers_until:
-            return "Auditoría: no hay reportes de Mercado Pago cargados."
+            return "Auditoría: no hay reportes de Mercado Pago cargados.%s" % cash
         return ("Auditoría hasta el %s: %s acreditados (%s verificados, %s a verificar, %s con "
                 "diferencia, %s sin transferencia, %s revertidos, %s anulados, %s para revisar; "
                 "%s vinculados ahora). %s pagos electrónicos, %s sin comprobante. %s duplicados "
@@ -545,7 +589,7 @@ class DistriMpAudit(models.Model):
             self.pending_count, self.difference_count, self.missing_count, self.reversed_count,
             self.annulled_count, self.review_count, self.tied_count, self.payment_count,
             self.without_receipt_count, self.duplicate_count, self.bank_twin_count,
-            self.open_count, self.alert_count)
+            self.open_count, self.alert_count) + cash
 
     # ------------------------------------------------------------ finders
 
@@ -657,10 +701,12 @@ class DistriMpAudit(models.Model):
         Journal = self.env["account.journal"].sudo()
         journals = Journal.search([("type", "=", "bank"), ("company_id", "=", self.company_id.id)])
         journals -= Journal._distri_supplier_journal(self.company_id)
+        # 19.0.1.129.2: the driver's cash (a cash journal anyway) never enters
         return self.env["account.payment"].sudo().search([
             ("company_id", "=", self.company_id.id), ("payment_type", "=", "inbound"),
             ("partner_type", "=", "customer"), ("state", "in", ("in_process", "paid")),
-            ("journal_id", "in", journals.ids), ("date", "<=", local_day(self.covers_until))],
+            ("journal_id", "in", journals.ids), ("date", "<=", local_day(self.covers_until)),
+            ("distri_driver_cash_state", "=", False)],
             order="date, id")
 
     def _audit_payments(self, found, stats):
@@ -795,6 +841,21 @@ class DistriMpAudit(models.Model):
                            "en %s: confirmalo desde la transferencia." % (
                                income.name, payment.name, payment.journal_id.name))
 
+    def _audit_driver_cash(self, found, stats):
+        """19.0.1.129.2: the driver's cash still «a rendir» after the days of
+        the parameter (see the module docstring)."""
+        days = driver_cash_days(self.env)
+        for payment in overdue_driver_cash(self.env, self.company_id):
+            route = payment.distri_driver_route_id
+            stats["driver_cash"] += 1
+            found["efectivo_a_rendir:%s" % payment.id] = dict(
+                self._payment_values(payment), kind="efectivo_a_rendir",
+                credited_by_id=route.driver_id.id or payment.create_uid.id,
+                detail="%s de %s cobrado por %s en %s el %s: sigue a rendir después de %s %s." % (
+                    payment.name, _money(payment.amount), route.driver_id.name or "",
+                    route.name or "la ruta", local_when(payment.create_date), days,
+                    "día" if days == 1 else "días"))
+
     # ------------------------------------------------------------ anomalies
 
     def _sync_anomalies(self, found):
@@ -858,6 +919,31 @@ class DistriMpAudit(models.Model):
                 anomaly.card_id.message_post(body=text)
         return anomalies
 
+    def _alert_driver_cash(self):
+        """19.0.1.129.2: each new «efectivo_a_rendir» anomaly is an activity
+        for every Gerencia user and a post on the payment, once."""
+        self.ensure_one()
+        anomalies = self.env["distri.mp.anomaly"].sudo().search([
+            ("company_id", "=", self.company_id.id), ("state", "=", "open"),
+            ("kind", "=", "efectivo_a_rendir"), ("overdue", "=", False)])
+        todo = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        users = gerencia_users(self.env)
+        quiet = self.env["distri.mp.anomaly"].with_context(
+            mail_activity_quick_update=True, mail_notrack=True).sudo()
+        for anomaly in anomalies:
+            text = ("%s: %s. El cliente ya lo tiene acreditado; falta que un cajero reciba la "
+                    "ruta del repartidor.") % (DRIVER_CASH_ALERT_SUMMARY, anomaly.detail or "")
+            anomaly.overdue = True
+            if todo:
+                for user in users:
+                    quiet.browse(anomaly.id).activity_schedule(
+                        activity_type_id=todo.id, summary=DRIVER_CASH_ALERT_SUMMARY,
+                        user_id=user.id, note=text)
+            anomaly.message_post(body=text)
+            if anomaly.payment_id:
+                anomaly.payment_id.message_post(body=text)
+        return anomalies
+
     def action_open_anomalies(self):
         self.ensure_one()
         return {"type": "ir.actions.act_window", "res_model": "distri.mp.anomaly",
@@ -877,7 +963,11 @@ class DistriMpAudit(models.Model):
         """Daily: the audit with the coverage as it is (only the alerts can
         change without a new report), then the summary per person."""
         for company in self.env["res.company"].sudo().search([]):
-            if self._coverage(company):
+            # 19.0.1.129.2: the driver's cash is checked without a report too
+            if self._coverage(company) or overdue_driver_cash(self.env, company) or \
+                    self.env["distri.mp.anomaly"].sudo().search_count([
+                        ("company_id", "=", company.id), ("state", "=", "open"),
+                        ("kind", "=", "efectivo_a_rendir")]):
                 self.with_company(company)._run(company=company)
         self.env["distri.credit.summary"]._cron_daily()
 

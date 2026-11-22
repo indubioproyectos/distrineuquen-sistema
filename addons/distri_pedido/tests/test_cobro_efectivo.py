@@ -245,6 +245,9 @@ class TestCobroEfectivoRutas(RepartoMixin, AccountTestInvoicingCommon):
     def test_driver_collected_first_the_invoice_is_refused(self):
         order, invoice = self._invoiced_order()
         route = self._route(order, on_road=True)
+        # 19.0.1.129.2: a route of before the upgrade (cash paid at the
+        # settlement); the new flow is test_driver_cash_credited_at_visit
+        route.sudo().distri_cash_at_settlement = True
         stop = route.stop_ids
         res = self._sync([self._event(route, "visit", self._visit(stop, cash=1000))])
         self.assertEqual(res[0]["status"], "ok", res)
@@ -277,6 +280,24 @@ class TestCobroEfectivoRutas(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(case.stop_id, stop)
         self.assertIn("quedó con saldo a favor de $ 1.000", case.candidates)
         self.assertIn(cash.user_id.name, case.candidates)
+
+    def test_driver_cash_credited_at_visit(self):
+        """19.0.1.129.2: the driver's cash already paid the invoice at the
+        visit, so /cobro has nothing left to collect on it; «a cuenta» still
+        asks first."""
+        order, invoice = self._invoiced_order()
+        route = self._route(order, on_road=True)
+        stop = route.stop_ids
+        res = self._sync([self._event(route, "visit", self._visit(stop, cash=1000))])
+        self.assertEqual(res[0]["status"], "ok", res)
+        self.assertEqual(invoice.amount_residual, 0)
+        page = self._cash().cash_account(self.partner.id)
+        self.assertNotIn(invoice.id, [i.get("id") for i in page["invoices"]])
+        with self.assertRaisesRegex(UserError, "ya está pagada"):
+            self._cash().cash_register(self.partner.id, 1000, invoice_id=invoice.id,
+                                       route_ok=True, force=True)
+        with self.assertRaisesRegex(RouteCashWarning, "ya cobró"):
+            self._cash().cash_register(self.partner.id, 1000)
 
     def test_no_case_without_a_credit(self):
         """Paying old debt at the local and today's order to the driver is

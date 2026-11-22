@@ -617,8 +617,10 @@
       money(d.owed_total) + "</b>. Cada pago cancela primero la factura que concilia o nombra; el resto, de la más vieja a la más nueva.</div>" : "";
     return summary +
       '<div class="label">Período</div>' + periodView(acc) + shareView(d, wide) + red + totalsView(d) +
+      // 19.0.1.129.2 (owner): «Comprobantes pendientes» above «Movimientos», phone and PC
+      receiptsView(d) +
       '<div class="label">Movimientos · lo más nuevo arriba</div>' + statementView(acc, wide) +
-      candidatesView(d) + receiptsView(d) + commentsView(d);
+      candidatesView(d) + commentsView(d);
   }
 
   function viewAccount() {

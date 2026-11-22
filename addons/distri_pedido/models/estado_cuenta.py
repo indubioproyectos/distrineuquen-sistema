@@ -811,6 +811,10 @@ class ResPartnerEstadoCuenta(models.Model):
                     _money(row["owed"]))
             if row.get("confirmed"):
                 badges += CONFIRMED_MARK_HTML
+            elif row.get("driver_cash_pending"):
+                # 19.0.1.129.2 (models/efectivo_a_rendir.py)
+                badges += (" <span class='badge text-bg-info o_distri_estado_a_rendir' "
+                           "title='Efectivo cobrado por el repartidor, a rendir'>a rendir</span>")
             if note:
                 badges += (" <span class='badge text-bg-secondary o_distri_estado_nota' "
                            "title='%s'>Revisión: %s</span>" % (

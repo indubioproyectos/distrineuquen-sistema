@@ -44,7 +44,7 @@
           <button name="action_open_review" type="object" string="Marcar revisado"
                   class="btn-primary" invisible="state != 'open'"/>
           <button name="action_open_annul" type="object" string="Anular pago"
-                  invisible="state not in ('open', 'reviewed') or not payment_id or payment_state in ('draft', 'canceled')"/>
+                  invisible="state not in ('open', 'reviewed') or not payment_id or payment_state in ('draft', 'canceled') or kind == 'efectivo_a_rendir'"/>
           <field name="state" widget="statusbar" statusbar_visible="open,reviewed"/>
         </header>
         <sheet>
@@ -56,7 +56,13 @@
                     invisible="not card_id and not income_id"/>
           </div>
           <div class="oe_title"><h1><field name="name"/></h1></div>
-          <div class="alert alert-danger" role="alert" invisible="not overdue">
+          <div class="alert alert-danger" role="alert"
+               invisible="not overdue or kind != 'efectivo_a_rendir'">
+            Alerta a Gerencia: el repartidor cobró este efectivo y todavía no rindió la ruta en
+            una caja. El cliente ya lo tiene acreditado.
+          </div>
+          <div class="alert alert-danger" role="alert"
+               invisible="not overdue or kind == 'efectivo_a_rendir'">
             Alerta a Gerencia: sigue sin transferencia en el reporte de Mercado Pago.
           </div>
           <group>

@@ -543,10 +543,22 @@ class DistriRoute(models.Model):
 
         What the driver noted about transfers never creates a payment
         (decision 10): transfers are confirmed from Mercado Pago.
+
+        19.0.1.129.2 (models/efectivo_a_rendir.py): a stop whose cash was
+        already credited at the visit («a rendir») reuses that payment, now
+        verified; only a stop without one (a route of before the upgrade, or
+        a visit whose payment could not be made) gets a new payment here.
         """
         self.ensure_one()
+        if self._distri_driver_cash_enabled():
+            # strict: a payment that does not match its visit stops the settlement
+            self.stop_ids._distri_sync_driver_cash()
         for stop in self.stop_ids.filtered(lambda s: s.cash_amount > 0):
-            self._register_stop_cash(stop)
+            credited = stop._distri_driver_cash_payment() if self.kind == "route" else False
+            if credited:
+                self._distri_verify_driver_cash(credited)
+            else:
+                self._register_stop_cash(stop)
 
     def _register_stop_cash(self, stop):
         """The cash of one visit as a customer payment in the route's journal,

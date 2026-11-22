@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.2 (models/efectivo_a_rendir.py): the driver's cash credited
+       at the visit, «a rendir» until a cashier receives the route. -->
+
+  <record id="view_account_payment_form_driver_cash" model="ir.ui.view">
+    <field name="name">account.payment.form.distri.driver.cash</field>
+    <field name="model">account.payment</field>
+    <field name="inherit_id" ref="account.view_account_payment_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="before">
+        <field name="distri_driver_cash_state" invisible="1"/>
+        <div class="alert alert-info mb-2" role="alert"
+             invisible="distri_driver_cash_state != 'a_rendir'">
+          <b>Efectivo cobrado por el repartidor, a rendir.</b>
+          El cliente ya lo tiene acreditado. Se confirma cuando un cajero recibe la ruta en su
+          Caja del día; un faltante queda a cargo del repartidor.
+        </div>
+        <div class="alert alert-success mb-2" role="alert"
+             invisible="distri_driver_cash_state != 'verificado'">
+          <b>✓ Pago confirmado:</b> efectivo cobrado por el repartidor y rendido en una caja.
+        </div>
+      </xpath>
+      <xpath expr="//sheet" position="inside">
+        <group string="Efectivo del repartidor" name="distri_driver_cash"
+               invisible="not distri_driver_cash_state">
+          <group>
+            <field name="distri_driver_cash_label"/>
+            <field name="distri_driver_route_id"/>
+            <field name="distri_driver_stop_id"/>
+          </group>
+          <group>
+            <field name="distri_driver_cash_verified_at"
+                   invisible="distri_driver_cash_state != 'verificado'"/>
+            <field name="distri_driver_cash_verified_by_id"
+                   invisible="distri_driver_cash_state != 'verificado'"/>
+          </group>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_account_payment_list_driver_cash" model="ir.ui.view">
+    <field name="name">account.payment.list.distri.driver.cash</field>
+    <field name="model">account.payment</field>
+    <field name="inherit_id" ref="account.view_account_payment_tree"/>
+    <field name="arch" type="xml">
+      <xpath expr="//list" position="inside">
+        <field name="distri_driver_cash_state" optional="show" widget="badge"
+               decoration-info="distri_driver_cash_state == 'a_rendir'"
+               decoration-success="distri_driver_cash_state == 'verificado'"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_route_form_driver_cash" model="ir.ui.view">
+    <field name="name">distri.route.form.distri.driver.cash</field>
+    <field name="model">distri.route</field>
+    <field name="inherit_id" ref="distri_pedido.view_route_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//page[@name='payments']" position="before">
+        <page string="Efectivo a rendir" name="driver_cash"
+              invisible="kind != 'route' or (not driver_cash_payment_ids and not distri_cash_at_settlement)">
+          <div class="alert alert-secondary" role="alert" invisible="not distri_cash_at_settlement">
+            Ruta anterior a la versión 19.0.1.129.2: el efectivo se registra como pago al rendirla.
+          </div>
+          <field name="distri_cash_at_settlement" invisible="1"/>
+          <p class="text-muted" invisible="distri_cash_at_settlement">
+            El efectivo de cada visita ya está acreditado al cliente. Pasa a la caja cuando un
+            cajero recibe la ruta; un faltante queda a cargo del repartidor.
+          </p>
+          <field name="driver_cash_payment_ids" readonly="1">
+            <list>
+              <field name="date"/>
+              <field name="name"/>
+              <field name="partner_id"/>
+              <field name="memo"/>
+              <field name="amount" sum="Total"/>
+              <field name="currency_id" column_invisible="1"/>
+              <field name="state" widget="badge"/>
+              <field name="distri_driver_cash_state" widget="badge"
+                     decoration-info="distri_driver_cash_state == 'a_rendir'"
+                     decoration-success="distri_driver_cash_state == 'verificado'"/>
+            </list>
+          </field>
+        </page>
+      </xpath>
+    </field>
+  </record>
+</odoo>
