@@ -30,3 +30,19 @@ class TestAgilSoloAgil(PedidoAbiertoMixin, AgilMixin, HttpCase):
         self.assertNotIn("Vent espec Distribuidoras", html)
         self.assertIn('data-id="%s"' % suelto.id, html)
         self.assertIn('data-id="%s"' % self._temporal(GALLETITA).id, html)
+
+    def test_administracion_still_sees_it(self):
+        self._sync(storefront(PRODUCTOS + [SOLO_AGIL, SUELTO], SECCIONES + [DISTRIBUIDORAS]))
+        solo = self._temporal(SOLO_AGIL)
+        self._switch("1")
+        admin = self.env["res.users"].create({
+            "name": "Admin Pruebagil", "login": "admin.pruebagil", "password": "admin.pruebagil.1",
+            "group_ids": [(4, self.env.ref("distri_pedido.grupo_administracion").id)]})
+        self.authenticate(admin.login, "admin.pruebagil.1")
+        html = self.url_open("/pedido").text
+        self.assertIn('data-id="%s"' % solo.id, html)
+        seller = self.env["res.users"].create({
+            "name": "Vende Pruebagil", "login": "vende.pruebagil", "password": "vende.pruebagil.1",
+            "group_ids": [(4, self.env.ref("distri_pedido.grupo_vendedor").id)]})
+        self.authenticate(seller.login, "vende.pruebagil.1")
+        self.assertNotIn('data-id="%s"' % solo.id, self.url_open("/pedido").text)

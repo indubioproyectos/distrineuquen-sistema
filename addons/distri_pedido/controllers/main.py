@@ -218,6 +218,15 @@ class TomaDePedidos(http.Controller):
         """Vendedor, administracion o gerencia con la sesion abierta."""
         return _wa().is_staff(request.env.user)
 
+    def _ve_secciones_solo_agil(self):
+        """19.0.1.129.10: Administración and Gerencia (Denis, Gonzalo and
+        Sistemas) also see on /pedido the AgilPedido sections kept for
+        AgilPedido only (agil_tienda.SECCIONES_SOLO_AGIL)."""
+        user = request.env.user
+        return not user._is_public() and (
+            user.has_group("distri_pedido.grupo_administracion")
+            or user.has_group("distri_pedido.grupo_gerencia"))
+
     def _solo_vendedor(self):
         """Seller without Administración: sees the General list only and does
         not handle distributors (models/lista_oculta.py)."""
@@ -345,9 +354,11 @@ class TomaDePedidos(http.Controller):
             # the AgilPedido sections, in the storefront order
             from ..models.agil_tienda import ORDEN_AGIL, SECCIONES_SOLO_AGIL, SIN_SECCION_ORDEN
             orden = ORDEN_AGIL
-            # 19.0.1.129.10: sections that only AgilPedido shows
-            solo_agil = [("distri_agil_seccion", "not =ilike", "%s%%" % nombre)
-                         for nombre in SECCIONES_SOLO_AGIL]
+            # 19.0.1.129.10: sections that only AgilPedido shows; Administración
+            # and Gerencia still see them (owner, 23/11/2026)
+            solo_agil = [] if self._ve_secciones_solo_agil() else [
+                ("distri_agil_seccion", "not =ilike", "%s%%" % nombre)
+                for nombre in SECCIONES_SOLO_AGIL]
         else:
             orden = "categ_id, name"
             solo_agil = []
