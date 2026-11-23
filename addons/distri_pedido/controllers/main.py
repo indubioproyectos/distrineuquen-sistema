@@ -219,13 +219,13 @@ class TomaDePedidos(http.Controller):
         return _wa().is_staff(request.env.user)
 
     def _ve_secciones_solo_agil(self):
-        """19.0.1.129.10: Administración and Gerencia (Denis, Gonzalo and
-        Sistemas) also see on /pedido the AgilPedido sections kept for
-        AgilPedido only (agil_tienda.SECCIONES_SOLO_AGIL)."""
-        user = request.env.user
-        return not user._is_public() and (
-            user.has_group("distri_pedido.grupo_administracion")
-            or user.has_group("distri_pedido.grupo_gerencia"))
+        """19.0.1.129.10: whoever may see the hidden list also sees on /pedido
+        the AgilPedido sections kept for AgilPedido only
+        (agil_tienda.SECCIONES_SOLO_AGIL)."""
+        # the same visitors that see the hidden list (_calcular_autorizado):
+        # Gerencia, Administración, Sistemas and the customers flagged
+        # «Distribuidora / revendedor (lista oculta)» that log in
+        return self._autorizado_lista_oculta()
 
     def _solo_vendedor(self):
         """Seller without Administración: sees the General list only and does

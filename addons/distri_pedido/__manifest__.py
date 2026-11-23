@@ -561,8 +561,8 @@
     # 19.0.1.129.10 (owner, 23/11/2026): the AgilPedido section «Vent espec
     # Distribuidoras + $ 10.000.000» stays in AgilPedido only and no longer
     # shows on /pedido (agil_tienda.SECCIONES_SOLO_AGIL, by name prefix); the
-    # hidden DISTRIBUIDORAS list for authorized buyers is untouched; Administración
-    # and Gerencia still see the section on /pedido. Home:
+    # hidden DISTRIBUIDORAS list for authorized buyers is untouched; whoever sees the
+    # hidden list (Gerencia, Administración, flagged customers) still sees it. Home:
     # «Envíos al interior · a toda la provincia del Neuquén».
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth", "mail_bot", "digest"],
