@@ -67,6 +67,10 @@ echo "$(date -Is) ok"
 # own restic host, distri-config, so its retention never competes with the
 # hourly database snapshots; once a day at CONFIG_HOUR. A failure here never
 # fails the database backup.
+# PROBLEMS: the side steps that failed (config, git, r2). The database
+# backup itself already succeeded here; any of these turns the final
+# Healthchecks ping into /fail, so the monitor alerts on them too.
+PROBLEMS=""
 CONFIG_HOUR=${CONFIG_HOUR:-04}
 CONFIG_KEEP=(--group-by host --keep-daily 14 --keep-weekly 8 --keep-monthly 12)
 config_backup() (
@@ -81,7 +85,7 @@ config_backup() (
 )
 if [ "$(date +%H)" = "$CONFIG_HOUR" ] || [ "${FORCE_CONFIG:-0}" = 1 ]; then
   if config_backup; then echo "$(date -Is) config ok"
-  else echo "$(date -Is) CONFIG FAILED (the database backup is fine)"
+  else PROBLEMS+=" config"; echo "$(date -Is) CONFIG FAILED (the database backup is fine)"
        logger -p user.err -t respaldo-hora "config backup failed" 2>/dev/null || true; fi
 fi
 
@@ -90,7 +94,7 @@ fi
 # repo). A failure is logged and never fails the backup.
 if git -C "$LAB" rev-parse -q --verify origin/main >/dev/null; then
   if timeout 120 git -C "$LAB" push -q origin main; then echo "$(date -Is) git push ok"
-  else echo "$(date -Is) GIT PUSH FAILED"
+  else PROBLEMS+=" git"; echo "$(date -Is) GIT PUSH FAILED"
        logger -p user.err -t respaldo-hora "git push failed" 2>/dev/null || true; fi
 fi
 
@@ -165,9 +169,10 @@ if [ -f "$CONF/r2.env" ]; then
     set_status r2_ok "$(date -Is)"; set_status r2_error ""
     echo "$(date -Is) r2 ok"
   else
+    PROBLEMS+=" r2"
     set_status r2_error "$(date -Is) copy to R2 failed, see logs/respaldo-hora.log"
     echo "$(date -Is) R2 FAILED (the local backup is fine)"
     logger -p user.err -t respaldo-hora "copy to R2 failed" 2>/dev/null || true
   fi
 fi
-ping ""
+if [ -n "$PROBLEMS" ]; then ping /fail; else ping ""; fi
