@@ -258,9 +258,11 @@ class TestV12911IngresosReporte(CreditMixin, RepartoMixin, AccountTestInvoicingC
     # ------------------------------------------------------------ crediting stays
 
     def test_cashier_and_administracion_still_credit(self):
-        for user in (self.cashier, self.admin_user, self.gonzalo):
+        # amounts far apart: two receipts within $ 1 and close in time are copies
+        for user, amount in ((self.cashier, 17000), (self.admin_user, 18000),
+                             (self.gonzalo, 19000)):
             with self.subTest(user=user.login):
-                card = self._credited(1700 + user.id, user=user)
+                card = self._credited(amount, user=user)
                 self.assertEqual(card.state, "confirmed")
                 self.assertEqual(card.credited_by_id, user)
                 self.assertTrue(card.payment_id)
