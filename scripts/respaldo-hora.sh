@@ -62,6 +62,38 @@ restic forget --host distri-prod --prune "${KEEP[@]}"
 rm -rf "$STAGE"
 echo "$(date -Is) ok"
 
+# --- docs and server configuration (23/11/2026): what git does not carry
+# (/srv/docs, the Caddyfile, the service keys, the untracked lab files). Its
+# own restic host, distri-config, so its retention never competes with the
+# hourly database snapshots; once a day at CONFIG_HOUR. A failure here never
+# fails the database backup.
+CONFIG_HOUR=${CONFIG_HOUR:-04}
+CONFIG_KEEP=(--group-by host --keep-daily 14 --keep-weekly 8 --keep-monthly 12)
+config_backup() (
+  paths=()
+  for p in /srv/docs /etc/caddy/Caddyfile "$CONF" "$LAB/config" "$LAB/.empresa.env" \
+           "$LAB/.master_password" "$LAB"/.*_test.env "$LAB"/SEGURIDAD-*.md \
+           "$LAB/scripts/correcciones/plan_fase1.json" "$LAB/scripts/reclamos"; do
+    [ -e "$p" ] && paths+=("$p")
+  done
+  restic backup --host distri-config --tag config -q "${paths[@]}" || exit 1
+  restic forget --host distri-config --prune -q "${CONFIG_KEEP[@]}" || exit 1
+)
+if [ "$(date +%H)" = "$CONFIG_HOUR" ] || [ "${FORCE_CONFIG:-0}" = 1 ]; then
+  if config_backup; then echo "$(date -Is) config ok"
+  else echo "$(date -Is) CONFIG FAILED (the database backup is fine)"
+       logger -p user.err -t respaldo-hora "config backup failed" 2>/dev/null || true; fi
+fi
+
+# --- code to the private GitHub repository (23/11/2026): pushes main when
+# it is ahead. Deploy key ~/.ssh/distri_repo_ed25519 (core.sshCommand of the
+# repo). A failure is logged and never fails the backup.
+if git -C "$LAB" rev-parse -q --verify origin/main >/dev/null; then
+  if timeout 120 git -C "$LAB" push -q origin main; then echo "$(date -Is) git push ok"
+  else echo "$(date -Is) GIT PUSH FAILED"
+       logger -p user.err -t respaldo-hora "git push failed" 2>/dev/null || true; fi
+fi
+
 # --- off-site copy to Cloudflare R2
 STATUS=$LAB/run/respaldo-estado.env   # KEY=VALUE lines (host side)
 PRUNE_HOUR=05
@@ -117,9 +149,11 @@ r2_copy() (
   set -a; . "$CONF/r2.env" || exit 1; set +a
   src=$RESTIC_REPOSITORY
   export RESTIC_REPOSITORY="s3:$R2_ENDPOINT/${R2_BUCKET:-distri-respaldos}"
-  restic copy --from-repo "$src" --from-password-file "$RESTIC_PASSWORD_FILE" --host distri-prod -q || exit 1
+  restic copy --from-repo "$src" --from-password-file "$RESTIC_PASSWORD_FILE" --host distri-prod \
+    --host distri-config -q || exit 1
   [ "$(date +%H)" = "$PRUNE_HOUR" ] || exit 0
   restic forget --host distri-prod --prune -q "${KEEP[@]}" || exit 1
+  restic forget --host distri-config --prune -q "${CONFIG_KEEP[@]}" || exit 1
   bytes=$(restic stats --mode raw-data --json | grep -oP '"total_size":\K[0-9]+') || exit 1
   snaps=$(restic snapshots --json | grep -o '"short_id"' | wc -l) || exit 1
   set_status r2_bytes "$bytes"
