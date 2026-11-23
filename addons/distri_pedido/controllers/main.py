@@ -748,6 +748,14 @@ class TomaDePedidos(http.Controller):
             for linea in pedido.order_line
         }, {}
 
+    def _marca_pedido(self):
+        """19.0.1.129.12: brand icons and the link preview of /pedido."""
+        # here: models imports this module (models/importar_pedido.py)
+        from ..models.marca import marca_publica
+        base = (request.env["ir.config_parameter"].sudo().get_param("web.base.url")
+                or request.httprequest.host_url).rstrip("/")
+        return dict(marca_publica(base), pagina=base + "/pedido")
+
     def _contexto_pantalla(self, pedido=False, cantidades=None, token="",
                            cantidades_may=None):
         socio = self._socio_del_usuario()
@@ -782,6 +790,7 @@ class TomaDePedidos(http.Controller):
             "cantidades_may": cantidades_may or {},
             "token": token,
             "empresa_id": request.env.company.id,
+            "marca": self._marca_pedido(),
             "lista_propia": self._lista_del_visitante().name or "" if cliente else "",
             "socio_logueado": socio,
             # «Ver mi cuenta corriente» (19.0.1.92.0: only when it is shown to him)

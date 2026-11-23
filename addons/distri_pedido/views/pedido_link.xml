@@ -15,7 +15,7 @@
   <meta name="robots" content="noindex, nofollow"/>
   <meta name="referrer" content="no-referrer"/>
   <title>Tu pedido · Distri Neuquén</title>
-  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
   <style>
     *{box-sizing:border-box}
     body{margin:0;background:#f5f5f5;color:#4a4a4a;min-height:100vh;display:flex;flex-direction:column;
@@ -23,7 +23,7 @@
          font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
     .tarjeta{width:100%;max-width:420px;background:#fff;border:1px solid #eee;border-radius:16px;
              padding:1.6rem 1.2rem;text-align:center}
-    .logo{width:72px;height:72px;border-radius:50%;object-fit:cover;display:block;margin:0 auto .8rem}
+    .logo{width:72px;height:72px;object-fit:contain;display:block;margin:0 auto .8rem}
     h1{margin:0 0 .6rem;font-size:1.25rem;font-weight:700}
     .estado{display:inline-block;margin-top:.2rem;padding:.35rem .9rem;border-radius:999px;
             background:#e6faf7;color:#00806f;font-weight:700}
@@ -35,7 +35,7 @@
   <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
   <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div class="tarjeta">
-    <img class="logo" t-att-src="'/web/image/res.company/%s/logo' % empresa_id" alt=""/>
+    <img class="logo" src="/distri_pedido/static/src/img/marca/dn-icono-192.png?v=129.12" alt=""/>
     <h1>Recibimos tu pedido <t t-esc="nombre"/></h1>
     <div>Estado: <span class="estado" t-esc="estado"/></div>
   </div>

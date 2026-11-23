@@ -10,7 +10,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Política de privacidad · Distri Neuquén</title>
-  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa.id"/>
+  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
   <style>
     :root{--azul:#10243f;--claro:#f7f8f7;--texto:#42505f;--tenue:#7a8794;--borde:#e2e7ec}
     *{box-sizing:border-box}

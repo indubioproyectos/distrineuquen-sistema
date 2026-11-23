@@ -12,6 +12,7 @@ from odoo.exceptions import UserError
 from odoo.http import request
 
 from ..models.armado import MAX_BULTOS
+from ..models.marca import marca_publica
 from ..models.res_users import ARMADO_ORDENES, ARMADO_VISTAS
 from .kit import kit_context, staff_nav
 from .main import HORA_ARGENTINA, ficha
@@ -99,10 +100,9 @@ class Armado(http.Controller):
         empresa = request.env.company
         datos = {
             "empresa_id": empresa.id,
-            # con "unique" Odoo manda el logo con cache larga: el celular no
-            # lo vuelve a pedir en cada pantalla
-            "icon": "/web/image/res.company/%s/logo?unique=%s" % (
-                empresa.id, int(empresa.sudo().write_date.timestamp())),
+            # 19.0.1.129.12: the brand icon (the company logo is now the
+            # wide one, for reports)
+            "icon": marca_publica("")["favicon_32"],
             "ficha": ficha(),
             # the kit (dn.css, dn.js, sprite) plus this screen's own files
             "dn": kit_context("armado.css", "armado.js"),

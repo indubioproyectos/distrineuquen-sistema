@@ -13,12 +13,21 @@ client in static/src/js/marca.js):
   someone renamed it already.
 - mail_bot: no onboarding chat («El chat de Odoo ayuda...») on the first
   login and no bot answers; the bot keeps its technical name.
+
+19.0.1.129.12, the new brand logo (navy rounded square, white «DN», teal
+smile; images in static/src/img/marca, built from the owner's PNGs):
+`marca_publica` gives the public pages their icons and Open Graph image,
+`res.company._distri_set_brand_logo` puts the horizontal logo on the company
+(reports, backend) and the icon as the website favicon (/favicon.ico, until
+now the core one), once, from migrations/19.0.1.129.12.
 """
+import base64
 import json
 import logging
 import re
 
 from odoo import api, models
+from odoo.tools import file_open
 
 _logger = logging.getLogger(__name__)
 
@@ -39,6 +48,34 @@ _BODY_RULES = [
 ]
 _TAG = re.compile(r"(<[^>]+>)")
 _WORD = re.compile(r"\bOdoo\b(?!\.?\w)")
+
+
+MARCA_IMG = "/distri_pedido/static/src/img/marca/"
+# bump it when the images of static/src/img/marca change (one-week static
+# cache, Cloudflare and the link previews keep the old ones)
+MARCA_V = "?v=129.12"
+COMPANY_LOGO = "distri_pedido/static/src/img/marca/dn-logo-horizontal-820.png"
+WEBSITE_FAVICON = "distri_pedido/static/src/img/marca/dn-icono-512.png"
+OG_SIZE = (1200, 630)
+
+
+def marca_publica(base_url):
+    """URLs of the brand images for a public page; `og_image` is absolute
+    (link previews need it), on `base_url` (web.base.url: the canonical
+    https://distrineuquen.com in production)."""
+    def url(name):
+        return MARCA_IMG + name + MARCA_V
+    return {
+        "icono": url("dn-icono-192.png"),
+        "icono_512": url("dn-icono-512.png"),
+        "apple_touch": url("dn-icono-180.png"),
+        "favicon_32": url("favicon-32.png"),
+        "favicon_16": url("favicon-16.png"),
+        "logo_horizontal": url("dn-logo-horizontal-820.png"),
+        "og_image": (base_url or "").rstrip("/") + url("dn-og-1200x630.png"),
+        "og_width": OG_SIZE[0],
+        "og_height": OG_SIZE[1],
+    }
 
 
 def debrand_body(html):
@@ -89,6 +126,25 @@ class ResPartner(models.Model):
         root = self.env.ref("base.partner_root", raise_if_not_found=False)
         if root and root.name == ROOT_DEFAULT_NAME:
             root.sudo().name = BRAND
+
+
+class ResCompany(models.Model):
+    _inherit = "res.company"
+
+    @api.model
+    def _distri_set_brand_logo(self):
+        """The horizontal brand logo (820x222 PNG) as the logo of every
+        company: report headers scale it to their height, the backend shows
+        it in the company switcher."""
+        with file_open(COMPANY_LOGO, "rb") as image:
+            logo = base64.b64encode(image.read())
+        companies = self.sudo().search([])
+        companies.write({"logo": logo})
+        # website turns it into a 256 px .ico (website._handle_favicon)
+        with file_open(WEBSITE_FAVICON, "rb") as image:
+            self.env["website"].sudo().search([]).write({"favicon": base64.b64encode(image.read())})
+        _logger.info("branding: new logo on companies %s and website favicon", companies.ids)
+        return companies
 
 
 class ResUsers(models.Model):

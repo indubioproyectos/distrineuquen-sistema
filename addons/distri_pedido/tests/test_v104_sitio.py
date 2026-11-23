@@ -74,7 +74,8 @@ class TestSitioPublico(HttpCase):
 
     def test_brand_mark_and_no_old_wordmark(self):
         html = self._home()
-        self.assertIn("/distri_pedido/static/src/img/iconos/dn-logo.svg", html)
+        # 19.0.1.129.12: the new brand icon (static/src/img/marca)
+        self.assertIn("/distri_pedido/static/src/img/marca/dn-icono-180.png", html)
         self.assertNotIn("KIOSCOS &amp; ALMACENES", html)
         self.assertNotIn("p01-447", html)
         self.assertIn('content="#10243f"', html)
@@ -124,7 +125,7 @@ class TestSitioPublico(HttpCase):
         self.assertRegex(html, r'<meta name="description" content="[^"]{60,}"')
         self.assertIn('<meta name="robots" content="index,follow"', html)
         self.assertIn('property="og:image" content="', html)
-        self.assertIn("og-distri-neuquen-3.jpg", html)
+        self.assertIn("dn-og-1200x630.png", html)  # 19.0.1.129.12: the brand logo
         self.assertIn("portada3-1280.webp", html)
         self.assertIn('property="og:locale" content="es_AR"', html)
         self.assertIn('rel="canonical"', html)

@@ -10,7 +10,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <meta name="robots" content="noindex,nofollow"/>
   <title>El proyecto · Distri Neuquén</title>
-  <link rel="icon" t-att-href="'/web/image/res.company/%s/logo' % empresa_id"/>
+  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
   <style>
     :root{
       --azul:#10243f; --azul2:#19334f; --claro:#f7f8f7; --blanco:#fff;

@@ -27,6 +27,7 @@ from markupsafe import Markup
 from odoo import http
 from odoo.http import request
 
+from ..models.marca import marca_publica
 from .kit import kit_url
 from .main import COMPRA_MINIMA, ficha
 from .reparto import fonts
@@ -150,6 +151,7 @@ def contexto_sitio(page_title, description, path):
     base = (env["ir.config_parameter"].sudo().get_param("web.base.url")
             or request.httprequest.host_url).rstrip("/")
     direccion = ", ".join(x for x in (company.street, company.street2, company.city) if x)
+    marca = marca_publica(base)
     return {
         "titulo": page_title,
         "descripcion": description,
@@ -161,7 +163,9 @@ def contexto_sitio(page_title, description, path):
         "v": SITIO_V,
         "logo": LOGO,
         "logo_v": LOGO_V,
-        "og_image": "%s%sog-distri-neuquen-3.jpg%s" % (base, IMG, SITIO_V),
+        # 19.0.1.129.12: the link preview is the new brand logo
+        "marca": marca,
+        "og_image": marca["og_image"],
         "empresa": datos["nombre"],
         "ficha": datos,
         "whatsapp": whatsapp,
@@ -188,7 +192,7 @@ def jsonld(values):
         "name": values["empresa"],
         "description": values["descripcion"],
         "url": values["base_url"] + "/",
-        "logo": values["base_url"] + LOGO + "app-512.png",
+        "logo": values["base_url"] + values["marca"]["icono_512"],
         "image": values["og_image"],
         "address": {"@type": "PostalAddress", "addressLocality": values["ficha"]["localidad"],
                     "addressRegion": "Neuquén", "addressCountry": "AR"},
