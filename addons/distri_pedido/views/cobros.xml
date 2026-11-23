@@ -20,8 +20,11 @@
           <button name="action_confirm_ready_notice" type="object" display="always"
                   string="Confirmar todos" class="btn-primary"
                   groups="distri_pedido.grupo_ingresos_reporte"/>
+          <!-- 19.0.1.129.13: the staff confirm the incomes with their receipt
+               tied; the server decides per card (models/ingresos_reporte.py) -->
           <button name="action_confirm_board" type="object" string="Confirmar los elegidos"
-                  class="btn-primary" groups="distri_pedido.grupo_ingresos_reporte"/>
+                  class="btn-primary"
+                  groups="distri_pedido.grupo_cobros,base.group_system,distri_pedido.grupo_ingresos_reporte"/>
           <button name="action_mark_wholesale" type="object" string="Es de mayorista"
                   groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_import_report" type="object" display="always"
@@ -37,6 +40,7 @@
         <field name="state"/>
         <field name="can_authorize"/>
         <field name="can_confirm_income"/>
+        <field name="can_confirm_income_any"/>
         <field name="can_credit"/>
         <field name="credit_flow"/>
         <field name="credited_label"/>
@@ -352,7 +356,7 @@
             decoration-info="state == 'authorized'">
         <header>
           <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"
-                  groups="distri_pedido.grupo_ingresos_reporte"/>
+                  groups="distri_pedido.grupo_cobros,base.group_system,distri_pedido.grupo_ingresos_reporte"/>
           <button name="action_mark_wholesale" type="object" string="Es de mayorista"
                   groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_unmark_wholesale" type="object" string="Volver al tablero"
@@ -390,8 +394,8 @@
       <form string="Cobro de Mercado Pago" create="0" edit="0" delete="0">
         <header>
           <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"
-                  invisible="state != 'draft' or kind != 'income' or not partner_id or (receipt_candidate and not receipt_id)"
-                  groups="distri_pedido.grupo_ingresos_reporte"/>
+                  invisible="state != 'draft' or kind != 'income' or not partner_id or (receipt_candidate and not receipt_id) or not can_confirm_income"
+                  groups="distri_pedido.grupo_cobros,base.group_system,distri_pedido.grupo_ingresos_reporte"/>
           <!-- 19.0.1.126.0: «Visto en MP» is no longer offered (models/acreditar.py) -->
           <button name="action_credit" type="object" string="Acreditar" class="btn-primary"
                   invisible="not can_credit"/>
@@ -432,6 +436,7 @@
         <sheet>
           <field name="can_credit" invisible="1"/>
           <field name="can_confirm_income" invisible="1"/>
+          <field name="can_confirm_income_any" invisible="1"/>
           <field name="credited_candidate_count" invisible="1"/>
           <div class="alert alert-warning" role="alert" invisible="not can_credit">
             <field name="credit_reminder" readonly="1" class="oe_inline"/>
@@ -689,10 +694,12 @@
           <field name="learn" invisible="not payer_cuit"/>
           <field name="currency_id" invisible="1"/>
           <field name="collection_id" invisible="1"/>
+          <field name="can_confirm_income" invisible="1"/>
         </group>
         <footer>
           <button name="action_assign_confirm" type="object" string="Asignar y confirmar"
-                  class="btn-primary" groups="distri_pedido.grupo_ingresos_reporte"/>
+                  class="btn-primary" invisible="not can_confirm_income"
+                  groups="distri_pedido.grupo_cobros,base.group_system,distri_pedido.grupo_ingresos_reporte"/>
           <button name="action_assign" type="object" string="Solo asignar"/>
           <button special="cancel" string="Cancelar" class="btn-secondary"/>
         </footer>

@@ -99,4 +99,5 @@ from . import test_v129_9_imputacion_revisada
 from . import test_v129_9_agil_sin_seccion
 from . import test_v129_9_1_solo_agil
 from . import test_v129_11_ingresos_reporte
+from . import test_v129_13_ingresos_con_comprobante
 from . import test_v129_12_logo

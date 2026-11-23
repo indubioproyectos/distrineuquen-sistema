@@ -307,12 +307,11 @@ class TestV12911IngresosReporte(CreditMixin, RepartoMixin, AccountTestInvoicingC
             return self.env[model].with_user(user).get_view(
                 self.env.ref(xmlid).id, view_type)["arch"]
 
+        # 19.0.1.129.13: «Confirmar» (action_confirm_board) is back for
+        # grupo_cobros, hidden per card by `can_confirm_income`
         protected = {
             ("distri_pedido.view_mp_collection_form", "distri.mp.collection", "form"): (
-                "action_confirm_board", "action_confirm_other_payment",
-                "action_confirm_not_bank_twin"),
-            ("distri_pedido.view_mp_collection_list", "distri.mp.collection", "list"): (
-                "action_confirm_board",),
+                "action_confirm_other_payment", "action_confirm_not_bank_twin"),
             ("distri_pedido.view_mp_collection_kanban", "distri.mp.collection", "kanban"): (
                 "action_confirm_ready_notice",),
         }
@@ -329,12 +328,12 @@ class TestV12911IngresosReporte(CreditMixin, RepartoMixin, AccountTestInvoicingC
         self.assertIn('name="action_open_tie_credited"', form)
         self.assertIn('name="action_tie_bank_twin"', form)
         # every button of the wizards and the other screens carries the group
+        # (19.0.1.129.13: the ones the staff use with a receipt tied are
+        # checked in test_v129_13_ingresos_con_comprobante)
         Views = self.env["ir.ui.view"].sudo()
-        for name in ("action_assign_confirm", "action_approve_candidate", "action_open_vouch",
-                     "action_confirm_card", "action_migration_approve", "action_batch_approve",
+        for name in ("action_open_vouch", "action_migration_approve", "action_batch_approve",
                      "action_approve", "action_confirm_not_bank_twin",
-                     "action_confirm_other_payment", "action_confirm_board",
-                     "action_confirm_ready_notice"):
+                     "action_confirm_other_payment", "action_confirm_ready_notice"):
             views = Views.search([("arch_db", "like", 'name="%s"' % name)]).filtered(
                 lambda v: (v.xml_id or "").startswith("distri_pedido."))
             buttons = [b for v in views

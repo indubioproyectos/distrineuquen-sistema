@@ -1714,7 +1714,9 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         self.assertIn("se le pidió el comprobante el 30/10",
                       str(self.known._distri_statement_table(self.known._distri_statement())))
         arch = self.env.ref("distri_pedido.view_estado_cuenta_form").arch_db
-        self.assertIn('invisible="not receipt_id or state != \'draft\'"', arch)
+        # 19.0.1.129.13: and only for whom may confirm this card
+        self.assertIn('invisible="not receipt_id or state != \'draft\' or not can_confirm_income"',
+                      arch)
         # «Aprobar» without the receipt: refused, nothing registered
         with self.assertRaises(UserError):
             card.action_approve_candidate()

@@ -69,10 +69,11 @@
               <field name="receipt_id" string="Comprobante" readonly="1"/>
               <field name="state" readonly="1"/>
               <field name="candidate_note" string="Nota"/>
+              <field name="can_confirm_income" column_invisible="1"/>
               <button name="action_approve_candidate" type="object" string="Aprobar"
                       class="btn-primary" icon="fa-check"
-                      invisible="not receipt_id or state != 'draft'"
-                      groups="distri_pedido.grupo_ingresos_reporte"/>
+                      invisible="not receipt_id or state != 'draft' or not can_confirm_income"
+                      groups="distri_pedido.grupo_cobros,base.group_system,distri_pedido.grupo_ingresos_reporte"/>
               <button name="action_open_vouch" type="object" string="Aprobar sin comprobante"
                       class="btn-secondary" icon="fa-handshake-o"
                       invisible="receipt_id or state != 'draft'"
