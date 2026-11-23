@@ -24,6 +24,8 @@ class TestTarjetaConfirmacion(AccountTestInvoicingCommon):
     def setUpClass(cls):
         super().setUpClass()
         cls.env.user.sudo().write({"group_ids": [
+            # 19.0.1.129.11: confirming a report income needs grupo_ingresos_reporte
+            Command.link(cls.env.ref("distri_pedido.grupo_ingresos_reporte").id),
             Command.link(cls.env.ref("distri_pedido.grupo_administracion").id)]})
         Partner = cls.env["res.partner"]
         cls.alpha = Partner.create({"name": "Almacén Tarjeta Alfa", "company_type": "company"})

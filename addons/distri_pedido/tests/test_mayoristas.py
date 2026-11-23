@@ -20,6 +20,8 @@ class TestMayoristas(AccountTestInvoicingCommon):
     def setUpClass(cls):
         super().setUpClass()
         cls.env.user.sudo().write({"group_ids": [
+            # 19.0.1.129.11: confirming a report income needs grupo_ingresos_reporte
+            Command.link(cls.env.ref("distri_pedido.grupo_ingresos_reporte").id),
             Command.link(cls.env.ref("distri_pedido.grupo_administracion").id)]})
         cls.Collection = cls.env["distri.mp.collection"]
         cls.Rule = cls.env["distri.mp.wholesale.rule"]

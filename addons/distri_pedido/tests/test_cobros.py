@@ -47,6 +47,8 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         cls.env["ir.config_parameter"].sudo().set_param("distri_pedido.cuenta_propia",
                                                         TEST_OWN_ACCOUNT)
         cls.env.user.sudo().write({"group_ids": [
+            # 19.0.1.129.11: confirming a report income needs grupo_ingresos_reporte
+            Command.link(cls.env.ref("distri_pedido.grupo_ingresos_reporte").id),
             Command.link(cls.env.ref("distri_pedido.grupo_administracion").id),
             Command.link(cls.env.ref("sales_team.group_sale_manager").id),
         ]})

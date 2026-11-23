@@ -53,6 +53,8 @@ class TestV129Auditoria(CreditMixin, RepartoMixin, AccountTestInvoicingCommon):
         params.set_param("distri_pedido.cuenta_propia", TEST_OWN_ACCOUNT)
         params.set_param(PARAM_DRIVER_RULE, "")
         cls.env.user.sudo().write({"group_ids": [
+            # 19.0.1.129.11: confirming a report income needs grupo_ingresos_reporte
+            Command.link(cls.env.ref("distri_pedido.grupo_ingresos_reporte").id),
             Command.link(cls.env.ref("distri_pedido.grupo_administracion").id),
             Command.link(cls.env.ref("distri_pedido.grupo_cobros").id),
             Command.link(cls.env.ref("sales_team.group_sale_manager").id),

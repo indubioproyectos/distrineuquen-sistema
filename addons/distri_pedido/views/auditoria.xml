@@ -401,7 +401,7 @@
         <button name="action_confirm_not_bank_twin" type="object"
                 string="Confirmar: no es ese pago"
                 invisible="kind != 'income' or state != 'draft' or not bank_twin_payment_id or not partner_id"
-                groups="distri_pedido.grupo_cobros,base.group_system"
+                groups="distri_pedido.grupo_ingresos_reporte"
                 confirm="¿Revisaste que el pago cargado a mano es otra transferencia? Se registra otro pago."/>
       </xpath>
       <xpath expr="//sheet" position="inside">

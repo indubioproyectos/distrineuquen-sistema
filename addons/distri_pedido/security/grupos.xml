@@ -114,5 +114,29 @@
       <field name="comment">Abre y cierra la caja del día, recibe las rendiciones y la plata de los demás, paga gastos y proveedores desde la caja y cuenta los billetes.</field>
     </record>
 
+    <!-- 19.0.1.129.11: who turns an income of the Mercado Pago report into a
+         payment and approves the «Tablero de migración» (models/
+         ingresos_reporte.py). A privilege of its own, so it adds to the
+         user's role. -->
+    <record id="privilegio_ingresos_reporte" model="res.groups.privilege">
+      <field name="name">Ingresos del reporte</field>
+      <field name="category_id" ref="categoria_distri"/>
+      <field name="sequence">25</field>
+      <field name="description">Quién confirma los ingresos del reporte de Mercado Pago y aprueba el tablero de migración.</field>
+    </record>
+
+  </data>
+
+  <!-- noupdate: the membership is decided here once, only the user admin
+       (Ale · Sistemas). Implied by no group, base.group_system neither:
+       explicit membership. -->
+  <data noupdate="1">
+    <record id="grupo_ingresos_reporte" model="res.groups">
+      <field name="name">Cobros: confirmar ingresos del reporte y migración</field>
+      <field name="privilege_id" ref="privilegio_ingresos_reporte"/>
+      <field name="sequence">10</field>
+      <field name="comment">Confirma o registra como pago un ingreso del reporte de Mercado Pago (el flujo normal es acreditar el comprobante) y aprueba las tarjetas del tablero de migración.</field>
+      <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
+    </record>
   </data>
 </odoo>

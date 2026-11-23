@@ -19,9 +19,9 @@
                receipt (models/cobros.py, distri.mp.confirm.notice) -->
           <button name="action_confirm_ready_notice" type="object" display="always"
                   string="Confirmar todos" class="btn-primary"
-                  groups="distri_pedido.grupo_cobros,base.group_system"/>
+                  groups="distri_pedido.grupo_ingresos_reporte"/>
           <button name="action_confirm_board" type="object" string="Confirmar los elegidos"
-                  class="btn-primary" groups="distri_pedido.grupo_cobros,base.group_system"/>
+                  class="btn-primary" groups="distri_pedido.grupo_ingresos_reporte"/>
           <button name="action_mark_wholesale" type="object" string="Es de mayorista"
                   groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_import_report" type="object" display="always"
@@ -36,6 +36,7 @@
         <field name="kind"/>
         <field name="state"/>
         <field name="can_authorize"/>
+        <field name="can_confirm_income"/>
         <field name="can_credit"/>
         <field name="credit_flow"/>
         <field name="credited_label"/>
@@ -273,7 +274,7 @@
                       name="action_view_receipt" type="object" class="btn btn-primary">
                 <i class="fa fa-picture-o" aria-hidden="true"/> Ver foto
               </button>
-              <button t-elif="col == 'confirm' and kind == 'income' and record.partner_id.raw_value and draft and record.can_authorize.raw_value"
+              <button t-elif="col == 'confirm' and kind == 'income' and record.partner_id.raw_value and draft and record.can_authorize.raw_value and record.can_confirm_income.raw_value"
                       name="action_confirm_board" type="object" class="btn btn-primary">
                 <i class="fa fa-check" aria-hidden="true"/> Confirmar
               </button>
@@ -296,7 +297,7 @@
             </div>
             <!-- the other actions, compact -->
             <div class="o_distri_secondary">
-              <button t-if="col != 'confirm' and kind == 'income' and record.partner_id.raw_value and draft and !(record.receipt_candidate.raw_value and !record.receipt_id.raw_value) and record.can_authorize.raw_value"
+              <button t-if="col != 'confirm' and kind == 'income' and record.partner_id.raw_value and draft and !(record.receipt_candidate.raw_value and !record.receipt_id.raw_value) and record.can_authorize.raw_value and record.can_confirm_income.raw_value"
                       name="action_confirm_board" type="object" class="btn btn-sm btn-light">
                 Confirmar
               </button>
@@ -351,7 +352,7 @@
             decoration-info="state == 'authorized'">
         <header>
           <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"
-                  groups="distri_pedido.grupo_cobros,base.group_system"/>
+                  groups="distri_pedido.grupo_ingresos_reporte"/>
           <button name="action_mark_wholesale" type="object" string="Es de mayorista"
                   groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_unmark_wholesale" type="object" string="Volver al tablero"
@@ -390,7 +391,7 @@
         <header>
           <button name="action_confirm_board" type="object" string="Confirmar" class="btn-primary"
                   invisible="state != 'draft' or kind != 'income' or not partner_id or (receipt_candidate and not receipt_id)"
-                  groups="distri_pedido.grupo_cobros,base.group_system"/>
+                  groups="distri_pedido.grupo_ingresos_reporte"/>
           <!-- 19.0.1.126.0: «Visto en MP» is no longer offered (models/acreditar.py) -->
           <button name="action_credit" type="object" string="Acreditar" class="btn-primary"
                   invisible="not can_credit"/>
@@ -400,7 +401,7 @@
                   groups="distri_pedido.grupo_cobros,base.group_system"/>
           <button name="action_confirm_other_payment" type="object" string="Confirmar: es otro pago"
                   invisible="kind != 'income' or state != 'draft' or not credited_candidate_count or not partner_id"
-                  groups="distri_pedido.grupo_cobros,base.group_system"
+                  groups="distri_pedido.grupo_ingresos_reporte"
                   confirm="¿Revisaste que esta transferencia no es la de un comprobante ya acreditado? Se registra otro pago."/>
           <button name="action_clear_review" type="object" string="Revisado"
                   invisible="not report_review or state == 'authorized'"
@@ -430,6 +431,7 @@
         </header>
         <sheet>
           <field name="can_credit" invisible="1"/>
+          <field name="can_confirm_income" invisible="1"/>
           <field name="credited_candidate_count" invisible="1"/>
           <div class="alert alert-warning" role="alert" invisible="not can_credit">
             <field name="credit_reminder" readonly="1" class="oe_inline"/>
@@ -651,6 +653,9 @@
     <field name="res_model">distri.mp.collection</field>
     <field name="view_mode">kanban,list,form</field>
     <field name="context">{'search_default_to_act': 1, 'search_default_last_60': 1}</field>
+    <!-- 19.0.1.129.11: the pending incomes of the report only for
+         grupo_ingresos_reporte (models/ingresos_reporte.py) -->
+    <field name="domain">[('board_visible', '=', True)]</field>
     <field name="view_ids" eval="[(5, 0, 0),
         (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_mp_collection_kanban')}),
         (0, 0, {'view_mode': 'list', 'view_id': ref('view_mp_collection_list')}),
@@ -687,7 +692,7 @@
         </group>
         <footer>
           <button name="action_assign_confirm" type="object" string="Asignar y confirmar"
-                  class="btn-primary"/>
+                  class="btn-primary" groups="distri_pedido.grupo_ingresos_reporte"/>
           <button name="action_assign" type="object" string="Solo asignar"/>
           <button special="cancel" string="Cancelar" class="btn-secondary"/>
         </footer>
@@ -715,9 +720,9 @@
         <field name="currency_id" invisible="1"/>
         <footer>
           <button name="action_apply" type="object" string="Confirmar" class="btn-primary"
-                  invisible="missing_count"/>
+                  invisible="missing_count" groups="distri_pedido.grupo_ingresos_reporte"/>
           <button name="action_apply" type="object" string="Confirmar igual" class="btn-primary"
-                  invisible="not missing_count"/>
+                  invisible="not missing_count" groups="distri_pedido.grupo_ingresos_reporte"/>
           <button special="cancel" string="Cancelar" class="btn-secondary"/>
         </footer>
       </form>
@@ -741,7 +746,7 @@
         </group>
         <field name="currency_id" invisible="1"/>
         <footer>
-          <button name="action_apply" type="object" string="Aprobar" class="btn-primary"/>
+          <button name="action_apply" type="object" string="Aprobar" class="btn-primary" groups="distri_pedido.grupo_ingresos_reporte"/>
           <button special="cancel" string="Cancelar" class="btn-secondary"/>
         </footer>
       </form>

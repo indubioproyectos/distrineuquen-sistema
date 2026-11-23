@@ -38,7 +38,7 @@
         <button name="action_confirm_card" type="object" string="Confirmar" icon="fa-check"
                 class="btn-link"
                 invisible="origin != 'card' or card_state != 'draft' or not has_receipt or migration_duplicate"
-                groups="distri_pedido.grupo_cobros,base.group_system"
+                groups="distri_pedido.grupo_ingresos_reporte"
                 confirm="Se registra el pago con la confirmación del tablero. ¿Seguir?"/>
         <button name="action_mark_reviewed" type="object" string="Marcar revisado"
                 icon="fa-eye" class="btn-link" invisible="review_state != 'pending'"
@@ -248,7 +248,7 @@
     <field name="arch" type="xml">
       <xpath expr="//header/field[@name='state']" position="before">
         <button name="action_unrecorded_sale" type="object" string="Venta sin registrar"
-                invisible="kind != 'income' or state not in ('draft', 'confirmed')"
+                invisible="kind != 'income' or state not in ('draft', 'confirmed') or (state == 'draft' and not can_confirm_income)"
                 groups="distri_pedido.grupo_cobros,base.group_system"/>
       </xpath>
     </field>
@@ -260,7 +260,7 @@
     <field name="inherit_id" ref="distri_pedido.view_mp_collection_kanban"/>
     <field name="arch" type="xml">
       <xpath expr="//div[hasclass('o_distri_secondary')]" position="inside">
-        <button t-if="kind == 'income' and (draft or record.state.raw_value == 'confirmed')"
+        <button t-if="kind == 'income' and ((draft and record.can_confirm_income.raw_value) or record.state.raw_value == 'confirmed')"
                 name="action_unrecorded_sale" type="object"
                 class="btn btn-sm btn-link text-danger"
                 groups="distri_pedido.grupo_cobros,base.group_system">

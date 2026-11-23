@@ -166,7 +166,7 @@
               </button>
               <button t-if="box in ['to_approve', 'review'] and record.state.raw_value == 'draft'"
                       name="action_migration_approve" type="object" class="btn btn-sm btn-primary"
-                      groups="distri_pedido.grupo_cobros,base.group_system">
+                      groups="distri_pedido.grupo_ingresos_reporte">
                 Confirmar
               </button>
             </div>
@@ -209,7 +209,7 @@
         <button name="action_tab_account" type="object" string="Cuenta" icon="fa-external-link"
                 class="btn-link" invisible="not partner_id"/>
         <button name="action_migration_approve" type="object" string="Confirmar" icon="fa-check"
-                class="btn-link" groups="distri_pedido.grupo_cobros,base.group_system"
+                class="btn-link" groups="distri_pedido.grupo_ingresos_reporte"
                 invisible="state != 'draft' or migration_box not in ('to_approve', 'review')"/>
         <button name="action_online_unlink" type="object" string="No está en Online"
                 icon="fa-chain-broken" class="btn-link" groups="distri_pedido.grupo_cobros,base.group_system"
@@ -284,7 +284,7 @@
           <button name="action_open_board" type="object" string="Abrir el tablero"
                   class="btn-primary"/>
           <button name="action_batch_approve" type="object" string="Confirmar lote"
-                  groups="distri_pedido.grupo_cobros,base.group_system" invisible="sync_stale"/>
+                  groups="distri_pedido.grupo_ingresos_reporte" invisible="sync_stale"/>
           <button name="action_refresh_all" type="object" string="Recalcular todo"
                   groups="distri_pedido.grupo_administracion"/>
         </header>
@@ -411,7 +411,7 @@
           <button name="action_approve" type="object" string="Confirmar" class="btn-primary"
                   invisible="not ok_count"
                   confirm="Se registran los pagos de las tarjetas sin problemas. ¿Seguir?"
-                  groups="distri_pedido.grupo_cobros,base.group_system"/>
+                  groups="distri_pedido.grupo_ingresos_reporte"/>
           <button special="cancel" string="Cancelar" class="btn-secondary"/>
         </footer>
       </form>
@@ -422,7 +422,8 @@
     <field name="name">Tablero de migración</field>
     <field name="model_id" ref="model_distri_migration_summary"/>
     <field name="state">code</field>
-    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion')), (4, ref('base.group_system'))]"/>
+    <!-- 19.0.1.129.11: only grupo_ingresos_reporte (models/ingresos_reporte.py) -->
+    <field name="group_ids" eval="[(6, 0, [ref('distri_pedido.grupo_ingresos_reporte')])]"/>
     <field name="code">action = model.action_open()</field>
   </record>
 
@@ -437,6 +438,6 @@
 
   <menuitem id="menu_cobros_migration" name="Tablero de migración" parent="menu_cobros_root"
             action="action_migration_summary_open" sequence="14"
-            groups="distri_pedido.grupo_administracion,base.group_system"/>
+            groups="-distri_pedido.grupo_administracion,-base.group_system,distri_pedido.grupo_ingresos_reporte"/>
 
 </odoo>

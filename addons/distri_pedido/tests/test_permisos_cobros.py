@@ -36,7 +36,8 @@ class TestPermisosCobros(RepartoMixin, AccountTestInvoicingCommon):
         # the permission given back: administración plus grupo_cobros
         cls.cashier = new_test_user(
             cls.env, login="admin_con_cobros", name="Administración con cobros",
-            groups="base.group_user,distri_pedido.grupo_administracion,distri_pedido.grupo_cobros",
+            groups="base.group_user,distri_pedido.grupo_administracion,distri_pedido.grupo_cobros,"
+                   "distri_pedido.grupo_ingresos_reporte",
             **common)
         cls.admin = cls.env.ref("base.user_admin")
         cls.admin.sudo().write({"company_ids": [Command.link(company.id)]})
@@ -50,6 +51,8 @@ class TestPermisosCobros(RepartoMixin, AccountTestInvoicingCommon):
         cls.Collection = cls.env["distri.mp.collection"]
         # the fixtures (orders of the route) are made by the test's own user
         cls.env.user.sudo().write({"group_ids": [
+            # 19.0.1.129.11: confirming a report income needs grupo_ingresos_reporte
+            Command.link(cls.env.ref("distri_pedido.grupo_ingresos_reporte").id),
             Command.link(cls.env.ref("distri_pedido.grupo_administracion").id),
             Command.link(cls.env.ref("sales_team.group_sale_manager").id),
         ]})

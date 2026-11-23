@@ -253,7 +253,9 @@ class DistriMpCollectionWholesale(models.Model):
                    "&", ("state", "=", "authorized"), ("income_id", "=", False)]
 
         def count(domain):
-            [(n, total)] = self._read_group(domain, [], ["__count", "amount:sum"])
+            # 19.0.1.129.11: what the board shows (models/ingresos_reporte.py)
+            [(n, total)] = self._read_group(domain + [("board_visible", "=", True)], [],
+                                            ["__count", "amount:sum"])
             return {"count": n, "total": total or 0.0, "total_label": _money(total or 0.0)}
 
         act = count(pending + [("column", "!=", "unidentified"), ("date_day", ">=", since)])
