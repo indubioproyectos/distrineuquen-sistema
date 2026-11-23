@@ -561,7 +561,8 @@
     # 19.0.1.129.10 (owner, 23/11/2026): the AgilPedido section «Vent espec
     # Distribuidoras + $ 10.000.000» stays in AgilPedido only and no longer
     # shows on /pedido (agil_tienda.SECCIONES_SOLO_AGIL, by name prefix); the
-    # hidden DISTRIBUIDORAS list for authorized buyers is untouched. Home:
+    # hidden DISTRIBUIDORAS list for authorized buyers is untouched; Administración
+    # and Gerencia still see the section on /pedido. Home:
     # «Envíos al interior · a toda la provincia del Neuquén».
     # 19.0.1.129.11 (owner): the incomes of the Mercado Pago report and the
     # «Tablero de migración» only for the new group «Cobros: confirmar
