@@ -176,7 +176,7 @@
         <div class="marco datos__in">
           <div class="dato"><b>Compra mínima $ <t t-esc="compra_minima_texto"/></b><span>con envío sin cargo o para retirar</span></div>
           <div class="dato"><b>Reparto de lunes a viernes, 9 a 19 hs</b><span>Feriados: consultar</span></div>
-          <div class="dato"><b><t t-esc="ficha['leyenda']"/></b><span>por encomienda desde Neuquén</span></div>
+          <div class="dato"><b><t t-esc="ficha['leyenda']"/></b><span>a toda la provincia del Neuquén</span></div>
         </div>
       </section>
 

@@ -343,12 +343,17 @@ class TomaDePedidos(http.Controller):
         agil = self._catalogo_agil()
         if agil:
             # the AgilPedido sections, in the storefront order
-            from ..models.agil_tienda import ORDEN_AGIL, SIN_SECCION_ORDEN
+            from ..models.agil_tienda import ORDEN_AGIL, SECCIONES_SOLO_AGIL, SIN_SECCION_ORDEN
             orden = ORDEN_AGIL
+            # 19.0.1.129.10: sections that only AgilPedido shows
+            solo_agil = [("distri_agil_seccion", "not =ilike", "%s%%" % nombre)
+                         for nombre in SECCIONES_SOLO_AGIL]
         else:
             orden = "categ_id, name"
+            solo_agil = []
         productos = request.env["product.template"].sudo().search(
-            [("sale_ok", "=", True), ("is_published", "=", True)] + self._dominio_catalogo(),
+            [("sale_ok", "=", True), ("is_published", "=", True)] + self._dominio_catalogo()
+            + solo_agil,
             order=orden,
         )
         lista = self._lista_del_visitante()

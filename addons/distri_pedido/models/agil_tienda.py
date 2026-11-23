@@ -28,6 +28,11 @@ SIN_SECCION = "Otros"
 # 19.0.1.129.9: a product without a section shows FIRST in AgilPedido, above
 # every section and with no heading; sections start at posicion 0
 SIN_SECCION_ORDEN = -1
+# 19.0.1.129.10: AgilPedido sections that stay in AgilPedido only and never
+# show on /pedido (owner, 23/11/2026). Matched by the start of the section
+# name, case-insensitive, since AgilPedido keeps trailing spaces and the
+# amount in the name may change.
+SECCIONES_SOLO_AGIL = ("Vent espec Distribuidoras",)
 # /pedido and the backend order the temporary catalog like the storefront
 ORDEN_AGIL = "distri_agil_seccion_orden, distri_agil_seccion, distri_agil_orden, id"
 
