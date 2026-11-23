@@ -46,3 +46,17 @@ class TestAgilSoloAgil(PedidoAbiertoMixin, AgilMixin, HttpCase):
             "group_ids": [(4, self.env.ref("distri_pedido.grupo_vendedor").id)]})
         self.authenticate(seller.login, "vende.pruebagil.1")
         self.assertNotIn('data-id="%s"' % solo.id, self.url_open("/pedido").text)
+
+    def test_flagged_customer_sees_it(self):
+        self._sync(storefront(PRODUCTOS + [SOLO_AGIL, SUELTO], SECCIONES + [DISTRIBUIDORAS]))
+        solo = self._temporal(SOLO_AGIL)
+        self._switch("1")
+        partner = self.env["res.partner"].create({"name": "Distribuidora Pruebagil",
+                                                  "distri_lista_oculta": True})
+        cliente = self.env["res.users"].create({
+            "name": partner.name, "login": "dist.pruebagil", "password": "dist.pruebagil.1",
+            "partner_id": partner.id, "group_ids": [(6, 0, [self.env.ref("base.group_portal").id])]})
+        self.authenticate(cliente.login, "dist.pruebagil.1")
+        self.assertIn('data-id="%s"' % solo.id, self.url_open("/pedido").text)
+        partner.distri_lista_oculta = False
+        self.assertNotIn('data-id="%s"' % solo.id, self.url_open("/pedido").text)
