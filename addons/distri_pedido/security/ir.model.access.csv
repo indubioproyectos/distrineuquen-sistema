@@ -239,3 +239,7 @@ access_supplier_payment_group,distri.supplier.payment pago proveedor,model_distr
 access_loaded_transfer_admin,distri.loaded.transfer administracion,model_distri_loaded_transfer,distri_pedido.grupo_administracion,1,0,0,0
 access_loaded_transfer_gerencia,distri.loaded.transfer gerencia,model_distri_loaded_transfer,distri_pedido.grupo_gerencia,1,0,0,0
 access_loaded_transfer_sistema,distri.loaded.transfer sistema,model_distri_loaded_transfer,base.group_system,1,0,0,0
+access_owed_allocation_vendedor,distri.owed.allocation vendedor,model_distri_owed_allocation,distri_pedido.grupo_vendedor,1,0,0,0
+access_owed_allocation_admin,distri.owed.allocation administracion,model_distri_owed_allocation,distri_pedido.grupo_administracion,1,1,1,1
+access_owed_allocation_gerencia,distri.owed.allocation gerencia,model_distri_owed_allocation,distri_pedido.grupo_gerencia,1,1,1,1
+access_owed_allocation_sistema,distri.owed.allocation sistema,model_distri_owed_allocation,base.group_system,1,1,1,1

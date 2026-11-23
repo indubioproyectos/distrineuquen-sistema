@@ -289,9 +289,13 @@
     </div>
 
     <div class="lista marco">
+    <!-- 19.0.1.129.9: the AgilPedido products without a section come first
+         (name ""), always open and with no heading, as the storefront shows
+         them -->
     <t t-foreach="secciones" t-as="seccion">
-      <div class="bloque">
-        <div class="cabsec">
+      <div t-att-class="'bloque' if seccion[0] else 'bloque siempre'">
+        <span t-if="not seccion[0]" class="chip">0</span>
+        <div t-if="seccion[0]" class="cabsec">
           <span class="chip">0</span>
           <span class="nom"><svg class="ic"><use href="#ic-book-open"/></svg><t t-esc="seccion[0]"/></span>
           <span class="flecha"><svg class="ic"><use href="#ic-caret-left"/></svg></span>

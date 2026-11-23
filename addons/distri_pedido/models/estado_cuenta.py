@@ -32,6 +32,9 @@ uncovered is owed, so the red total always equals the balance and a
 customer up to date or in credit has nothing red. A paid invoice no longer
 stays red because an older one took its payment. The review marks
 (distri_owed*) no longer decide the color; their note stays visible as
+`review_note`. Before every pass (pass 0, 19.0.1.129.9), the customer's
+reviewed allocations («Imputación revisada», distri.owed.allocation, by
+line_key) are applied; staff see their reason as «Revisado: …» in
 `review_note`.
 
 Staff see the invoice number and the remito. The customer sees only the
@@ -59,6 +62,7 @@ from odoo.tools.misc import hmac as odoo_hmac
 
 from .ajuste_cuenta import AJC_JOURNAL_CODE
 from .cuenta import clave_documento
+from .imputacion_revisada import REVIEWED_PREFIX
 from .remito import es_numero_de_factura
 from .reparto_cliente import AR_TZ, today_ar
 
@@ -240,13 +244,56 @@ def _split_payments(debits, credits, allocate, stats=None):
                 (debit["row"], [item[2]["row"] for item in best]))
 
 
-def mark_owed(rows, stats=None):
+def _reviewed_allocations(rows, debits, credits, allocations, allocate, stats=None):
+    """Pass 0 of mark_owed: the reviewed allocations (see mark_owed)."""
+    by_debit = {d["row"].get("line_key"): d for d in debits if d["row"].get("line_key")}
+    by_credit = {c["row"].get("line_key"): c for c in credits if c["row"].get("line_key")}
+    present = {row.get("line_key") for row in rows}
+
+    def skip(alloc, why):
+        if stats is not None:
+            stats.setdefault("allocation_skipped", []).append((alloc, why))
+
+    for alloc in allocations:
+        credit_key, debit_key = alloc.get("credit_key"), alloc.get("debit_key")
+        if credit_key not in present or debit_key not in present:
+            skip(alloc, "missing")
+            continue
+        credit, debit = by_credit.get(credit_key), by_debit.get(debit_key)
+        if not credit:
+            skip(alloc, "not_credit")
+            continue
+        if not debit:
+            skip(alloc, "not_debit")
+            continue
+        before = credit["rem"]
+        allocate(credit, debit, alloc.get("amount") or 0.0)
+        applied = round(before - credit["rem"], 2)
+        if applied <= OWED_TOLERANCE:
+            skip(alloc, "spent")
+            continue
+        reason = (alloc.get("reason") or "").strip()
+        reasons = debit["row"]["reviewed_reasons"]
+        if reason and reason not in reasons:
+            reasons.append(reason)
+        if stats is not None:
+            stats.setdefault("allocated", []).append((alloc, applied))
+
+
+def mark_owed(rows, stats=None, allocations=None):
     """Set row["owed"] on statement rows (oldest first), by priority passes.
 
     Debits are the rows with a positive net (debit - credit), credits the
     ones with a negative net; net-zero rows are ignored. Every pass applies
     only the amounts still unallocated:
 
+    0. reviewed allocations (19.0.1.129.9, distri.owed.allocation): each
+       dict of `allocations` (credit_key, debit_key, amount, reason) covers
+       the debit row whose row["line_key"] is debit_key with the credit row
+       whose row["line_key"] is credit_key, in the given order, up to the
+       amount and to what both still have. One whose keys are not in the
+       rows, or name a row on the wrong side, is skipped. A debit it touches
+       gets its reason in row["reviewed_reasons"];
     1. reconciliation: row["reconciled"] of a credit lists (debit line id,
        amount) pairs of account.partial.reconcile; each covers the debit row
        whose row["line_id"] matches, for that amount;
@@ -270,12 +317,17 @@ def mark_owed(rows, stats=None):
     A debit's «owed» is what stays uncovered; every other row gets 0.
     Invariant: sum(owed) == max(balance, 0), within cents.
 
-    `stats` (optional dict) receives what pass 3b matched and skipped.
+    `stats` (optional dict) receives what pass 3b matched and skipped, and
+    for pass 0 "allocated": [(allocation, amount applied)] and
+    "allocation_skipped": [(allocation, why)], why being "missing" (a key
+    not in the rows), "not_credit" / "not_debit" (wrong side) or "spent"
+    (nothing left to apply).
     Returns (count, total) of the owed rows.
     """
     debits, credits = [], []
     for row in rows:
         row["owed"] = 0.0
+        row["reviewed_reasons"] = []
         net = round((row.get("debit") or 0.0) - (row.get("credit") or 0.0), 2)
         if net > OWED_TOLERANCE:
             debits.append({"row": row, "rem": net})
@@ -291,7 +343,11 @@ def mark_owed(rows, stats=None):
     def open_(items):
         return [item for item in items if item["rem"] > OWED_TOLERANCE]
 
-    # 1. reconciliation
+    # 0. reviewed allocations, by stable line_key
+    if allocations:
+        _reviewed_allocations(rows, debits, credits, allocations, allocate, stats)
+
+    # 1. reconciliation (min(amount, what is left): never over pass 0)
     by_line = {d["row"]["line_id"]: d for d in debits if d["row"].get("line_id")}
     for credit in credits:
         for line_id, amount in credit["row"].get("reconciled") or ():
@@ -699,7 +755,14 @@ class ResPartnerEstadoCuenta(models.Model):
         for row in rows:
             balance += (row["debit"] or 0.0) - (row["credit"] or 0.0)
             row["balance"] = balance
-        mark_owed(rows)
+        mark_owed(rows, allocations=self._distri_owed_allocations())
+        # 19.0.1.129.9: staff see why a reviewed allocation decided a debit
+        # (review_note: staff views only, never the customer's)
+        for row in rows:
+            if row.get("reviewed_reasons"):
+                row["review_note"] = " · ".join(x for x in (
+                    row["review_note"],
+                    REVIEWED_PREFIX + " · ".join(row["reviewed_reasons"])) if x)
         return rows
 
     def _distri_statement(self, date_from=False, date_to=False):

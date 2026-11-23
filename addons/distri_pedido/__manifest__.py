@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.8",
+    "version": "19.0.1.129.9",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -537,6 +537,27 @@
     # details and the customer's statement. Read-only, over the
     # distri.loaded.transfer model of 19.0.1.129.7 (models/
     # cuentas_transferencias.py). No migration.
+    # 19.0.1.129.9 «Imputación revisada»: reviewed allocations of the red
+    # rows (models/imputacion_revisada.py, distri.owed.allocation: customer,
+    # credit and debit line_key, amount, confidence, reason, source,
+    # approved_by, active). mark_owed applies the customer's active ones
+    # first (pass 0, by the rows' stable line_key, each up to what both rows
+    # still have); unknown keys or a wrong side are skipped and counted; the
+    # other passes run unchanged on what is left, so the red total still
+    # equals the balance. Staff see «Revisado: <reason>» in the row's review
+    # note; the customer views never read it. Sellers read (their portfolio);
+    # administración, gerencia and Sistemas write. Loaded with
+    # scripts/rojo/cargar-imputaciones.sh (dry-run unless DO_COMMIT=1). New
+    # model only: no migration.
+    # Also (owner): the home «Condiciones de compra» block says «Reparto de
+    # lunes a viernes, 9 a 19 hs · Feriados: consultar» and the footer adds
+    # «Feriados: consultar» under the delivery line (views/sitio.xml).
+    # Also (owner): /pedido follows the AgilPedido order exactly: products with
+    # no section there (e.g. «Cerveza Corona 710 x 12 u.») show FIRST, always
+    # open and with no heading, not last under «Otros» (agil_tienda.
+    # SIN_SECCION_ORDEN = -1, the sync updates it; then section posicion and
+    # the feed order inside each section, as before).
+    # migrations/19.0.1.129.9 moves the stored 9999 rows to -1.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth", "mail_bot", "digest"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",

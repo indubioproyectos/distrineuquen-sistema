@@ -25,6 +25,9 @@ AGIL_TIMEOUT = 30
 # products visible today, the sync aborts.
 MINIMO_PROPORCION = 0.5
 SIN_SECCION = "Otros"
+# 19.0.1.129.9: a product without a section shows FIRST in AgilPedido, above
+# every section and with no heading; sections start at posicion 0
+SIN_SECCION_ORDEN = -1
 # /pedido and the backend order the temporary catalog like the storefront
 ORDEN_AGIL = "distri_agil_seccion_orden, distri_agil_seccion, distri_agil_orden, id"
 
@@ -138,7 +141,7 @@ def filas_agil(feed):
         vistos.add(agil_id)
         imagen_url, imagen_clave = imagen_de(producto)
         seccion, seccion_orden = secciones.get(str(producto.get("seccion_id")),
-                                               (SIN_SECCION, 9999))
+                                               (SIN_SECCION, SIN_SECCION_ORDEN))
         filas.append({
             "agil_id": agil_id,
             "nombre": nombre,

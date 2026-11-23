@@ -343,7 +343,7 @@ class TomaDePedidos(http.Controller):
         agil = self._catalogo_agil()
         if agil:
             # the AgilPedido sections, in the storefront order
-            from ..models.agil_tienda import ORDEN_AGIL
+            from ..models.agil_tienda import ORDEN_AGIL, SIN_SECCION_ORDEN
             orden = ORDEN_AGIL
         else:
             orden = "categ_id, name"
@@ -356,7 +356,10 @@ class TomaDePedidos(http.Controller):
         secciones = {}
         for producto in productos:
             if agil:
-                seccion = producto.distri_agil_seccion or "Otros"
+                # 19.0.1.129.9: no section in AgilPedido: first, with no
+                # heading (the template shows the name "" without one)
+                seccion = ("" if producto.distri_agil_seccion_orden <= SIN_SECCION_ORDEN
+                           else producto.distri_agil_seccion or "Otros")
             else:
                 seccion = producto.categ_id.name or "Sin seccion"
             secciones.setdefault(seccion, []).append(
