@@ -416,9 +416,10 @@ class Tablero(http.Controller):
             return request.redirect(landing)
         env = request.env
         tiles = staff_tiles(env)
-        # 19.0.1.120.0: a seller locked to /cuentas who also packs or drives
-        # lands here; a backend page would only send him to /cuentas
-        # (controllers/tienda.py web_client), so it gets no backend tile
+        # a seller locked out of the backend lands here (19.0.1.129.20, before
+        # only if he also packed or drove); a backend page would only send him
+        # back (controllers/tienda.py web_client), so he gets no backend tile
+        # nor «Todas las aplicaciones»
         locked = user._distri_seller_only_accounts()
         if locked:
             tiles = [t for t in tiles if not (t["url"] or "").startswith("/odoo")]

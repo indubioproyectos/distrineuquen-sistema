@@ -3,8 +3,8 @@
 Feature 1 (owner, day 1): every packer and driver lands on Inicio
 (/tablero) with a tile for each screen he may open, and every staff screen
 has a way back to it (the «Inicio» button next to the floating gear, the
-first link of the «Ajustes» sheet, kit.staff_nav). A seller locked to
-/cuentas who neither packs nor delivers keeps landing on /cuentas.
+first link of the «Ajustes» sheet, kit.staff_nav). 19.0.1.129.20: a seller
+locked to the accounts app lands on Inicio too (before, on /cuentas).
 
 Feature 2 (owner): administración and gerencia see the wholesale customers
 («Es mayorista», hidden lists) and their balance in /cuentas and plan their
@@ -71,11 +71,12 @@ class TestV120Inicio(HttpCase):
             self.assertTrue(user._distri_has_inicio(), user.login)
             self.assertEqual(user._distri_ajustes()["inicio"], "/tablero", user.login)
             self.assertTrue(self._home(user.login).endswith("/tablero"), user.login)
-        # a seller locked to the accounts app keeps /cuentas, without Inicio
-        self.assertEqual(self.seller._distri_landing(), "/cuentas")
-        self.assertFalse(self.seller._distri_has_inicio())
-        self.assertEqual(self.seller._distri_ajustes()["inicio"], "")
-        self.assertTrue(self._home(self.seller.login).endswith("/cuentas"))
+        # 19.0.1.129.20 (owner): a seller locked to the accounts app lands on
+        # Inicio too, with «Inicio» on every staff screen (before, /cuentas)
+        self.assertEqual(self.seller._distri_landing(), "")
+        self.assertTrue(self.seller._distri_has_inicio())
+        self.assertEqual(self.seller._distri_ajustes()["inicio"], "/tablero")
+        self.assertTrue(self._home(self.seller.login).endswith("/tablero"))
         # without the lock the seller is staff with Inicio too
         self.env["ir.config_parameter"].sudo().set_param(LOCK, "0")
         self.assertEqual(self.seller._distri_landing(), "")
@@ -85,12 +86,12 @@ class TestV120Inicio(HttpCase):
         self._login(self.italo.login)
         res = self.url_open("/odoo/action-base.action_res_users", allow_redirects=False)
         self.assertIn(res.status_code, (301, 302, 303))
-        self.assertTrue(res.headers["Location"].endswith("/cuentas"))
+        self.assertTrue(res.headers["Location"].endswith("/tablero"))
         page = self.url_open("/tablero")
         self.assertEqual(page.status_code, 200)
         for href in ('href="/reparto"', 'href="/armado"', 'href="/cuentas"', 'href="/pedido"'):
             self.assertIn(href, page.text)
-        # no tile nor app that would only bounce him to /cuentas
+        # no tile nor app that would only bounce him back to Inicio
         self.assertNotIn('href="/odoo', page.text)
         self.assertNotIn("Todas las aplicaciones", page.text)
 
@@ -122,11 +123,12 @@ class TestV120Inicio(HttpCase):
         self.assertIn('id="dn-home"', self.url_open("/reparto").text)
         # not on Inicio itself
         self.assertNotIn('id="dn-home"', self.url_open("/tablero").text)
-        # the locked seller has /cuentas as his only screen: no Inicio button
+        # 19.0.1.129.20 (owner): the locked seller lands on Inicio too, so his
+        # accounts app has the Inicio button (before, it was his only screen)
         self._login(self.seller.login)
         page = self.url_open("/cuentas").text
-        self.assertNotIn('id="dn-home"', page)
-        self.assertNotIn('href="/tablero"', page)
+        self.assertIn('id="dn-home"', page)
+        self.assertIn('href="/tablero"', page)
 
 
 @tagged("post_install", "-at_install", "distri_v120", "distri_v120_mayoristas")

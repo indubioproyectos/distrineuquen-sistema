@@ -16,6 +16,17 @@ Who opens it (app_scope):
   them. This is checked here, in the app layer: the partner record rules
   (security/reglas.xml) are unchanged, and the app reads with sudo only
   after `_app_partner` has accepted the id;
+- 19.0.1.129.20: an external seller (res.users distri_tipo_vendedor
+  «externo», seller group, without Administración nor Settings,
+  res.users._distri_is_external_seller) is «staff» too, but reaches only
+  his customers (res.users._distri_chosen_customers, the same set as the
+  partner record rule: the customers of the sale orders that
+  mis_ventas.de_vendedor counts for him or that he created, any state, and
+  the customers he created). The one check is `_app_allowed`: the debtor list
+  (`_app_customers`), every account endpoint through `_app_partner`
+  (statement, row detail, card receipt, PDF, WhatsApp share, comments),
+  comment deletion and the rows and originals of a cash sheet
+  (`_app_visible_partner_ids`). «Transferencias» stays for the audit groups;
 - anyone else: refused.
 
 The debtor list and the statement reuse the logic of «Deudores» and of the
@@ -262,10 +273,25 @@ class DistriAccountApp(models.AbstractModel):
         return self._app_check() != "all" and not ve_mayoristas(self.env.user)
 
     @api.model
-    def _app_allowed(self, partner):
-        """Whether the user may see this commercial partner's account."""
-        return not partner.distri_generic_partner and not (
-            self._app_hides_distributors() and partner._distri_es_distribuidora())
+    def _app_chosen_ids(self):
+        """19.0.1.129.20: None for everybody but an external seller; for him,
+        the ids of his customers (see the module docstring), the only
+        accounts he reaches."""
+        if self._app_check() == "all":
+            return None
+        return self.env.user._distri_customer_ids_limit()
+
+    @api.model
+    def _app_allowed(self, partner, chosen_ids=False):
+        """Whether the user may see this commercial partner's account.
+        `chosen_ids` is `_app_chosen_ids()` when the caller already has it
+        (one query for many partners); False computes it here."""
+        if partner.distri_generic_partner or (
+                self._app_hides_distributors() and partner._distri_es_distribuidora()):
+            return False
+        if chosen_ids is False:
+            chosen_ids = self._app_chosen_ids()
+        return chosen_ids is None or partner.commercial_partner_id.id in chosen_ids
 
     @api.model
     def _app_customers(self):
@@ -279,6 +305,9 @@ class DistriAccountApp(models.AbstractModel):
         customers = direct_customers(self.env, wholesale=ve_mayoristas(self.env.user))
         if hides:
             customers = customers.filtered(lambda p: not p._distri_es_distribuidora())
+        chosen_ids = self._app_chosen_ids()
+        if chosen_ids is not None:
+            customers = customers.filtered(lambda p: p.id in chosen_ids)
         return customers
 
     @api.model
@@ -691,7 +720,9 @@ class DistriAccountApp(models.AbstractModel):
         """The ids of `partners` the user may see (`_app_allowed`)."""
         if self._app_check() == "all":
             return set(partners.ids)
-        return {p.id for p in partners.sudo() if self._app_allowed(p.commercial_partner_id)}
+        chosen_ids = self._app_chosen_ids()
+        return {p.id for p in partners.sudo()
+                if self._app_allowed(p.commercial_partner_id, chosen_ids)}
 
     @api.model
     def _app_sheet_files(self, sheet, visible):

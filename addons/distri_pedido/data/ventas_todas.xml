@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.20 (owner): the backend sales lists (/odoo/sales,
+       «Presupuestos») open on every order, not only the user's: Odoo opens
+       them with the «Mis presupuestos» filter (search_default_my_quotation).
+       The record rules still decide which orders each user reads, so
+       nothing new becomes visible to anybody. sale.action_orders keeps its
+       own default (search_default_sales, a state filter).
+       noupdate="0": reapplied on every `-u distri_pedido` (this module
+       depends on sale and sale_management, so it loads after them). A later
+       `-u sale` alone writes Odoo's context back until the next
+       `-u distri_pedido`. -->
+  <data noupdate="0">
+    <record id="sale.action_quotations_with_onboarding" model="ir.actions.act_window">
+      <field name="context">{}</field>
+    </record>
+    <record id="sale.action_quotations" model="ir.actions.act_window">
+      <field name="context">{}</field>
+    </record>
+  </data>
+</odoo>

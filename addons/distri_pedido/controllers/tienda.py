@@ -45,8 +45,8 @@ class InicioComerciante(Home):
     """Al entrar, el comercio va al catalogo, no al portal generico de Odoo.
 
     19.0.1.120.0: the whole staff (packers and drivers included) starts on
-    Inicio (/tablero), with a tile for each screen it may open; a seller
-    locked to the accounts app who neither packs nor delivers, on /cuentas.
+    Inicio (/tablero), with a tile for each screen it may open; since
+    19.0.1.129.20 a seller locked to the accounts app too (before, /cuentas).
     """
 
     @http.route()
@@ -74,17 +74,17 @@ class InicioComerciante(Home):
     @http.route()
     def web_client(self, s_action=None, **kw):
         """The backend home without a menu or record: the staff goes to Inicio
-        (/tablero), a seller locked to the accounts app to /cuentas."""
+        (/tablero); a seller locked out of the backend goes there from any
+        backend page (19.0.1.129.20: before, to /cuentas)."""
         uid = request.session.uid
         path = request.httprequest.path.rstrip("/")
         bare_home = path in ("/odoo", "/web") and not kw and not s_action \
             and not request.httprequest.query_string
         user = request.env["res.users"].sudo().browse(uid) if uid else None
-        # a seller locked to the accounts app: every backend page, any menu or
-        # record. 19.0.1.120.0: the bare home is decided below, so a locked
-        # seller who also packs or delivers lands on Inicio, not on /cuentas
+        # a seller locked out of the backend: every backend page, any menu or
+        # record, goes to Inicio (19.0.1.129.20, owner: before, /cuentas)
         if user and not bare_home and user._distri_seller_only_accounts():
-            return request.redirect("/cuentas", 303)
+            return request.redirect("/tablero", 303)
         if user and bare_home:
             landing = user._distri_landing()
             if landing:

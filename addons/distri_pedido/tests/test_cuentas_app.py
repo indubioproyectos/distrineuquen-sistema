@@ -173,7 +173,9 @@ class TestCuentasApp(HttpCase):
         Param.set_param("distri_pedido.vendedor_solo_cuentas", "0")
         self.assertEqual(self.seller_a._distri_landing(), "")
         Param.set_param("distri_pedido.vendedor_solo_cuentas", "1")
-        self.assertEqual(self.seller_a._distri_landing(), "/cuentas")
+        # 19.0.1.129.20 (owner): he lands on Inicio, with «Inicio» everywhere
+        self.assertEqual(self.seller_a._distri_landing(), "")
+        self.assertTrue(self.seller_a._distri_has_inicio())
         for user in (self.admin_u, self.manager_u, self.system_u, self.plain_u):
             self.assertFalse(user._distri_seller_only_accounts(), user.login)
         menu = self.env.ref("sale.sale_menu_root", raise_if_not_found=False)
@@ -184,18 +186,19 @@ class TestCuentasApp(HttpCase):
         for url in urls:
             res = self._get(url)
             self.assertIn(res.status_code, (301, 302, 303), url)
-            self.assertTrue(res.headers.get("Location", "").endswith("/cuentas"), url)
+            # the backend stays locked: every page goes to Inicio
+            self.assertTrue(res.headers.get("Location", "").endswith("/tablero"), url)
         page = self._get("/cuentas")
         self.assertEqual(page.status_code, 200)
         self.assertTrue(self._get("/cuentas/api/debtors").json()["ok"])
-        # the app is his only screen: its «Salir» must log him out
+        # «Salir» of the app logs him out
         res = self._get("/web/session/logout?redirect=%2Fweb%2Flogin")
         self.assertIn(res.status_code, (301, 302, 303))
         self.assertIn("/web/login", res.headers.get("Location", ""))
         self.assertNotEqual(self._get("/cuentas/api/debtors").status_code, 200)
         self.authenticate(self.admin_u.login, self.admin_u.login)
         res = self._get("/odoo/action-base.action_res_users")
-        self.assertFalse(res.headers.get("Location", "").endswith("/cuentas"))
+        self.assertFalse(res.headers.get("Location", "").endswith("/tablero"))
 
     def test_seller_and_driver_see_every_customer(self):
         """19.0.1.92.0: sellers and drivers review any customer's account

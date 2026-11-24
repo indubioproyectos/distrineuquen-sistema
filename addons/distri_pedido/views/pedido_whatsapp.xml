@@ -249,6 +249,7 @@
           <group>
             <field name="distri_whatsapp_vendedor" placeholder="Ej.: 2995123456"/>
             <field name="etiqueta_cartera_id"/>
+            <field name="distri_tipo_vendedor" groups="distri_pedido.grupo_administracion,base.group_system"/>
           </group>
         </page>
       </xpath>

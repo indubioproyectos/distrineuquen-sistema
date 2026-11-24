@@ -174,6 +174,9 @@ POR_PAGINA = 50
 # here and in models/importar_pedido.py and models/agilpedido_wa.py.
 LISTA_GENERAL = "General"
 MENSAJE_DISTRIBUIDORA = "Pedido de distribuidora: lo gestiona Administración."
+# 19.0.1.129.20: an external seller only takes orders for his customers
+MENSAJE_CLIENTE_AJENO = ("Ese cliente no es tuyo: solo podés tomar pedidos de tus clientes. Si "
+                         "es nuevo, cargá el pedido sin elegir cliente.")
 LISTA_OCULTA = "Distribuidoras"
 
 # Cigarrillos y tabaco no tienen precio publico: cada revendedor tiene el suyo
@@ -1642,6 +1645,9 @@ class TomaDePedidos(http.Controller):
         cliente = request.env["res.partner"]
         if personal:
             cliente = self._cliente_elegido(post.get("cliente_id"))
+            if cliente and not request.env.user._distri_may_reach_customer(cliente):
+                # 19.0.1.129.20: an external seller, a customer not his
+                return self._error_simple(MENSAJE_CLIENTE_AJENO, status=403)
             if cliente and self._solo_vendedor() and cliente._distri_es_distribuidora():
                 # never repriced with a list the seller cannot see
                 return self._error_simple(MENSAJE_DISTRIBUIDORA, status=403)
@@ -2036,7 +2042,9 @@ class TomaDePedidos(http.Controller):
             headers=[("Content-Type", "text/html; charset=utf-8")], status=status)
 
     def _cliente_elegido(self, valor):
-        """The customer picked by staff, if it is a real one."""
+        """The customer picked by staff, if it is a real one. Whether this
+        user may take orders for it is checked by the caller
+        (res.users._distri_may_reach_customer, 19.0.1.129.20)."""
         try:
             socio_id = int(valor or 0)
         except (TypeError, ValueError):
@@ -2093,6 +2101,11 @@ class TomaDePedidos(http.Controller):
         Partner = request.env["res.partner"].sudo()
         base = [("distri_generic_partner", "=", False), ("parent_id", "=", False),
                 ("active", "=", True)]
+        # 19.0.1.129.20: an external seller gets only his customers, also
+        # when he types (no «otros»)
+        propios = usuario._distri_customer_ids_limit()
+        if propios is not None:
+            base.append(("id", "in", list(propios)))
         cartera = usuario.etiqueta_cartera_id
         mios_dominio = ["|", ("user_id", "=", usuario.id),
                         ("category_id", "in", cartera.ids or [0])]
@@ -2100,9 +2113,16 @@ class TomaDePedidos(http.Controller):
         if texto:
             dominio = base + ["|", "|", ("name", "ilike", texto), ("vat", "ilike", texto),
                               ("distri_whatsapp", "ilike", texto)]
-            mios = Partner.search(dominio + mios_dominio, limit=20, order="name")
-            otros = Partner.search(dominio + [("id", "not in", mios.ids)],
-                                   limit=max(0, 30 - len(mios)), order="name")
+            if propios is not None:
+                mios = Partner.search(dominio, limit=30, order="name")
+                otros = Partner.browse()
+            else:
+                mios = Partner.search(dominio + mios_dominio, limit=20, order="name")
+                otros = Partner.search(dominio + [("id", "not in", mios.ids)],
+                                       limit=max(0, 30 - len(mios)), order="name")
+        elif propios is not None:
+            mios = Partner.search(base, limit=50, order="name")
+            otros = Partner.browse()
         else:
             mios = Partner.search(base + mios_dominio, limit=50, order="name")
             otros = Partner.browse()

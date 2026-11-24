@@ -31,6 +31,12 @@ may be partial, never above what the row still owes. It is not linked
 through distri.cuenta.movimiento.lab_payment_id: that would make it Online
 money the caja leaves out (distri.caja._not_plain_cash). The box and the
 journal are the same as for any other /cobro cash.
+
+19.0.1.129.20: an external seller (res.users._distri_is_external_seller)
+only finds and reaches his own customers (res.users._distri_customer_ids_limit):
+the search (`_cash_partner_domain`, `_cash_visible`, also used by
+/comprobantes) leaves the others out and `_cash_partner` refuses them with
+an AccessError. «Cliente nuevo» still creates a customer, which is then his.
 """
 import re
 from datetime import date, timedelta
@@ -61,6 +67,7 @@ SEARCH_LIMIT = 20
 OPEN_INVOICES_LIMIT = 30
 RECENT_ROWS = 10
 NOT_A_CUSTOMER = "Ese cliente no existe o no se puede cobrar desde acá."
+NOT_HIS_CUSTOMER = "Ese cliente no es tuyo: solo podés ver y cobrar a tus clientes."
 
 
 class DuplicateCashError(UserError):
@@ -141,12 +148,20 @@ class DistriCashCollection(models.Model):
         # gerencia and the system administrators (lista_oculta.ve_mayoristas)
         if not ve_mayoristas(self.env.user):
             domain += MAYORISTA_FUERA
+        # 19.0.1.129.20: an external seller, only his customers
+        allowed = self.env.user._distri_customer_ids_limit()
+        if allowed is not None:
+            domain += [("id", "in", list(allowed))]
         return domain
 
     @api.model
     def _cash_visible(self, partners):
         """The partners without a wholesale price list, for the users that do
         not see the wholesale customers (the rest is in the domain above)."""
+        allowed = self.env.user._distri_customer_ids_limit()
+        if allowed is not None:
+            # 19.0.1.129.20: an external seller, only his customers
+            partners = partners.filtered(lambda p: p.commercial_partner_id.id in allowed)
         if ve_mayoristas(self.env.user):
             return partners
         return partners.filtered(lambda p: not p._distri_es_distribuidora())
@@ -160,6 +175,9 @@ class DistriCashCollection(models.Model):
         except (TypeError, ValueError):
             wanted = 0
         Partner = self.env["res.partner"].sudo()
+        target = Partner.browse(wanted).exists() if wanted > 0 else Partner
+        if target and not self.env.user._distri_may_reach_customer(target):
+            raise AccessError(NOT_HIS_CUSTOMER)
         partner = Partner.search([("id", "=", wanted)] + self._cash_partner_domain(),
                                  limit=1) if wanted > 0 else Partner
         partner = self._cash_visible(partner)

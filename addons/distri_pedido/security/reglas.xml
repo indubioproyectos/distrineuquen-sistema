@@ -2,11 +2,23 @@
 <odoo>
   <data noupdate="0">
 
+    <!-- 19.0.1.129.20: an external seller (res.users distri_tipo_vendedor
+         «externo») reads only his customers and their contacts
+         (res.users._distri_chosen_customers: they chose him, he took their
+         orders or he created them): res.partner distri_vendedor_elegido_ids,
+         whose search method runs at query time with sudo. The other rules
+         keyed on the portfolio tag (pending receipts and their history,
+         Online movements, payer identities, account comments, owed
+         allocations, cash sheet rows) use the same condition on their
+         customer. Without a portfolio tag the old domain became
+         `category_id in [False]`, every untagged partner. Internal sellers
+         keep their portfolio. Administración and gerencia keep everything
+         through regla_partner_todos (group rules are OR'ed). -->
     <record id="regla_partner_vendedor" model="ir.rule">
-      <field name="name">Vendedor: solo los clientes de su cartera</field>
+      <field name="name">Vendedor: solo los clientes de su cartera (externo: sus clientes)</field>
       <field name="model_id" ref="base.model_res_partner"/>
       <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
-      <field name="domain_force">[('category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="domain_force">[('distri_vendedor_elegido_ids', 'in', [user.id])] if user.distri_tipo_vendedor == 'externo' else [('category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
       <field name="perm_read" eval="True"/>
       <field name="perm_write" eval="True"/>
       <field name="perm_create" eval="True"/>
@@ -51,14 +63,14 @@
       <field name="name">Vendedor: comprobantes pendientes de su cartera</field>
       <field name="model_id" ref="model_distri_promised_transfer"/>
       <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
-      <field name="domain_force">[('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="domain_force">[('partner_id.distri_vendedor_elegido_ids', 'in', [user.id])] if user.distri_tipo_vendedor == 'externo' else [('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
     </record>
 
     <record id="regla_comprobante_historial_vendedor" model="ir.rule">
       <field name="name">Vendedor: historial de los pendientes de su cartera</field>
       <field name="model_id" ref="model_distri_promised_transfer_history"/>
       <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
-      <field name="domain_force">[('promise_id.partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="domain_force">[('promise_id.partner_id.distri_vendedor_elegido_ids', 'in', [user.id])] if user.distri_tipo_vendedor == 'externo' else [('promise_id.partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
     </record>
 
     <record id="regla_comprobante_historial_todos" model="ir.rule">
@@ -101,7 +113,7 @@
       <field name="name">Vendedor: cuenta corriente de su cartera</field>
       <field name="model_id" ref="model_distri_cuenta_movimiento"/>
       <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
-      <field name="domain_force">[('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="domain_force">[('partner_id.distri_vendedor_elegido_ids', 'in', [user.id])] if user.distri_tipo_vendedor == 'externo' else [('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
       <field name="perm_read" eval="True"/>
       <field name="perm_write" eval="False"/>
       <field name="perm_create" eval="False"/>
@@ -123,7 +135,7 @@
       <field name="name">Vendedor: CUIT y teléfonos de los clientes de su cartera</field>
       <field name="model_id" ref="model_distri_payer_identity"/>
       <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
-      <field name="domain_force">['|', ('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id]), ('partner_id.commercial_partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="domain_force">[('partner_id.distri_vendedor_elegido_ids', 'in', [user.id])] if user.distri_tipo_vendedor == 'externo' else ['|', ('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id]), ('partner_id.commercial_partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
     </record>
 
     <record id="regla_payer_identity_todas" model="ir.rule">
@@ -232,7 +244,7 @@
       <field name="name">Vendedor: comentarios de las cuentas de su cartera</field>
       <field name="model_id" ref="model_distri_account_comment"/>
       <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
-      <field name="domain_force">[('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="domain_force">[('partner_id.distri_vendedor_elegido_ids', 'in', [user.id])] if user.distri_tipo_vendedor == 'externo' else [('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
     </record>
     <record id="regla_account_comment_todos" model="ir.rule">
       <field name="name">Administración y gerencia: comentarios de todas las cuentas</field>
@@ -248,7 +260,7 @@
       <field name="name">Vendedor: imputaciones revisadas de su cartera</field>
       <field name="model_id" ref="model_distri_owed_allocation"/>
       <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
-      <field name="domain_force">[('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="domain_force">[('partner_id.distri_vendedor_elegido_ids', 'in', [user.id])] if user.distri_tipo_vendedor == 'externo' else [('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
     </record>
     <record id="regla_owed_allocation_todos" model="ir.rule">
       <field name="name">Administración y gerencia: todas las imputaciones revisadas</field>
@@ -279,7 +291,7 @@
       <field name="name">Filas de planillas de efectivo: vendedor, solo su cartera</field>
       <field name="model_id" ref="model_distri_cash_sheet_line"/>
       <field name="groups" eval="[(4, ref('grupo_vendedor'))]"/>
-      <field name="domain_force">[('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
+      <field name="domain_force">[('partner_id.distri_vendedor_elegido_ids', 'in', [user.id])] if user.distri_tipo_vendedor == 'externo' else [('partner_id.category_id', 'in', [user.etiqueta_cartera_id.id])]</field>
     </record>
     <record id="regla_cash_sheet_line_todos" model="ir.rule">
       <field name="name">Filas de planillas de efectivo: administración, gerencia y consulta</field>

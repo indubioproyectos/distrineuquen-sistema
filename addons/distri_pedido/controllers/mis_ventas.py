@@ -1,7 +1,6 @@
 """«Mis ventas» on the phone (19.0.1.129.18, pendiente 78): /mis-ventas.
 
-    /tablero (staff home, tile «Mis ventas»; also in «Ajustes» for a seller
-    locked to /cuentas)
+    /tablero (staff home, tile «Mis ventas»; also in «Ajustes»)
       /mis-ventas?q=&periodo=&estado=&vendedor=   GET, read only
 
 Who and what is decided in models/mis_ventas.py (own orders, Gerencia all
