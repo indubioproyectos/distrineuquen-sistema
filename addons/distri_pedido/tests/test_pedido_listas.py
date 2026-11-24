@@ -171,7 +171,8 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
     def test_anonymous_page_shows_only_the_general_list(self):
         html = self._pedido_html()
         self._assert_publica(html)
-        self.assertIn("Precios de la lista mayorista general", html)
+        # 19.0.1.129.15: the owner removed the «lista mayorista general» line
+        self.assertNotIn("Precios de la lista mayorista general", html)
 
     def _invite(self):
         return self.env["distri.reseller.invite"].with_user(self.gerencia).create({})

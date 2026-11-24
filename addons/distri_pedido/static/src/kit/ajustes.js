@@ -76,6 +76,7 @@
     if (!el || !gear) { return; }
     doc.body.appendChild(el);
     if (gear.classList.contains('dn-gear--float')) { doc.body.classList.add('dn-gear-float'); }
+    if (gear.classList.contains('dn-gear--mini')) { doc.body.classList.add('dn-gear-mini'); }
     if (doc.getElementById('dn-home')) { doc.body.classList.add('dn-home-float'); }
     if (location.hash === '#dn-aj') { history.replaceState(history.state, '', location.pathname + location.search); }
     gear.addEventListener('click', function (ev) { ev.preventDefault(); open(); });

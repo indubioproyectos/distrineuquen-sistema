@@ -36,10 +36,11 @@
     .marco{max-width:1024px;margin:0 auto}
 
     /* cabecera: logo redondo, nombre y las cuatro lineas de datos, centradas */
-    .cab{background:var(--fondo);padding:1.2rem 1rem 1.4rem;text-align:center}
-    .cab .logo{width:96px;height:96px;object-fit:contain;display:block;margin:0 auto}
-    .cab h1{margin:.7rem 0 .25rem;font-size:1.25rem;font-weight:700;color:var(--texto)}
-    .cab .dato{margin:.2rem 0 0;font-size:.8rem;line-height:1.5;color:var(--texto)}
+    .cab{background:var(--fondo);padding:.6rem 1rem .5rem;text-align:center}
+    .cab .logo{width:64px;height:64px;object-fit:contain;display:block;margin:0 auto}
+    .cab h1{margin:.35rem 0 .15rem;font-size:1.1rem;font-weight:700;color:var(--texto)}
+    .cab .datos{margin:0;display:flex;flex-wrap:wrap;justify-content:center;gap:.1rem .8rem}
+    .cab .dato{margin:0;font-size:.76rem;line-height:1.45;color:var(--texto)}
     .ic{width:1em;height:1em;fill:currentColor;vertical-align:-.125em}
     .cab .dato .ic{margin-right:.35rem}
     .cab .sub{margin:.5rem 0 0;font-size:.85rem;color:var(--tenue)}
@@ -49,6 +50,8 @@
     .buscar{flex:1;border:1px solid var(--linea);border-right:0;border-radius:4px 0 0 4px;
             padding:.6rem .75rem;font-size:1rem;color:var(--texto);background:var(--tarjeta)}
     .buscar:focus{outline:0;border-color:var(--acento)}
+    .buscar{-webkit-appearance:none;appearance:none}
+    .buscar::-webkit-search-cancel-button,.buscar::-webkit-search-decoration{-webkit-appearance:none;display:none}
     .limpiar{border:1px solid var(--linea);background:var(--tarjeta);border-radius:0 4px 4px 0;
              width:3rem;font-size:1rem;color:var(--texto);cursor:pointer}
     .aviso{font-size:.8rem;color:var(--tenue);padding:0 1rem .6rem;text-align:center}
@@ -192,8 +195,8 @@
   <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
-  <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
-  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
+  <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir); 129.15: small wrench -->
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/><t t-set="gear_mini" t-value="True"/></t>
 
   <!-- Iconos de Font Awesome Free 5.13 (CC BY 4.0, fontawesome.com), embebidos
        para no depender de un CDN en una pantalla de cara al cliente. Son los
@@ -219,15 +222,16 @@
 
   <div class="cab">
     <div class="marco">
-      <img class="logo" t-att-src="marca['icono']" width="96" height="96"
+      <!-- 19.0.1.129.15 (owner): smaller header, no locality line; the data
+           go in one compact wrapped row so the products show sooner -->
+      <img class="logo" t-att-src="marca['icono']" width="64" height="64"
            t-att-alt="ficha['nombre']"/>
       <h1 t-esc="ficha['nombre']"/>
-      <p class="dato">
-        <svg class="ic"><use href="#ic-map-marker-alt"/></svg><t t-esc="ficha['localidad']"/>
+      <p class="datos">
+        <span class="dato"><svg class="ic"><use href="#ic-clock"/></svg><t t-esc="ficha['horario']"/></span>
+        <span class="dato"><svg class="ic"><use href="#ic-bullhorn"/></svg><t t-esc="ficha['leyenda']"/></span>
+        <span class="dato" t-if="ficha['telefono']"><svg class="ic"><use href="#ic-phone"/></svg><t t-esc="ficha['telefono']"/></span>
       </p>
-      <p class="dato"><svg class="ic"><use href="#ic-clock"/></svg><t t-esc="ficha['horario']"/></p>
-      <p class="dato"><svg class="ic"><use href="#ic-bullhorn"/></svg><t t-esc="ficha['leyenda']"/></p>
-      <p class="dato" t-if="ficha['telefono']"><svg class="ic"><use href="#ic-phone"/></svg><t t-esc="ficha['telefono']"/></p>
       <p class="sub" t-if="personal and not pedido">
         Pedido tomado por <b t-esc="vendedor"/>. Al final elegís el cliente.
       </p>
@@ -235,13 +239,12 @@
   </div>
 
   <div class="marco">
-    <p class="lista-general" t-if="not lista_propia">Precios de la lista mayorista general</p>
     <div class="tuslistas" t-if="lista_propia">
       Estás viendo los precios de <b t-esc="quien"/> (lista <t t-esc="lista_propia"/>).
       <a t-if="socio_logueado and mostrar_cuenta" href="/mi-cuenta" class="micuenta">Ver mi cuenta corriente</a>
     </div>
     <div class="caja-buscar">
-      <input type="text" id="buscar" class="buscar"
+      <input type="search" id="buscar" class="buscar" enterkeyhint="search"
              placeholder="Ingresá lo que estás buscando.." autocomplete="off"/>
       <button type="button" class="limpiar" id="limpiar" aria-label="Limpiar la búsqueda">
         <svg class="ic"><use href="#ic-times"/></svg>
@@ -848,6 +851,15 @@
         f.querySelectorAll('button[type=submit]').forEach(function (b) {
           b.disabled = false; b.removeAttribute('aria-busy');
         });
+      });
+
+      // 19.0.1.129.15: Enter on the search box only closes the phone
+      // keyboard (never submits the order form); tapping it opens it again
+      document.getElementById('buscar').addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.keyCode === 13) {
+          ev.preventDefault();
+          ev.target.blur();
+        }
       });
 
       document.getElementById('limpiar').addEventListener('click', function () {
