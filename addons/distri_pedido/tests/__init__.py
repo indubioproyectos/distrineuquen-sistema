@@ -101,3 +101,4 @@ from . import test_v129_9_1_solo_agil
 from . import test_v129_11_ingresos_reporte
 from . import test_v129_13_ingresos_con_comprobante
 from . import test_v129_12_logo
+from . import test_v129_14_pago_proveedor_subir

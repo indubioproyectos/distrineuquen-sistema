@@ -128,3 +128,13 @@
 .comp-r__complete{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .comp-r__complete .comp-sug{display:flex;flex-wrap:wrap;gap:6px}
 a.comp-sug__chip{text-decoration:none;color:inherit}
+/* 19.0.1.129.14: «Es un pago a proveedor autorizado por Gerencia»; the fields
+   open with the checkbox, also without JavaScript (:has) */
+.comp-ppc__box{display:none;flex-direction:column;gap:12px;margin-top:10px;padding:12px;
+  border:1px solid var(--dn-line);border-radius:var(--dn-r);background:var(--dn-card)}
+.comp-form:has([data-comp-ppc]:checked) .comp-ppc__box{display:flex}
+.comp-ppc-form{display:flex;flex-direction:column;gap:12px}
+.comp-ppc__new{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.comp-ppc__new summary{cursor:pointer;color:var(--dn-navy);font-weight:700;min-height:44px;
+  display:flex;align-items:center}
+.comp-ppc__new label{font-size:14px;color:var(--dn-muted)}

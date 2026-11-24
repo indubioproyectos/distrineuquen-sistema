@@ -325,6 +325,9 @@
         <field name="loaded_by_id"/>
         <field name="authorized_by_id"/>
         <field name="payment_id"/>
+        <!-- 19.0.1.129.14: the receipt, also when it came from «Subir comprobante» -->
+        <field name="receipt_filename" string="Comprobante" optional="show"/>
+        <field name="receipt_message_id" optional="hide"/>
         <field name="state" widget="badge" decoration-success="state == 'posted'"/>
       </list>
     </field>
@@ -362,6 +365,9 @@
               <field name="loaded_by_id"/>
               <field name="posted_at"/>
               <field name="payment_id"/>
+              <field name="receipt_message_id" invisible="not receipt_message_id"
+                     context="{'form_view_ref': 'distri_pedido.view_receipt_form'}"/>
+              <field name="operation" invisible="not operation"/>
               <field name="note"/>
             </group>
           </group>

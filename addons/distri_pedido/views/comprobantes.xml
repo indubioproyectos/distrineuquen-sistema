@@ -17,7 +17,67 @@
        19.0.1.126.2: a result «completar» (the user's own receipt pending
        assignment uploaded again) links «Completar y acreditar»
        (/comprobantes/<id>/completar, the `complete` form of
-       comprobante_ver_page); the rows of such receipts link it too. -->
+       comprobante_ver_page); the rows of such receipts link it too.
+       19.0.1.129.14: «Es un pago a proveedor autorizado por Gerencia» (only
+       grupo_pago_proveedor): the option on the upload form with the fields of
+       comprobante_pago_proveedor_campos, and comprobante_pago_proveedor_page
+       for a receipt already uploaded (the one refused for «transferencia a
+       otra cuenta» links it: result, row and «Ver comprobante»). -->
+
+  <!-- 19.0.1.129.14: supplier, amount, date and «Autorizó»; `ppc` is
+       _distri_supplier_fields (models/pago_proveedor_subir.py) -->
+  <template id="comprobante_pago_proveedor_campos" name="Pago a proveedor (campos)">
+    <div class="dn-field comp-ppc__prov" data-ppc="">
+      <label for="ppc-q">Proveedor</label>
+      <p t-if="ppc['destination']" class="comp-muted">Destino leído en el comprobante:
+        <t t-esc="ppc['destination']"/></p>
+      <input type="hidden" name="proveedor_id" data-ppc-id=""
+             t-att-value="ppc['supplier']['id'] if ppc['supplier'] else ''"/>
+      <input id="ppc-q" class="dn-input" type="search" autocomplete="off" maxlength="80"
+             placeholder="Buscar proveedor por nombre o CUIT…" data-ppc-q=""/>
+      <ul class="comp-res" data-ppc-res="" hidden="hidden"></ul>
+      <p class="comp-muted" data-ppc-txt=""
+         t-esc="('Proveedor: %s.' % ppc['supplier']['name']) if ppc['supplier'] else 'Elegí el proveedor, o crealo abajo con el CUIT y el nombre del comprobante.'"/>
+      <details class="comp-ppc__new" data-ppc-new="" t-att-open="'open' if ppc['new_open'] else None">
+        <summary>No está: crear el proveedor</summary>
+        <label for="ppc-cuit">CUIT del proveedor</label>
+        <input id="ppc-cuit" class="dn-input dn-num" type="text" name="proveedor_cuit" inputmode="numeric"
+               maxlength="13" autocomplete="off" placeholder="Ej.: 30-12345678-9"
+               t-att-value="ppc['new_cuit']" data-ppc-cuit=""/>
+        <label for="ppc-nombre">Nombre del proveedor</label>
+        <input id="ppc-nombre" class="dn-input" type="text" name="proveedor_nombre" maxlength="120"
+               autocomplete="off" t-att-value="ppc['new_name']" data-ppc-nombre=""/>
+        <p class="comp-muted">Si ya hay un proveedor con ese CUIT se usa ese; si no, se crea.</p>
+      </details>
+    </div>
+    <div class="dn-field">
+      <label for="ppc-importe">Importe</label>
+      <input id="ppc-importe" class="dn-input dn-num" type="text" name="proveedor_importe"
+             inputmode="decimal" maxlength="20" autocomplete="off" placeholder="Ej.: 150.000"
+             t-att-value="ppc['amount_text']" data-ppc-importe=""/>
+      <p class="comp-muted">El leído en el comprobante: revisalo mirando la foto.</p>
+    </div>
+    <div class="dn-field">
+      <label for="ppc-fecha">Fecha de la transferencia</label>
+      <input id="ppc-fecha" class="dn-input" type="date" name="proveedor_fecha"
+             t-att-value="ppc['date']" t-att-max="ppc['today']" data-ppc-fecha=""/>
+    </div>
+    <div class="dn-field">
+      <label for="ppc-autorizo">Autorizó</label>
+      <select id="ppc-autorizo" class="dn-input" name="autorizo_id" data-ppc-autorizo="">
+        <option value="" t-att-selected="None if ppc['authorizer_id'] else 'selected'">Elegí quién de Gerencia lo autorizó</option>
+        <option t-foreach="ppc['authorizers']" t-as="a" t-att-value="a[0]"
+                t-att-selected="'selected' if a[0] == ppc['authorizer_id'] else None" t-esc="a[1]"/>
+      </select>
+    </div>
+    <div class="dn-field">
+      <label for="ppc-nota">Nota (opcional)</label>
+      <input id="ppc-nota" class="dn-input" type="text" name="proveedor_nota" maxlength="200"
+             autocomplete="off" t-att-value="ppc['note']"/>
+    </div>
+    <p class="comp-muted">Se acredita al cliente en «Pagos a proveedores por cuenta de clientes» y no se
+      cruza con el reporte de Mercado Pago.</p>
+  </template>
 
   <!-- a refused duplicate in a list; `u` is DistriReceiptUploadAttempt._distri_row,
        `href` the link -->
@@ -119,6 +179,18 @@
         <p class="comp-muted" data-comp-cliente-txt="">Elegí el cliente: es obligatorio. El sistema puede
           sugerirlo, pero lo confirmás vos.</p>
       </div>
+      <!-- 19.0.1.129.14: only grupo_pago_proveedor (the server checks again) -->
+      <div t-if="puede_proveedor" class="dn-field comp-ppc">
+        <label class="comp-check">
+          <input type="checkbox" name="pago_proveedor" value="1" data-comp-ppc=""/>
+          <span>Es un pago a proveedor autorizado por Gerencia</span>
+        </label>
+        <div class="comp-ppc__box" data-comp-ppc-box="">
+          <p class="comp-muted">El cliente le transfirió directo a un proveedor de la empresa. Un solo
+            comprobante por vez.</p>
+          <t t-call="distri_pedido.comprobante_pago_proveedor_campos"/>
+        </div>
+      </div>
       <div class="dn-field comp-noesta">
         <label class="comp-check">
           <input type="checkbox" name="no_en_sistema" value="1" data-comp-noesta=""/>
@@ -147,6 +219,8 @@
           <ul><li t-foreach="r['warnings']" t-as="w" t-esc="w"/></ul>
           <button type="submit" class="dn-btn">Acreditar igual</button>
         </form>
+        <a t-if="r.get('supplier_url')" class="dn-btn comp-r__complete" t-att-href="r['supplier_url']"
+           data-dn="down" t-esc="r['supplier_hint']"/>
         <a t-if="r['status'] == 'completar'" class="dn-btn comp-r__complete"
            t-att-href="r['url'] + ('?cliente_id=%s' % r['partner_id'] if r.get('partner_id') else '')"
            data-dn="down">Completar y acreditar</a>
@@ -177,6 +251,8 @@
       </a>
       <a t-if="u.get('complete_url')" class="dn-link comp-item__manage" t-att-href="u['complete_url']"
          data-dn="down">Completar y acreditar</a>
+      <a t-if="u.get('supplier_url')" class="dn-link comp-item__manage" t-att-href="u['supplier_url']"
+         data-dn="down">Cargalo como pago a proveedor</a>
       <a t-if="u.get('can_manage')" class="dn-link comp-item__manage" t-att-href="u['url'] + '#gestionar'"
          data-dn="down">Cancelar o cambiar la foto</a></li>
       </t>
@@ -301,6 +377,18 @@
       <button type="submit" class="dn-btn dn-btn--lg"
               t-esc="'Completar y acreditar' if complete['credit'] else 'Completar'"/>
     </form>
+    <!-- 19.0.1.129.14: registered as a supplier payment, or the way to do it -->
+    <div t-if="r.get('supplier_payment')" class="dn-card comp-ver__note" role="status">
+      <b>✓</b> Registrado como pago a proveedor <t t-esc="r['supplier_payment']['name']"/>:
+      <t t-esc="money(r['supplier_payment']['amount'])"/>, proveedor <t t-esc="r['supplier_payment']['supplier']"/>,
+      autorizó <t t-esc="r['supplier_payment']['authorized_by']"/> (<t t-esc="r['supplier_payment']['state']"/>).
+      No se acredita de nuevo ni se cruza con el reporte de Mercado Pago.
+    </div>
+    <div t-if="r.get('supplier_url')" class="dn-card dn-card--warn comp-ver__note">
+      <p>Es una transferencia a otra cuenta: no se acredita como cobro.</p>
+      <a class="dn-btn" t-att-href="r['supplier_url'] + ('?desde=mios' if parent == '/comprobantes/mios' else '')"
+         data-dn="down" t-esc="r['supplier_hint']"/>
+    </div>
     <!-- 19.0.1.126.0: «Acreditar» (controllers/comprobantes.py credit) -->
     <div t-if="credit_done" class="dn-card comp-ver__note" role="status">
       <b>✓</b> <span t-esc="credit_done"/>
@@ -383,6 +471,60 @@
 
   <!-- «Mis comprobantes» (19.0.1.100.0): the user's uploads of the last
        days, by state -->
+  <!-- 19.0.1.129.14: «Cargalo como pago a proveedor» of an uploaded receipt
+       (controllers/comprobantes.py supplier_page / supplier_register) -->
+  <template id="comprobante_pago_proveedor_page" name="Pago a proveedor">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Pago a proveedor · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="comp" t-att-data-parent="'/comprobantes/%d' % r['id']" data-page="comprobante-proveedor">
+  <header class="dn-top">
+    <div class="dn-top__row">
+      <a class="dn-icon-btn" t-att-href="'/comprobantes/%d' % r['id']" data-dn-back="" aria-label="Volver">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t>
+      </a>
+      <div class="dn-top__txt">
+        <span class="dn-top__kicker">Autorizado por Gerencia</span>
+        <h1 class="dn-top__title">Pago a proveedor</h1>
+      </div>
+    </div>
+  </header>
+  <main class="dn-main comp-ver">
+    <div t-if="done" class="dn-card comp-ver__note" role="status"><b>✓</b> <span t-esc="done"/></div>
+    <div t-if="error" class="dn-card dn-card--warn comp-ver__note" role="alert"><span t-esc="error"/></div>
+    <div t-if="problem" class="dn-card dn-card--warn comp-ver__note" role="alert"><span t-esc="problem"/></div>
+    <t t-if="r['file_url']">
+      <a t-if="r['image']" class="comp-ver__photo" t-att-href="r['file_url']" target="_blank" rel="noopener">
+        <img t-att-src="r['file_url']" alt="Comprobante subido"/>
+      </a>
+      <a t-else="" class="dn-link" t-att-href="r['file_url']" target="_blank" rel="noopener">Abrir el PDF</a>
+    </t>
+    <form t-if="not done and not problem" class="comp-credit comp-ppc-form" method="post"
+          t-att-action="'/comprobantes/%d/pago-proveedor' % r['id']">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input type="hidden" name="desde" t-att-value="'mios' if parent == '/comprobantes/mios' else ''"/>
+      <p class="comp-muted">El cliente le transfirió directo a un proveedor de la empresa, con
+        autorización de Gerencia.</p>
+      <div class="dn-field comp-cliente">
+        <label for="comp-q">Cliente</label>
+        <input type="hidden" name="cliente_id" data-comp-cliente-id="" t-att-value="partner_id"/>
+        <input id="comp-q" class="dn-input" type="search" autocomplete="off" maxlength="80"
+               placeholder="Buscar cliente…" data-comp-q=""/>
+        <ul class="comp-res" data-comp-res="" hidden="hidden"></ul>
+        <p class="comp-muted" data-comp-cliente-txt="" t-esc="('Cliente: %s.' % partner_name) if partner_name else 'Elegí el cliente.'"/>
+      </div>
+      <t t-call="distri_pedido.comprobante_pago_proveedor_campos"/>
+      <button type="submit" class="dn-btn dn-btn--lg">Registrar pago a proveedor</button>
+    </form>
+    <p><a class="dn-link" t-att-href="parent" data-dn="down">Volver a los comprobantes</a></p>
+  </main>
+</body>
+</html>
+  </template>
+
   <template id="comprobantes_mios_page" name="Mis comprobantes">&lt;!DOCTYPE html&gt;
 <html lang="es">
 <head>
@@ -581,6 +723,12 @@
           <button name="action_distri_view_upload_attempts" type="object" string="Ver"
                   class="btn-link p-0"
                   groups="distri_pedido.grupo_administracion,distri_pedido.grupo_gerencia,base.group_system"/>
+        </div>
+        <!-- 19.0.1.129.14: registered as a supplier payment from «Subir comprobante» -->
+        <div class="alert alert-success d-flex gap-2 align-items-baseline" role="status"
+             invisible="not distri_supplier_payment_id">
+          Registrado como pago a proveedor autorizado por Gerencia:
+          <field name="distri_supplier_payment_id" readonly="1" class="fw-bold"/>
         </div>
       </xpath>
     </field>

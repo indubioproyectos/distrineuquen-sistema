@@ -192,7 +192,7 @@ class WhatsappMessageStaffUpload(models.Model):
         («gave_up», the person types the amount)."""
         if not raw or len(raw) > MAX_FILE_BYTES or not receipt_kind(raw):
             return {"amount": 0.0, "amount_text": "", "amount_sure": False, "suggestions": [],
-                    "gave_up": False, "notice": ""}
+                    "gave_up": False, "notice": "", "date": "", "dest_cuit": "", "dest_name": ""}
         with ocr_deadline(ocr_seconds(self.env)):
             try:
                 text, reading = self._distri_read_raw(raw, rotation(degrees))
@@ -209,6 +209,12 @@ class WhatsappMessageStaffUpload(models.Model):
             "amount_sure": bool(amount and reading.get("amount_confidence") == CONFIDENCE_HIGH),
             "suggestions": self._distri_partner_suggestions(
                 reading.get("payer_cuit") or "", text, reading.get("payer_name") or ""),
+            # 19.0.1.129.14: the prefill of «Es un pago a proveedor» (the date
+            # read and the destination; models/pago_proveedor_subir.py keeps
+            # the destination only for grupo_pago_proveedor)
+            "date": reading["date"].date().isoformat() if reading.get("date") else "",
+            "dest_cuit": reading.get("dest_cuit") or "",
+            "dest_name": reading.get("dest_name") or "",
         }
 
     # ------------------------------------------------------------ upload and credit

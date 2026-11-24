@@ -22,6 +22,17 @@
                                  19.0.1.126.1: the uploader manages his upload
                                  (models/subir_v126_1.py)
 
+19.0.1.129.14: «Es un pago a proveedor autorizado por Gerencia», only for
+grupo_pago_proveedor (checked here and in the model):
+    /comprobantes/subir         with «pago_proveedor»: one file, uploaded and
+                                registered as a supplier payment at once
+    /comprobantes/proveedores   the supplier search (name or CUIT)
+    /comprobantes/<id>/pago-proveedor
+                                a receipt already uploaded (the one refused
+                                for «transferencia a otra cuenta») registered
+                                as a supplier payment
+(models/pago_proveedor_subir.py).
+
 19.0.1.126.2: the same file as the user's own receipt pending assignment is
 not refused: its result «completar» links /comprobantes/<id>/completar
 («Completar y acreditar» on the existing receipt, models/subir_v126_2.py).
@@ -58,11 +69,16 @@ from odoo.http import request
 from ..models.acreditar import CREDIT_NOTICE, CreditWarning, can_credit
 from ..models.comprobante_subir import (
     ATTEMPT_FILTER, BUCKETS, LIST_DAYS, MAX_FILE_BYTES, MAX_FILES, can_upload, merge_rows)
+from ..models.pago_proveedor import SUPPLIER_DENIED
+from ..models.pago_proveedor_subir import SUPPLIER_DONE, may_offer_supplier
 from ..models.reparto import _money
 from .kit import kit_context
 from .tablero import wants_tablero
 
 MAX_BODY = MAX_FILES * MAX_FILE_BYTES + 1024 * 1024
+# 19.0.1.129.14: the fields of «Es un pago a proveedor autorizado por Gerencia»
+SUPPLIER_KEYS = ("proveedor_id", "proveedor_cuit", "proveedor_nombre", "proveedor_importe",
+                 "proveedor_fecha", "autorizo_id", "proveedor_nota")
 
 
 def _error_text(exc):
@@ -111,6 +127,10 @@ class Comprobantes(http.Controller):
             # 19.0.1.126.0: the one-time notice, also here (where they credit)
             "aviso_acreditar": CREDIT_NOTICE if user._distri_credit_notice_pending() else "",
             "puede_acreditar": can_credit(user),
+            # 19.0.1.129.14: «Es un pago a proveedor autorizado por Gerencia»
+            "puede_proveedor": may_offer_supplier(user),
+            "ppc": request.env["distri.whatsapp.message"]._distri_supplier_fields()
+            if may_offer_supplier(user) else None,
         }
         base.update(values)
         html = request.env["ir.qweb"]._render("distri_pedido.comprobantes_page", base)
@@ -178,8 +198,10 @@ class Comprobantes(http.Controller):
 
     @http.route("/comprobantes/subir", type="http", auth="user", methods=["POST"], sitemap=False)
     def upload(self, cliente_id="", compartido="", no_en_sistema="", remitente="", acreditar="",
-               **kw):
-        self._check()
+               pago_proveedor="", **kw):
+        user = self._check()
+        if pago_proveedor and not may_offer_supplier(user):
+            return self._refuse(SUPPLIER_DENIED, status=403)
         if (request.httprequest.content_length or 0) > MAX_BODY:
             return self._refuse("Son demasiados archivos juntos: subilos de a menos.", status=413)
         chosen = self._files_with_amounts()
@@ -200,6 +222,8 @@ class Comprobantes(http.Controller):
                 turns = [shared_turns[n] if n < len(shared_turns) else ""
                          for n in range(len(shared))] + turns
         partner = self._partner(cliente_id)
+        if pago_proveedor:
+            return self._supplier_upload(files, turns, partner, stage)
         try:
             with request.env.cr.savepoint():
                 results = request.env["distri.whatsapp.message"]._distri_staff_upload(
@@ -215,6 +239,93 @@ class Comprobantes(http.Controller):
             return self._json({"ok": True, "results": results, "uploads": uploads,
                                "attempts": attempts})
         return self._render({"results": results})
+
+    def _supplier_values(self):
+        form = request.httprequest.form
+        return {key: form.get(key, "") for key in SUPPLIER_KEYS}
+
+    def _supplier_upload(self, files, turns, partner, stage):
+        """19.0.1.129.14: one file uploaded and registered as a supplier
+        payment, or nothing (savepoint)."""
+        if len(files) != 1:
+            return self._refuse("Un pago a proveedor se carga con un solo comprobante: elegí uno.")
+        (name, raw), turn = files[0], (turns[0] if turns else "")
+        try:
+            with request.env.cr.savepoint():
+                result = request.env["distri.whatsapp.message"]._distri_supplier_upload(
+                    name, raw, partner, self._supplier_values(),
+                    via="compartido" if stage else "pantalla", turn=turn)
+        except (UserError, AccessError) as exc:
+            return self._refuse(_error_text(exc))
+        if stage:
+            stage._distri_done()
+        if self._by_fetch():
+            uploads, attempts = self._today(request.env.user)
+            return self._json({"ok": True, "results": [result], "uploads": uploads,
+                               "attempts": attempts})
+        return self._render({"results": [result]})
+
+    @http.route("/comprobantes/proveedores", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def suppliers(self, q="", **kw):
+        user = self._check()
+        if not may_offer_supplier(user):
+            raise Forbidden()
+        return self._json({"ok": True,
+                           "results": request.env["res.partner"]._distri_supplier_search(q)})
+
+    def _supplier_page(self, msg, parent, values=None, error="", done=""):
+        user = request.env.user
+        partner = msg.sudo().distri_partner_id.commercial_partner_id
+        if values and values.get("cliente_id"):
+            partner = self._partner(values["cliente_id"])
+        return self._page_response("distri_pedido.comprobante_pago_proveedor_page", {
+            "r": msg._distri_upload_detail(), "parent": parent,
+            "problem": "" if done else msg._distri_supplier_problem(),
+            "ppc": request.env["distri.whatsapp.message"]._distri_supplier_fields(
+                msg._distri_supplier_defaults(), values),
+            "partner_id": partner.id or "", "partner_name": partner.name or "",
+            "error": error, "done": done, "user": user,
+            "csrf_token": request.csrf_token()})
+
+    @http.route("/comprobantes/<int:msg_id>/pago-proveedor", type="http", auth="user",
+                methods=["GET"], sitemap=False)
+    def supplier_page(self, msg_id, desde="", **kw):
+        """«Cargalo como pago a proveedor» of an uploaded receipt."""
+        msg = self._receipt(msg_id)
+        if not may_offer_supplier(request.env.user):
+            raise Forbidden()
+        parent = "/comprobantes/mios" if desde == "mios" else "/comprobantes"
+        msg._distri_read_now()
+        return self._supplier_page(msg, parent)
+
+    @http.route("/comprobantes/<int:msg_id>/pago-proveedor", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def supplier_register(self, msg_id, cliente_id="", desde="", **kw):
+        msg = self._receipt(msg_id)
+        user = request.env.user
+        if not may_offer_supplier(user):
+            if self._by_fetch():
+                return self._json({"ok": False, "error": SUPPLIER_DENIED}, status=403)
+            raise Forbidden()
+        parent = "/comprobantes/mios" if desde == "mios" else "/comprobantes"
+        values = dict(self._supplier_values(), cliente_id=cliente_id)
+        Message = request.env["distri.whatsapp.message"]
+        try:
+            with request.env.cr.savepoint():
+                supplier, amount, day, authorizer, note = Message._distri_supplier_parse(values)
+                record = msg.with_user(user).sudo(False)._distri_supplier_register(
+                    self._partner(cliente_id), supplier, amount, day, authorizer, note)
+        except (UserError, AccessError) as exc:
+            if self._by_fetch():
+                return self._json({"ok": False, "error": _error_text(exc)}, status=400)
+            return self._supplier_page(msg, parent, values, error=_error_text(exc))
+        msg.invalidate_recordset()
+        done = SUPPLIER_DONE % (
+            record.name, _money(record.amount), record.partner_id.name, record.supplier_id.name)
+        if self._by_fetch():
+            return self._json({"ok": True, "message": done, "supplier_payment": record.name})
+        return self._supplier_page(msg, parent, done=done)
 
     def _refuse(self, text, status=400):
         if self._by_fetch():

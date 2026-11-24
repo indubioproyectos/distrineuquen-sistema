@@ -49,6 +49,14 @@
  *   tapped suggestion); a row with «complete_url» links it too. On «Ver
  *   comprobante» the «Completar» form uses the customer search of
  *   «Acreditar» and its suggestion chips fill the customer.
+ * - 19.0.1.129.14, only where the page renders it (grupo_pago_proveedor):
+ *   «Es un pago a proveedor autorizado por Gerencia» (data-comp-ppc) sends one
+ *   file with «pago_proveedor» and the fields of the box (supplier, amount,
+ *   date, «Autorizó»); the reading of the chosen file prefills the amount, the
+ *   date and the supplier of the destination CUIT. The supplier search
+ *   ([data-ppc], /comprobantes/proveedores) also runs on
+ *   /comprobantes/<id>/pago-proveedor. A result or a row with «supplier_url»
+ *   links «Cargalo como pago a proveedor».
  */
 (function () {
   'use strict';
@@ -197,10 +205,14 @@
     var noesta = DN.$('[data-comp-noesta]', form);
     var noestaBox = DN.$('[data-comp-noesta-box]', form);
     var remitente = DN.$('[data-comp-remitente]', form);
+    var ppc = DN.$('[data-comp-ppc]', form);
+    var ppcBox = DN.$('[data-comp-ppc-box]', form);
+    function ppcOn() { return !!(ppc && ppc.checked); }
     function updateSend() {
       var n = files.length + sharedCount;
       var label = 'Subir';
       if (v126 && mayCredit && !(noesta && noesta.checked)) { label = 'Subir y acreditar'; }
+      if (ppcOn()) { label = 'Registrar pago a proveedor'; n = 0; }
       sendBtn.textContent = n > 1 ? label + ' ' + n : label;
       if (v126) {
         var chosen = (idInput && idInput.value) || (noesta && noesta.checked);
@@ -300,6 +312,24 @@
       (r.suggestions || []).forEach(function (sg) {
         if (sugs.length < 3 && !sugs.some(function (o) { return o.id === sg.id; })) { sugs.push(sg); }
       });
+      if (ppcBox) {
+        // 19.0.1.129.14: the prefill of «Es un pago a proveedor»
+        var pAmt = DN.$('[data-ppc-importe]', ppcBox), pDate = DN.$('[data-ppc-fecha]', ppcBox);
+        if (r.amount_text && pAmt && !pAmt.value.trim()) { pAmt.value = r.amount_text; }
+        if (r.date && pDate && (!pDate.value || pDate.value === pDate.getAttribute('max'))) { pDate.value = r.date; }
+        var pId = DN.$('[data-ppc-id]', ppcBox);
+        if (pId && !pId.value) {
+          if (r.supplier) {
+            pId.value = r.supplier.id;
+            DN.$('[data-ppc-txt]', ppcBox).textContent = 'Proveedor: ' + r.supplier.name + ' (por el CUIT del destino).';
+          } else if (r.dest_cuit) {
+            var pCuit = DN.$('[data-ppc-cuit]', ppcBox), pName = DN.$('[data-ppc-nombre]', ppcBox);
+            if (pCuit && !pCuit.value.trim()) { pCuit.value = r.dest_cuit; }
+            if (pName && !pName.value.trim() && r.dest_name) { pName.value = r.dest_name; }
+            DN.$('[data-ppc-new]', ppcBox).open = true;
+          }
+        }
+      }
       if (r.amount_text && amtInput && !amtInput.value.trim()) {
         amtInput.value = r.amount_text;
         if (item) { item.amount = r.amount_text; }
@@ -352,6 +382,13 @@
       updateSend();
     }
     if (noesta) { noesta.addEventListener('change', showNoesta); noestaBox.hidden = !noesta.checked; }
+    if (ppc) {
+      ppc.addEventListener('change', function () {
+        if (ppc.checked && noesta && noesta.checked) { noesta.checked = false; showNoesta(); }
+        if (noesta) { noesta.disabled = ppc.checked; }
+        updateSend();
+      });
+    }
 
     q.addEventListener('input', function () {
       idInput.value = '';
@@ -400,6 +437,7 @@
     }
     function manageLink(u) {
       var complete = u.complete_url ? '<a class="dn-link comp-item__manage" href="' + DN.h(u.complete_url) + '" data-dn="down">Completar y acreditar</a>' : '';
+      if (u.supplier_url) { complete += '<a class="dn-link comp-item__manage" href="' + DN.h(u.supplier_url) + '" data-dn="down">Cargalo como pago a proveedor</a>'; }
       return complete + (u.can_manage && u.url ? '<a class="dn-link comp-item__manage" href="' + DN.h(u.url) + '#gestionar" data-dn="down">Cancelar o cambiar la foto</a>' : '');
     }
     function paintUploads(rows, attempts) {
@@ -458,6 +496,30 @@
         remitente.focus();
         return;
       }
+      if (ppcOn()) {
+        if (files.length + sharedCount !== 1) {
+          DN.toast('Un pago a proveedor se carga con un solo comprobante: dejá uno.', 'err');
+          return;
+        }
+        var pIdIn = DN.$('[data-ppc-id]', ppcBox);
+        var pAmtIn = DN.$('[data-ppc-importe]', ppcBox);
+        var pWho = DN.$('[data-ppc-autorizo]', ppcBox);
+        if (!pIdIn.value && !(DN.$('[data-ppc-cuit]', ppcBox).value.trim() && DN.$('[data-ppc-nombre]', ppcBox).value.trim())) {
+          DN.toast('Elegí el proveedor, o escribí su CUIT y su nombre.', 'err');
+          DN.$('[data-ppc-q]', ppcBox).focus();
+          return;
+        }
+        if (!pAmtIn.value.trim() || !checkAmount(pAmtIn)) {
+          DN.toast('Revisá el importe. ' + AMOUNT_HELP, 'err');
+          pAmtIn.focus();
+          return;
+        }
+        if (!pWho.value) {
+          DN.toast('Elegí quién de Gerencia lo autorizó.', 'err');
+          pWho.focus();
+          return;
+        }
+      }
       var wrong = DN.$$('[data-comp-amt]', thumbs).filter(function (input) { return !checkAmount(input); });
       if (wrong.length) {
         var name = wrong[0].closest('li').querySelector('.comp-thumb__name');
@@ -473,7 +535,11 @@
           body.append('no_en_sistema', '1');
           body.append('remitente', remitente.value.trim());
         }
-        if (mayCredit) { body.append('acreditar', '1'); }
+        if (mayCredit && !ppcOn()) { body.append('acreditar', '1'); }
+      }
+      if (ppcOn()) {
+        body.append('pago_proveedor', '1');
+        DN.$$('input[name], select[name]', ppcBox).forEach(function (el) { body.append(el.name, el.value.trim()); });
       }
       if (shared) {
         body.append('compartido', shared.value);
@@ -512,7 +578,14 @@
         files.forEach(function (item) { if (item.url) { URL.revokeObjectURL(item.url); } });
         files = [];
         sugs = [];
-        if (noesta) { noesta.checked = false; remitente.value = ''; noestaBox.hidden = true; }
+        if (noesta) { noesta.checked = false; noesta.disabled = false; remitente.value = ''; noestaBox.hidden = true; }
+        if (ppc && ppc.checked && !bad.length) {
+          ppc.checked = false;
+          DN.$$('input[name]', ppcBox).forEach(function (el) {
+            if (el.type !== 'date') { el.value = ''; }
+          });
+          DN.$('[data-ppc-txt]', ppcBox).textContent = 'Elegí el proveedor, o crealo abajo con el CUIT y el nombre del comprobante.';
+        }
         if (shared) {
           shared.remove(); shared = null; sharedCount = 0;
           DN.$$('li', thumbs).forEach(function (li) { li.remove(); });
@@ -557,6 +630,7 @@
             '" data-cliente="' + DN.h(String(r.partner_id || '')) + '">Acreditar igual</button></div>';
         }
         if (r.status === 'completar') { confirm = completeCard(r); }
+        if (r.supplier_url) { confirm += '<a class="dn-btn comp-r__complete" href="' + DN.h(r.supplier_url) + '" data-dn="down">' + DN.h(r.supplier_hint || 'Cargalo como pago a proveedor') + '</a>'; }
         return '<li class="comp-r comp-r--' + DN.h(r.status) + ' comp-r--c-' + DN.h(r.credit || 'none') + '"><b>' + DN.h(r.name) + '</b> ' +
           '<span data-comp-msg="">' + DN.h(r.message) + '</span>' + confirm + '</li>';
       }).join('');
@@ -636,6 +710,50 @@
       res.hidden = true;
     });
   }
-  function start() { init(); initCredit(); }
+  // 19.0.1.129.14: the supplier of «Es un pago a proveedor» ([data-ppc]): the
+  // search fills proveedor_id; typing a CUIT or a name to create one clears it.
+  function initSupplier(box) {
+    var q = DN.$('[data-ppc-q]', box);
+    var res = DN.$('[data-ppc-res]', box);
+    var idInput = DN.$('[data-ppc-id]', box);
+    var txt = DN.$('[data-ppc-txt]', box);
+    var details = DN.$('[data-ppc-new]', box);
+    var timer = null, seq = 0;
+    var none = 'Elegí el proveedor, o crealo abajo con el CUIT y el nombre del comprobante.';
+    q.addEventListener('input', function () {
+      clearTimeout(timer);
+      var text = q.value.trim();
+      if (text.length < 2) { res.hidden = true; return; }
+      timer = setTimeout(function () {
+        var mine = ++seq;
+        DN.api('/comprobantes/proveedores?q=' + encodeURIComponent(text)).then(function (r) {
+          if (mine !== seq) { return; }
+          var items = (r && r.results) || [];
+          res.innerHTML = items.length ? items.map(function (p) {
+            var label = p.name + (p.cuit ? ' · CUIT ' + p.cuit : '');
+            var extra = [p.cuit ? 'CUIT ' + p.cuit : '', p.supplier ? 'proveedor' : ''].filter(Boolean).join(' · ');
+            return '<li><button type="button" data-ppc-pick="' + p.id + '" data-name="' + DN.h(label) + '">' +
+              '<b>' + DN.h(p.name) + '</b>' + (extra ? '<small>' + DN.h(extra) + '</small>' : '') + '</button></li>';
+          }).join('') : '<li class="comp-res__none">Ninguno con ese nombre o CUIT: crealo abajo.</li>';
+          res.hidden = false;
+        }, function () {});
+      }, 250);
+    });
+    box.addEventListener('click', function (ev) {
+      var pick = ev.target.closest('[data-ppc-pick]');
+      if (!pick) { return; }
+      idInput.value = pick.getAttribute('data-ppc-pick');
+      q.value = '';
+      txt.textContent = 'Proveedor: ' + pick.getAttribute('data-name') + '.';
+      res.hidden = true;
+      if (details) { details.open = false; }
+    });
+    DN.$$('[data-ppc-cuit], [data-ppc-nombre]', box).forEach(function (input) {
+      input.addEventListener('input', function () {
+        if (idInput.value) { idInput.value = ''; txt.textContent = none; }
+      });
+    });
+  }
+  function start() { init(); initCredit(); DN.$$('[data-ppc]').forEach(initSupplier); }
   if (window.DN && DN.ready) { start(); } else { document.addEventListener('dn:ready', start); }
 })();

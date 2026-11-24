@@ -83,6 +83,7 @@ from . import paquete_v127
 from . import cobrar
 from . import cobrar_wizard
 from . import pago_proveedor
+from . import pago_proveedor_subir
 from . import auditoria
 from . import mp_sftp
 from . import efectivo_a_rendir
