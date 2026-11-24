@@ -17,6 +17,7 @@ from werkzeug.exceptions import NotFound
 from odoo import http
 from odoo.http import request
 
+from ..models.marca import marca_manifest_icons
 from .reparto import _disk, fonts
 
 _SRC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src")
@@ -203,7 +204,6 @@ class Kit(http.Controller):
         /tablero/manifest.webmanifest): the order page as a home-screen app."""
         import json
         from .main import FICHA
-        img = "/distri_pedido/static/src/img/iconos/"
         data = {
             "name": FICHA["nombre"],
             "short_name": "Distri",
@@ -214,12 +214,7 @@ class Kit(http.Controller):
             "display": "standalone",
             "background_color": "#f7f8f7",
             "theme_color": "#10243f",
-            "icons": [
-                {"src": img + "app-192.png" + LOGO_V, "sizes": "192x192", "type": "image/png"},
-                {"src": img + "app-512.png" + LOGO_V, "sizes": "512x512", "type": "image/png"},
-                {"src": img + "app-maskable-512.png" + LOGO_V, "sizes": "512x512",
-                 "type": "image/png", "purpose": "maskable"},
-            ],
+            "icons": marca_manifest_icons(),
         }
         return request.make_response(json.dumps(data, ensure_ascii=False), headers=[
             ("Content-Type", "application/manifest+json; charset=utf-8"),

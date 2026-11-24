@@ -8,8 +8,8 @@
  * - notifications (toasts): «Odoo» → «DistriNeuquén» («Odoo will send
  *   notifications on this device»);
  * - Discuss: «Install Odoo» prompt → «Instalar DistriNeuquén»;
- * - Settings: the edition block without the Odoo name (marca.xml). */
-import { markup } from "@odoo/owl";
+ * - Settings: the edition block without the Odoo name (marca.xml).
+ * 19.0.1.129.17: every translated text, marca_textos.js. */
 import { MessagingMenu } from "@mail/core/public_web/messaging_menu";
 import {
     ClientErrorDialog,
@@ -22,30 +22,24 @@ import {
 import { notificationService } from "@web/core/notifications/notification_service";
 import { registry } from "@web/core/registry";
 import { patch } from "@web/core/utils/patch";
+import { BRAND, withBrand } from "@distri_pedido/js/marca_textos";
 
-export const BRAND = "DistriNeuquén";
-const MarkupClass = markup("").constructor;
+export { BRAND, withBrand };
 
 /** A dialog title without the Odoo name, in English or Spanish:
  * «Odoo Server Error» → «Server Error», «Error de servidor de Odoo» →
  * «Error de servidor», «Expiró la sesión de Odoo» → «Expiró la sesión». */
 export function titleWithoutOdoo(title) {
-    if (!title || !String(title).includes("Odoo")) {
+    // since 19.0.1.129.17 the translation already says «DistriNeuquén»
+    title = title && String(title).replace(/\s+(?:de|del)\s+DistriNeuquén$/, "");
+    if (!title || !title.includes("Odoo")) {
         return title;
     }
-    return String(title)
+    return title
         .replace(/\s+(?:de|del)\s+Odoo\b/g, "")
         .replace(/\bOdoo\s+/g, "")
         .replace(/\bOdoo\b/g, BRAND)
         .trim();
-}
-
-/** A plain text with «Odoo» as «DistriNeuquén». HTML (markup) is left as is. */
-export function withBrand(text) {
-    if (!text || text instanceof MarkupClass || !String(text).includes("Odoo")) {
-        return text;
-    }
-    return String(text).replace(/\bOdoo\b(?!\.?\w)/g, BRAND);
 }
 
 // --- tab title -------------------------------------------------------------

@@ -59,6 +59,17 @@ WEBSITE_FAVICON = "distri_pedido/static/src/img/marca/dn-icono-512.png"
 OG_SIZE = (1200, 630)
 
 
+def marca_manifest_icons():
+    """19.0.1.129.17: icons of the home-screen apps (web app manifests), the
+    brand icon. No «maskable» variant: the old one is the previous mark."""
+    return [
+        {"src": MARCA_IMG + "dn-icono-192.png" + MARCA_V, "sizes": "192x192", "type": "image/png",
+         "purpose": "any"},
+        {"src": MARCA_IMG + "dn-icono-512.png" + MARCA_V, "sizes": "512x512", "type": "image/png",
+         "purpose": "any"},
+    ]
+
+
 def marca_publica(base_url):
     """URLs of the brand images for a public page; `og_image` is absolute
     (link previews need it), on `base_url` (web.base.url: the canonical

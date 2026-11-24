@@ -21,7 +21,7 @@
       <attribute name="t-esc">title or 'DistriNeuquén'</attribute>
     </xpath>
     <xpath expr="//link[@rel='shortcut icon']" position="attributes">
-      <attribute name="t-att-href">x_icon or '/distri_pedido/static/src/img/iconos/app-192.png'</attribute>
+      <attribute name="t-att-href">x_icon or '/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12'</attribute>
     </xpath>
   </template>
 
@@ -93,7 +93,7 @@
       <attribute name="t-esc">title or 'DistriNeuquén'</attribute>
     </xpath>
     <xpath expr="//link[@rel='shortcut icon']" position="attributes">
-      <attribute name="t-att-href">x_icon or '/distri_pedido/static/src/img/iconos/app-192.png'</attribute>
+      <attribute name="t-att-href">x_icon or '/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12'</attribute>
     </xpath>
   </template>
 
@@ -144,5 +144,38 @@
     </xpath>
     <xpath expr="//p[@id='powered']" position="replace"/>
     <xpath expr="//tr[@t-if='display_mobile_banner']" position="replace"/>
+  </template>
+
+  <!-- 19.0.1.129.17: the backend tab icon and the home-screen icon of the web
+       client are the brand icon (distri_tema puts the previous mark; a high
+       priority so this one applies after it). -->
+  <template id="marca_webclient_icon" inherit_id="web.webclient_bootstrap" priority="99"
+            name="DistriNeuquén: ícono de la app">
+    <xpath expr="//t[@t-set='head_web']" position="before">
+      <t t-set="x_icon" t-value="'/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12'"/>
+    </xpath>
+    <xpath expr="//link[@rel='apple-touch-icon']" position="attributes">
+      <attribute name="href">/distri_pedido/static/src/img/marca/dn-icono-180.png?v=129.12</attribute>
+    </xpath>
+  </template>
+
+  <!-- 19.0.1.129.17: website pages (password reset, shop, contact...) without
+       <meta name="generator" content="Odoo"> -->
+  <template id="marca_website_generator" inherit_id="website.layout" name="DistriNeuquén: sin generator">
+    <xpath expr="//meta[@name='generator']" position="replace"/>
+  </template>
+
+  <!-- 19.0.1.129.17: customer and vendor portal documents without «Connect
+       with your software!» and its dialog («¿Quieres importar este documento
+       a Odoo?», «Empieza en Odoo»). -->
+  <template id="marca_sale_portal" inherit_id="sale.sale_order_portal_template"
+            name="DistriNeuquén: pedido del portal sin Odoo">
+    <xpath expr="//button[@id='portal_connect_software_modal_btn']/.." position="replace"/>
+    <xpath expr="//div[@id='sale_portal_connect_software_modal']" position="replace"/>
+  </template>
+  <template id="marca_purchase_portal" inherit_id="purchase.portal_my_purchase_order"
+            name="DistriNeuquén: compra del portal sin Odoo">
+    <xpath expr="//button[@id='portal_connect_software_modal_btn']/.." position="replace"/>
+    <xpath expr="//div[@id='portal_connect_software_modal']" position="replace"/>
   </template>
 </odoo>

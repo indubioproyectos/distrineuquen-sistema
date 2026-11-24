@@ -84,7 +84,7 @@ class TestMarcaPaginas(HttpCase):
         self.assertIn("o_web_client", response.text)
         self.assertEqual(page_title(response.text), BRAND)
         self.assertEqual(odoo_mentions(response.text), [])
-        self.assertIn('rel="shortcut icon" href="/distri_pedido/static/src/img/iconos/', response.text)
+        self.assertIn('rel="shortcut icon" href="/distri_pedido/static/src/img/marca/favicon-32.png', response.text)
         home = self.url_open("/odoo")
         self.assertEqual(home.status_code, 200)
         self.assertEqual(odoo_mentions(home.text), [])

@@ -2,7 +2,7 @@
     "name": "Distri Neuquén - Apariencia",
     "summary": "Colores, tipografía, menús y uso en el celular (app instalable con la marca)",
     "author": "Distri Neuquén",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.1.1",
     "license": "LGPL-3",
     "depends": ["web", "account", "sale_management"],
     "data": [

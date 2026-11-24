@@ -1,7 +1,7 @@
 from odoo.tests import HttpCase, new_test_user, tagged
 
 NAVY = "#10243f"
-ICONS = "/distri_pedido/static/src/img/iconos/"
+ICONS = "/distri_pedido/static/src/img/marca/"
 
 
 @tagged("post_install", "-at_install")
@@ -23,9 +23,8 @@ class TestWebManifest(HttpCase):
         self.assertIn("shortcuts", data)
         icons = {(icon["src"], icon["sizes"], icon["purpose"]) for icon in data["icons"]}
         self.assertEqual(icons, {
-            (ICONS + "app-192.png", "192x192", "any"),
-            (ICONS + "app-512.png", "512x512", "any"),
-            (ICONS + "app-maskable-512.png", "512x512", "maskable"),
+            (ICONS + "dn-icono-192.png", "192x192", "any"),
+            (ICONS + "dn-icono-512.png", "512x512", "any"),
         })
         self.assertNotIn("714B67", response.text.upper())
 
@@ -41,7 +40,7 @@ class TestWebManifest(HttpCase):
         # bare /odoo is redirected to /tablero by distri_pedido: open a backend URL
         html = self.url_open("/odoo/discuss").text
         self.assertIn('<meta name="theme-color" content="#10243f"/>', html)
-        self.assertIn('rel="apple-touch-icon" href="%sapp-192.png"' % ICONS, html)
-        self.assertIn('rel="shortcut icon" href="%sapp-192.png"' % ICONS, html)
+        self.assertIn('rel="apple-touch-icon" href="%sdn-icono-180.png?v=129.12"' % ICONS, html)
+        self.assertIn('rel="shortcut icon" href="%sfavicon-32.png?v=129.12"' % ICONS, html)
         self.assertIn("viewport-fit=cover", html)
         self.assertNotIn("#71639e", html)

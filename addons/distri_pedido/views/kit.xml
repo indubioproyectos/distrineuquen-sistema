@@ -15,8 +15,8 @@
     <link rel="stylesheet" t-att-href="dn['css']"/>
     <t t-foreach="dn['page_css']" t-as="href"><link rel="stylesheet" t-att-href="href"/></t>
     <link t-if="manifest" rel="manifest" t-att-href="manifest"/>
-    <link rel="icon" t-att-href="icon or '/distri_pedido/static/src/img/iconos/app-192.png?v=95'"/>
-    <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/iconos/app-192.png?v=95"/>
+    <link rel="icon" type="image/png" t-att-href="icon or '/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12'"/>
+    <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/marca/dn-icono-180.png?v=129.12"/>
     <script defer="defer" t-att-src="dn['js']"/>
     <t t-foreach="dn['page_js']" t-as="src"><script defer="defer" t-att-src="src"/></t>
   </template>

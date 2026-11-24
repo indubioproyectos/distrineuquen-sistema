@@ -7,10 +7,11 @@ from odoo.addons.web.controllers.webmanifest import WebManifest
 
 # Navy of the brand bar: the phone paints its status bar and splash screen with it.
 NAVY = "#10243f"
-# Icons are owned by distri_pedido (same files as the /tablero home-screen app).
-ICONS = "/distri_pedido/static/src/img/iconos/"
-APP_ICON_192 = ICONS + "app-192.png"
-APPLE_TOUCH_ICON = ICONS + "app-192.png"
+# Icons are owned by distri_pedido (same files as the /tablero home-screen
+# app): the brand icon of distri_pedido 19.0.1.129.12 (static/src/img/marca).
+ICONS = "/distri_pedido/static/src/img/marca/"
+APP_ICON_192 = ICONS + "dn-icono-192.png"
+APPLE_TOUCH_ICON = ICONS + "dn-icono-180.png"
 
 
 class DistriWebManifest(WebManifest):
@@ -29,10 +30,8 @@ class DistriWebManifest(WebManifest):
             "background_color": NAVY,
             "theme_color": NAVY,
             "icons": [
-                {"src": ICONS + "app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-                {"src": ICONS + "app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-                {"src": ICONS + "app-maskable-512.png", "sizes": "512x512", "type": "image/png",
-                 "purpose": "maskable"},
+                {"src": ICONS + "dn-icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                {"src": ICONS + "dn-icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
             ],
         })
         return manifest

@@ -12,8 +12,8 @@
   <meta name="theme-color" content="#10243f"/>
   <title>Cuentas · <t t-esc="empresa"/></title>
   <link rel="manifest" href="/cuentas/manifest.webmanifest"/>
-  <link rel="icon" t-att-href="icons + 'app-192.png?v=95'"/>
-  <link rel="apple-touch-icon" t-att-href="icons + 'app-192.png?v=95'"/>
+  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
+  <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/marca/dn-icono-180.png?v=129.12"/>
   <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
   <!-- 19.0.1.112.0: cuentas_app.* (phone statement with dates and sharing,
        PC «Deudores y estado de cuenta» from 1024 px); the old cuentas.* are

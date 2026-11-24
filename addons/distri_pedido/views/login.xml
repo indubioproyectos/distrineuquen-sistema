@@ -13,8 +13,8 @@
   <meta name="robots" content="noindex"/>
   <title>Ingresar · Distri Neuquén</title>
   <link rel="manifest" href="/tablero/manifest.webmanifest"/>
-  <link rel="icon" href="/distri_pedido/static/src/img/iconos/app-192.png?v=95"/>
-  <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/iconos/app-192.png?v=95"/>
+  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
+  <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/marca/dn-icono-180.png?v=129.12"/>
   <link rel="stylesheet" href="/distri_pedido/static/src/css/distri_ui.css"/>
   <t t-call="distri_pedido.sin_historial"/>
   <style>
@@ -52,7 +52,7 @@
   <div class="box">
     <div class="brand">
       <!-- the name is written right below: the mark is decorative -->
-      <img src="/distri_pedido/static/src/img/iconos/dn-logo.svg?v=95" alt="" width="76" height="76"/>
+      <img src="/distri_pedido/static/src/img/marca/dn-icono-192.png?v=129.12" alt="" width="76" height="76"/>
       <b>Distri Neuquén</b>
       <!-- 19.0.1.93.0: the reseller signup is private (invitation link only) -->
       <span t-if="redirect == '/pedido'">Clientes: entrá con tu usuario</span>

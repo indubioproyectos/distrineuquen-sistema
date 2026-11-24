@@ -26,12 +26,11 @@ from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
 from ..models.cuentas_app import app_scope
+from ..models.marca import marca_manifest_icons
 from .main import FICHA
-from .kit import LOGO_V
 from .reparto import SHARED_CSS, _disk
 
 STATIC = "/distri_pedido/static/src/cuentas/"
-ICONS = "/distri_pedido/static/src/img/iconos/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "cuentas")
 ASSETS = ("cuentas_app.js", "cuentas_app.css")
 
@@ -97,7 +96,6 @@ class Cuentas(http.Controller):
             "version": version,
             "uid": request.env.uid,
             "static": STATIC,
-            "icons": ICONS,
             "shared_css": SHARED_CSS,
             "empresa": FICHA["nombre"],
         })
@@ -119,10 +117,7 @@ class Cuentas(http.Controller):
             "orientation": "portrait",
             "background_color": "#f7f8f7",
             "theme_color": "#10243f",
-            "icons": [
-                {"src": ICONS + "app-192.png" + LOGO_V, "sizes": "192x192", "type": "image/png"},
-                {"src": ICONS + "app-512.png" + LOGO_V, "sizes": "512x512", "type": "image/png"},
-            ],
+            "icons": marca_manifest_icons(),
         }
         return request.make_response(json.dumps(data, ensure_ascii=False), headers=[
             ("Content-Type", "application/manifest+json; charset=utf-8"),

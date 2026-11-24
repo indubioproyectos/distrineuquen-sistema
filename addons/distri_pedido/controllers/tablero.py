@@ -16,8 +16,9 @@ from odoo.fields import Domain
 from odoo.http import request
 
 from ..models.acreditar import CREDIT_NOTICE
+from ..models.marca import marca_manifest_icons
 from .main import FICHA
-from .kit import LOGO_V, kit_context
+from .kit import kit_context
 from .reparto import SHARED_CSS
 
 IMG = "/distri_pedido/static/src/img/iconos/"
@@ -460,12 +461,7 @@ class Tablero(http.Controller):
             "display": "standalone",
             "background_color": "#f7f8f7",
             "theme_color": "#10243f",
-            "icons": [
-                {"src": IMG + "app-192.png" + LOGO_V, "sizes": "192x192", "type": "image/png", "purpose": "any"},
-                {"src": IMG + "app-512.png" + LOGO_V, "sizes": "512x512", "type": "image/png", "purpose": "any"},
-                {"src": IMG + "app-maskable-512.png" + LOGO_V, "sizes": "512x512", "type": "image/png",
-                 "purpose": "maskable"},
-            ],
+            "icons": marca_manifest_icons(),
             # 19.0.1.99.0 (audit 3a step 2): «Compartir con Distri» from
             # WhatsApp on Android (controllers/comprobantes.py)
             "share_target": {
