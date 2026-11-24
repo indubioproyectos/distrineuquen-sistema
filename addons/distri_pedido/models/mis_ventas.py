@@ -125,7 +125,7 @@ def fila(order):
         "id": o.id,
         "name": o.name,
         "cliente": _cliente(o),
-        "vendedor": o.user_id.name or "",
+        "vendedor": _vendedor_nombre(o),
         "cuando": _cuando(o.date_order),
         "amount": _money(o.amount_total),
         "amount_raw": o.amount_total if vivo else 0.0,
@@ -153,6 +153,25 @@ def fila(order):
     return row
 
 
+def de_vendedor(user_id):
+    """The orders of one seller: the one the customer picked in «Mi vendedor
+    es» (distri.vendedor.web linked to a user) wins over the salesperson
+    (user_id), which often stays the user who loaded or confirmed the order.
+    Each order belongs to one seller only, so the totals never count it
+    twice."""
+    return (Domain("distri_vendedor_web_id.user_id", "=", user_id)
+            | (Domain("user_id", "=", user_id)
+               & (Domain("distri_vendedor_web_id", "=", False)
+                  | Domain("distri_vendedor_web_id.user_id", "=", False))))
+
+
+def _vendedor_nombre(order):
+    web = order.distri_vendedor_web_id
+    if web.user_id:
+        return web.user_id.name or web.name
+    return order.user_id.name or ""
+
+
 def buscar(env, q="", periodo=DEFAULT_PERIODO, estado=DEFAULT_ESTADO, vendedor=None, now=None):
     """The orders of the page and its totals. `vendedor` (a res.users id)
     counts only for Gerencia; anybody else always gets his own orders."""
@@ -170,9 +189,9 @@ def buscar(env, q="", periodo=DEFAULT_PERIODO, estado=DEFAULT_ESTADO, vendedor=N
         except (TypeError, ValueError):
             vendedor_id = 0
         if vendedor_id:
-            domain &= Domain("user_id", "=", vendedor_id)
+            domain &= de_vendedor(vendedor_id)
     else:
-        domain &= Domain("user_id", "=", user.id)
+        domain &= de_vendedor(user.id)
     q = (q or "").strip()[:80]
     if q:
         domain &= (Domain("name", "ilike", q) | Domain("partner_id.name", "ilike", q)

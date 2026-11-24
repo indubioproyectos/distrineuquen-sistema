@@ -90,6 +90,25 @@ class TestMisVentas(MisVentasDatos, TransactionCase):
         self.assertIn(self.vendedor, mis_ventas.vendedores(self.env))
         self.assertNotIn(self.armador, mis_ventas.vendedores(self.env))
 
+    def test_the_customer_choice_wins_over_the_salesperson(self):
+        """«Mi vendedor es»: an order the customer gave to a seller counts
+        for that seller even when the salesperson is somebody else, and only
+        for him."""
+        web = self.env["distri.vendedor.web"].sudo().create(
+            {"name": "Otro MV18", "user_id": self.otro.id})
+        elegido = self._order(self.vendedor, self.almacen, NOW - timedelta(hours=4), 400.0)
+        elegido.sudo().write({"distri_vendedor_web_id": web.id})
+        self.assertIn(elegido.name, self.names(self.buscar(self.otro, periodo="mes")))
+        self.assertNotIn(elegido.name, self.names(self.buscar(self.vendedor, periodo="mes")))
+        solo = self.buscar(self.gerente, periodo="mes", vendedor=self.otro.id)
+        self.assertEqual(self.names(solo), {self.ajeno.name, elegido.name})
+        row = next(r for r in solo["rows"] if r["name"] == elegido.name)
+        self.assertEqual(row["vendedor"], self.otro.name)
+        # a choice with no user linked leaves the salesperson
+        sin_usuario = self.env["distri.vendedor.web"].sudo().create({"name": "Mario MV18"})
+        elegido.sudo().write({"distri_vendedor_web_id": sin_usuario.id})
+        self.assertIn(elegido.name, self.names(self.buscar(self.vendedor, periodo="mes")))
+
     def test_periods(self):
         self.assertEqual(self.names(self.buscar(self.vendedor, periodo="hoy")),
                          {self.hoy.name, self.cancelado.name})
