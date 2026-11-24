@@ -318,14 +318,18 @@ class TestRutasAnteriores(RepartoMixin, HttpCase):
         newer = self._past(days=1)
         too_old = self._past(days=40)
         today = self._past(days=0)
+        # 19.0.1.129.23: today's route still open stays on the main screen only
+        today_open = self._past(days=0)
+        today_open.state = "closed"
         other = self._past(driver=self.other_driver, days=1)
         self.authenticate(self.driver.login, self.driver.login)
         res = self.url_open("/reparto/anteriores")
         self.assertEqual(res.status_code, 200)
         html = res.text
         links = re.findall(r'href="/reparto/anteriores/(\d+)"', html)
-        self.assertEqual(links, [str(newer.id), str(older.id)])
-        for route in (too_old, today, other):
+        # 19.0.1.129.23: today's settled route is listed first
+        self.assertEqual(links, [str(today.id), str(newer.id), str(older.id)])
+        for route in (too_old, today_open, other):
             self.assertNotIn("/reparto/anteriores/%s\"" % route.id, html)
         page = texto(html)
         self.assertIn("2 visitas · 1 entregada · 1 sin entregar", page)
@@ -361,6 +365,17 @@ class TestRutasAnteriores(RepartoMixin, HttpCase):
         # GET only
         res = self.url_open("/reparto/anteriores/%s" % route.id, data={"x": "1"})
         self.assertNotEqual(res.status_code, 200)
+
+    def test_today_settled_route_opens_open_one_refused(self):
+        """19.0.1.129.23: the driver sees today's route as soon as it is settled."""
+        settled = self._past(days=0)
+        still_open = self._past(days=0)
+        still_open.state = "closed"
+        self.authenticate(self.driver.login, self.driver.login)
+        res = self.url_open("/reparto/anteriores/%s" % settled.id)
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Calle Mayorista 122", texto(res.text))
+        self.assertEqual(self.url_open("/reparto/anteriores/%s" % still_open.id).status_code, 404)
 
     def test_another_drivers_route_refused(self):
         other = self._past(driver=self.other_driver)

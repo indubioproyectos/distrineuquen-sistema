@@ -2,7 +2,10 @@
 last days, read only (controllers/reparto_anteriores.py).
 
 Only routes of kind «route» whose driver is the user, dated before today
-(Argentine date) and not older than PAST_DAYS. Each stop shows what the
+(Argentine date) and not older than PAST_DAYS. 19.0.1.129.23: also today's
+routes once settled, since the app's main screen drops a settled route at
+once (controllers/reparto.py) and the driver could not see it until the
+next day; today's routes still open stay on the main screen only. Each stop shows what the
 driver saw that day about its result: customer, town and address, delivered
 or not (with the reason) and what he collected (cash, transfer). Never the
 customer's balance or debt (previous_debt, expected_balance): a wholesale
@@ -40,18 +43,20 @@ class DistriRoutePast(models.Model):
     def _distri_past_domain(self, user):
         today = today_ar()
         return [("driver_id", "=", user.id), ("kind", "=", "route"),
-                ("date", "<", today), ("date", ">=", today - timedelta(days=PAST_DAYS))]
+                ("date", "<=", today), ("date", ">=", today - timedelta(days=PAST_DAYS)),
+                "|", ("date", "<", today), ("state", "=", "settled")]
 
     @api.model
     def _distri_past_routes(self, user):
-        """The user's own routes of the last PAST_DAYS days, newest first."""
+        """The user's own routes of the last PAST_DAYS days (today's once
+        settled), newest first."""
         return self.sudo().search(self._distri_past_domain(user),
                                   order="date desc, trip desc, id desc")
 
     @api.model
     def _distri_past_route(self, user, route_id):
         """One of those routes, or an empty recordset (another driver's,
-        today's, too old, a depot box or a missing id)."""
+        today's still open, too old, a depot box or a missing id)."""
         try:
             wanted = int(route_id)
         except (TypeError, ValueError):
