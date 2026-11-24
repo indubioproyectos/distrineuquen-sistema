@@ -494,12 +494,27 @@
       out += cls + "<b>Ya cobrado en el local: " + h(money(stop.paid_elsewhere)) + ".</b> " +
         "El saldo de abajo ya lo descuenta: no lo cobres de nuevo.</div>";
     }
+    // 19.0.1.129.16: «Pagado / comprobante cargado» (app4.js, loaded after
+    // this file; without it nothing changes)
+    out += extHook("noticeHtml", stop, extra) || "";
     // 19.0.1.98.0: the order's depot note and the customer's comment
     if (stop.depot_note) out += cls + "<b>Nota del pedido:</b> " + h(stop.depot_note) + "</div>";
     if (stop.comment) out += cls + "<b>Comentario del cliente:</b> " + h(stop.comment) + "</div>";
     if (!n || !n.text) return out;
     return out + cls + "<b>Aviso del cliente:</b> " + h(n.text) +
       (n.date ? ' <span class="small">(' + h(shortDate(n.date)) + ")</span>" : "") + "</div>";
+  }
+
+  // 19.0.1.129.16: the extension loaded after this file (app4.js) sets
+  // window.RepartoExt; a missing or failing extension never breaks the app
+  function extHook(name) {
+    var ext = window.RepartoExt;
+    if (!ext || typeof ext[name] !== "function") return null;
+    try {
+      return ext[name].apply(null, Array.prototype.slice.call(arguments, 1));
+    } catch (err) {
+      return null;
+    }
   }
 
   // ------------------------------------------------------------- outbox
@@ -1121,6 +1136,8 @@
         if (!data.ok || !data.route || !S.route || S.route.id !== routeId) return;
         S.online = true; S.auth = true;
         var r = data.route;
+        // 19.0.1.129.16: the payments of each visit (app4.js)
+        extHook("onLoadPoll", r);
         var theirs = r.stops.map(function (x) { return x.id; }).sort().join(",");
         var mine = stops().map(function (x) { return x.id; }).sort().join(",");
         if (theirs !== mine || r.state !== S.route.state || !!r.controlled !== !!S.route.controlled) {
@@ -2673,6 +2690,21 @@
   if (navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().catch(function () {});
   }
+
+  // 19.0.1.129.16: what the extension loaded after this file (app4.js) reads
+  window.RepartoApp = {
+    route: function () { return S.route; },
+    stopById: stopById,
+    online: function () { return S.online; },
+    departed: function () { return !!(S.local && S.local.departed); },
+    saveRoute: saveRoute,
+    rerender: rerender,
+    money: money,
+    h: h,
+    fetchWithTimeout: fetchWithTimeout,
+    isLoginPage: isLoginPage,
+    api: { load: API_LOAD },
+  };
 
   boot();
 

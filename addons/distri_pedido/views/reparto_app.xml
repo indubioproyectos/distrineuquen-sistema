@@ -26,6 +26,9 @@
   <script t-att-src="static + 'claim.js?v=' + version" defer="defer"></script>
   <!-- 19.0.1.115.0: app3.js (app2.js stays for the cached 19.0.1.114.0 page) -->
   <script t-att-src="static + 'app3.js?v=' + version" defer="defer"></script>
+  <!-- 19.0.1.129.16: app4.js extends app3.js («Pagado / comprobante cargado»);
+       app3.js works alone for the cached older page -->
+  <script t-att-src="static + 'app4.js?v=' + version" defer="defer"></script>
 </body>
 </html>
   </template>

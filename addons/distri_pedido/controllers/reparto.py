@@ -19,12 +19,16 @@ on the same phone).
 
 19.0.1.115.0: the page loads app3.js (amounts in the Argentine format,
 a reopened route opens again); app2.js stays for the cached older page.
+
+19.0.1.129.16: the page loads app4.js («Pagado / comprobante cargado» in the
+visit, models/reparto_pagos.py, and /reparto/api/receipt); app3.js stays for
+the cached older page.
 """
 import hashlib
 import json
 import os
 
-from werkzeug.exceptions import Forbidden
+from werkzeug.exceptions import Forbidden, NotFound
 
 from odoo import http
 from odoo.http import request
@@ -36,7 +40,8 @@ GROUP_DRIVER = "distri_pedido.grupo_reparto"
 WHOLESALE_ACCOUNT = "La cuenta de este cliente mayorista la ve administración."
 STATIC = "/distri_pedido/static/src/reparto/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "reparto")
-ASSETS = ("claim.js", "app.js", "app2.js", "app3.js", "app.css", "icon-192.png", "icon-512.png")
+ASSETS = ("claim.js", "app.js", "app2.js", "app3.js", "app4.js", "app.css", "icon-192.png",
+          "icon-512.png")
 # The look shared with the packing screen (/armado)
 SHARED_CSS = "/distri_pedido/static/src/css/distri_ui.css"
 # Figtree, self-hosted by the theme; distri_ui.css points at these files
@@ -228,6 +233,32 @@ class Reparto(http.Controller):
         if not found._app_account_visible():
             return self._json({"ok": False, "error": WHOLESALE_ACCOUNT}, 403)
         return self._json({"ok": True, "account": Route._app_partner_statement(found.partner_id)})
+
+    @http.route("/reparto/api/receipt", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def receipt(self, stop=None, receipt=None, **kw):
+        """19.0.1.129.16: the receipt of a payment shown in the visit (models/
+        reparto_pagos.py), photo or PDF. Same guards as /reparto/api/account:
+        a stop of the driver's own routes, never a wholesale customer's."""
+        if not self._is_driver():
+            raise Forbidden()
+        found = request.env["distri.route"]._driver_stop(request.env.user, stop)
+        if not found or found.partner_id.commercial_partner_id.distri_generic_partner \
+                or not found._app_account_visible():
+            raise NotFound()
+        result = found._app_receipt_file(receipt)
+        if not result:
+            raise NotFound()
+        data, mimetype, name = result
+        inline = mimetype.startswith("image/") and mimetype != "image/svg+xml" \
+            or mimetype == "application/pdf"
+        return request.make_response(data, headers=[
+            ("Content-Type", mimetype if inline else "application/octet-stream"),
+            ("Content-Disposition", http.content_disposition(
+                name, "inline" if inline else "attachment")),
+            ("Cache-Control", "private, max-age=600"),
+            ("X-Content-Type-Options", "nosniff"),
+        ])
 
     @http.route("/reparto/api/sync", type="http", auth="user", methods=["POST"],
                 csrf=False, sitemap=False)
