@@ -48,7 +48,8 @@ AVISO_TABACO = ("Venta de productos de tabaco exclusiva a comercios y a mayores 
 # 19.0.1.104.0 owner review: one «Farmacia · Venta libre» section and
 # «Bebidas» split into Gaseosas, Vinos and Jugos.
 CATEGORIAS = [
-    ("cigarrillos", "Cigarrillos", "Red Point, Master, Kiel, West"),
+    # 19.0.1.129.16 (owner, pendiente 55): no brands in the cigarettes card
+    ("cigarrillos", "Cigarrillos", "Las marcas más vendidas, en atado y en caja"),
     ("tabaco", "Tabaco", "Van Kiff, Cuatro Leguas"),
     ("insumos", "Insumos para armar", "Papelillos, filtros y máquinas"),
     ("golosinas", "Golosinas", "Alfajores, chicles, caramelos y chocolates"),

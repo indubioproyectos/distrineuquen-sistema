@@ -161,9 +161,12 @@ class TestViewsAndPages(HttpCase):
         self.assertEqual(" ".join(subtitle.split()), HOME_SUBTITLE)
         self.assertIn('<meta name="description" content="%s"' % HOME_DESCRIPTION, html)
         self.assertIn('"description": "%s"' % HOME_DESCRIPTION, html)
-        # untouched: the «Quiénes somos» text and the cigarette brands
-        self.assertIn("farmacia y perfumería", html)
-        self.assertIn("Red Point, Master, Kiel, West", html)
+        # 19.0.1.129.16 (pendiente 55): neither «farmacia» in «Quiénes somos»
+        # nor the brands in the cigarettes card
+        self.assertIn("artículos de almacén y perfumería", html)
+        self.assertNotIn("farmacia y perfumería", html)
+        self.assertNotIn("Red Point, Master, Kiel", html)
+        self.assertIn("Las marcas más vendidas, en atado y en caja", html)
 
     def test_rendiciones_tile_and_no_planificacion_menu(self):
         admin = _user(self.env, "admin_tile_v127", "Admin Tile V127",

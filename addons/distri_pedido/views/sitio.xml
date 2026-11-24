@@ -184,8 +184,9 @@
           <div>
             <p class="volanta">Quiénes somos</p>
             <h2 id="quienes-tit">Abastecemos kioscos y almacenes de Neuquén y la región</h2>
+            <!-- 19.0.1.129.16 (owner, pendiente 55): no «farmacia» here -->
             <p>En Distri Neuquén nos especializamos en la distribución mayorista de cigarrillos,
-              golosinas, galletitas, bebidas y artículos de almacén, farmacia y perfumería.</p>
+              golosinas, galletitas, bebidas, artículos de almacén y perfumería.</p>
             <p>Abastecemos almacenes y kioscos del Alto Valle de Río Negro y Neuquén, con variedad,
               buenos precios y un servicio cercano: te atendemos por WhatsApp y te llevamos el pedido
               al comercio.</p>
