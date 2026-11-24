@@ -37,7 +37,8 @@ from odoo.modules.module import get_module_path
 from .main import FICHA
 
 GROUP_DRIVER = "distri_pedido.grupo_reparto"
-WHOLESALE_ACCOUNT = "La cuenta de este cliente mayorista la ve administración."
+WHOLESALE_ACCOUNT = ("Este cliente es mayorista: su cuenta la lleva administración. "
+                     "Podés entregarle y cobrarle como a cualquier cliente.")
 STATIC = "/distri_pedido/static/src/reparto/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "reparto")
 ASSETS = ("claim.js", "app.js", "app2.js", "app3.js", "app4.js", "app.css", "icon-192.png",
