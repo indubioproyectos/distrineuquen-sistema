@@ -81,7 +81,8 @@
                 Más viejos sin resolver: <t t-esc="state.data.older.count"/> ·
                 <t t-esc="money(state.data.older.total)"/>
             </span>
-            <button type="button" class="btn btn-link o_distri_counter o_distri_counter_unknown"
+            <button t-if="state.data.unknown.visible" type="button"
+                    class="btn btn-link o_distri_counter o_distri_counter_unknown"
                     t-on-click="() => this.open('action_open_unknown_payers')">
                 <i class="fa fa-users" aria-hidden="true"/>
                 Sin identificar (<t t-esc="state.data.unknown.count"/> ·

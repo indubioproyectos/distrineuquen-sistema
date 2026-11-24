@@ -79,7 +79,8 @@ class TestMayoristas(AccountTestInvoicingCommon):
         self._mark(card)
         alerted = self.Collection._cron_alerts()
         self.assertNotIn(card, alerted)
-        self.assertIn(other, alerted)
+        # 19.0.1.129.16: the incomes of the report are not alerted at all
+        self.assertNotIn(other, alerted)
         day = self.env["distri.mp.day"].create({"date": card.date_day})
         day.invalidate_recordset()
         self.assertEqual(day.apartado_total, 5000)

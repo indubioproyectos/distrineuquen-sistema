@@ -1604,9 +1604,10 @@ class DistriMpCollection(models.Model):
 
     @api.model
     def _cron_alerts(self):
-        """One To-Do per card that waits in «Asignar cliente» or «Sin
-        transferencia» longer than the parameter (24 h by default); «Sin
-        transferencia» includes the deliveries authorized by hand (and the
+        """One To-Do per card that waits in «Sin transferencia» longer than
+        the parameter (24 h by default). 19.0.1.129.16: never for the incomes
+        of the report (kind income, «Asignar cliente»): nobody attended them
+        and they hid the real alerts. «Sin transferencia» includes the deliveries authorized by hand (and the
         payments registered by hand before 19.0.1.21.0) whose transfer the
         report did not bring. A delivery authorized by hand that still waits
         in «Esperando reporte MP» (no report brought or missed its operation)
@@ -1617,7 +1618,8 @@ class DistriMpCollection(models.Model):
         limit = fields.Datetime.now() - timedelta(hours=self._alert_hours())
         cards = self.sudo().search([
             "|",
-            "&", "&", ("column", "in", PRIORITY_COLUMNS), ("create_date", "<=", limit),
+            "&", "&", "&", ("kind", "!=", "income"),
+            ("column", "in", PRIORITY_COLUMNS), ("create_date", "<=", limit),
             "|", ("state", "=", "draft"), ("report_review", "=", True),
             "&", "&", "&", ("kind", "=", "verify"), ("state", "=", "authorized"),
             ("income_id", "=", False), ("authorized_at", "<=", limit)],
@@ -1652,6 +1654,27 @@ class DistriMpCollection(models.Model):
             _logger.info("Tablero de cobros: %s alertas nuevas", len(alerted))
         return alerted
 
+    @api.model
+    def _distri_drop_income_alerts(self):
+        """19.0.1.129.16: deletes the open «Cobro sin resolver en el tablero»
+        activities of the income cards (`_cron_alerts` no longer creates
+        them). Only that To-Do on this model: no other activity, no message
+        in the chatter. Returns how many were deleted."""
+        todo = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        if not todo:
+            return 0
+        self.env.cr.execute("""
+            SELECT a.id FROM mail_activity a
+              JOIN distri_mp_collection c ON c.id = a.res_id
+             WHERE a.res_model = %s AND a.summary = %s AND a.activity_type_id = %s
+               AND a.active AND c.kind = 'income'""", [self._name, ALERT_SUMMARY, todo.id])
+        activities = self.env["mail.activity"].sudo().browse(
+            [row[0] for row in self.env.cr.fetchall()])
+        count = len(activities)
+        activities.unlink()
+        _logger.info("Tablero de cobros: %s alertas de ingresos borradas", count)
+        return count
+
     def action_check_alerts(self):
         """«Revisar alertas»: the hourly check, now."""
         if not self.env.user.has_group(ADMIN_GROUP):
@@ -1659,8 +1682,8 @@ class DistriMpCollection(models.Model):
         alerted = self._cron_alerts()
         message = ("%s tarjetas esperan hace más de %s h: quedó una actividad para cada una."
                    % (len(alerted), int(self._alert_hours())) if alerted
-                   else "No hay tarjetas nuevas esperando de más en «Asignar cliente», en "
-                        "«Sin transferencia» ni entregas autorizadas esperando el reporte.")
+                   else "No hay tarjetas nuevas esperando de más en «Sin transferencia» "
+                        "ni entregas autorizadas esperando el reporte.")
         return {"type": "ir.actions.client", "tag": "display_notification",
                 "params": {"title": "Alertas del tablero", "message": message,
                            "type": "warning" if alerted else "info", "sticky": False}}

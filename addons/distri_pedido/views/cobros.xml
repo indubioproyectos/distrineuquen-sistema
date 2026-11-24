@@ -1413,15 +1413,25 @@
             groups="distri_pedido.grupo_administracion,base.group_system"/>
   <menuitem id="menu_cobros_promises" name="Comprobantes pendientes" parent="menu_cobros_root"
             action="action_promise" sequence="30"/>
+  <!-- 19.0.1.129.16: «Cierre diario» and «Sin identificar» only for
+       grupo_ingresos_reporte (the owner); the data stays -->
   <menuitem id="menu_cobros_day" name="Cierre diario" parent="menu_cobros_root"
             action="action_mp_day" sequence="40"
-            groups="distri_pedido.grupo_cobros,base.group_system"/>
+            groups="distri_pedido.grupo_ingresos_reporte"/>
   <menuitem id="menu_cobros_reports" name="Reportes de Mercado Pago" parent="menu_cobros_root"
             action="action_mp_report" sequence="50"
             groups="distri_pedido.grupo_administracion,base.group_system"/>
   <menuitem id="menu_cobros_unknown" name="Sin identificar" parent="menu_cobros_root"
             action="action_mp_payer_bucket" sequence="12"
-            groups="distri_pedido.grupo_administracion,base.group_system"/>
+            groups="distri_pedido.grupo_ingresos_reporte"/>
+  <!-- the groups above only add on an update: replace them, whatever an
+       older version left on these two menus -->
+  <record id="menu_cobros_day" model="ir.ui.menu">
+    <field name="group_ids" eval="[(6, 0, [ref('distri_pedido.grupo_ingresos_reporte')])]"/>
+  </record>
+  <record id="menu_cobros_unknown" model="ir.ui.menu">
+    <field name="group_ids" eval="[(6, 0, [ref('distri_pedido.grupo_ingresos_reporte')])]"/>
+  </record>
   <menuitem id="menu_cobros_apartados" name="Mayoristas apartados" parent="menu_cobros_root"
             action="action_mp_apartados" sequence="14"
             groups="distri_pedido.grupo_administracion,base.group_system"/>

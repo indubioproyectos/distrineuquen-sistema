@@ -183,32 +183,36 @@ class TestCobros(RepartoMixin, AccountTestInvoicingCommon):
         admin_group = self.env.ref("distri_pedido.grupo_administracion")
         common = {"date": fields.Datetime.now(), "method_type": "bank_transfer"}
         stale = self.Collection.create(dict(common, source_id="700000000001", amount=1000))
-        fresh = self.Collection.create(dict(common, source_id="700000000002", amount=2000))
         ready = self.Collection.create(dict(common, source_id="700000000003", amount=3000,
                                             partner_id=self.known.id, proposal="cuit"))
         receipt = self._receipt("5492995000111", datetime(2026, 9, 24, 18, 0), caption="$ 5.000")
         no_money = self.Collection.create({"kind": "receipt", "receipt_id": receipt.id,
                                            "amount": 5000, "date": receipt.timestamp})
+        fresh_receipt = self._receipt("5492995000112", datetime(2026, 9, 24, 19, 0),
+                                      caption="$ 2.000")
+        fresh = self.Collection.create({"kind": "receipt", "receipt_id": fresh_receipt.id,
+                                        "amount": 2000, "date": fresh_receipt.timestamp})
         self.assertEqual((stale.column, fresh.column, ready.column, no_money.column),
-                         ("unidentified", "unidentified", "confirm", "no_money"))
+                         ("unidentified", "no_money", "confirm", "no_money"))
         self._aged(stale | ready | no_money, 30)
         self._aged(fresh, 3)
         mails = self.env["mail.mail"].search_count([])
         # only this test's cards: the database may hold cards of its own
         mine = stale | fresh | ready | no_money
         alerted = self.Collection._cron_alerts() & mine
-        self.assertEqual(alerted, stale | no_money)
-        for card in (stale, no_money):
-            activity = self._alerts(card)
-            self.assertEqual(len(activity), 1)
-            self.assertIn(activity.user_id, admin_group.user_ids)
-            self.assertEqual(activity.activity_type_id, self.env.ref("mail.mail_activity_data_todo"))
+        # 19.0.1.129.16: an income of the report («Asignar cliente») is never alerted
+        self.assertEqual(alerted, no_money)
+        activity = self._alerts(no_money)
+        self.assertEqual(len(activity), 1)
+        self.assertIn(activity.user_id, admin_group.user_ids)
+        self.assertEqual(activity.activity_type_id, self.env.ref("mail.mail_activity_data_todo"))
+        self.assertFalse(self._alerts(stale), "no alert for the incomes of the report")
         self.assertFalse(self._alerts(fresh), "not yet 24 hours")
         self.assertFalse(self._alerts(ready), "only the columns that need a person")
         self.assertEqual(self.env["mail.mail"].search_count([]), mails, "no email leaves")
         # the next day: nothing new while the activity is open
         self.assertFalse(self.Collection._cron_alerts() & mine)
-        self.assertEqual(len(self._alerts(stale)), 1)
+        self.assertEqual(len(self._alerts(no_money)), 1)
         # the parameter moves the limit
         self.env["ir.config_parameter"].sudo().set_param(PARAM_ALERT_HOURS, "2")
         self.assertEqual(self.Collection._cron_alerts() & mine, fresh)

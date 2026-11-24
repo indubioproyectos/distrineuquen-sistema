@@ -262,6 +262,9 @@ class DistriMpCollectionWholesale(models.Model):
         older = count(pending + [("column", "!=", "unidentified"), ("date_day", "<", since)])
         unknown = count([("state", "=", "draft"), ("column", "=", "unidentified")])
         unknown["payers"] = self.env["distri.mp.payer.bucket"].search_count([])
+        # 19.0.1.129.16: «Sin identificar» only for grupo_ingresos_reporte,
+        # like its menu
+        unknown["visible"] = self.env.user.has_group("distri_pedido.grupo_ingresos_reporte")
         apart = count([("state", "=", APARTADO)])
         # the other part of the bar (models/puesta_al_dia.py) may sit above
         # or below this one in the class order: both merge, neither replaces

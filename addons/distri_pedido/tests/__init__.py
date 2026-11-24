@@ -102,3 +102,4 @@ from . import test_v129_11_ingresos_reporte
 from . import test_v129_13_ingresos_con_comprobante
 from . import test_v129_12_logo
 from . import test_v129_14_pago_proveedor_subir
+from . import test_v129_16_menos_ruido
