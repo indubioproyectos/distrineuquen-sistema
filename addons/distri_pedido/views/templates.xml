@@ -55,6 +55,7 @@
     .limpiar{border:1px solid var(--linea);background:var(--tarjeta);border-radius:0 4px 4px 0;
              width:3rem;font-size:1rem;color:var(--texto);cursor:pointer}
     .aviso{font-size:.8rem;color:var(--tenue);padding:0 1rem .6rem;text-align:center}
+    .aviso:empty{display:none}
 
     /* secciones: nombre centrado con el icono de libro y la flecha a la derecha */
     .lista{background:var(--tarjeta);border-top:1px solid var(--borde)}
@@ -780,7 +781,8 @@
               abrir(b, b.querySelector('.chip').style.display !== 'none');
             });
           } else {
-            av.textContent = n ? n + (n === 1 ? ' producto' : ' productos') : 'Nada coincide';
+            // 19.0.1.129.15 (owner): no count line, only the empty result
+            av.textContent = n ? '' : 'Nada coincide';
           }
         }
       });
