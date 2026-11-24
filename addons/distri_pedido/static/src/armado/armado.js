@@ -436,7 +436,16 @@
       });
       if (nada) { nada.hidden = !(words.length && shown === 0); }
     }
-    if (input) { input.addEventListener('input', apply); }
+    if (input) {
+      input.addEventListener('input', apply);
+      // 19.0.1.129.16: Enter only closes the phone keyboard (like /pedido)
+      input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.keyCode === 13) {
+          ev.preventDefault();
+          input.blur();
+        }
+      });
+    }
     return apply;
   }
 

@@ -144,8 +144,9 @@
     <form class="arm-search" role="search" onsubmit="return false">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>
       <label for="arm-q" class="dn-sr">Buscar cliente o pedido</label>
+      <!-- 19.0.1.129.16: the search key on the phone; Enter closes the keyboard -->
       <input id="arm-q" class="dn-input" type="search" placeholder="Buscar cliente o pedido"
-             autocomplete="off" data-arm-buscar=""/>
+             autocomplete="off" enterkeyhint="search" data-arm-buscar=""/>
     </form>
     <p class="arm-search__nada" hidden="hidden" data-arm-nada="">Ningún pedido coincide con la búsqueda.</p>
     <div id="lista" class="arm-lista-box" aria-live="polite">

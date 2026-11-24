@@ -104,3 +104,4 @@ from . import test_v129_12_logo
 from . import test_v129_14_pago_proveedor_subir
 from . import test_v129_16_menos_ruido
 from . import test_v129_16_reparto_pagos
+from . import test_v129_16_armado
