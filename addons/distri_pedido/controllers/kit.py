@@ -50,6 +50,9 @@ FILES = {
     "asignar.js": ("asignar/asignar.js", "text/javascript; charset=utf-8"),
     "agilpedido.css": ("agilpedido/agilpedido.css", "text/css; charset=utf-8"),
     "agilpedido.js": ("agilpedido/agilpedido.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.129.18: «Mis ventas» (controllers/mis_ventas.py)
+    "mis_ventas.css": ("mis_ventas/mis_ventas.css", "text/css; charset=utf-8"),
+    "mis_ventas.js": ("mis_ventas/mis_ventas.js", "text/javascript; charset=utf-8"),
     # 19.0.1.98.0: the «Ajustes» gear of every page (views/kit.xml dn_ajustes)
     "ajustes.css": ("kit/ajustes.css", "text/css; charset=utf-8"),
     "ajustes.js": ("kit/ajustes.js", "text/javascript; charset=utf-8"),

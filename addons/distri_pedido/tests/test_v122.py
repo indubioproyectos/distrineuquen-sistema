@@ -232,7 +232,7 @@ class TestRearmar(RepartoMixin, AccountTestInvoicingCommon):
 @tagged("post_install", "-at_install", "distri_v122")
 class TestInicioOrden(TransactionCase):
 
-    ORDEN = ["Tomar un pedido", "AgilPedido", "Pedidos para revisar", "Armado", "Depósito",
+    ORDEN = ["Tomar un pedido", "Mis ventas", "AgilPedido", "Pedidos para revisar", "Armado", "Depósito",
              "Planificación de rutas", "Despacho", "Mi reparto", "Rendiciones y casos",
              "Cobrar", "Caja del día", "Comprobantes", "Cuentas",
              "Historial de cajas", "Cobros", "Capacitación"]

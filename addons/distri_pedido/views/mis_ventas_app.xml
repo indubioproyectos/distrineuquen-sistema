@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- «Mis ventas» on the phone (19.0.1.129.18, pendiente 78): controllers/
+       mis_ventas.py, models/mis_ventas.py, static/src/mis_ventas/. Read only. -->
+
+  <!-- One order; `r` is models/mis_ventas.py fila(). The data-* feed the
+       search and the totals of the page script. -->
+  <template id="mis_ventas_card" name="Mis ventas: pedido">
+    <article t-att-class="'mv-card' + (' mv-card--off' if r['cancelado'] else '')" t-att-id="'mv-%s' % r['id']"
+             t-att-data-buscar="('%s %s' % (r['name'], r['cliente'])).lower()"
+             t-att-data-importe="r['amount_raw']" t-att-data-facturado="r['facturado']"
+             t-att-data-acobrar="r['a_cobrar']" t-att-data-cancelado="'1' if r['cancelado'] else None">
+      <div class="mv-head">
+        <b class="mv-name" t-esc="r['name']"/>
+        <span t-att-class="'dn-chip dn-chip--%s' % r['estado_kind']" t-esc="r['estado']"/>
+        <span t-if="r['retenido']" class="dn-chip dn-chip--warn">Retenido</span>
+        <b class="mv-amount dn-num" t-esc="r['amount']"/>
+      </div>
+      <div class="mv-who">
+        <b t-esc="r['cliente']"/>
+        <span class="mv-meta"><t t-esc="r['cuando']"/><t t-if="gerencia and r['vendedor']"> · <t t-esc="r['vendedor']"/></t></span>
+      </div>
+      <dl t-if="r['armado'] or r['entrega'] or r['pago']" class="mv-steps">
+        <div t-if="r['armado']" class="mv-step">
+          <dt>Armado</dt>
+          <dd><span t-att-class="'dn-chip dn-chip--%s' % r['armado_kind']" t-esc="r['armado']"/></dd>
+        </div>
+        <div t-if="r['entrega']" class="mv-step">
+          <dt>Entrega</dt>
+          <dd><span t-att-class="'dn-chip dn-chip--%s' % r['entrega_kind']" t-esc="r['entrega']"/></dd>
+        </div>
+        <div t-if="r['pago']" class="mv-step">
+          <dt>Pago</dt>
+          <dd><span t-att-class="'dn-chip dn-chip--%s' % r['pago_kind']" t-esc="r['pago']"/></dd>
+        </div>
+      </dl>
+      <div t-if="r['faltantes']" class="mv-faltas">
+        <b>Faltó en el armado:</b>
+        <ul><li t-foreach="r['faltantes']" t-as="falta" t-esc="falta"/></ul>
+      </div>
+    </article>
+  </template>
+
+  <template id="mis_ventas_page" name="Mis ventas">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Mis ventas · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="mv" t-att-data-parent="inicio" data-page="mis-ventas">
+  <header class="dn-top mv-top">
+    <div class="dn-top__row mv-top__row">
+      <a class="mv-back" t-att-href="inicio" data-dn-back="">‹ Volver</a>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+    <div class="mv-top__txt">
+      <span class="dn-top__kicker">Distri Neuquén · <t t-esc="user.name"/></span>
+      <h1 class="mv-title">Mis ventas</h1>
+      <p class="mv-sub" t-if="gerencia">Los pedidos de todos los vendedores, o de uno.</p>
+      <p class="mv-sub" t-else="">Los pedidos que cargaste y cómo van.</p>
+    </div>
+  </header>
+
+  <form class="mv-filtros" method="get" action="/mis-ventas" role="search">
+    <input type="hidden" name="periodo" t-att-value="periodo"/>
+    <input type="hidden" name="estado" t-att-value="estado"/>
+    <div class="mv-search">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>
+      <label for="mv-q" class="dn-sr">Buscar cliente o pedido</label>
+      <!-- the search key on the phone; Enter closes the keyboard (mis_ventas.js) -->
+      <input id="mv-q" class="dn-input" type="search" name="q" t-att-value="q" maxlength="80"
+             placeholder="Buscar cliente o pedido" autocomplete="off" enterkeyhint="search"
+             data-mv-buscar=""/>
+    </div>
+    <div t-if="gerencia" class="dn-field mv-vend">
+      <label for="mv-vendedor">Vendedor</label>
+      <select id="mv-vendedor" name="vendedor" class="dn-input" data-mv-vendedor="">
+        <option value="">Todos los vendedores</option>
+        <option t-foreach="vendedores" t-as="v" t-att-value="v.id"
+                t-att-selected="'selected' if v.id == vendedor_id else None" t-esc="v.name"/>
+      </select>
+      <noscript><button type="submit" class="dn-btn dn-btn--ghost">Ver</button></noscript>
+    </div>
+  </form>
+
+  <nav class="mv-tabs" aria-label="Período">
+    <a t-foreach="periodos" t-as="p" t-att-href="url(periodo=p[0])"
+       t-att-class="'mv-tab' + (' on' if p[0] == periodo else '')"
+       t-att-aria-current="'true' if p[0] == periodo else None" t-esc="p[1]"/>
+  </nav>
+  <nav class="mv-tabs mv-tabs--estado" aria-label="Estado">
+    <a t-foreach="estados" t-as="e" t-att-href="url(estado=e[0])"
+       t-att-class="'mv-tab mv-tab--sm' + (' on' if e[0] == estado else '')"
+       t-att-aria-current="'true' if e[0] == estado else None" t-esc="e[1]"/>
+  </nav>
+
+  <section class="mv-totales" aria-label="Totales del período" data-mv-totales="">
+    <div class="mv-tot">
+      <span class="dn-label">Pedidos</span>
+      <b class="dn-num" data-mv-n="" t-esc="totales['n']"/>
+    </div>
+    <div class="mv-tot">
+      <span class="dn-label">Importe</span>
+      <b class="dn-num" data-mv-importe="" t-esc="totales['importe']"/>
+    </div>
+    <div class="mv-tot">
+      <span class="dn-label">Cobrado</span>
+      <b class="dn-num mv-ok" data-mv-cobrado="" t-esc="totales['cobrado']"/>
+    </div>
+    <div class="mv-tot">
+      <span class="dn-label">A cobrar</span>
+      <b class="dn-num mv-warn" data-mv-acobrar="" t-esc="totales['a_cobrar']"/>
+    </div>
+  </section>
+
+  <main class="dn-main mv-main">
+    <div class="dn-empty" data-mv-vacio="" t-att-hidden="None if not rows else 'hidden'">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'empty'"/></t>
+      <p>No hay pedidos para mostrar acá.</p>
+    </div>
+    <p class="mv-legend" data-mv-nada="" hidden="hidden">Ningún pedido coincide con la búsqueda.</p>
+    <t t-foreach="rows" t-as="r"><t t-call="distri_pedido.mis_ventas_card"/></t>
+    <p t-if="full" class="mv-legend">Se muestran los últimos 300 pedidos: elegí un período más corto o buscá
+      el cliente.</p>
+    <p class="mv-legend">Los totales no cuentan los pedidos cancelados. «Cobrado» y «A cobrar» son de lo ya
+      facturado.</p>
+  </main>
+</body>
+</html>
+  </template>
+</odoo>

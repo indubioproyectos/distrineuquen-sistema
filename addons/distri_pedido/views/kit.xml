@@ -112,6 +112,7 @@
         </section>
         <nav t-if="not aj['publico']" class="dn-aj__links">
           <a t-if="aj_inicio" t-att-href="aj_inicio" class="dn-aj__inicio">Inicio: todas tus pantallas</a>
+          <a t-if="aj.get('mis_ventas')" href="/mis-ventas">Mis ventas</a>
           <a t-if="aj.get('capacitacion')" href="/proyecto">Capacitación</a>
           <a t-if="aj.get('perfil')" href="/mi-perfil">Mi perfil</a>
           <a t-if="aj.get('cuenta')" href="/mi-cuenta">Mi cuenta corriente</a>

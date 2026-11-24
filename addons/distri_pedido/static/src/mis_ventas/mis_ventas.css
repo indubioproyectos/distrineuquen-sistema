@@ -1,0 +1,51 @@
+/* «Mis ventas» (19.0.1.129.18, views/mis_ventas_app.xml): filters, totals
+   and one card per order. On the kit tokens (../kit/dn.css), like
+   /revisar. */
+.mv-top{position:relative;padding-bottom:18px}
+.mv-top__row{justify-content:space-between;padding-left:8px;max-width:760px}
+.mv-back{display:inline-flex;align-items:center;min-height:44px;color:var(--dn-mint);font-size:15px;font-weight:700;
+  text-decoration:none}
+.mv-top__txt{max-width:760px;margin:0 auto;padding:0 8px;display:flex;flex-direction:column;gap:2px}
+.mv-title{margin:0;font-size:24px;font-weight:800;line-height:1.15}
+.mv-sub{margin:4px 0 0;font-size:14px;color:var(--dn-on-navy)}
+
+.mv-filtros{display:flex;flex-direction:column;gap:10px;max-width:760px;margin:0 auto;padding:12px 16px 0}
+.mv-search{position:relative}
+.mv-search .dn-i{position:absolute;left:12px;top:14px;color:var(--dn-muted)}
+.mv-search .dn-input{padding-left:44px}
+.mv-vend{margin:0}
+
+.mv-tabs{display:flex;flex-wrap:wrap;gap:6px;max-width:760px;margin:0 auto;padding:12px 16px 0}
+.mv-tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:22px;
+  border:1px solid var(--dn-input);background:#fff;color:var(--dn-ink);font-size:15px;font-weight:700;
+  text-decoration:none;white-space:nowrap}
+.mv-tab--sm{min-height:40px;padding:0 12px;font-size:14px}
+.mv-tab.on{background:var(--dn-navy);border-color:var(--dn-navy);color:#fff}
+
+.mv-totales{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-width:760px;margin:0 auto;
+  padding:12px 16px 0}
+@media (min-width:600px){.mv-totales{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.mv-tot{background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r);padding:10px 12px;
+  display:flex;flex-direction:column;gap:2px;min-width:0}
+.mv-tot b{font-size:20px;font-weight:800;overflow-wrap:anywhere}
+.mv-ok{color:var(--dn-green-text)}
+.mv-warn{color:var(--dn-amber-text)}
+
+.mv-card{background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r);padding:16px;
+  display:flex;flex-direction:column;gap:10px}
+.mv-card[hidden]{display:none}
+.mv-card--off{opacity:.7}
+.mv-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.mv-name{font-size:15px;font-weight:700}
+.mv-amount{margin-left:auto;font-size:20px;font-weight:800}
+.mv-who{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mv-who>b{font-size:18px;overflow-wrap:anywhere}
+.mv-meta{font-size:14px;color:var(--dn-muted)}
+.mv-steps{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0}
+.mv-step{display:flex;flex-direction:column;gap:4px}
+.mv-step dt{font-size:13px;color:var(--dn-muted)}
+.mv-step dd{margin:0}
+.mv-faltas{background:var(--dn-amber-bg);border:1px solid var(--dn-amber-line);border-radius:10px;padding:10px 12px;
+  font-size:14px;color:var(--dn-amber-text)}
+.mv-faltas ul{margin:4px 0 0;padding-left:18px}
+.mv-legend{margin:0;font-size:14px;text-align:center;color:var(--dn-muted)}

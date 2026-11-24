@@ -38,6 +38,10 @@ TILES = [
     # 19.0.1.108.0: /pedido as staff (seller, administración, gerencia)
     ("pedido", "staff", "Tomar un pedido", "Cargá el pedido de un cliente",
      IMG + "cuentas.png", "order", "/pedido"),
+    # 19.0.1.129.18: controllers/mis_ventas.py, the seller's own orders and
+    # how they go (Gerencia: everyone's)
+    ("misventas", "misventas", "Mis ventas", "Tus pedidos: armado, entrega y cobro",
+     IMG + "cuentas.png", "bag", "/mis-ventas"),
     # 19.0.1.108.0: controllers/revisar.py, administración and gerencia
     ("revisar", "revisar", "Pedidos para revisar", "Qué falta confirmar, retener y liberar",
      IMG + "cuentas.png", "target", "/revisar"),
@@ -103,7 +107,7 @@ TILES = [
 # settlements, cases) goes after «Mi reparto» and «Caja del día» after
 # «Cobro en efectivo». A key missing here goes after the listed ones.
 DEFAULT_TILE_ORDER = (
-    "pedido", "agilpedido", "revisar", "armado", "deposito", "rutas", "despacho",
+    "pedido", "misventas", "agilpedido", "revisar", "armado", "deposito", "rutas", "despacho",
     "mireparto", "reparto", "cobro", "caja", "comprobantes", "cuentas", "historial",
     "cobros", "capacitacion",
 )
@@ -145,6 +149,9 @@ def _special_visible(env, key):
         return bool(app_scope(env))
     if key == "repartidor":
         return not user.share and user.has_group("distri_pedido.grupo_reparto")
+    if key == "misventas":
+        from ..models.mis_ventas import puede_ver_mis_ventas
+        return puede_ver_mis_ventas(user)
     if key == "cobro":
         from ..models.cobrar import can_collect
         return not user.share and can_collect(user)

@@ -106,3 +106,4 @@ from . import test_v129_16_menos_ruido
 from . import test_v129_16_reparto_pagos
 from . import test_v129_16_armado
 from . import test_v129_17_sin_odoo
+from . import test_v129_18_mis_ventas

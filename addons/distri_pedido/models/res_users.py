@@ -76,6 +76,7 @@ class ResUsers(models.Model):
         user = self.sudo()
         if user._is_public():
             return {"publico": True}
+        from .mis_ventas import puede_ver_mis_ventas
         socio = user.partner_id
         return {
             "publico": False,
@@ -90,6 +91,9 @@ class ResUsers(models.Model):
             # 19.0.1.119.0: /proyecto from every screen (a seller locked to
             # /cuentas never lands on Inicio, where its tile is)
             "capacitacion": not user.share,
+            # 19.0.1.129.18: «Mis ventas» from every screen (a seller locked
+            # to /cuentas never lands on Inicio, where its tile is)
+            "mis_ventas": puede_ver_mis_ventas(user),
             # 19.0.1.120.0: the way back to Inicio from every staff screen
             "inicio": "/tablero" if user._distri_has_inicio() else "",
         }
