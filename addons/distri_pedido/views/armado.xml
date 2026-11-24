@@ -93,7 +93,7 @@
               <span class="arm-ped__nom" t-esc="p._distri_nombre_cliente()"/>
               <span class="arm-ped__det"><t t-esc="p.name"/> · <t t-esc="p.distri_zona_id.name or 'Sin zona'"/>
                 · <span class="dn-num" t-esc="plata(p.amount_total)"/></span>
-              <span class="arm-ped__det">Factura <t t-esc="', '.join(p._distri_factura_viva().mapped('name'))"/></span>
+              <span class="arm-ped__det">Factura <t t-esc="p._distri_factura_viva_texto()"/></span>
             </span>
             <span class="dn-chip dn-chip--warn arm-fact__chip">Ya lo armé</span>
           </summary>

@@ -64,6 +64,14 @@ class SaleOrderInvoiceUnpacked(models.Model):
         return self.sudo().invoice_ids.filtered(
             lambda f: f.move_type == "out_invoice" and f.state != "cancel")
 
+    def _distri_factura_viva_texto(self):
+        """«0001/2026/08240, borrador»: the live invoices for a person to read.
+        A draft has no number yet (name False): joining it raised a TypeError
+        that took /armado down (19.0.1.129.21)."""
+        self.ensure_one()
+        return ", ".join(f.name if f.name and f.name != "/" else "borrador"
+                         for f in self._distri_factura_viva())
+
     def _distri_es_facturado_sin_armar(self):
         """Confirmed, of a real customer, released, not waiting for its
         WhatsApp, never packed, and already invoiced."""
@@ -104,7 +112,6 @@ class SaleOrderInvoiceUnpacked(models.Model):
             return "Este pedido ya no está entre los facturados sin armar."
         if not bultos or bultos < 1 or bultos > MAX_BULTOS:
             return "Poné en cuántos bultos quedó el pedido."
-        invoices = order._distri_factura_viva()
         now = fields.Datetime.now()
         try:
             with self.env.cr.savepoint():
@@ -120,7 +127,7 @@ class SaleOrderInvoiceUnpacked(models.Model):
             return "No se pudo marcar como armado: %s" % (exc.args[0] if exc.args else exc)
         order.message_post(body="Marcado como armado sin pasar por el armado (ya estaba "
                                 "facturado: %s) por %s, en %s %s." % (
-            ", ".join(invoices.mapped("name")), user.name, bultos,
+            order._distri_factura_viva_texto(), user.name, bultos,
             "bulto" if bultos == 1 else "bultos"))
         order._distri_ensure_receipt_code()
         return ""

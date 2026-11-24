@@ -215,3 +215,14 @@ class TestV117YaArmadoHttp(YaArmadoMixin, HttpCase):
                             data={"csrf_token": token, "bultos": "1"})
         self.assertIn(res.status_code, (400, 403))
         self.assertEqual(other.distri_armado, "pendiente")
+
+    def test_draft_invoice_does_not_break_armado(self):
+        """19.0.1.129.21: a draft invoice (no number yet) listed the order
+        and its name False took the whole page down (TypeError on join)."""
+        order = self._order(invoiced=False)
+        order.with_context(distri_facturar_sin_armar=True)._create_invoices()  # left in draft
+        self.assertEqual(order._distri_factura_viva_texto(), "borrador")
+        self.authenticate("administracion_v117", "administracion_v117")
+        page = self.url_open("/armado")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("Factura borrador", page.text)
