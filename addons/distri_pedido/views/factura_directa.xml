@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.36 (owner's decision B): a draft customer invoice that does
+       not come from a sale order says, while «Nueva venta» is on, that it is
+       for services only and who may post it (models/factura_directa.py).
+       The posting itself is what refuses. -->
+  <record id="view_move_form_factura_directa" model="ir.ui.view">
+    <field name="name">account.move.form.distri.factura.directa</field>
+    <field name="model">account.move</field>
+    <field name="inherit_id" ref="account.view_move_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-warning mb-0" role="alert" invisible="not distri_aviso_directa">
+          <field name="distri_aviso_directa" readonly="1"/>
+        </div>
+      </xpath>
+    </field>
+  </record>
+</odoo>

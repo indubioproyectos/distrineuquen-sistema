@@ -27,6 +27,14 @@ planning and «Asignar pedidos» (`_free_orders_domain`, `_order_is_free`, so
 Owner's rule: no payment, invoice or journal entry is created, cancelled or
 reconciled, and no pending collection or charge is created (the depot
 delivery would have asked «pagó / no pagó nada»).
+
+19.0.1.129.36 (owner's decision B, 25/11/2026): with «Nueva venta» on
+(distri_pedido.nueva_venta), «Facturar igual» is gone. The wizard no longer
+offers it and the server refuses an order not packed yet, also with the
+wizard's box or the context set by hand, pointing to «Nueva venta»
+(«Mostrador» or «Ya entregado»). The orders already invoiced that way keep
+«Ya lo armé» and «… y ya se entregó». Superuser code (scripts, tests) is not
+affected. With the flag off it is as in 129.35.
 """
 from datetime import timedelta
 
@@ -38,6 +46,11 @@ from .armado import MAX_BULTOS
 NOT_PACKED = ("%s todavía no está armado. La factura tiene que salir al terminar el armado, "
               "para que descuente lo que faltó. Si igual hay que facturarlo, administración "
               "tilda «Facturar igual» en «Crear factura».")
+# 19.0.1.129.36: with «Nueva venta» on there is no «Facturar igual»
+SIN_FACTURAR_IGUAL = ("%s todavía no está armado. La factura sale sola al terminar el armado, "
+                      "para que descuente lo que faltó. «Facturar igual» ya no existe: si el "
+                      "cliente se lo lleva ahora o ya lo tiene, cargá la venta con «Nueva venta» "
+                      "(«Mostrador» o «Ya entregado»).")
 FORCE_GROUPS = ("distri_pedido.grupo_administracion", "distri_pedido.grupo_gerencia",
                 "base.group_system")
 
@@ -50,18 +63,32 @@ YA_ARMADO_GROUPS = ("distri_pedido.grupo_armador", "distri_pedido.grupo_administ
 
 
 def can_force(user):
+    """May tick «Facturar igual»: never while «Nueva venta» is on (129.36)."""
+    from .nueva_venta import nueva_venta_on
+    if nueva_venta_on(user.env):
+        return False
     return not user.share and any(user.has_group(g) for g in FORCE_GROUPS)
+
+
+def not_packed_message(env):
+    from .nueva_venta import nueva_venta_on
+    return SIN_FACTURAR_IGUAL if nueva_venta_on(env) else NOT_PACKED
 
 
 class SaleOrderInvoiceUnpacked(models.Model):
     _inherit = "sale.order"
 
     def _distri_check_packed_for_invoice(self):
-        if self.env.su or self.env.context.get("distri_facturar_sin_armar"):
+        if self.env.su:
+            return
+        from .nueva_venta import nueva_venta_on
+        # 19.0.1.129.36: the context of «Facturar igual» opens nothing with
+        # «Nueva venta» on
+        if self.env.context.get("distri_facturar_sin_armar") and not nueva_venta_on(self.env):
             return
         unpacked = self.filtered(lambda o: o.distri_armado != "armado")
         if unpacked:
-            raise UserError(NOT_PACKED % ", ".join(unpacked.mapped("name")))
+            raise UserError(not_packed_message(self.env) % ", ".join(unpacked.mapped("name")))
 
     def _create_invoices(self, grouped=False, final=False, date=None):
         self._distri_check_packed_for_invoice()
@@ -202,14 +229,19 @@ class SaleAdvancePaymentInvUnpacked(models.TransientModel):
     distri_sin_armar = fields.Char(string="Pedidos sin armar",
                                    compute="_compute_distri_sin_armar")
     distri_puede_forzar = fields.Boolean(compute="_compute_distri_sin_armar")
+    # 19.0.1.129.36: «Nueva venta» on, so no «Facturar igual»
+    distri_sin_facturar_igual = fields.Boolean(compute="_compute_distri_sin_armar")
     distri_facturar_sin_armar = fields.Boolean(
         string="Facturar igual",
         help="El pedido todavía no está armado: la factura no descuenta lo que falte.")
 
     @api.depends("sale_order_ids")
     def _compute_distri_sin_armar(self):
+        from .nueva_venta import nueva_venta_on
         allowed = can_force(self.env.user)
+        gone = nueva_venta_on(self.env)
         for wizard in self:
+            wizard.distri_sin_facturar_igual = gone
             wizard.distri_sin_armar = ", ".join(wizard.sale_order_ids.filtered(
                 lambda o: o.distri_armado != "armado").mapped("name"))
             wizard.distri_puede_forzar = allowed
@@ -217,8 +249,10 @@ class SaleAdvancePaymentInvUnpacked(models.TransientModel):
     def create_invoices(self):
         unpacked = self.sale_order_ids.filtered(lambda o: o.distri_armado != "armado")
         if unpacked and not self.env.su:
-            if not self.distri_facturar_sin_armar:
-                raise UserError(NOT_PACKED % ", ".join(unpacked.mapped("name")))
+            from .nueva_venta import nueva_venta_on
+            if nueva_venta_on(self.env) or not self.distri_facturar_sin_armar:
+                raise UserError(not_packed_message(self.env) % ", ".join(
+                    unpacked.mapped("name")))
             if not can_force(self.env.user):
                 raise UserError("Solo administración o gerencia factura un pedido sin armar.")
             for order in unpacked:

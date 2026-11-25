@@ -9,7 +9,8 @@
     <field name="arch" type="xml">
       <xpath expr="//group[1]" position="before">
         <field name="distri_puede_forzar" invisible="1"/>
-        <div class="alert alert-warning" role="alert" invisible="not distri_sin_armar">
+        <field name="distri_sin_facturar_igual" invisible="1"/>
+        <div class="alert alert-warning" role="alert" invisible="not distri_sin_armar or distri_sin_facturar_igual">
           <p><b>Este pedido todavía no está armado</b> (<field name="distri_sin_armar" readonly="1" class="oe_inline"/>).
             La factura tiene que salir al terminar el armado, para que descuente lo que faltó. ¿Facturar igual?</p>
           <div invisible="not distri_puede_forzar">
@@ -17,6 +18,12 @@
             <label for="distri_facturar_sin_armar" string="Facturar igual"/>
           </div>
           <p invisible="distri_puede_forzar">Solo administración o gerencia lo factura sin armar.</p>
+        </div>
+        <!-- 19.0.1.129.36: with «Nueva venta» on there is no «Facturar igual» -->
+        <div class="alert alert-warning" role="alert" invisible="not distri_sin_armar or not distri_sin_facturar_igual">
+          <p><b>Este pedido todavía no está armado</b> (<field name="distri_sin_armar" readonly="1" class="oe_inline"/>).
+            La factura sale sola al terminar el armado, para que descuente lo que faltó.</p>
+          <p>Si el cliente se lo lleva ahora o ya lo tiene, cargá la venta con «Nueva venta» («Mostrador» o «Ya entregado»).</p>
         </div>
       </xpath>
     </field>

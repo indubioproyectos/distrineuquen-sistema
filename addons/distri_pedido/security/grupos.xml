@@ -125,6 +125,26 @@
       <field name="description">Quién confirma los ingresos del reporte de Mercado Pago y aprueba el tablero de migración.</field>
     </record>
 
+    <!-- 19.0.1.129.36 (owner's decision B, 25/11/2026): who may post a
+         customer invoice that does not come from a sale order, services
+         only, while «Nueva venta» is on (models/factura_directa.py). A
+         privilege of its own, so it adds to the user's role. Nobody is put
+         in it here: scripts/correcciones/v129_36_facturacion_directa.sh adds
+         Denis, Gonzalo and Ale by login. -->
+    <record id="privilegio_facturacion_directa" model="res.groups.privilege">
+      <field name="name">Facturación directa</field>
+      <field name="category_id" ref="categoria_distri"/>
+      <field name="sequence">35</field>
+      <field name="description">Quién carga facturas que no salen de un pedido (solo servicios). Se suma al rol de Distri Neuquén, no lo reemplaza.</field>
+    </record>
+
+    <record id="grupo_facturacion_directa" model="res.groups">
+      <field name="name">Facturación directa de servicios</field>
+      <field name="privilege_id" ref="privilegio_facturacion_directa"/>
+      <field name="sequence">10</field>
+      <field name="comment">Publica facturas y notas de crédito a clientes que no salen de un pedido, solo con servicios o cargos que no son mercadería. La mercadería se vende con «Nueva venta».</field>
+    </record>
+
   </data>
 
   <!-- noupdate: the membership is decided here once, only the user admin

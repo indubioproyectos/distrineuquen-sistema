@@ -232,5 +232,6 @@ class DistriBalanceAdjustmentWizard(models.TransientModel):
                 "tax_ids": [Command.clear()],
             })],
         })
-        move.action_post()
+        # 19.0.1.129.36: an account adjustment, not a sale (models/factura_directa.py)
+        move.with_context(distri_factura_directa_interna=True).action_post()
         return move

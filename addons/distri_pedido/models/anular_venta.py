@@ -150,8 +150,11 @@ class SaleOrderAnularVenta(models.Model):
         for invoice in drafts:
             steps.append("Se anula la factura en borrador (nunca se emitió).")
         for picking, moves in returns:
-            steps.append("Vuelve al stock lo del remito %s: %s." % (picking.name, ", ".join(
-                "%g %s" % (qty, move.product_id.display_name) for move, qty in moves)))
+            # 19.0.1.129.36: a product name ending in a period gave «..»
+            items = ", ".join("%g %s" % (qty, move.product_id.display_name)
+                              for move, qty in moves)
+            steps.append("Vuelve al stock lo del remito %s: %s%s" % (
+                picking.name, items, "" if items.endswith(".") else "."))
         pending = order.picking_ids.filtered(lambda p: p.state not in ("done", "cancel"))
         for picking in pending:
             steps.append("Se cancela el remito pendiente %s." % picking.name)

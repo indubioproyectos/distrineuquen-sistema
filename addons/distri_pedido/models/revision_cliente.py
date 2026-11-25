@@ -860,7 +860,9 @@ class DistriUnrecordedSaleWizard(models.TransientModel):
                 "tax_ids": [Command.clear()],
             })],
         })
-        invoice.action_post()
+        # 19.0.1.129.36: a sale already paid and not detailed, not a direct sale
+        # of goods (models/factura_directa.py)
+        invoice.with_context(distri_factura_directa_interna=True).action_post()
         inv_line = invoice.line_ids.filtered(
             lambda l: l.account_id.account_type == "asset_receivable")
         (inv_line + pay_line).reconcile()
