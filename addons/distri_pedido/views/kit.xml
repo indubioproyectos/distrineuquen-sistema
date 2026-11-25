@@ -13,6 +13,7 @@
     <meta t-if="request" name="csrf-token" t-att-content="request.csrf_token()"/>
     <link t-if="dn['font']" rel="preload" as="font" type="font/woff2" crossorigin="anonymous" t-att-href="dn['font']"/>
     <link rel="stylesheet" t-att-href="dn['css']"/>
+    <link t-if="dn.get('css_v2')" rel="stylesheet" t-att-href="dn['css_v2']"/>
     <t t-foreach="dn['page_css']" t-as="href"><link rel="stylesheet" t-att-href="href"/></t>
     <link t-if="manifest" rel="manifest" t-att-href="manifest"/>
     <link rel="icon" type="image/png" t-att-href="icon or '/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12'"/>

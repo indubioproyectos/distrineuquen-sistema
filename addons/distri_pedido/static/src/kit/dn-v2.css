@@ -1,0 +1,19 @@
+/* 19.0.1.129.43: the DistriNeuquén design system's token values over dn.css
+   («Sistema de diseño», kit v2: same class and variable names). Linked right
+   after dn.css only while distri_pedido.ui_v2 is on (controllers/kit.py
+   kit_context css_v2); with the flag off every page keeps dn.css as it was.
+   Only the contrast fixes the system documents, safe on every kit screen:
+   - input, filter and secondary-button borders #7d8da2 (3:1; was #b9c6d6, 1.7:1);
+   - links and text buttons in the deep turquoise #007868 (5:1 on the page);
+   - focus ring navy on light backgrounds, mint on the navy bars;
+   - a disabled button is readable (tint + muted text, not white on grey);
+   - the small button (44 px) gets the system's padding and weight. */
+:root{--dn-input:#7d8da2;--dn-link:#007868;--dn-focus:var(--dn-navy)}
+.dn-top :focus-visible,.dn-appbar :focus-visible,.dn-kpi--hero :focus-visible,.head :focus-visible,
+.dn-aj__head :focus-visible{outline-color:var(--dn-mint)}
+.dn-input::placeholder,.inp::placeholder{color:var(--dn-muted);opacity:1}
+.dn-input:focus{box-shadow:inset 0 0 0 1px var(--dn-primary)}
+.dn-btn:disabled,.dn-btn[aria-disabled=true]{background:var(--dn-tint);color:var(--dn-muted);
+  box-shadow:inset 0 0 0 1px var(--dn-line)}
+.btn:disabled{background:var(--dn-tint);border-color:var(--dn-line);color:var(--dn-muted)}
+.dn-btn--sm{padding:8px 14px;font-weight:700}

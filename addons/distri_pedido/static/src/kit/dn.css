@@ -4,7 +4,15 @@
    bits in a separate cached file (e.g. ../armado/armado.css).
    Rules: turquoise is a fill-only accent (never text, never white on it);
    buttons and links use --dn-primary; inputs are 16px or more (iOS zoom);
-   touch targets 48px (44px inline secondary). */
+   touch targets 48px (44px inline secondary).
+   19.0.1.129.43: the DistriNeuquén design system («Sistema de diseño», kit
+   v2) keeps these class and variable names. Its token values (darker input
+   border, link and focus ring colours, readable disabled button) live in
+   dn-v2.css, linked after this file only while distri_pedido.ui_v2 is on;
+   here the new tokens default to today's look (--dn-link = primary,
+   --dn-focus = mint). New here: the ScreenHeader pieces (.dn-top__action,
+   .dn-icon-btn--line + __dot, the ⋯ menu .dn-menu) and .dn-btn--secondary,
+   classes no screen used before. */
 
 @font-face{font-family:"Figtree";font-style:normal;font-display:swap;font-weight:300 900;
   src:url("/distri_tema/static/src/fonts/figtree-latin-wght-normal.woff2") format("woff2");
@@ -21,6 +29,8 @@
   --dn-green-text:#00675a;--dn-green-bg:#e3f4ef;--dn-info-bg:#e6ebf2;
   --dn-bg:#f4f6f8;--dn-card:#fff;--dn-ink:#14233a;--dn-muted:#5b6b80;--dn-line:#dde3ec;
   --dn-input:#b9c6d6;--dn-tint:#eef2f6;--dn-off:#9fb1aa;--dn-on-navy:#c9d4e3;
+  --dn-link:var(--dn-primary);--dn-focus:var(--dn-mint);--dn-on-primary:#fff;--dn-red-line:#eeb2aa;
+  --dn-scrim:rgba(16,36,63,.5);--dn-shadow-pop:0 6px 20px rgba(16,36,63,.25);
   --dn-r:12px;--dn-shadow:0 2px 8px rgba(16,36,63,.12);
   --dn-safe-b:env(safe-area-inset-bottom,0px);
   /* legacy names (distri_ui.css), so app.css, despacho.css and cuentas_app.css
@@ -40,8 +50,8 @@ html,body{margin:0;background:var(--dn-bg)}
 body{font-family:Figtree,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--dn-ink);
   font-size:16px;line-height:1.35;-webkit-text-size-adjust:100%}
 button,input,textarea,select{font:inherit;color:inherit}
-a{color:var(--dn-primary)}
-:focus-visible{outline:3px solid var(--dn-mint);outline-offset:2px}
+a{color:var(--dn-link)}
+:focus-visible{outline:3px solid var(--dn-focus);outline-offset:2px}
 [hidden]{display:none!important}
 .dn-num{font-variant-numeric:tabular-nums}
 .dn-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -58,9 +68,28 @@ a{color:var(--dn-primary)}
 .dn-top__sub{font-size:14px;color:var(--dn-on-navy)}
 .dn-top__mark{width:36px;height:36px;flex:none;margin-left:4px;border-radius:9px;box-shadow:0 0 0 1px rgba(255,255,255,.18)}
 .dn-top__extra{max-width:1000px;margin:0 auto;padding:0 12px 14px}
-.dn-icon-btn{width:48px;height:48px;flex:none;display:inline-flex;align-items:center;justify-content:center;
+.dn-icon-btn{position:relative;width:48px;height:48px;flex:none;display:inline-flex;align-items:center;justify-content:center;
   border:0;border-radius:var(--dn-r);background:transparent;color:inherit;cursor:pointer;text-decoration:none}
 .dn-top .dn-icon-btn:active{background:var(--dn-navy-2)}
+/* 19.0.1.129.43 ScreenHeader: at most one action (a turquoise pill on the
+   navy bar), the ⋯ menu and Ajustes as a gear icon; an outlined icon button
+   on light backgrounds (filters) with a count dot */
+.dn-top__action{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:44px;padding:0 14px;border:0;
+  border-radius:999px;background:var(--dn-turq);color:var(--dn-navy);font-size:15px;font-weight:800;
+  text-decoration:none;cursor:pointer}
+.dn-icon-btn--line{background:var(--dn-card);border:1px solid var(--dn-input);color:var(--dn-navy)}
+.dn-icon-btn--line:active{background:var(--dn-tint)}
+.dn-icon-btn__dot{position:absolute;top:6px;right:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;
+  background:var(--dn-navy);color:#fff;font-size:11px;font-weight:800;font-style:normal;display:flex;
+  align-items:center;justify-content:center}
+.dn-menu{min-width:240px;padding:6px;display:flex;flex-direction:column;background:var(--dn-card);color:var(--dn-ink);
+  border:1px solid var(--dn-line);border-radius:var(--dn-r);box-shadow:var(--dn-shadow-pop)}
+.dn-menu__item{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px;border:0;border-radius:8px;
+  background:none;color:var(--dn-ink);font-size:16px;font-weight:600;text-align:left;text-decoration:none;cursor:pointer}
+.dn-menu__item:hover,.dn-menu__item:active{background:var(--dn-tint)}
+.dn-menu__item>svg{flex:none;color:var(--dn-muted)}
+.dn-menu__item--danger,.dn-menu__item--danger>svg{color:var(--dn-red-text)}
+.dn-menu__sep{height:1px;margin:6px 0;background:var(--dn-line)}
 
 /* progress */
 .dn-progress{height:8px;border-radius:4px;background:var(--dn-navy-2);overflow:hidden}
@@ -85,6 +114,9 @@ a.dn-card:active{background:var(--dn-tint)}
 .dn-btn:active{background:var(--dn-primary-press)}
 .dn-btn:disabled,.dn-btn[aria-disabled=true]{background:var(--dn-off);color:#fff;cursor:default}
 .dn-btn--lg{min-height:56px}
+/* 19.0.1.129.43: the system's secondary button (the alternative, «Limpiar») */
+.dn-btn--secondary{background:var(--dn-card);color:var(--dn-navy);border:1px solid var(--dn-input);font-weight:700}
+.dn-btn--secondary:active{background:var(--dn-tint)}
 .dn-btn--ghost{background:#fff;color:var(--dn-navy);border:1px solid var(--dn-line);font-weight:700}
 .dn-btn--ghost:active{background:var(--dn-tint)}
 .dn-btn--outline{background:#fff;color:var(--dn-navy);border:2px solid var(--dn-navy)}
@@ -112,7 +144,7 @@ a.dn-card:active{background:var(--dn-tint)}
 .dn-legado .btn:not(.outline):not(.ghost):not(.red):not(.wa):not(.teal):not(:disabled):active{
   background:var(--dn-primary-press)}
 .dn-link{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;border:0;background:none;
-  color:var(--dn-primary);font-weight:700;cursor:pointer;text-decoration:none}
+  color:var(--dn-link);font-weight:700;cursor:pointer;text-decoration:none}
 
 /* stepper */
 .dn-step{display:inline-flex;align-items:center;gap:4px}
@@ -199,7 +231,7 @@ body.dn-has-foot #dn-toast{--dn-toast-b:160px}
   box-shadow:0 -6px 24px rgba(16,36,63,.2);animation:dn-up .2s ease-out}
 .dn-js .dn-sheet.open::before{content:"";align-self:center;width:40px;height:4px;border-radius:2px;
   background:var(--dn-input);margin-bottom:4px}
-.dn-scrim{position:fixed;inset:0;z-index:30;background:rgba(16,36,63,.5)}
+.dn-scrim{position:fixed;inset:0;z-index:30;background:var(--dn-scrim)}
 @keyframes dn-up{from{transform:translateY(40px);opacity:.4}}
 
 /* ---------------------------------------------------------------- legacy
@@ -231,7 +263,7 @@ body.dn-has-foot #dn-toast{--dn-toast-b:160px}
 .btn.teal{background:var(--dn-primary)}
 .btn.outline{background:#fff;color:var(--dn-navy);border:2px solid var(--dn-navy);font-size:17px}
 .btn:disabled{background:var(--dn-off);border-color:var(--dn-off);color:#fff;cursor:default}
-.link{display:inline-flex;align-items:center;min-height:44px;background:none;border:0;padding:0;color:var(--dn-primary);
+.link{display:inline-flex;align-items:center;min-height:44px;background:none;border:0;padding:0;color:var(--dn-link);
   font-size:15px;font-weight:700;cursor:pointer;text-align:left}
 .link.red{color:var(--dn-red-text)}
 .inp{border:1px solid var(--dn-input);border-radius:10px;padding:10px 12px;min-height:48px;background:#fff;font-size:16px;width:100%}

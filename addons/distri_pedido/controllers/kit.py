@@ -55,6 +55,8 @@ _SRC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src")
 # published name -> (path under static/src, content type)
 FILES = {
     "dn.css": ("kit/dn.css", "text/css; charset=utf-8"),
+    # 19.0.1.129.43: the design system's token values, only with ui_v2 on
+    "dn-v2.css": ("kit/dn-v2.css", "text/css; charset=utf-8"),
     "dn.js": ("kit/dn.js", "text/javascript; charset=utf-8"),
     "dn-icons.svg": ("kit/dn-icons.svg", "image/svg+xml; charset=utf-8"),
     "armado.css": ("armado/armado.css", "text/css; charset=utf-8"),
@@ -161,6 +163,10 @@ def kit_context(*page_files):
     version = kit_version()
     dn = {
         "css": kit_url("dn.css", version),
+        # 19.0.1.129.43: the DistriNeuquén design system's tokens (contrast of
+        # inputs, links, focus ring and disabled buttons) over dn.css, only
+        # while distri_pedido.ui_v2 is on; off, the pages are as before
+        "css_v2": kit_url("dn-v2.css", version) if _ui_v2_request() else "",
         "js": kit_url("dn.js", version),
         "icons": kit_url("dn-icons.svg", version),
         "font": (fonts() or [""])[0],
@@ -281,6 +287,14 @@ SCREEN_LEVELS = {
                  "#gasto": "#visitas", "#cierre": "#visitas", "#rechazos": "#visitas",
                  "#rutas": "", "#orden": "#carga"},
 }
+
+
+def _ui_v2_request():
+    """ui_v2_on() for the current HTTP request; False outside one."""
+    try:
+        return bool(request) and ui_v2_on(request.env)
+    except RuntimeError:
+        return False
 
 
 def ui_v2_on(env):

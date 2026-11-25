@@ -18,6 +18,7 @@
   <t t-if="ui_v2">
     <link t-if="dn['font']" rel="preload" as="font" type="font/woff2" crossorigin="anonymous" t-att-href="dn['font']"/>
     <link rel="stylesheet" t-att-href="dn['css']"/>
+    <link t-if="dn.get('css_v2')" rel="stylesheet" t-att-href="dn['css_v2']"/>
   </t>
   <link t-else="" rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
   <link rel="stylesheet" t-att-href="static + 'despacho.css?v=' + version"/>
