@@ -134,7 +134,7 @@ class TestDiseno3b(RepartoMixin, HttpCase):
                     self.assertIn('class="dn-legado dn-legado--nav"', text, (user.login, path))
                     self.assertIsNotNone(match, (user.login, path))
                     self.assertEqual(HREF_RE.findall(match.group(0)), expected, (user.login, path))
-                    self.assertIn('data-side=""', match.group(0), "siblings replace the page")
+                    self.assertNotIn("sin_historial", text, "the app keeps its own history")
                 else:
                     self.assertIsNone(match)
                 seen.add((path, user.login))
