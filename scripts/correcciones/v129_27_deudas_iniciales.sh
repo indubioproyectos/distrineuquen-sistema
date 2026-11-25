@@ -12,9 +12,12 @@
 # It asserts the customers' receivable total, the employees' partners left
 # out, is unchanged. The owner confirms the counterpart and the date first.
 # Needs 19.0.1.129.27 deployed on that database.
-#   scripts/correcciones/v129_27_deudas_iniciales.sh [base] [opciones]          dry run: prints, writes nothing
-#   scripts/correcciones/v129_27_deudas_iniciales.sh [base] [opciones] --apply  books and commits
+# 19.0.1.129.32: the base is required (it used to default to production) and
+# distri_lab (production) is refused unless --produccion is given on purpose.
+#   scripts/correcciones/v129_27_deudas_iniciales.sh <base> [opciones]          dry run: prints, writes nothing
+#   scripts/correcciones/v129_27_deudas_iniciales.sh <base> [opciones] --apply  books and commits
 # Options:
+#   --produccion             needed for distri_lab (only on the owner's order)
 #   --date=AAAA-MM-DD        date of the entries (default: today)
 #   --counterpart=CODE       counterpart account code (default: «Diferencias de caja»)
 #   --journal=CODE           general journal code (default: the first general journal)
@@ -22,10 +25,11 @@
 # The base distri_practica runs in the practice environment
 # (practica/comun.sh odoo_run); any other one through scripts/l10n_ar/lab.sh.
 set -euo pipefail
-DB=distri_lab APPLY=0 DATE="" COUNTERPART="" JOURNAL="" CASES=""
+DB="" APPLY=0 PROD=0 DATE="" COUNTERPART="" JOURNAL="" CASES=""
 for a in "$@"; do
   case $a in
     --apply) APPLY=1 ;;
+    --produccion) PROD=1 ;;
     --date=*) DATE=${a#--date=} ;;
     --counterpart=*) COUNTERPART=${a#--counterpart=} ;;
     --journal=*) JOURNAL=${a#--journal=} ;;
@@ -34,6 +38,12 @@ for a in "$@"; do
     *) DB=$a ;;
   esac
 done
+[[ -n "$DB" ]] || { echo "usage: $0 <base> [--apply] [--produccion] [opciones]" >&2; exit 2; }
+[[ "$DB" =~ ^[A-Za-z0-9_]+$ ]] || { echo "bad base name $DB" >&2; exit 2; }
+if [[ "$DB" == distri_lab && $PROD -ne 1 ]]; then
+  echo "distri_lab is production: pass --produccion only on the owner's order" >&2
+  exit 1
+fi
 [[ -z "$DATE" || "$DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "bad --date $DATE" >&2; exit 2; }
 [[ "$COUNTERPART$JOURNAL" =~ ^[A-Za-z0-9.]*$ ]] || { echo "bad account or journal code" >&2; exit 2; }
 [[ "$CASES" =~ ^[0-9,]*$ ]] || { echo "bad --cases $CASES" >&2; exit 2; }

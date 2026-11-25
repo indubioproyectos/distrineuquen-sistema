@@ -43,8 +43,11 @@ version = tuple(int(x) for x in (module.latest_version or "0").split("."))
 assert module.state == "installed" and version >= (19, 0, 1, 129, 31), (
     "distri_pedido %s %s: deploy 19.0.1.129.31 first" % (module.state, module.latest_version))
 params = env["ir.config_parameter"].sudo()
+was_on = verificacion_on(env)
 params.set_param(PARAM_VERIFICACION, "$VALUE")
-if "$VALUE" == "1" and not params.get_param(PARAM_SINCE):
+# 19.0.1.129.32: every switch from off to on starts a new cut, so receipts
+# that arrived while it was off are never credited by themselves
+if "$VALUE" == "1" and (not was_on or not params.get_param(PARAM_SINCE)):
     params.set_param(PARAM_SINCE, fields.Datetime.to_string(fields.Datetime.now()))
 env.cr.commit()
 if hasattr(env.registry, "signal_changes"):
