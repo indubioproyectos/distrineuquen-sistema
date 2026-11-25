@@ -139,6 +139,9 @@
       </div>
     </div>
     <script defer="defer" t-att-src="aj_urls.get('js')"/>
+    <!-- 19.0.1.129.40: the phone keyboard closes after Enter or a choice
+         (static/src/kit/teclado.js), on every page that has the gear -->
+    <script t-if="aj_urls.get('teclado')" defer="defer" t-att-src="aj_urls.get('teclado')"/>
   </template>
 
   <!-- One icon of the sprite: t-call with i = the symbol id. -->

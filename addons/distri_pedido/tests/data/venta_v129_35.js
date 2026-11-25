@@ -135,7 +135,9 @@ async function nv() {
   const window = { DN, location: { assign: (u) => { assigned = u; } } };
   const document = {
     getElementById: el,
-    body: { getAttribute: (n) => ({ "data-uid": "7", "data-wa-requerido": "0" })[n] || null },
+    // 19.0.1.129.40: the question only stops the sale while the WhatsApp is
+    // required (production); tests/data/venta_v129_40.js has the other case
+    body: { getAttribute: (n) => ({ "data-uid": "7", "data-wa-requerido": "1" })[n] || null },
   };
   class FormData { constructor(f) { this.form = f; } }
   const code = read("static/src/nueva_venta/nueva_venta.js");

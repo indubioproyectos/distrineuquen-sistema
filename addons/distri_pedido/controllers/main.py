@@ -18,6 +18,9 @@ from odoo.http import request
 from .proyecto import project_strip, staff_only
 
 _logger = logging.getLogger(__name__)
+# 19.0.1.129.40: context key «Nueva venta» sets before calling enviar() for a
+# customer on file (see _datos_faltantes)
+CTX_DATOS_DE_LA_FICHA = "distri_nv_datos_de_la_ficha"
 
 # Mercado Pago ids are plain integers; anything else is rejected outright.
 MP_ID = re.compile(r"^\d{1,20}$")
@@ -815,8 +818,23 @@ class TomaDePedidos(http.Controller):
             "presupuestar": self._cigarrillos_a_presupuestar(),
             # 19.0.1.92.0: before sending (models/sale_order.py STOCK_NOTICE)
             "leyenda_stock": request.env["sale.order"]._distri_stock_notice(),
+            # 19.0.1.129.40: the cart kept on the device for a new order
+            # (static/src/js/pedido_borrador.js), per user and price list
+            **self._contexto_borrador(pedido),
             **self._contexto_ui_v2(),
         }
+
+    def _contexto_borrador(self, pedido):
+        """19.0.1.129.40: the key of the device draft of a new order (who
+        and which price list, so a visitor never gets a logged-in cart nor
+        another list's) and its script; nothing while changing an order."""
+        if pedido:
+            return {"borrador_clave": "", "borrador_js": ""}
+        from .kit import kit_url
+        usuario = request.env.user
+        quien = "visitante" if usuario._is_public() else str(usuario.id)
+        return {"borrador_clave": "%s:%s" % (quien, self._lista_del_visitante().id or 0),
+                "borrador_js": kit_url("pedido_borrador.js")}
 
     def _contexto_ui_v2(self):
         """19.0.1.129.29: /pedido with the kit's look while distri_pedido.ui_v2
@@ -1543,19 +1561,21 @@ class TomaDePedidos(http.Controller):
             "WhatsApp y lo cargamos nosotros." % (self._plata(total), self._plata(tope)))
 
     @staticmethod
-    def _datos_faltantes(nombre, telefono, domicilio, entrega, encomienda):
+    def _datos_faltantes(nombre, telefono, domicilio, entrega, encomienda, ficha=False):
         """The page's own required fields (templates.xml, submit of #frm),
         now also checked on the server (19.0.1.96.0, audit F1): name and
         phone always; the address for a home delivery that is not a parcel
         (a parcel has its own fields, _datos_encomienda). Returns the
-        message, or "" when nothing is missing."""
+        message, or "" when nothing is missing. 19.0.1.129.40: `ficha` = a
+        customer on file picked by staff in «Nueva venta»: his record is
+        the contact, so neither the phone nor the address is required."""
         faltan = []
         if not nombre:
             faltan.append("el nombre del comercio")
-        if not telefono:
+        if not telefono and not ficha:
             faltan.append("un teléfono de contacto")
         if (entrega == "domicilio" and not encomienda.get("distri_encomienda_pedida")
-                and not domicilio):
+                and not domicilio and not ficha):
             faltan.append("el domicilio de entrega")
         if not faltan:
             return ""
@@ -1775,12 +1795,21 @@ class TomaDePedidos(http.Controller):
         # 19.0.1.96.0 (audit F1): the page's own required fields, checked
         # here too (a form posted outside the page skipped them), and a cap
         # on the total of the public page
-        faltan = self._datos_faltantes(nombre, telefono, domicilio, entrega, encomienda)
+        # 19.0.1.129.40 (owner): «Nueva venta» with a customer on file sends
+        # his order with what his record has; the phone and the address are
+        # not asked again (controllers/nueva_venta.py sets the context, never
+        # the post, so the public page keeps every check)
+        ficha = bool(cliente) and personal and bool(request.env.context.get(CTX_DATOS_DE_LA_FICHA))
+        faltan = self._datos_faltantes(nombre, telefono, domicilio, entrega, encomienda,
+                                       ficha=ficha)
         if faltan:
             return self._error_volver(faltan)
         # 19.0.1.102.0: the typed phone, checked and stored as +549 + 10 digits
-        telefono, telefono_visto, error_telefono = self._telefono_revisado(
-            telefono, cliente, pedido)
+        if ficha and not telefono:
+            telefono_visto, error_telefono = "", ""
+        else:
+            telefono, telefono_visto, error_telefono = self._telefono_revisado(
+                telefono, cliente, pedido)
         if error_telefono:
             return self._error_volver(error_telefono)
         demasiado = self._error_total_maximo(total)

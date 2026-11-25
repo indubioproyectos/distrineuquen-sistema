@@ -8,7 +8,16 @@
  * «Nombre y apellido» and «Registrar la ubicación (GPS)» (#56), «Va por
  * encomienda», and the draft kept on the phone (#59): customer, cart, exit
  * and answers go to localStorage on every change and are offered back
- * («Seguir» / «Descartar») until the sale is loaded. */
+ * («Seguir» / «Descartar») until the sale is loaded.
+ *
+ * 19.0.1.129.40 («más rápida»): picking a customer is enough (his data are
+ * in «Datos del cliente», a sheet, and «Ver ficha»; «+ Nuevo cliente» next to
+ * the search); the WhatsApp question only at an exit that confirms;
+ * «Elegir productos» opens /pedido's catalog on the whole screen
+ * (/nueva-venta/productos, nueva_venta_productos.js), which writes the cart
+ * into the draft and comes back here (?volver=1): the draft is then taken
+ * up without asking, at the exit step. Tapping a product found in the
+ * search adds it (or finds its line) and puts the cursor in its quantity. */
 (function () {
   'use strict';
   var DN = window.DN;
@@ -29,6 +38,8 @@
   var CAMPOS = ['entrega', 'telefono', 'domicilio', 'comentario', 'nota_deposito', 'fecha', 'motivo',
     'contacto', 'wa_area', 'wa_numero', 'enc_nombre', 'enc_dni', 'enc_localidad'];
   var restaurando = false;
+  var datos = null;   // the picked customer as /nueva-venta/catalogo sent it
+  var VOLVER = 'dn:nv:volver';
 
   function plata(n) {
     return '$ ' + Math.round(n).toLocaleString('es-AR');
@@ -55,6 +66,21 @@
     try { localStorage.removeItem(KEY); } catch (e) { /* private mode */ }
   }
 
+  // 19.0.1.129.40: back from the picker or the customer screen
+  function marcarVuelta() {
+    try { sessionStorage.setItem(VOLVER, '1'); } catch (e) { /* private mode */ }
+  }
+  function esVuelta() {
+    var url = (window.location && window.location.search) || '';
+    var flag = false;
+    try { flag = sessionStorage.getItem(VOLVER) === '1'; sessionStorage.removeItem(VOLVER); } catch (e) {
+      /* private mode */ }
+    if (/[?&]volver=/.test(url) && window.history && history.replaceState) {
+      try { history.replaceState(history.state, '', window.location.pathname); } catch (e) { /* old */ }
+    }
+    return flag || /[?&]volver=/.test(url);
+  }
+
   function guardarBorrador() {
     if (restaurando || !cliente) { return; }
     var campos = {};
@@ -67,6 +93,12 @@
   function ofrecerBorrador() {
     var b = leerBorrador();
     if (!b) { return; }
+    if (esVuelta()) {
+      // 19.0.1.129.40: coming back from «Elegir productos» or the customer
+      // screen: the same sale goes on, nothing to ask
+      elegirCliente(b.cliente, b);
+      return;
+    }
     var n = Object.keys(b.carrito || {}).length;
     $('nv-borrador-txt').textContent = 'Tenés una venta sin terminar: ' + b.cliente.nombre +
       (n ? ', ' + n + (n === 1 ? ' producto' : ' productos') : '') + '.';
@@ -97,6 +129,9 @@
     restaurando = false;
     encomienda();
     pintarCarrito();
+    if (b.paso === 'salida' && $('nv-paso-salida').scrollIntoView) {
+      $('nv-paso-salida').scrollIntoView({block: 'start'});
+    }
   }
 
   // ------------------------------------------------------------ customer
@@ -130,17 +165,10 @@
       }
       cliente = {id: c.id, nombre: c.nombre};
       $('nv-cliente-id').value = c.id;
-      $('nv-cliente-nombre').textContent = c.nombre;
-      $('nv-cliente-meta').textContent = [c.domicilio, c.whatsapp].filter(Boolean).join(' · ');
-      $('nv-lista').textContent = c.lista ? '· precios de ' + c.lista : '';
-      $('nv-telefono').value = c.whatsapp || '';
-      $('nv-domicilio').value = c.domicilio || '';
+      pintarCliente(c);
       $('nv-elegido').hidden = false;
       $('nv-buscar-cliente').hidden = true;
       $('nv-cliente-extra').hidden = false;
-      $('nv-cuenta').hidden = !c.cuenta;
-      if (c.cuenta) { $('nv-cuenta').href = c.cuenta; }
-      $('nv-wa').hidden = !c.sin_whatsapp;
       if (c.sin_whatsapp && !$('nv-wa-area').value && !$('nv-wa-numero').value) {
         $('nv-wa-area').value = c.wa_area || '';
         $('nv-wa-numero').value = c.wa_numero || '';
@@ -157,6 +185,25 @@
       pintarProductos();
       pintarCarrito();
     }).catch(function (e) { error(e.message); });
+  }
+
+  // what the screen shows of him (also after «Datos del cliente»)
+  function pintarCliente(c) {
+    datos = c;
+    $('nv-cliente-nombre').textContent = c.nombre;
+    $('nv-cliente-meta').textContent = [c.domicilio, c.whatsapp].filter(Boolean).join(' · ');
+    $('nv-lista').textContent = c.lista ? '· precios de ' + c.lista : '';
+    $('nv-telefono').value = c.whatsapp || '';
+    $('nv-domicilio').value = c.domicilio || '';
+    $('nv-entrega-resumen').textContent = [c.domicilio, c.whatsapp].filter(Boolean).join(' · ') ||
+      '(su ficha no tiene domicilio ni teléfono)';
+    $('nv-cuenta').hidden = !c.cuenta;
+    if (c.cuenta) { $('nv-cuenta').href = c.cuenta; }
+    $('nv-cliente-acc').hidden = false;
+    $('nv-ficha').hidden = !c.ficha;
+    if (c.ficha) { $('nv-ficha').href = c.ficha; }
+    $('nv-elegir').href = '/nueva-venta/productos?cliente_id=' + encodeURIComponent(c.id);
+    listo();
   }
 
   // #59 «Repetir»: the lines of one of his last orders replace the cart
@@ -208,13 +255,15 @@
   function fila(p, enCarrito) {
     var n = carrito[p.id] || 0;
     return '<div class="nv-prod' + (n ? ' on' : '') + '" data-id="' + p.id + '">' +
-      '<span class="nv-prod__txt"><b>' + h(p.nombre) + '</b><small>' +
+      '<span class="nv-prod__txt"' + (enCarrito ? '' : ' data-elige="1" role="button" tabindex="0"') +
+      '><b>' + h(p.nombre) + '</b><small>' +
       h([p.unidad + (p.contiene ? ' x ' + p.contiene : ''),
          p.precio_texto ? '$ ' + p.precio_texto : 'precio a confirmar'].join(' · ')) +
       (enCarrito ? '' : (p.seccion ? ' · ' + h(p.seccion) : '')) + '</small></span>' +
       '<span class="nv-qty">' +
       '<button type="button" class="dn-icon-btn" data-d="-1" aria-label="Uno menos">−</button>' +
-      '<input class="dn-input dn-num" inputmode="numeric" aria-label="Cantidad" value="' + (n || '') + '"/>' +
+      '<input class="dn-input dn-num" inputmode="numeric" enterkeyhint="done" aria-label="Cantidad" value="' +
+      (n || '') + '"/>' +
       '<button type="button" class="dn-icon-btn" data-d="1" aria-label="Uno más">+</button></span></div>';
   }
 
@@ -258,7 +307,23 @@
     var id = row.dataset.id;
     var btn = ev.target.closest('button[data-d]');
     if (btn && ev.type === 'click') { cambiar(id, (carrito[id] || 0) + (+btn.dataset.d)); }
+    if (!btn && ev.type === 'click' && ev.target.closest('[data-elige]')) { elegirProducto(id); }
     if (ev.type === 'change' && ev.target.tagName === 'INPUT') { cambiar(id, ev.target.value); }
+  }
+  // 19.0.1.129.40: a product found in the search: in the cart once (the
+  // same product again finds its line), the search cleared and the cursor
+  // in its quantity, ready to type it
+  function elegirProducto(id) {
+    if (!porId[id]) { return; }
+    if (!carrito[id]) { carrito[id] = 1; }
+    $('nv-q-prod').value = '';
+    pintarCarrito();
+    pintarProductos();
+    var row = DN.$('#nv-carrito .nv-prod[data-id="' + id + '"] input');
+    if (row) {
+      row.focus();
+      if (row.select) { row.select(); }
+    }
   }
   ['nv-productos', 'nv-carrito'].forEach(function (id) {
     $(id).addEventListener('click', enLista);
@@ -277,6 +342,8 @@
     DN.$$('[data-nv-para]', form).forEach(function (el) {
       el.hidden = el.dataset.nvPara.split(' ').indexOf(s) === -1;
     });
+    // 19.0.1.129.40: «¿Cuál es el WhatsApp?» only at an exit that confirms
+    $('nv-wa').hidden = !(datos && datos.sin_whatsapp && s && s !== 'presupuesto');
     var hay = $('nv-renglones').value !== '[]';
     $('nv-ok').disabled = !(s && hay && $('nv-cliente-id').value);
     $('nv-ok').textContent = {
@@ -304,10 +371,11 @@
   $('nv-fecha').value = iso;
   $('nv-fecha').max = iso;
 
+  // 19.0.1.129.40: needed only while distri_pedido.pedido_requiere_whatsapp is on
   function faltaWhatsapp() {
     if ($('nv-wa').hidden || salida() === 'presupuesto') { return false; }
-    if ($('nv-wa-area').value.trim() || $('nv-wa-numero').value.trim()) { return false; }
-    return !($('nv-sin-wa') && $('nv-sin-wa').checked);
+    if (document.body.getAttribute('data-wa-requerido') !== '1') { return false; }
+    return !($('nv-wa-area').value.trim() || $('nv-wa-numero').value.trim());
   }
 
   form.addEventListener('submit', function (ev) {
@@ -318,9 +386,7 @@
       return;
     }
     if (faltaWhatsapp()) {
-      error(document.body.getAttribute('data-wa-requerido') === '1'
-        ? 'El cliente no tiene WhatsApp: poné el código de área y el número.'
-        : 'El cliente no tiene WhatsApp: poné el código de área y el número, o marcá «No tiene WhatsApp».');
+      error('El cliente no tiene WhatsApp y hace falta para confirmar: poné el código de área y el número.');
       $('nv-wa-area').focus();
       return;
     }
@@ -366,6 +432,104 @@
     });
   }
 
+  // ------------------------------------------------------------ customer data (129.40)
+
+  function hojaDe(id) {
+    var el = $(id);
+    if (!el || !DN.sheet) { return null; }
+    var hoja = DN.sheet(el);
+    DN.$$('[data-dn-close]', el).forEach(function (b) { b.addEventListener('click', hoja.close); });
+    return hoja;
+  }
+  var hojaDatos = hojaDe('nv-datos');
+  var hojaNuevo = hojaDe('nv-nuevo');
+
+  $('nv-datos-abrir').addEventListener('click', function () {
+    if (!datos || !hojaDatos) { return; }
+    $('nv-datos-nombre').textContent = datos.nombre;
+    $('nv-d-area').value = '';
+    $('nv-d-numero').value = '';
+    $('nv-d-wa-actual').textContent = datos.whatsapp ? 'WhatsApp actual: ' + datos.whatsapp +
+      '. Poné otro solo si cambió.' : 'No tiene WhatsApp cargado.';
+    $('nv-d-calle').value = datos.calle || '';
+    $('nv-d-ciudad').value = datos.ciudad || '';
+    $('nv-datos-aviso').textContent = '';
+    hojaDatos.open();
+  });
+  $('nv-datos-guardar').addEventListener('click', function () {
+    if (!datos) { return; }
+    var btn = $('nv-datos-guardar');
+    btn.disabled = true;
+    DN.api('/nueva-venta/cliente/' + datos.id, {body: {
+      wa_area: $('nv-d-area').value, wa_numero: $('nv-d-numero').value,
+      calle: $('nv-d-calle').value, ciudad: $('nv-d-ciudad').value}}).then(function (r) {
+      btn.disabled = false;
+      pintarCliente(r.cliente);
+      if (!r.cliente.sin_whatsapp) { $('nv-wa-area').value = ''; $('nv-wa-numero').value = ''; }
+      hojaDatos.close();
+      DN.toast('Listo: se guardaron los datos del cliente.', 'ok');
+    }).catch(function (e) {
+      btn.disabled = false;
+      $('nv-datos-aviso').textContent = e.message;
+    });
+  });
+  // leaving for the customer screen or the picker: the draft goes on when back
+  $('nv-ficha').addEventListener('click', function () { guardarBorrador(); marcarVuelta(); });
+  $('nv-elegir').addEventListener('click', function () { guardarBorrador(); marcarVuelta(); });
+
+  var nuevoOk = false;
+  function nuevoReset() {
+    nuevoOk = false;
+    $('nv-parecidos').hidden = true;
+    $('nv-parecidos').innerHTML = '';
+    $('nv-nuevo-crear').textContent = 'Crear y elegir';
+    $('nv-nuevo-aviso').textContent = '';
+  }
+  $('nv-nuevo-abrir').addEventListener('click', function () {
+    if (!hojaNuevo) { return; }
+    nuevoReset();
+    ['nv-n-area', 'nv-n-numero', 'nv-n-calle', 'nv-n-ciudad'].forEach(function (id) { $(id).value = ''; });
+    // what was searched is most likely the name
+    $('nv-n-nombre').value = $('nv-q-cliente').value.trim();
+    hojaNuevo.open();
+  });
+  ['nv-n-nombre', 'nv-n-area', 'nv-n-numero'].forEach(function (id) {
+    $(id).addEventListener('input', nuevoReset);
+  });
+  $('nv-parecidos').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button[data-cli]');
+    if (!b) { return; }
+    hojaNuevo.close();
+    elegirCliente({id: +b.dataset.cli});
+  });
+  $('nv-nuevo-crear').addEventListener('click', function () {
+    var btn = $('nv-nuevo-crear');
+    btn.disabled = true;
+    DN.api('/nueva-venta/cliente', {body: {
+      nombre: $('nv-n-nombre').value, wa_area: $('nv-n-area').value, wa_numero: $('nv-n-numero').value,
+      calle: $('nv-n-calle').value, ciudad: $('nv-n-ciudad').value, nuevo_ok: nuevoOk ? '1' : ''}})
+      .then(function (r) {
+        btn.disabled = false;
+        if (r.parecidos) {
+          $('nv-parecidos').innerHTML = '<p class="nv-meta"><b>Puede que ya esté cargado.</b> Si es uno de ' +
+            'estos, elegilo:</p>' + r.parecidos.map(function (p) {
+              return '<button type="button" class="nv-item" data-cli="' + (+p.id) + '"><b>' + h(p.name) +
+                '</b><small>' + h([p.why, p.detail].filter(Boolean).join(' · ')) + '</small></button>';
+            }).join('');
+          $('nv-parecidos').hidden = false;
+          nuevoOk = true;
+          btn.textContent = 'No es ninguno: crear igual';
+          return;
+        }
+        hojaNuevo.close();
+        DN.toast('Listo: se creó ' + r.cliente.nombre + '.', 'ok');
+        elegirCliente(r.cliente);
+      }).catch(function (e) {
+        btn.disabled = false;
+        $('nv-nuevo-aviso').textContent = e.message;
+      });
+  });
+
   // ------------------------------------------------------------ start
 
   $('nv-q-cliente').addEventListener('input', function () {
@@ -377,6 +541,7 @@
     $('nv-cliente-id').value = '';
     $('nv-elegido').hidden = true;
     $('nv-cliente-extra').hidden = true;
+    $('nv-cliente-acc').hidden = true;
     $('nv-buscar-cliente').hidden = false;
     $('nv-q-cliente').focus();
     listo();

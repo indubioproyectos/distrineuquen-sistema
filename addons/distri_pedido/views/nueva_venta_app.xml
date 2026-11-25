@@ -54,31 +54,24 @@
         <span class="nv-elegido__txt"><b id="nv-cliente-nombre"></b><span class="nv-meta" id="nv-cliente-meta"></span></span>
         <button type="button" class="dn-btn dn-btn--ghost nv-btn-sm" id="nv-cambiar">Cambiar</button>
       </div>
+      <!-- 19.0.1.129.40: picking him is enough; his data are one tap away -->
+      <div class="nv-cliente-acc" id="nv-cliente-acc" hidden="hidden">
+        <button type="button" class="dn-btn dn-btn--outline nv-btn-sm" id="nv-datos-abrir">Datos del cliente</button>
+        <a class="dn-btn dn-btn--ghost nv-btn-sm" id="nv-ficha" href="#" hidden="hidden" data-dn="down">Ver ficha</a>
+      </div>
       <!-- 19.0.1.129.35: what the customer step adds once he is picked -->
       <div class="nv-cliente-extra" id="nv-cliente-extra" hidden="hidden">
         <a class="dn-link nv-cuenta" id="nv-cuenta" href="#" hidden="hidden">Ver su estado de cuenta</a>
-        <div class="nv-wa" id="nv-wa" hidden="hidden">
-          <p class="nv-wa__t"><b>El cliente no tiene WhatsApp. ¿Cuál es?</b>
-            <small class="nv-meta">Queda guardado en el cliente.</small></p>
-          <div class="nv-wa__campos">
-            <div class="dn-field"><label for="nv-wa-area">Código de área</label>
-              <input id="nv-wa-area" name="wa_area" class="dn-input dn-num" inputmode="numeric" maxlength="5"
-                     placeholder="299" autocomplete="off"/></div>
-            <div class="dn-field"><label for="nv-wa-numero">Número</label>
-              <input id="nv-wa-numero" name="wa_numero" class="dn-input dn-num" inputmode="numeric" maxlength="12"
-                     placeholder="4222444" autocomplete="off"/></div>
-          </div>
-          <p class="nv-meta">Sin el 0 del código de área ni el 15 del número.</p>
-          <label t-if="not wa_requerido" class="nv-check"><input type="checkbox" name="sin_whatsapp" value="1" id="nv-sin-wa"/>
-            No tiene WhatsApp</label>
-        </div>
         <div class="nv-anteriores" id="nv-anteriores-box" hidden="hidden">
           <h3 class="nv-sub-t">Repetir un pedido anterior</h3>
           <div id="nv-anteriores" class="nv-list"></div>
         </div>
+        <details class="nv-mas" id="nv-mas">
+        <summary>Quién pide y ubicación <small class="nv-meta">(opcional)</small></summary>
         <div class="dn-field">
           <label for="nv-contacto">Nombre y apellido de quien pide <small class="nv-meta">(opcional)</small></label>
-          <input id="nv-contacto" name="contacto" class="dn-input" type="text" maxlength="120" autocomplete="off"/>
+          <input id="nv-contacto" name="contacto" class="dn-input" type="text" maxlength="120" autocomplete="off"
+                 enterkeyhint="done"/>
         </div>
         <div class="nv-gps">
           <button type="button" class="dn-btn dn-btn--outline nv-btn-sm" id="nv-gps">
@@ -88,22 +81,26 @@
           <input type="hidden" name="lng" id="nv-lng" value=""/>
           <input type="hidden" name="precision" id="nv-precision" value=""/>
         </div>
+        </details>
       </div>
       <div id="nv-buscar-cliente">
         <label for="nv-q-cliente" class="dn-sr">Buscar cliente</label>
         <input id="nv-q-cliente" class="dn-input" type="search" maxlength="60" autocomplete="off"
                placeholder="Buscar cliente por nombre, CUIT o WhatsApp" enterkeyhint="search"/>
         <div id="nv-clientes" class="nv-list" aria-live="polite"></div>
+        <button type="button" class="dn-btn dn-btn--outline nv-btn-sm nv-nuevo-abrir" id="nv-nuevo-abrir">+ Nuevo cliente</button>
       </div>
     </section>
 
     <section class="dn-card nv-step" aria-labelledby="nv-t2" id="nv-paso-carrito" hidden="hidden">
       <h2 class="nv-step__t" id="nv-t2"><span class="nv-n">2</span> Productos
         <small class="nv-meta" id="nv-lista"></small></h2>
+      <!-- 19.0.1.129.40: /pedido's catalog on the whole screen, the main way on a phone -->
+      <a class="dn-btn dn-btn--lg nv-elegir" id="nv-elegir" href="/nueva-venta/productos">Elegir productos</a>
       <div class="nv-tools">
         <label for="nv-q-prod" class="dn-sr">Buscar producto</label>
         <input id="nv-q-prod" class="dn-input" type="search" maxlength="60" autocomplete="off"
-               placeholder="Buscar producto" enterkeyhint="search"/>
+               placeholder="O buscá uno acá" enterkeyhint="search"/>
         <button t-if="pegar" type="button" class="dn-btn dn-btn--outline nv-btn-sm" id="nv-pegar-abrir">
           Pegar mensaje de AgilPedido</button>
       </div>
@@ -122,6 +119,23 @@
           <span class="nv-salida__txt"><b t-esc="s[1]"/><small t-esc="s[2]"/></span>
         </label>
       </div>
+      <!-- 19.0.1.129.35 «¿Cuál es el WhatsApp?», since 19.0.1.129.40 only at
+           the exits that confirm: required with pedido_requiere_whatsapp on,
+           optional otherwise -->
+      <div class="nv-wa" id="nv-wa" hidden="hidden">
+        <p class="nv-wa__t"><b t-if="wa_requerido">El cliente no tiene WhatsApp y hace falta para confirmar. ¿Cuál es?</b>
+          <b t-else="">El cliente no tiene WhatsApp. Si lo sabés, ponelo <small class="nv-meta">(opcional)</small></b>
+          <small class="nv-meta">Queda guardado en el cliente.</small></p>
+        <div class="nv-wa__campos">
+          <div class="dn-field"><label for="nv-wa-area">Código de área</label>
+            <input id="nv-wa-area" name="wa_area" class="dn-input dn-num" inputmode="numeric" maxlength="5"
+                   placeholder="299" autocomplete="off" enterkeyhint="next"/></div>
+          <div class="dn-field"><label for="nv-wa-numero">Número</label>
+            <input id="nv-wa-numero" name="wa_numero" class="dn-input dn-num" inputmode="numeric" maxlength="12"
+                   placeholder="4222444" autocomplete="off" enterkeyhint="done"/></div>
+        </div>
+        <p class="nv-meta">Sin el 0 del código de área ni el 15 del número.</p>
+      </div>
       <div class="nv-extra" data-nv-para="armar presupuesto" hidden="hidden">
         <div class="dn-field">
           <label for="nv-entrega">Entrega</label>
@@ -130,22 +144,30 @@
             <option value="retira">Lo retira en el depósito</option>
           </select>
         </div>
-        <div class="dn-field">
-          <label for="nv-telefono">WhatsApp del cliente</label>
-          <input id="nv-telefono" name="telefono" class="dn-input" type="tel" maxlength="40" autocomplete="off"/>
-        </div>
-        <div class="dn-field">
-          <label for="nv-domicilio">Domicilio de entrega</label>
-          <input id="nv-domicilio" name="domicilio" class="dn-input" type="text" maxlength="200" autocomplete="off"/>
-        </div>
-        <div class="dn-field">
-          <label for="nv-comentario">Comentario del pedido</label>
-          <input id="nv-comentario" name="comentario" class="dn-input" type="text" maxlength="500" autocomplete="off"/>
-        </div>
-        <div class="dn-field">
-          <label for="nv-nota">Nota para el depósito</label>
-          <input id="nv-nota" name="nota_deposito" class="dn-input" type="text" maxlength="500" autocomplete="off"/>
-        </div>
+        <!-- 19.0.1.129.40: they come from his record; change them only if needed -->
+        <details class="nv-mas" id="nv-entrega-datos">
+          <summary>Datos de entrega y notas <small class="nv-meta" id="nv-entrega-resumen">(de su ficha)</small></summary>
+          <div class="dn-field">
+            <label for="nv-telefono">Teléfono de contacto <small class="nv-meta">(opcional)</small></label>
+            <input id="nv-telefono" name="telefono" class="dn-input" type="tel" maxlength="40" autocomplete="off"
+                   enterkeyhint="next"/>
+          </div>
+          <div class="dn-field">
+            <label for="nv-domicilio">Domicilio de entrega <small class="nv-meta">(opcional)</small></label>
+            <input id="nv-domicilio" name="domicilio" class="dn-input" type="text" maxlength="200" autocomplete="off"
+                   enterkeyhint="next"/>
+          </div>
+          <div class="dn-field">
+            <label for="nv-comentario">Comentario del pedido</label>
+            <input id="nv-comentario" name="comentario" class="dn-input" type="text" maxlength="500" autocomplete="off"
+                   enterkeyhint="next"/>
+          </div>
+          <div class="dn-field">
+            <label for="nv-nota">Nota para el depósito</label>
+            <input id="nv-nota" name="nota_deposito" class="dn-input" type="text" maxlength="500" autocomplete="off"
+                   enterkeyhint="done"/>
+          </div>
+        </details>
         <!-- 19.0.1.129.35: /pedido's «Soy del interior» (parcel to a terminal) -->
         <label class="nv-check"><input type="checkbox" name="encomienda" value="1" id="nv-encomienda"/>
           Va por encomienda a la terminal</label>
@@ -196,6 +218,53 @@
     <div class="dn-grid2 nv-grid2">
       <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</button>
       <button type="button" class="dn-btn" id="nv-pegar-leer">Leer el mensaje</button>
+    </div>
+  </div>
+  <!-- 19.0.1.129.40: «Datos del cliente» and «Nuevo cliente», on this page
+       (the draft stays as it is) -->
+  <div class="dn-sheet nv-hoja" id="nv-datos" role="dialog" aria-labelledby="nv-datos-t">
+    <h2 id="nv-datos-t">Datos del cliente</h2>
+    <p class="nv-meta" id="nv-datos-nombre"></p>
+    <div class="nv-wa__campos">
+      <div class="dn-field"><label for="nv-d-area">WhatsApp: código de área</label>
+        <input id="nv-d-area" class="dn-input dn-num" inputmode="numeric" maxlength="5" placeholder="299"
+               autocomplete="off" enterkeyhint="next"/></div>
+      <div class="dn-field"><label for="nv-d-numero">Número</label>
+        <input id="nv-d-numero" class="dn-input dn-num" inputmode="numeric" maxlength="12" placeholder="4222444"
+               autocomplete="off" enterkeyhint="next"/></div>
+    </div>
+    <p class="nv-meta" id="nv-d-wa-actual"></p>
+    <div class="dn-field"><label for="nv-d-calle">Domicilio</label>
+      <input id="nv-d-calle" class="dn-input" type="text" maxlength="120" autocomplete="off" enterkeyhint="next"/></div>
+    <div class="dn-field"><label for="nv-d-ciudad">Localidad</label>
+      <input id="nv-d-ciudad" class="dn-input" type="text" maxlength="60" autocomplete="off" enterkeyhint="done"/></div>
+    <p class="nv-meta nv-aviso" id="nv-datos-aviso"></p>
+    <div class="dn-grid2 nv-grid2">
+      <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</button>
+      <button type="button" class="dn-btn" id="nv-datos-guardar">Guardar</button>
+    </div>
+  </div>
+  <div class="dn-sheet nv-hoja" id="nv-nuevo" role="dialog" aria-labelledby="nv-nuevo-t">
+    <h2 id="nv-nuevo-t">Nuevo cliente</h2>
+    <div class="dn-field"><label for="nv-n-nombre">Nombre del comercio o de la persona</label>
+      <input id="nv-n-nombre" class="dn-input" type="text" maxlength="120" autocomplete="off" enterkeyhint="next"/></div>
+    <div class="nv-wa__campos">
+      <div class="dn-field"><label for="nv-n-area">WhatsApp: código de área <small class="nv-meta">(opcional)</small></label>
+        <input id="nv-n-area" class="dn-input dn-num" inputmode="numeric" maxlength="5" placeholder="299"
+               autocomplete="off" enterkeyhint="next"/></div>
+      <div class="dn-field"><label for="nv-n-numero">Número</label>
+        <input id="nv-n-numero" class="dn-input dn-num" inputmode="numeric" maxlength="12" placeholder="4222444"
+               autocomplete="off" enterkeyhint="next"/></div>
+    </div>
+    <div class="dn-field"><label for="nv-n-calle">Domicilio <small class="nv-meta">(opcional)</small></label>
+      <input id="nv-n-calle" class="dn-input" type="text" maxlength="120" autocomplete="off" enterkeyhint="next"/></div>
+    <div class="dn-field"><label for="nv-n-ciudad">Localidad <small class="nv-meta">(opcional)</small></label>
+      <input id="nv-n-ciudad" class="dn-input" type="text" maxlength="60" autocomplete="off" enterkeyhint="done"/></div>
+    <div class="nv-list" id="nv-parecidos" hidden="hidden"></div>
+    <p class="nv-meta nv-aviso" id="nv-nuevo-aviso"></p>
+    <div class="dn-grid2 nv-grid2">
+      <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</button>
+      <button type="button" class="dn-btn" id="nv-nuevo-crear">Crear y elegir</button>
     </div>
   </div>
   <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>

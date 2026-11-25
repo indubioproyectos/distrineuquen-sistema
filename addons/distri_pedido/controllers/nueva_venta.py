@@ -12,6 +12,12 @@ route answers 404 and Inicio has no tile.
                                             (distri.importar.pedido)
         /nueva-venta/crear            POST  the sale with its exit
         /nueva-venta/hecho/<order>    GET   what was done and what follows
+        /nueva-venta/productos        GET   19.0.1.129.40: /pedido's catalog
+                                            screen as a full-screen product
+                                            picker (?cliente_id=)
+        /nueva-venta/cliente          POST  19.0.1.129.40: JSON, «Nuevo cliente»
+        /nueva-venta/cliente/<id>     POST  19.0.1.129.40: JSON, «Datos del
+                                            cliente» (WhatsApp, address)
 
 The customer search is /pedido's own (/pedido/clientes: portfolio first,
 an external seller only his customers). «A armar» and «Presupuesto» post
@@ -39,6 +45,21 @@ Fetch: 1) or the page again.
 The «Distribuidoras» section of /pedido is left out on purpose: the plan
 does not define it for «Nueva venta» and the customer's list already prices
 a distributor.
+
+19.0.1.129.40 («Nueva venta más rápida», owner 25/11; same flag):
+- a customer on file needs nothing else: the phone and the address of the
+  order come from his record (controllers/main.py _datos_faltantes `ficha`),
+  and the WhatsApp is asked only at an exit that confirms while
+  distri_pedido.pedido_requiere_whatsapp is on (with it off, no answer =
+  confirmed without WhatsApp, with the chatter note of 129.35);
+- «Datos del cliente» (WhatsApp, address, town) and «Nuevo cliente» in a
+  sheet of the same page, written as the user (his ACLs and record rules:
+  nothing is widened), so the draft stays as it was;
+- «Elegir productos» opens /pedido's own catalog screen (template
+  distri_pedido.pantalla, its rows, search and steppers) priced with the
+  customer's list; «Confirmar productos» writes the cart into the draft on
+  the phone and goes back to /nueva-venta at the exit step;
+- the same product posted twice is one line with the sum (juntar_renglones).
 """
 import hashlib
 import json
@@ -49,14 +70,15 @@ from urllib.parse import urlencode
 import psycopg2
 from werkzeug.exceptions import Forbidden, NotFound
 
-from odoo import http
+from odoo import fields, http
 from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.http import request
 
 from ..models import nueva_venta as nv
 from ..models.reparto import _money
 from .kit import kit_context, staff_nav
-from .main import MAX_CANTIDAD, MENSAJE_CLIENTE_AJENO, MENSAJE_DISTRIBUIDORA, TomaDePedidos
+from .main import (CTX_DATOS_DE_LA_FICHA, MAX_CANTIDAD, MENSAJE_CLIENTE_AJENO,
+                   MENSAJE_DISTRIBUIDORA, TomaDePedidos)
 from .tablero import wants_tablero
 
 TEMPLATE = "distri_pedido.nueva_venta_page"
@@ -199,6 +221,40 @@ class NuevaVenta(http.Controller):
         from .fichas import Fichas
         return Fichas()._account_link(cliente.sudo().commercial_partner_id)
 
+    def _ficha_url(self, cliente):
+        """19.0.1.129.40: the kit's customer screen (/clientes/<id>, ui_v2),
+        when the user may open it; «Volver» comes back to «Nueva venta»."""
+        from .fichas import Fichas, may_use
+        from .kit import ui_v2_on
+        if not ui_v2_on(request.env) or not may_use(request.env.user):
+            return ""
+        return Fichas()._customer_link(cliente, "/nueva-venta")
+
+    def _cliente_json(self, cliente, lista=None):
+        """What the screen shows and edits of the picked customer."""
+        socio = cliente.sudo()
+        sin_wa = self._sin_whatsapp(cliente)
+        area = numero = ""
+        if sin_wa:
+            # a phone on file is offered as the start (the backend wizard's rule)
+            from ..models.ar_phone import ar_national, split_ar_national
+            for value in (socio.phone, socio.commercial_partner_id.phone):
+                national = ar_national(value)
+                if national:
+                    area, numero = split_ar_national(national)
+                    break
+        lista = lista if lista is not None else self._lista(cliente)
+        return {"id": cliente.id, "nombre": cliente.name,
+                "whatsapp": cliente._distri_whatsapp_shown() or "",
+                "domicilio": ", ".join(x for x in (socio.street, socio.city) if x),
+                "lista": lista.name or "",
+                # 19.0.1.129.35
+                "sin_whatsapp": sin_wa, "wa_area": area, "wa_numero": numero,
+                "cuenta": self._cuenta_url(cliente),
+                # 19.0.1.129.40: «Datos del cliente»
+                "calle": socio.street or "", "ciudad": socio.city or "",
+                "ficha": self._ficha_url(cliente)}
+
     def _lista(self, cliente):
         """The customer's price list: what the order ends up priced with."""
         return cliente.property_product_pricelist or self._pedido()._lista_general()
@@ -237,46 +293,183 @@ class NuevaVenta(http.Controller):
         cliente, error = self._cliente(cliente_id)
         if error:
             return self._json({"ok": False, "error": error}, status=403 if cliente_id else 400)
-        pedido = self._pedido()
-        secciones = pedido._catalogo()
-        ids = [r["id"] for _nombre, filas in secciones for r in filas]
-        permitidas = pedido._plantillas_del_catalogo(ids)
         lista = self._lista(cliente)
-        precios = pedido._precios_en_lote(permitidas, lista)
-        vendibles = set(permitidas.ids)
+        secciones, vendibles = self._catalogo_del_cliente(lista)
         productos = []
         for seccion, filas in secciones:
             for fila in filas:
-                if fila["id"] not in vendibles:
-                    continue
-                precio = precios.get(fila["id"], 0.0)
+                precio = fila["precio"]
                 productos.append({
                     "id": fila["id"], "nombre": fila["nombre"], "seccion": seccion or "",
                     "unidad": fila["unidad"], "contiene": fila["contiene"],
                     "precio": precio, "precio_texto": _money(precio) if precio > 0 else "",
                 })
-        sin_wa = self._sin_whatsapp(cliente)
-        area = numero = ""
-        if sin_wa:
-            # a phone on file is offered as the start (the backend wizard's rule)
-            from ..models.ar_phone import ar_national, split_ar_national
-            for value in (cliente.sudo().phone, cliente.sudo().commercial_partner_id.phone):
-                national = ar_national(value)
-                if national:
-                    area, numero = split_ar_national(national)
-                    break
         return self._json({
             "ok": True,
-            "cliente": {"id": cliente.id, "nombre": cliente.name,
-                        "whatsapp": cliente._distri_whatsapp_shown() or "",
-                        "domicilio": ", ".join(x for x in (cliente.street, cliente.city) if x),
-                        "lista": lista.name or "",
-                        # 19.0.1.129.35
-                        "sin_whatsapp": sin_wa, "wa_area": area, "wa_numero": numero,
-                        "cuenta": self._cuenta_url(cliente)},
+            "cliente": self._cliente_json(cliente, lista),
             "productos": productos,
             "anteriores": self._anteriores(cliente, vendibles),
         })
+
+    def _catalogo_del_cliente(self, lista, secciones=None):
+        """/pedido's sections with only what «Nueva venta» sells (no
+        services, the catalog on now) and each row repriced with the
+        customer's list: ([(section, rows)], set of template ids). A row
+        without a price there is «precio a confirmar» (sin_precio)."""
+        pedido = self._pedido()
+        secciones = pedido._catalogo() if secciones is None else secciones
+        ids = [r["id"] for _nombre, filas in secciones for r in filas]
+        permitidas = pedido._plantillas_del_catalogo(ids)
+        precios = pedido._precios_en_lote(permitidas, lista)
+        vendibles = set(permitidas.ids)
+        result = []
+        for seccion, filas in secciones:
+            nuevas = []
+            for fila in filas:
+                if fila["id"] not in vendibles:
+                    continue
+                precio = precios.get(fila["id"], 0.0)
+                nuevas.append(dict(fila, precio=precio, precio_texto=pedido._plata(precio),
+                                   sin_precio=precio <= 0))
+            if nuevas:
+                result.append((seccion, nuevas))
+        return result, vendibles
+
+    # ---------------------------------------------------------------- picker
+
+    @http.route("/nueva-venta/productos", type="http", auth="user", methods=["GET"],
+                website=True, sitemap=False)
+    def productos(self, cliente_id="", **kw):
+        """19.0.1.129.40: «Elegir productos» on the whole screen: /pedido's
+        own catalog page (template distri_pedido.pantalla: rows, search,
+        sections, steppers and bar) with the customer's list prices, and
+        «Confirmar productos» instead of «Ver pedido»
+        (static/src/nueva_venta/nueva_venta_productos.js puts the cart of the
+        draft on the phone in it and back). It never posts an order."""
+        user = self._check()
+        cliente, error = self._cliente(cliente_id)
+        if error:
+            return request.redirect("/nueva-venta", 303)
+        pedido = self._pedido()
+        lista = self._lista(cliente)
+        values = pedido._contexto_pantalla()
+        secciones, _vendibles = self._catalogo_del_cliente(lista, values["secciones"])
+        from .kit import kit_url
+        values.update({
+            "secciones": secciones,
+            # the offers, «Distribuidoras» and cigarettes «a presupuestar» are
+            # not in «Nueva venta»'s catalog (their products are in their
+            # sections, priced with the customer's list)
+            "destacados": [], "mayoristas": [], "presupuestar": [],
+            "lista_propia": lista.name or "", "quien": cliente.name,
+            "socio_logueado": False, "mostrar_cuenta": False,
+            "picker": {"cliente_id": cliente.id, "cliente": cliente.name, "uid": user.id,
+                       "volver": "/nueva-venta?volver=1",
+                       "js": kit_url("nueva_venta_productos.js")},
+        })
+        return request.render("distri_pedido.pantalla", values,
+                              headers={"Cache-Control": "no-store"})
+
+    # ---------------------------------------------------------------- customer
+
+    def _cliente_valores(self, form, nuevo):
+        """The checked values of «Nuevo cliente» / «Datos del cliente», or
+        UserError. The WhatsApp as the backend wizard stores it."""
+        valores = {}
+        if nuevo:
+            nombre = " ".join((form.get("nombre") or "").split())[:120]
+            if len(nombre) < 3:
+                raise UserError("Escribí el nombre del cliente (del comercio o de la persona).")
+            valores["name"] = nombre
+        area, numero = form.get("wa_area") or "", form.get("wa_numero") or ""
+        if area.strip() or numero.strip():
+            from ..models.ar_phone import ar_mobile
+            try:
+                valores["distri_whatsapp"] = ar_mobile(area, numero)
+            except ValueError as exc:
+                raise UserError("WhatsApp del cliente: %s" % exc) from None
+        for campo, clave, largo in (("street", "calle", 120), ("city", "ciudad", 60)):
+            if clave in form:
+                valores[campo] = " ".join((form.get(clave) or "").split())[:largo] or False
+        return valores
+
+    @http.route("/nueva-venta/cliente", type="http", auth="user", methods=["POST"],
+                website=True, sitemap=False)
+    def cliente_nuevo(self, **kw):
+        """19.0.1.129.40: «Nuevo cliente»: name, and optionally WhatsApp,
+        address and town. The backend ACLs are not widened (a seller still
+        cannot create contacts there): like /cobro's «Cliente nuevo»
+        (models/cliente_provisorio.py) the kit creates this one minimal
+        customer with sudo, keeping the user as its creator. A seller's
+        customer carries his portfolio tag and him as salesperson (an
+        external seller's is his as its creator) and is «Cliente nuevo · a
+        confirmar» for administración, as /cobro's. Likely existing
+        customers he may reach are offered first (/cobro's rule)."""
+        user = self._check()
+        form = self._form()
+        try:
+            valores = self._cliente_valores(form, nuevo=True)
+        except UserError as exc:
+            return self._json({"ok": False, "error": _error_text(exc)}, status=400)
+        if form.get("nuevo_ok") != "1":
+            telefono = valores.get("distri_whatsapp") or ""
+            parecidos = request.env["distri.cash.collection"]._cash_matches(
+                valores["name"], telefono)
+            parecidos = [p for p in parecidos if not p.get("provisional")] or parecidos
+            if parecidos:
+                return self._json({"ok": True, "parecidos": parecidos})
+        valores.update({"company_type": "company", "customer_rank": 1})
+        if not user.has_group("distri_pedido.grupo_administracion"):
+            valores.update({"user_id": user.id, "distri_cliente_provisorio": True,
+                            "distri_provisorio_user_id": user.id,
+                            "distri_provisorio_fecha": fields.Datetime.now(),
+                            "distri_provisorio_nota": "Creado en «Nueva venta»"})
+            if user.etiqueta_cartera_id:
+                valores["category_id"] = [(4, user.etiqueta_cartera_id.id)]
+        try:
+            with request.env.cr.savepoint():
+                # sudo keeps the uid: create_uid is the user
+                socio = request.env["res.partner"].sudo().create(valores)
+                socio.message_post(body="Cliente creado por %s en «Nueva venta»." % user.name)
+        except (UserError, ValidationError) as exc:
+            return self._json({"ok": False, "error": _error_text(exc)}, status=400)
+        cliente, error = self._cliente(str(socio.id))
+        if error:
+            return self._json({"ok": False, "error": error}, status=403)
+        return self._json({"ok": True, "cliente": {"id": cliente.id, "nombre": cliente.name}})
+
+    @http.route("/nueva-venta/cliente/<int:partner_id>", type="http", auth="user",
+                methods=["POST"], website=True, sitemap=False)
+    def cliente_editar(self, partner_id, **kw):
+        """19.0.1.129.40: «Datos del cliente»: his WhatsApp, address and
+        town. Only for a customer the user may read (the backend's record
+        rules: a seller his portfolio, an external seller his customers)
+        and reach (_cliente); these three fields are then written with
+        sudo, as 129.35 already stores the WhatsApp answer
+        (guardar_whatsapp_nueva_venta), with a chatter note. The backend
+        ACLs are not widened. The answer is the screen's customer again."""
+        user = self._check()
+        cliente, error = self._cliente(str(partner_id))
+        if error:
+            return self._json({"ok": False, "error": error}, status=403)
+        try:
+            valores = self._cliente_valores(self._form(), nuevo=False)
+        except UserError as exc:
+            return self._json({"ok": False, "error": _error_text(exc)}, status=400)
+        socio = request.env["res.partner"].browse(cliente.commercial_partner_id.id)
+        if not socio.has_access("read"):
+            return self._json({"ok": False, "error": "No podés cambiar los datos de este "
+                                                     "cliente: pedíselo a administración."},
+                              status=403)
+        if valores:
+            try:
+                with request.env.cr.savepoint():
+                    socio.sudo().write(valores)
+            except (UserError, ValidationError) as exc:
+                return self._json({"ok": False, "error": _error_text(exc)}, status=400)
+            socio.sudo().message_post(body="Datos cambiados por %s en «Nueva venta»: %s." % (
+                user.name, ", ".join(sorted(socio._fields[k].string for k in valores))))
+        return self._json({"ok": True, "cliente": self._cliente_json(cliente)})
 
     # ---------------------------------------------------------------- AgilPedido
 
@@ -351,7 +544,10 @@ class NuevaVenta(http.Controller):
         through /pedido's own code with what its page would post for this
         customer. Returns (order, error)."""
         pedido = self._pedido()
-        domicilio = (form.get("domicilio") or "").strip()[:200]
+        socio = cliente.sudo()
+        # 19.0.1.129.40: what is left empty comes from his record
+        domicilio = ((form.get("domicilio") or "").strip()
+                     or ", ".join(x for x in (socio.street, socio.city) if x))[:200]
         telefono = (form.get("telefono") or "").strip()[:40]
         post = {
             "renglones": json.dumps(renglones),
@@ -376,6 +572,8 @@ class NuevaVenta(http.Controller):
         if error:
             return None, error
         clave = pedido._clave_envio(post, validos)
+        # 19.0.1.129.40: the customer on file is the contact (main.py _datos_faltantes)
+        request.update_context(**{CTX_DATOS_DE_LA_FICHA: True})
         response = pedido.enviar(**post)
         order = request.env["sale.order"].sudo().search(
             [("distri_envio_clave", "=", clave)], limit=1) if clave else None
@@ -421,6 +619,8 @@ class NuevaVenta(http.Controller):
             renglones = None
         if not isinstance(renglones, list) or not renglones:
             return self._refuse("Agregá al menos un producto.")
+        # 19.0.1.129.40: the same product twice is one line with the sum
+        renglones = nv.juntar_renglones(renglones)
         respuesta, error = self._respuesta_whatsapp(form, cliente, salida)
         if error:
             return self._refuse(error)
@@ -467,13 +667,14 @@ class NuevaVenta(http.Controller):
             return "numero", ""
         if salida == nv.PRESUPUESTO:
             return "", ""
-        if form.get("sin_whatsapp") == "1":
-            if self._wa_requerido():
+        if self._wa_requerido():
+            if form.get("sin_whatsapp") == "1":
                 return "", ("Para confirmar la venta hace falta el WhatsApp del cliente: "
                             "poné el código de área y el número.")
-            return "sin", ""
-        return "", ("El cliente no tiene WhatsApp: poné el código de área y el número, o "
-                    "marcá «No tiene WhatsApp».")
+            return "", "El cliente no tiene WhatsApp: poné el código de área y el número."
+        # 19.0.1.129.40 (owner): while it is not required, picking the
+        # customer is enough; no answer = «No tiene WhatsApp» of 129.35
+        return "sin", ""
 
     def _extras(self, order, form):
         """#56: who ordered and the shop's GPS (models/nueva_venta.py)."""

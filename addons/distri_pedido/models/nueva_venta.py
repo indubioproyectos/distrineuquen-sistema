@@ -90,6 +90,32 @@ def unidad_de_venta(plantilla):
     return plantilla.uom_ids[:1] or plantilla.uom_id
 
 
+def juntar_renglones(renglones):
+    """19.0.1.129.40: the same product twice in a posted cart becomes one
+    line with the sum, in the order it first appeared (the phone already
+    keeps one line per product; this covers any other poster). A line that
+    is not {id, cantidad} is left as it is for /pedido's own check."""
+    juntos, orden = {}, []
+    for renglon in renglones:
+        if not isinstance(renglon, dict):
+            orden.append(renglon)
+            continue
+        try:
+            clave = int(renglon.get("id"))
+            cantidad = float(renglon.get("cantidad") or 0)
+        except (TypeError, ValueError):
+            orden.append(renglon)
+            continue
+        if clave in juntos:
+            previo = juntos[clave]
+            total = float(previo["cantidad"]) + cantidad
+            previo["cantidad"] = int(total) if total.is_integer() else total
+            continue
+        juntos[clave] = dict(renglon, id=clave)
+        orden.append(juntos[clave])
+    return orden
+
+
 class SaleOrderNuevaVenta(models.Model):
     _inherit = "sale.order"
 

@@ -56,3 +56,16 @@
 .nv-sub-t{margin:0 0 6px;font-size:15px}
 .nv-gps{display:grid;gap:4px}
 .nv-enc{display:grid;gap:4px}
+
+/* 19.0.1.129.40: customer data one tap away, the full-screen picker first */
+.nv-cliente-acc{display:flex;flex-wrap:wrap;gap:8px}
+.nv-nuevo-abrir{margin-top:8px;justify-self:start}
+.nv-elegir{width:100%;text-align:center;text-decoration:none}
+.nv-mas{border:1px solid var(--dn-line,#dfe3e8);border-radius:10px;padding:8px 12px}
+.nv-mas>summary{cursor:pointer;font-weight:600;min-height:32px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.nv-mas[open]{display:grid;gap:10px}
+.nv-prod__txt[data-elige]{cursor:pointer}
+.nv-wa:not([hidden]){display:grid;gap:4px}
+.nv-hoja{display:grid;gap:10px}
+.nv-aviso:empty{display:none}
+.nv-aviso{color:var(--dn-err,#c92a2a)}

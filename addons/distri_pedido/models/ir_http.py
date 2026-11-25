@@ -94,6 +94,8 @@ class IrHttp(models.AbstractModel):
         return {
             "css": kit_url("ajustes.css"),
             "js": kit_url("ajustes.js"),
+            # 19.0.1.129.40: the phone keyboard helper (static/src/kit/teclado.js)
+            "teclado": kit_url("teclado.js"),
             "manifest": "/tablero/manifest.webmanifest" if staff else "/dn/cliente.webmanifest",
         }
 

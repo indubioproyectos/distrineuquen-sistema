@@ -92,6 +92,13 @@ FILES = {
     # 19.0.1.129.30: «Nueva venta» (controllers/nueva_venta.py, nueva_venta only)
     "nueva_venta.css": ("nueva_venta/nueva_venta.css", "text/css; charset=utf-8"),
     "nueva_venta.js": ("nueva_venta/nueva_venta.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.129.40: the /pedido catalog as «Nueva venta»'s product picker,
+    # the phone keyboard helper of every page (dn_ajustes) and /pedido's
+    # cart kept on the device
+    "nueva_venta_productos.js": ("nueva_venta/nueva_venta_productos.js",
+                                 "text/javascript; charset=utf-8"),
+    "teclado.js": ("kit/teclado.js", "text/javascript; charset=utf-8"),
+    "pedido_borrador.js": ("js/pedido_borrador.js", "text/javascript; charset=utf-8"),
     # 19.0.1.129.33: /despacho and /cuentas with the kit's look, «Equipo» and
     # «Ordenar el Inicio» (ui_v2 only)
     "despacho_v2.css": ("kit/despacho_v2.css", "text/css; charset=utf-8"),
@@ -216,6 +223,8 @@ SCREEN_PARENTS = {
     # 19.0.1.129.30: «Nueva venta» (distri_pedido.nueva_venta only)
     "/nueva-venta": (HOME,),
     "/nueva-venta/hecho/<id>": ("/nueva-venta",),
+    # 19.0.1.129.40: the full-screen product picker of «Nueva venta»
+    "/nueva-venta/productos": ("/nueva-venta",),
     "/mis-ventas": (HOME,),
     # 19.0.1.129.31: «Tablero de verificación» (distri_pedido.verificacion_v2 only)
     "/verificacion": (HOME,),
@@ -229,7 +238,7 @@ SCREEN_PARENTS = {
     # order goes up to its customer when opened from it, an invoice to its
     # order or its customer; ?desde= says which parent the screen was opened
     # from, anything else goes up to Inicio.
-    "/clientes/<id>": ("/revisar", "/cuentas", HOME),
+    "/clientes/<id>": ("/revisar", "/cuentas", "/nueva-venta", HOME),
     "/pedidos/<id>": ("/revisar", "/agilpedido", "/agilpedido/pedido/<id>",
                       "/agilpedido/creado/<id>", "/deposito/mostrador", "/mis-ventas",
                       "/clientes/<id>", HOME),

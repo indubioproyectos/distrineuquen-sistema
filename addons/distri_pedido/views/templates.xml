@@ -218,6 +218,15 @@
   </svg>
 
 
+  <!-- 19.0.1.129.40: «Nueva venta»'s full-screen product picker
+       (controllers/nueva_venta.py productos, nueva_venta_productos.js) -->
+  <div class="editando" t-if="picker" id="nv-picker" t-att-data-uid="picker['uid']"
+       t-att-data-cliente-id="picker['cliente_id']" t-att-data-cliente="picker['cliente']">
+    <div class="marco">
+      <p>Productos para <b t-esc="picker['cliente']"/></p>
+      <a t-att-href="picker['volver']" data-up="">Volver sin cambios</a>
+    </div>
+  </div>
   <div class="editando" t-if="pedido" id="editando">
     <div class="marco">
       <p>Estás modificando tu pedido <b t-esc="pedido.name"/></p>
@@ -237,7 +246,7 @@
         <span class="dato"><svg class="ic"><use href="#ic-bullhorn"/></svg><t t-esc="ficha['leyenda']"/></span>
         <span class="dato" t-if="ficha['telefono']"><svg class="ic"><use href="#ic-phone"/></svg><t t-esc="ficha['telefono']"/></span>
       </p>
-      <p class="sub" t-if="personal and not pedido">
+      <p class="sub" t-if="personal and not pedido and not picker">
         Pedido tomado por <b t-esc="vendedor"/>. Al final elegís el cliente.
       </p>
     </div>
@@ -258,7 +267,7 @@
     <div class="aviso" id="aviso"></div>
   </div>
 
-  <form action="/pedido/enviar" method="post" id="frm">
+  <form action="/pedido/enviar" method="post" id="frm" t-att-data-borrador="borrador_clave or None">
     <input type="hidden" name="renglones" id="renglones"/>
     <input type="hidden" name="token" t-att-value="token"/>
     <input type="hidden" name="entrega" id="entrega" value="domicilio"/>
@@ -434,7 +443,9 @@
           <span id="cuantos">ningún producto</span>
           <span class="falta" id="falta"></span>
         </div>
-        <button type="button" class="btn btn-p" id="ver" disabled="disabled">Ver pedido</button>
+        <button type="button" class="btn btn-p" id="ver" disabled="disabled"
+                t-att-hidden="'hidden' if picker else None">Ver pedido</button>
+        <button t-if="picker" type="button" class="btn btn-p" id="nv-confirmar">Confirmar productos</button>
       </div>
       <t t-if="ui_v2 and nav" t-call="distri_pedido.dn_nav"><t t-set="legado" t-value="True"/></t>
     </div>
@@ -932,6 +943,10 @@
       if (fTel.value.trim()) { pintarTelefono(false); }
     })();
   </script>
+  <!-- 19.0.1.129.40: the cart kept on the device (pedido_borrador.js), and
+       «Nueva venta»'s picker (nueva_venta_productos.js) -->
+  <script t-if="borrador_js and not picker" defer="defer" t-att-src="borrador_js"/>
+  <script t-if="picker" defer="defer" t-att-src="picker['js']"/>
 </body>
 </html>
   </template>
