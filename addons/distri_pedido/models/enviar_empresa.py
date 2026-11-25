@@ -29,6 +29,9 @@ missing. The text (`_distri_company_message`) reads:
     Tu pedido (link personal, no lo compartas):
     https://…/p/<token>
 
+19.0.1.129.40 (owner): the number appears once. «*Pedido:* S00224» goes at
+the top only when there is no code line at the bottom (no receipt code yet).
+
 The code line and the /p/ link keep the webhook matching
 (models/pedido_whatsapp.py find_web_codes) and keep the AgilPedido
 auto-import away from it (models/agilpedido_wa.py es_mensaje_de_la_pagina).
@@ -70,7 +73,10 @@ class SaleOrderEnviarEmpresa(models.Model):
         between blocks."""
         self.ensure_one()
         order = self.sudo()
-        bloques = [order._distri_company_fields(nombre, telefono, domicilio, entrega)]
+        # 19.0.1.129.40 (owner): the number once; the top «*Pedido:*» line
+        # only when the bottom «Pedido … · código …» line is not there
+        bloques = [order._distri_company_fields(nombre, telefono, domicilio, entrega,
+                                                con_numero=not order.distri_wa_code)]
         if mayorista:
             # it qualifies every price below
             bloques.append([WHOLESALE_WARNING])
@@ -91,10 +97,12 @@ class SaleOrderEnviarEmpresa(models.Model):
         bloques.append(cola)
         return "\n\n".join("\n".join(bloque) for bloque in bloques)
 
-    def _distri_company_fields(self, nombre, telefono, domicilio, entrega):
+    def _distri_company_fields(self, nombre, telefono, domicilio, entrega, con_numero=True):
         lineas = [MODIFIED_MARK] if self.distri_modificado else []
-        # 19.0.1.129.6: the order number first (owner)
-        lineas.append("*Pedido:* %s" % self.name)
+        # 19.0.1.129.6: the order number first (owner); 19.0.1.129.40: not
+        # when the code line at the bottom already names it
+        if con_numero:
+            lineas.append("*Pedido:* %s" % self.name)
         lineas.append("*Cliente:* %s" % ((nombre or "").strip() or "-"))
         if self.distri_encomienda_pedida:
             lineas.append("*Encomienda:* terminal de %s" % (

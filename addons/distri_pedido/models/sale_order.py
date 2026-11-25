@@ -13,8 +13,9 @@ SOCIO_MAYORISTA = GENERIC_NAMES[GENERIC_WHOLESALE]
 # /pedido before sending, on the order page, in the order WhatsApp texts
 # (controllers/main.py) and, its first sentence only, on the quotation/order
 # PDF and the remito (views/templates.xml leyenda_stock). Never on invoices.
-STOCK_NOTICE = ("Pedido sujeto a disponibilidad de stock. Una vez armado, vas a poder ver "
-                "cómo quedó tu pedido.")
+# 19.0.1.129.40 (owner, 25/11): the link also lets the customer add products
+STOCK_NOTICE = ("Pedido sujeto a disponibilidad de stock. Con este link podés agregar productos "
+                "hasta que lo armemos.")
 STOCK_NOTICE_SHORT = STOCK_NOTICE.split(". ")[0] + "."
 
 

@@ -50,8 +50,8 @@ class TestMensajeEmpresa(MensajeAgilMixin, TransactionCase):
 
     def test_simple_order_exact_text(self):
         order = self._pedido()
+        # 19.0.1.129.40: with the code line at the bottom, no «*Pedido:*» on top
         self.assertEqual(self._texto(order).split("\n"), [
-            "*Pedido:* %s" % order.name,
             "*Cliente:* Kiosco Ana",
             "*Dirección:* Mitre 1",
             "*Teléfono:* 2995551234",
@@ -69,8 +69,7 @@ class TestMensajeEmpresa(MensajeAgilMixin, TransactionCase):
     def test_no_phone_no_phone_line(self):
         order = self._pedido(distri_telefono=False)
         lines = self._texto(order).split("\n")
-        self.assertEqual(lines[:4], ["*Pedido:* %s" % order.name, "*Cliente:* Kiosco Ana",
-                                     "*Dirección:* Mitre 1", ""])
+        self.assertEqual(lines[:3], ["*Cliente:* Kiosco Ana", "*Dirección:* Mitre 1", ""])
         self.assertFalse([line for line in lines if "Teléfono" in line])
 
     def test_exactly_one_link_on_its_own_line(self):
@@ -86,7 +85,7 @@ class TestMensajeEmpresa(MensajeAgilMixin, TransactionCase):
     def test_retira(self):
         order = self._pedido(distri_entrega="retira", distri_domicilio=False)
         lines = self._texto(order, entrega="retira").split("\n")
-        self.assertEqual(lines[:4], ["*Pedido:* %s" % order.name, "*Cliente:* Kiosco Ana",
+        self.assertEqual(lines[:3], ["*Cliente:* Kiosco Ana",
                                      "*Retira:* En el depósito",
                                      "*Teléfono:* 2995551234"])
         self.assertFalse([line for line in lines if "Dirección" in line])
@@ -96,8 +95,7 @@ class TestMensajeEmpresa(MensajeAgilMixin, TransactionCase):
                              distri_encomienda_dni="30123456",
                              distri_encomienda_localidad="Zapala", distri_domicilio=False)
         lines = self._texto(order).split("\n")
-        self.assertEqual(lines[:6], [
-            "*Pedido:* %s" % order.name,
+        self.assertEqual(lines[:5], [
             "*Cliente:* Kiosco Ana",
             "*Encomienda:* terminal de Zapala",
             "*Retira:* Ana Pérez, DNI 30123456",
@@ -109,7 +107,7 @@ class TestMensajeEmpresa(MensajeAgilMixin, TransactionCase):
     def test_wholesale(self):
         order = self._pedido()
         lines = self._texto(order, mayorista=True).split("\n")
-        self.assertEqual(lines[4:8], ["", "⚠️ *LISTA DISTRIBUIDORAS*", "",
+        self.assertEqual(lines[3:7], ["", "⚠️ *LISTA DISTRIBUIDORAS*", "",
                                       "- 2 x Producto WhatsApp test ($ 2.000)"])
         self.assertNotIn("LISTA DISTRIBUIDORAS", self._texto(order))
 
@@ -126,8 +124,8 @@ class TestMensajeEmpresa(MensajeAgilMixin, TransactionCase):
         order.sudo().distri_modificado = True
         lines = self._texto(order).split("\n")
         self.assertEqual(lines[0], "_modificado por el cliente_")
-        self.assertEqual(lines[1], "*Pedido:* %s" % order.name)
-        self.assertEqual(lines[2], "*Cliente:* Kiosco Ana")
+        self.assertEqual(lines[1], "*Cliente:* Kiosco Ana")
+        self.assertEqual(sum(1 for line in lines if order.name in line), 1, "the number once")
         total = lines.index("*Total: $ 15.760*")
         self.assertEqual(lines[total + 1:total + 5],
                          ["", "*Comentario:* entregar de 9 a 14", "", STOCK_NOTICE])
@@ -170,8 +168,7 @@ class TestMensajeEmpresa(MensajeAgilMixin, TransactionCase):
         self.assertTrue(action["url"].startswith(COMPANY_WA))
         texto = unquote(action["url"].split("?text=", 1)[1])
         self.assertEqual(texto, order._distri_company_message_default())
-        self.assertTrue(texto.startswith("*Pedido:* %s\n*Cliente:* Kiosco Ana\n*Dirección:* Mitre 1\n"
-                                         % order.name))
+        self.assertTrue(texto.startswith("*Cliente:* Kiosco Ana\n*Dirección:* Mitre 1\n"))
         self.assertTrue(texto.endswith("\n" + self._url(order)))
         self.assertTrue(order.distri_enviado_empresa)
         primera = order.distri_enviado_empresa_el
@@ -299,8 +296,7 @@ class TestEnviarEmpresaHttp(PedidoAbiertoMixin, MensajeAgilMixin, HttpCase):
         html = res.text
         self.assertIn('data-enviado-url="/pedido/%s/enviado-empresa"' % order.access_token, html)
         texto = wa_text(html)
-        self.assertTrue(texto.startswith("*Pedido:* %s\n*Cliente:* Kiosco Web v129.5\n"
-                                         "*Dirección:* Mitre 1\n" % order.name))
+        self.assertTrue(texto.startswith("*Cliente:* Kiosco Web v129.5\n*Dirección:* Mitre 1\n"))
         self.assertIn(order._distri_wa_code_line(), texto.split("\n"))
         # the order page's own «Enviar por WhatsApp» posts too
         page = self.url_open("/pedido/%s" % order.access_token).text
