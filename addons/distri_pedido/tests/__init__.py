@@ -127,3 +127,4 @@ from . import test_v129_34_fichas
 from . import test_v129_35_venta
 from . import test_v129_36_facturas
 from . import test_v129_37_comprobantes
+from . import test_v129_38_verificacion

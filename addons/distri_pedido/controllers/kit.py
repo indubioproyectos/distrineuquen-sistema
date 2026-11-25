@@ -240,7 +240,9 @@ SCREEN_PARENTS = {
 # 19.0.1.129.31: one screen per queue of «Tablero de verificación»
 SCREEN_PARENTS.update({"/verificacion/%s" % key: ("/verificacion",) for key in (
     "para_acreditar", "revision_humana", "esperando_reporte", "sin_transferencia",
-    "diferencias", "duplicados", "sin_comprobante", "historicos")})
+    "diferencias", "duplicados", "sin_comprobante", "historicos",
+    # 19.0.1.129.38: queue 9 and «Comprobantes subidos»
+    "entregados_a_confirmar", "subidos")})
 
 # The in-page levels (URL hash) of the hash apps and their parent level;
 # «‹ Atrás» there goes up with history.back() when the level was opened

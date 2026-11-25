@@ -85,6 +85,9 @@
     <!-- 19.0.1.129.37: the upload of receipts, several at once (dropped on the PC) -->
     <a t-if="subir" class="dn-btn dn-btn--outline" href="/comprobantes" data-dn="down">Subir comprobantes
       (varios a la vez)</a>
+    <!-- 19.0.1.129.38: «Comprobantes subidos» by who sent them (#10, #66) -->
+    <a t-if="subidos" class="dn-btn dn-btn--outline" href="/verificacion/subidos"
+       data-dn="down">Comprobantes subidos (por usuario)</a>
     <a t-foreach="colas" t-as="c" class="dn-card dn-row" t-att-href="'/verificacion/%s' % c['key']"
        t-att-data-cola="c['key']">
       <div>
@@ -93,6 +96,10 @@
         <p class="dn-label">
           <t t-esc="c['who']"/><t t-if="c['term_label']"> · plazo <t t-esc="c['term_label']"/></t>
           <t t-if="c['oldest']"> · el más viejo <t t-esc="c['oldest']"/></t>
+        </p>
+        <!-- 19.0.1.129.38: the report's incomes nobody could assign (#48), informs only -->
+        <p t-if="c['key'] == 'sin_comprobante' and sin_cliente" class="dn-label">
+          Además <t t-esc="sin_cliente"/> sin cliente (filtro «Sin cliente»)
         </p>
       </div>
       <span t-att-class="'dn-chip dn-num ' + ('dn-chip--err' if c['overdue'] else 'dn-chip--warn' if c['count'] and c['term'] else 'dn-chip--neutral')">
@@ -124,14 +131,36 @@
       <t t-esc="cola['who']"/><t t-if="cola['term_label']"> · plazo <t t-esc="cola['term_label']"/></t>
       · <t t-esc="cola['count']"/> en la cola<t t-if="cola['overdue']">, <t t-esc="cola['overdue']"/> vencidos</t>
     </p>
+    <!-- 19.0.1.129.38: queue 7 filters -->
+    <div t-if="cola['key'] == 'sin_comprobante'" class="dn-row" data-filtros="">
+      <a t-att-class="'dn-chip ' + ('dn-chip--warn' if not filtro else 'dn-chip--neutral')"
+         href="/verificacion/sin_comprobante">Todos</a>
+      <a t-att-class="'dn-chip ' + ('dn-chip--warn' if filtro == 'otro_cliente' else 'dn-chip--neutral')"
+         href="/verificacion/sin_comprobante?filtro=otro_cliente">Comprobante de otro cliente</a>
+      <a t-att-class="'dn-chip ' + ('dn-chip--warn' if filtro == 'sin_cliente' else 'dn-chip--neutral')"
+         href="/verificacion/sin_comprobante?filtro=sin_cliente">Sin cliente · <t t-esc="sin_cliente"/></a>
+    </div>
+    <p t-if="filtro == 'sin_cliente'" class="dn-label">Ingresos del reporte que nadie pudo asignar
+      a un cliente (sin los históricos). Solo informa: no suman al número de Inicio. Los asigna
+      Sistemas desde el tablero de cobros.</p>
+    <p t-if="filtro == 'otro_cliente'" class="dn-label">Ingresos sin comprobante para los que hay
+      un comprobante pendiente de otro cliente con el mismo número de operación, o el mismo importe
+      con el mismo CUIT o a la misma hora.</p>
     <p t-if="not filas" class="dn-empty">No hay nada en esta cola.</p>
     <section t-foreach="filas" t-as="f" t-att-class="'dn-card' + (' dn-card--warn' if f['overdue'] else '')"
              t-att-data-fila="'%s-%s' % (f['model'], f['id'])">
       <p><b t-esc="f['partner']"/> · <span class="dn-num" t-esc="f['amount']"/></p>
-      <p class="dn-label"><t t-esc="f['name']"/> · <t t-esc="f['age']"/><t t-if="f['who']"> · acreditó <t t-esc="f['who']"/></t></p>
+      <p class="dn-label"><t t-esc="f['name']"/> · <t t-esc="f['age']"/><t t-if="f['who']"> · <t t-esc="'repartidor' if f['model'] == 'distri.route.stop' else 'acreditó'"/> <t t-esc="f['who']"/></t></p>
       <p t-if="f['reason']" class="dn-label" t-esc="f['reason']"/>
+      <p t-if="f.get('other')" data-otro-cliente=""><span class="dn-chip dn-chip--err">Comprobante de otro cliente</span>
+        <span class="dn-label" t-esc="f['other']"/></p>
       <div class="dn-row">
         <a t-if="f['url']" class="dn-btn dn-btn--outline" t-att-href="f['url']">Abrir</a>
+        <form t-if="f.get('claim')" method="post" action="/verificacion/reclamar" target="_blank">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="card_id" t-att-value="f['id']"/>
+          <button type="submit" class="dn-btn">Reclamar por WhatsApp</button>
+        </form>
         <form t-if="f['check']" method="post" action="/verificacion/revisado">
           <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
           <input type="hidden" name="card_id" t-att-value="f['id']"/>
@@ -152,6 +181,48 @@
           </form>
         </t>
       </div>
+    </section>
+  </main>
+  <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
+</body>
+</html>
+  </template>
+  <!-- 19.0.1.129.38: «Comprobantes subidos» (#10 and #66), by who sent them and state -->
+  <template id="verificacion_subidos" name="Tablero de verificación: comprobantes subidos">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Comprobantes subidos · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dn-has-nav" data-parent="/verificacion" data-page="verificacion-subidos">
+  <t t-call="distri_pedido.verificacion_top">
+    <t t-set="volver" t-value="'/verificacion'"/>
+    <t t-set="titulo" t-value="'Comprobantes subidos'"/>
+    <t t-set="sub" t-value="'Quién subió cada comprobante y en qué estado está.'"/>
+  </t>
+  <main class="dn-main">
+    <div class="dn-row" data-dias="">
+      <a t-foreach="(1, 7, 30)" t-as="d"
+         t-att-class="'dn-chip ' + ('dn-chip--warn' if data['days'] == d else 'dn-chip--neutral')"
+         t-att-href="'/verificacion/subidos?dias=%s' % d"><t t-esc="'Hoy' if d == 1 else 'Últimos %s días' % d"/></a>
+    </div>
+    <p class="dn-label"><t t-esc="data['total']"/> comprobantes<t t-if="data['who']"> · <t t-esc="data['who']"/></t><t t-if="data['bucket']"> · <t t-esc="data['buckets'][data['bucket']]"/></t>
+      <a t-if="data['who'] or data['bucket']" class="dn-link" t-att-href="'/verificacion/subidos?dias=%s' % data['days']">Ver todos</a></p>
+    <p t-if="not data['groups']" class="dn-empty">No llegó ningún comprobante en estos días.</p>
+    <section t-foreach="data['groups']" t-as="g" class="dn-card" t-att-data-quien="g['who']">
+      <p><a class="dn-link" t-att-href="g['url']"><b t-esc="g['who']"/></a> · <span class="dn-num" t-esc="g['total']"/></p>
+      <div class="dn-row">
+        <t t-foreach="data['buckets'].items()" t-as="b">
+          <a t-if="g['buckets'][b[0]]" t-att-data-estado="b[0]"
+             t-att-class="'dn-chip ' + ('dn-chip--ok' if b[0] == 'aprobado' else 'dn-chip--err' if b[0] == 'rechazado' else 'dn-chip--warn' if b[0] == 'pendiente' else 'dn-chip--neutral')"
+             t-att-href="g['urls'][b[0]]"><t t-esc="b[1]"/> · <t t-esc="g['buckets'][b[0]]"/></a>
+        </t>
+      </div>
+    </section>
+    <section t-foreach="data['rows']" t-as="r" class="dn-card" t-att-data-subido="r['id']">
+      <p><b t-esc="r['partner']"/> · <span class="dn-num" t-esc="r['amount']"/></p>
+      <p class="dn-label"><t t-esc="r['when']"/> · <t t-esc="r['who']"/> · <t t-esc="r['bucket_label']"/> (<t t-esc="r['state']"/>)</p>
+      <div class="dn-row"><a class="dn-btn dn-btn--outline" t-att-href="r['url']">Abrir</a></div>
     </section>
   </main>
   <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>

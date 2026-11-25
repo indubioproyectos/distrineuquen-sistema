@@ -139,6 +139,12 @@ QUEUES = (
      "Ingresos marcados «histórico» y las tarjetas «Falta el comprobante» del tablero de "
      "migración.",
      (), "Solo Sistemas", None),
+    # 19.0.1.129.38 (decision 2 of 24/11/2026): a delivery «Ya estaba pagado
+    # · a confirmar» whose receipt the report did not bring in 48 h
+    ("entregados_a_confirmar", "9", "Entregados a confirmar",
+     "Pedidos entregados como «Ya estaba pagado · a confirmar» con un comprobante sin "
+     "acreditar: pasaron 48 h y el reporte de Mercado Pago no trae la transferencia.",
+     (ADMIN,), "Denis y Ale", 24),
 )
 QUEUE_KEYS = tuple(q[0] for q in QUEUES)
 LIST_LIMIT = 50
@@ -587,6 +593,12 @@ class DistriVerificacion(models.AbstractModel):
                 ("kind", "=", "income"), ("state", "=", "draft"), ("receipt_id", "=", False),
                 ("partner_id", "!=", False), ("historic", "=", False),
                 ("date", "<", now - days)], "date", days)]
+        if key == "entregados_a_confirmar":
+            # escalated after 48 h (models/reparto_a_confirmar.py): the term
+            # runs from the escalation
+            return [("distri.route.stop", [
+                ("state", "=", "already_paid"), ("paid_confirm_state", "=", "escalated")],
+                "paid_confirm_since", timedelta(hours=48))]
         if key == "historicos":
             return [
                 ("distri.mp.collection", [("kind", "=", "income"), ("state", "=", "draft"),
@@ -659,8 +671,12 @@ class DistriVerificacion(models.AbstractModel):
                                                     limit=limit)
             for record in records:
                 since = record[since_field] and record[since_field] + (offset or timedelta())
-                row = (self._message_row(record) if model == "distri.whatsapp.message"
-                       else self._card_row(record, key, user))
+                if model == "distri.whatsapp.message":
+                    row = self._message_row(record)
+                elif model == "distri.route.stop":
+                    row = self._stop_row(record, user)
+                else:
+                    row = self._card_row(record, key, user)
                 row.update(since=since, age=age_text(since, now), overdue=bool(
                     term is not None and since and now - since > timedelta(hours=term)))
                 rows.append(row)

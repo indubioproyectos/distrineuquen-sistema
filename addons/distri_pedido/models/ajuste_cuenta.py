@@ -5,11 +5,24 @@ without a record of the payments behind it. The adjustment sets the lab
 balance of the customer to that figure without pretending money came in:
 no payment, no cash, Mercado Pago or bank journal.
 
-- «Ajustar saldo» (customer form, «Revisión por cliente»): the current lab
-  balance is the same figure as the review (Online − lab payments + unrecorded
-  sales + earlier adjustments, models/revision_cliente.py). The administrator
+- «Ajustar saldo» (customer form, «Revisión por cliente»): the administrator
   types the real balance, the motive and who authorized it.
-- Real balance below the lab balance: an internal credit note (out_refund)
+- 19.0.1.129.38 (plan unificado, Etapa 5 exit criterion: «"Ajustar saldo"
+  propone el mismo importe que el estado de cuenta»): the current balance is
+  the account statement's (`res.partner._distri_account_balance`: Odoo's
+  receivable lines plus the imported history not already in Odoo, minus the
+  returns not settled yet). Until 129.37 it was the review's figure
+  (`distri.balance.review._distri_lab_balance`: Online history − lab
+  payments + VSR + adjustments), which never counts a sale invoiced in the
+  lab that is not in the Online history, while it does subtract that
+  invoice's payment. Real case of 25/11/2026: review $ 866.218, statement
+  $ 972.418; the gap was one paid lab invoice of $ 106.200 (S00324). The
+  adjustment brought the review to the target and left the statement off
+  by the lab's invoices. The difference is now always target − statement,
+  so after the adjustment the statement shows the real balance. The review figure is still shown when it differs
+  (`review_balance`); the review itself is unchanged (it compares the lab
+  payments with the Online balance, models/revision_cliente.py).
+- Real balance below the current balance: an internal credit note (out_refund)
   for the difference. Above it (rare): an internal debit (out_invoice), only
   with the extra confirmation checkbox. Both in the journal «Ajuste de
   cuentas» (AJC, its own series, no AFIP documents, never the default sales
@@ -63,10 +76,15 @@ class DistriBalanceAdjustment(models.Model):
     company_id = fields.Many2one("res.company", required=True, readonly=True,
                                  default=lambda s: s.env.company)
     currency_id = fields.Many2one(related="company_id.currency_id")
-    balance_before = fields.Monetary(string="Saldo del lab antes", readonly=True)
+    balance_before = fields.Monetary(
+        string="Saldo antes", readonly=True,
+        help="Desde la v129.38, el saldo del estado de cuenta al ajustar; antes, el de la "
+             "revisión por cliente.")
+    # 19.0.1.129.38: the review's figure at the moment of the adjustment
+    review_balance_before = fields.Monetary(string="Saldo en la revisión antes", readonly=True)
     target_balance = fields.Monetary(string="Saldo real", readonly=True)
     difference = fields.Monetary(string="Diferencia", readonly=True,
-                                 help="Saldo real − saldo del lab: negativo baja la deuda.")
+                                 help="Saldo real − saldo antes: negativo baja la deuda.")
     kind = fields.Selection(ADJUSTMENT_KINDS, string="Tipo", readonly=True)
     motive = fields.Text(string="Motivo", required=True, readonly=True)
     authorized_by = fields.Char(string="Autorizado por", required=True, readonly=True)
@@ -118,17 +136,29 @@ class ResPartnerAjusteCuenta(models.Model):
         }
 
 
+def statement_balance(partner):
+    """The account statement's balance of `partner` (19.0.1.129.38)."""
+    return round(partner.commercial_partner_id._distri_account_balance(), 2)
+
+
 class DistriBalanceAdjustmentWizard(models.TransientModel):
-    """«Ajustar saldo»: sets the lab balance of a customer to the real one."""
+    """«Ajustar saldo»: sets the statement balance of a customer to the real
+    one."""
     _name = "distri.balance.adjustment.wizard"
     _description = "Ajustar saldo"
 
     partner_id = fields.Many2one("res.partner", string="Cliente", required=True, readonly=True)
     currency_id = fields.Many2one("res.currency", default=lambda s: s.env.company.currency_id)
     current_balance = fields.Monetary(
-        string="Saldo en el lab", compute="_compute_current_balance",
-        help="El mismo saldo de «Revisión por cliente»: saldo en Online − pagos del lab + ventas "
-             "sin registrar + ajustes anteriores.")
+        string="Saldo del estado de cuenta", compute="_compute_current_balance",
+        help="El mismo saldo del estado de cuenta del cliente: facturas, pagos, notas de crédito "
+             "y ajustes del sistema más la historia de Online que no está repetida.")
+    # 19.0.1.129.38: the review's figure, shown when it differs
+    review_balance = fields.Monetary(
+        string="Saldo en la revisión por cliente", compute="_compute_current_balance",
+        help="Saldo en Online − pagos del lab + ventas sin registrar + ajustes. No cuenta las "
+             "ventas facturadas en el sistema que no están en Online.")
+    balances_differ = fields.Boolean(compute="_compute_current_balance")
     target_balance = fields.Monetary(string="Saldo real", default=0.0,
                                      help="La deuda actual confirmada por la gerencia.")
     difference = fields.Monetary(string="Diferencia", compute="_compute_difference")
@@ -144,8 +174,10 @@ class DistriBalanceAdjustmentWizard(models.TransientModel):
     def _compute_current_balance(self):
         Review = self.env["distri.balance.review"].sudo()
         for wiz in self:
-            wiz.current_balance = Review._distri_lab_balance(wiz.partner_id) \
-                if wiz.partner_id else 0.0
+            partner = wiz.partner_id.commercial_partner_id
+            wiz.current_balance = statement_balance(partner) if partner else 0.0
+            wiz.review_balance = Review._distri_lab_balance(partner) if partner else 0.0
+            wiz.balances_differ = abs(wiz.current_balance - wiz.review_balance) >= 0.005
 
     @api.depends("current_balance", "target_balance")
     def _compute_difference(self):
@@ -178,21 +210,25 @@ class DistriBalanceAdjustmentWizard(models.TransientModel):
         # one adjustment at a time per customer: the balance is read again
         # under the lock, never the one shown when the wizard opened
         self.env.cr.execute("SELECT id FROM res_partner WHERE id = %s FOR UPDATE", [partner.id])
-        before = self.env["distri.balance.review"].sudo()._distri_lab_balance(partner)
+        # 19.0.1.129.38: the account statement's balance, not the review's
+        before = statement_balance(partner)
+        review_before = self.env["distri.balance.review"].sudo()._distri_lab_balance(partner)
         target = round(self.target_balance, 2)
         difference = round(target - before, 2)
         if abs(difference) < 0.005:
-            raise UserError("El saldo del lab ya es %s: no hay nada que ajustar." % _money(before))
+            raise UserError("El estado de cuenta ya da %s: no hay nada que ajustar."
+                            % _money(before))
         if difference > 0 and not self.confirm_debit:
-            raise UserError("El saldo real (%s) es mayor que el del lab (%s): se registra un débito "
-                            "interno de %s. Marcá la confirmación para seguir." % (
-                                _money(target), _money(before), _money(difference)))
+            raise UserError("El saldo real (%s) es mayor que el del estado de cuenta (%s): se "
+                            "registra un débito interno de %s. Marcá la confirmación para "
+                            "seguir." % (_money(target), _money(before), _money(difference)))
         move = self._distri_move(partner, difference, motive)
         adjustment = self.env["distri.balance.adjustment"].sudo().create({
             "date": self.date,
             "partner_id": partner.id,
             "company_id": move.company_id.id,
             "balance_before": before,
+            "review_balance_before": review_before,
             "target_balance": target,
             "difference": difference,
             "kind": "debit" if difference > 0 else "credit",
@@ -203,7 +239,8 @@ class DistriBalanceAdjustmentWizard(models.TransientModel):
         stamp = fields.Datetime.context_timestamp(self, fields.Datetime.now())
         head = Markup("<b>Ajuste de cuenta</b> por %s el %s: ") % (
             self.env.user.name, stamp.strftime("%d/%m/%Y %H:%M"))
-        detail = "saldo del lab %s, saldo real %s, %s %s (%s). Autorizó: %s. Motivo: %s" % (
+        detail = ("saldo del estado de cuenta %s, saldo real %s, %s %s (%s). Autorizó: %s. "
+                  "Motivo: %s") % (
             _money(before), _money(target),
             "débito" if difference > 0 else "nota de crédito", _money(abs(difference)),
             move.name, authorized_by, motive)

@@ -104,3 +104,4 @@ from . import verificacion
 from . import menus_sistemas
 from . import factura_directa
 from . import comprobantes_mostrador
+from . import verificacion_tramo2

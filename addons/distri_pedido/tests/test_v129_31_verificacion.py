@@ -379,8 +379,9 @@ class TestV12931Verificacion(UploadMixin, RepartoMixin, AccountTestInvoicingComm
 
     def test_queue_members(self):
         keys = lambda user: {q[0] for q in vf.user_queues(user)}  # noqa: E731
+        # 19.0.1.129.38: queue 9 «Entregados a confirmar»
         admin_queues = {"para_acreditar", "revision_humana", "esperando_reporte", "diferencias",
-                        "duplicados", "sin_comprobante"}
+                        "duplicados", "sin_comprobante", "entregados_a_confirmar"}
         self.assertEqual(keys(self.denis), admin_queues)
         self.assertEqual(keys(self.gonzalo), admin_queues | {"sin_transferencia"})
         self.assertEqual(keys(self.sistemas), set(vf.QUEUE_KEYS), "Ale in every queue")

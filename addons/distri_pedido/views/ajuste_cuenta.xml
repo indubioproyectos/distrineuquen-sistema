@@ -7,14 +7,15 @@
     <field name="model">distri.balance.adjustment.wizard</field>
     <field name="arch" type="xml">
       <form string="Ajustar saldo">
-        <p>Deja el saldo del lab del cliente en el saldo real confirmado por la gerencia, sin
-           registrar un cobro: una nota de crédito interna (o un débito, si el saldo real es
+        <p>Deja el saldo del estado de cuenta del cliente en el saldo real confirmado por la
+           gerencia, sin registrar un cobro: una nota de crédito interna (o un débito, si el saldo real es
            mayor) en el diario <b>Ajuste de cuentas</b> (serie AJC, sin documentos de AFIP).
            No toca caja, Mercado Pago ni banco.</p>
         <group>
           <group>
             <field name="partner_id"/>
             <field name="current_balance"/>
+            <field name="review_balance" invisible="not balances_differ"/>
             <field name="target_balance"/>
             <field name="difference"/>
           </group>
@@ -25,8 +26,15 @@
                    placeholder="Por qué: qué se confirmó, con quién, qué falta registrar…"/>
           </group>
         </group>
+        <!-- 19.0.1.129.38: the review's figure when it is not the statement's -->
+        <div class="alert alert-info" role="status" invisible="not balances_differ">
+          La <b>revisión por cliente</b> da otro saldo porque no cuenta las ventas facturadas en el
+          sistema que todavía no están en Online. El ajuste se calcula contra el
+          <b>estado de cuenta</b>, que es lo que ve el cliente.
+        </div>
+        <field name="balances_differ" invisible="1"/>
         <div class="alert alert-warning" role="alert" invisible="not is_debit">
-          El saldo real es <b>mayor</b> que el del lab: se registra un débito interno y el cliente
+          El saldo real es <b>mayor</b> que el del estado de cuenta: se registra un débito interno y el cliente
           pasa a deber más.
           <field name="confirm_debit" class="oe_inline"/>
           <label for="confirm_debit" class="oe_inline"/>
@@ -101,6 +109,7 @@
               <field name="online_ref"/>
               <field name="date"/>
               <field name="balance_before"/>
+              <field name="review_balance_before"/>
               <field name="target_balance"/>
               <field name="difference"/>
               <field name="kind"/>
