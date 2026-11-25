@@ -120,6 +120,10 @@ class Armado(http.Controller):
             "ordenes": ARMADO_ORDENES,
             "plata": self._plata,
             "resumen": self._resumen,
+            # 19.0.1.129.24: every form of these pages (the list's «Ya lo
+            # armé», view and order preferences) posts a real token; it was
+            # empty and Odoo answered «CSRF validation failed» (400)
+            "csrf_token": request.csrf_token(),
         }
         datos.update(extra)
         return datos

@@ -4,7 +4,12 @@
   <!-- 19.0.1.129.0 (models/auditoria.py): every evening the collections audit
        with the coverage as it is (only the 3-day alerts can change without a
        new report) and the summary per person of what was credited that day,
-       with an activity for Gerencia. Backend only: no email (SMTP fails). -->
+       with an activity for Gerencia. Backend only: no email (SMTP fails).
+       19.0.1.129.24: noupdate. The nextcall expression only seeds a new
+       database; before, every module upgrade reset it to «tomorrow» and a
+       deploy skipped that evening's run (24/11). The SFTP cron goes with it:
+       once someone turns it on, an upgrade keeps it on. -->
+  <data noupdate="1">
   <record id="cron_mp_audit_daily" model="ir.cron">
     <field name="name">Cobros: auditoría diaria y resumen por persona</field>
     <field name="model_id" ref="model_distri_mp_audit"/>
@@ -32,5 +37,6 @@
     <field name="interval_type">minutes</field>
     <field name="active">False</field>
   </record>
+  </data>
 
 </odoo>

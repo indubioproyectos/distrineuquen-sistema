@@ -82,6 +82,22 @@ class ResUsers(models.Model):
             self.env.registry.clear_cache()
         return res
 
+    def _login(self, credential, user_agent_env):
+        """19.0.1.129.24: the login is typed by hand on a phone: «DENIS»,
+        «Mariana» or «mariana » (trailing space) failed. Spaces around it are
+        dropped and, unless a user has it exactly as typed, it is taken in
+        lowercase (every login is lowercase). Only the login is touched: the
+        password, the cooldown and every check stay in Odoo. Changed in
+        place, so the session keeps the clean login too."""
+        login = credential.get("login")
+        if isinstance(login, str):
+            clean = login.strip()
+            if clean != clean.lower() and not self.sudo().search_count(
+                    self._get_login_domain(clean), limit=1):
+                clean = clean.lower()
+            credential["login"] = clean
+        return super()._login(credential, user_agent_env)
+
     def _distri_is_external_seller(self):
         """An external seller: the seller group, type «Externo», and neither
         administración (nor gerencia, which implies it) nor system
