@@ -326,6 +326,7 @@
         <field name="duplicate_count"/>
         <field name="receipt_count"/>
         <field name="matched_count"/>
+        <field name="distri_read_state" widget="badge" decoration-warning="distri_read_state == 'queued'"/>
         <field name="summary" optional="hide"/>
       </list>
     </field>

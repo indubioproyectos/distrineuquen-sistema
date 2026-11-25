@@ -39,12 +39,15 @@ import io
 import logging
 import os
 import re
+import time
 import zipfile
 from datetime import datetime, timedelta, timezone
 
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
+from odoo.modules import module as odoo_module
 
+from .ocr_comprobante import ocr_deadline
 from .cobros import AMOUNT_TOLERANCE, RECEIPT_TIME_CLOSE, _check_admin, _check_cobros, digits, local_day
 from .reparto import _money
 from .reparto_cliente import AR_TZ
@@ -920,6 +923,23 @@ class _Source:
             return fh.read()
 
 
+# 19.0.1.129.26 (#111): the import of the backend form saves the files and
+# answers at once; the cron «Chat de WhatsApp: leer comprobantes importados»
+# reads them (OCR) one by one, committing each, so no web request runs
+# Tesseract over a whole export (on 22/11/2026 «Tesseract process timeout»
+# and «WorkerHTTP timeout after 120s» killed the worker). A cron run has the
+# same 120 s as a request (limit_time_real_cron defaults to limit_time_real):
+# each file gets at most CHAT_READ_FILE_SECONDS of OCR, and a run starts a
+# new file only with CHAT_READ_MARGIN seconds left; the rest goes on in the
+# next run, which the cron schedules itself (_commit_progress remaining).
+CHAT_READ_FILE_SECONDS = 60.0
+CHAT_READ_MARGIN = CHAT_READ_FILE_SECONDS + 10.0
+CHAT_READ_STATES = [("queued", "Leyendo en segundo plano"), ("done", "Listo")]
+CHAT_QUEUED_SUMMARY = ("Recibido: %s mensajes del %s al %s, %s fotos y PDF nuevos. Los comprobantes "
+                       "se leen en segundo plano; el resumen aparece en «Chats importados» "
+                       "cuando termina.")
+
+
 class DistriWhatsappChatImport(models.Model):
     _name = "distri.whatsapp.chat.import"
     _description = "Chat de WhatsApp importado"
@@ -948,6 +968,12 @@ class DistriWhatsappChatImport(models.Model):
     # source of each period with it (models/visor_chat.py)
     distri_export_owner = fields.Selection(EXPORT_OWNERS, string="Exportado por",
                                            readonly=True, index=True)
+    # 19.0.1.129.26 (#111): the files the cron still has to read
+    distri_read_state = fields.Selection(CHAT_READ_STATES, string="Lectura", default="done",
+                                         readonly=True, index=True)
+    distri_read_queue_ids = fields.Many2many(
+        "distri.whatsapp.message", "distri_chat_import_read_queue_rel", "import_id",
+        "message_id", string="Por leer", readonly=True)
 
     def _compute_results(self):
         for rec in self:
@@ -959,11 +985,15 @@ class DistriWhatsappChatImport(models.Model):
 
     @api.model
     def _distri_import(self, name, date_from, date_to, path=None, data=None, commit_every=0,
-                       owner=None):
+                       owner=None, background=False):
         """Imports the messages of [date_from, date_to] (Argentine days).
         `commit_every`: the server script commits every N files, so a long
         import keeps its progress (it is idempotent). `owner`: whose export
-        it is (EXPORT_OWNERS)."""
+        it is (EXPORT_OWNERS).
+
+        19.0.1.129.26 (#111): `background` (the backend form) saves the
+        files and queues their reading for the cron (_cron_read_queued)
+        instead of reading them here; the result is the same, later."""
         _check_admin_or_raise(self.env)
         if not date_from or not date_to or date_to < date_from:
             raise UserError("Elegí el período: desde y hasta.")
@@ -1046,6 +1076,17 @@ class DistriWhatsappChatImport(models.Model):
         # (cobros.py, _distri_chat_paired_notes). «done» runs the reading of
         # the file (OCR) and the matching.
         record.write({"file_count": new, "duplicate_count": dup})
+        if background:
+            record.write({"skipped_count": skipped, "missing_count": missing,
+                          "distri_read_state": "queued",
+                          "distri_read_queue_ids": [(6, 0, to_read.ids)],
+                          "summary": CHAT_QUEUED_SUMMARY % (
+                              record.message_count, date_from.strftime("%d/%m/%Y"),
+                              date_to.strftime("%d/%m/%Y"), new)})
+            cron = self.env.ref("distri_pedido.cron_chat_import_read", raise_if_not_found=False)
+            if cron:
+                cron.sudo()._trigger()
+            return record
         for count, msg in enumerate(to_read, 1):
             msg.write({"media_state": "done"})
             if commit_every and count % commit_every == 0:
@@ -1054,6 +1095,13 @@ class DistriWhatsappChatImport(models.Model):
                              len(to_read))
         record.write({"file_count": new, "duplicate_count": dup, "skipped_count": skipped,
                       "missing_count": missing})
+        record._distri_finish_reading()
+        return record
+
+    def _distri_finish_reading(self):
+        """What follows the reading of every file of the import."""
+        self.ensure_one()
+        record = self.sudo()
         # receipts of a period a loaded report already covers and that found
         # no transfer: «Sin transferencia», as when the report comes after them
         stamps = record.message_ids.filtered("timestamp").mapped("timestamp")
@@ -1062,8 +1110,44 @@ class DistriWhatsappChatImport(models.Model):
                 ("period_start", "<=", max(stamps)), ("covers_until", ">=", min(stamps))])
             for report in reports:
                 report._receipts_without_money(report.period_start, report.covers_until)
-        record.summary = record._summary_text()
-        return record
+        record.write({"summary": record._summary_text(), "distri_read_state": "done",
+                      "distri_read_queue_ids": [(5, 0, 0)]})
+
+    @api.model
+    def _cron_read_queued(self):
+        """19.0.1.129.26 (#111): reads the queued files of the imports, in
+        the order of the export, as the importing user, committing after
+        each one. A file that fails is left «Error» and the queue goes on."""
+        in_test = bool(odoo_module.current_test)
+        Cron = self.env["ir.cron"]
+        imports = self.sudo().search([("distri_read_state", "=", "queued")], order="id")
+        left = sum(len(rec.distri_read_queue_ids) for rec in imports)
+        time_left = float("inf")
+        for rec in imports:
+            user = rec.imported_by_id or self.env.ref("base.user_root")
+            queue = rec.distri_read_queue_ids.filtered(lambda m: m.media_state == "pending")
+            queue = queue.sorted(lambda m: (m.timestamp or datetime.min, m.id))
+            for msg in queue.with_user(user).sudo():
+                if time_left < CHAT_READ_MARGIN:
+                    return
+                try:
+                    with self.env.cr.savepoint(), ocr_deadline(
+                            min(CHAT_READ_FILE_SECONDS, max(time_left - 10.0, 1.0))):
+                        msg.write({"media_state": "done"})
+                except Exception:
+                    _logger.exception("chat import %s: file of message %s not read", rec.id,
+                                      msg.id)
+                    msg.invalidate_recordset()
+                    msg.write({"media_state": "error",
+                               "media_error": "No se pudo leer (ver el log del servidor)"})
+                rec.write({"distri_read_queue_ids": [(3, msg.id)]})
+                left -= 1
+                if not in_test:
+                    time_left = Cron._commit_progress(1, remaining=max(left, 0))
+            rec._distri_finish_reading()
+            _logger.info("chat import %s: reading finished", rec.id)
+            if not in_test:
+                time_left = Cron._commit_progress(0, remaining=max(left, 0))
 
     def _summary_text(self):
         self.ensure_one()
@@ -1112,8 +1196,9 @@ class DistriWhatsappChatImportWizard(models.TransientModel):
         if len(data) > self.MAX_UPLOAD:
             raise UserError("El archivo pasa los 100 MB: importalo en el servidor con "
                             "scripts/importar-chat-whatsapp.sh (ver la guía).")
+        # 19.0.1.129.26 (#111): the files are read by the cron, not here
         self.import_id = self.env["distri.whatsapp.chat.import"]._distri_import(
             self.filename or "chat.zip", self.date_from, self.date_to, data=data,
-            owner=self.owner)
+            owner=self.owner, background=True)
         return {"type": "ir.actions.act_window", "res_model": self._name, "res_id": self.id,
                 "view_mode": "form", "target": "new", "name": "Chat importado"}

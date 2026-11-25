@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.26 (#111): lee (OCR) las fotos y PDF de un chat de WhatsApp
+       importado desde el formulario, fuera del pedido web. Importar lo
+       dispara al momento; el intervalo retoma lo que haya quedado. -->
+  <record id="cron_chat_import_read" model="ir.cron">
+    <field name="name">Chat de WhatsApp: leer comprobantes importados</field>
+    <field name="model_id" ref="model_distri_whatsapp_chat_import"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_read_queued()</field>
+    <field name="user_id" ref="base.user_root"/>
+    <field name="interval_number">5</field>
+    <field name="interval_type">minutes</field>
+    <field name="active">True</field>
+  </record>
+</odoo>
