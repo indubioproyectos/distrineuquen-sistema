@@ -248,6 +248,30 @@ class TestPedidoEnviar(PedidoAbiertoMixin, HttpCase):
         order.invalidate_recordset()
         self.assertEqual(order.order_line.product_uom_qty, 75)
 
+    def test_no_minimum_for_administracion_caja_and_gerencia(self):
+        """25/11/2026: administración, caja and gerencia (Denis, Gonzalo, Ale)
+        load small counter sales on /pedido; a seller still has the minimum."""
+        Users = self.env["res.users"].with_context(no_reset_password=True)
+        for xmlid in ("grupo_administracion", "grupo_cajero", "grupo_gerencia"):
+            login = "minimo_%s" % xmlid
+            Users.create({"name": login, "login": login, "password": login,
+                          "group_ids": [Command.set([self.env.ref("base.group_user").id,
+                                                     self.env.ref("distri_pedido.%s" % xmlid).id])]})
+            self.authenticate(login, login)
+            before = self._orders()
+            res = self._post(self._data_retira([{"id": self.barata.id, "cantidad": 2}]))
+            self.assertEqual(res.status_code, 200, (xmlid, res.text[:300]))
+            self.assertNotIn("La compra mínima", res.text)
+            self.assertEqual(self._orders(), before + 1, xmlid)
+        Users.create({"name": "minimo_vendedor", "login": "minimo_vendedor",
+                      "password": "minimo_vendedor",
+                      "group_ids": [Command.set([self.env.ref("base.group_user").id,
+                                                 self.env.ref("distri_pedido.grupo_vendedor").id])]})
+        self.authenticate("minimo_vendedor", "minimo_vendedor")
+        res = self._post(self._data_retira([{"id": self.barata.id, "cantidad": 2}]))
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("La compra mínima por la página es de $ 70.000", res.text)
+
     def test_backend_quotation_below_the_minimum_is_allowed(self):
         """The minimum is for /pedido only: administración still loads a small
         purchase as a quotation from the backend."""
