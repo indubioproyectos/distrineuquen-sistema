@@ -150,6 +150,15 @@ class DistriRoute(models.Model):
     # 19.0.1.92.0: «Cobro en efectivo» (/cobro) on the user's depot box
     cash_collection_ids = fields.One2many("distri.cash.collection", "route_id",
                                           string="Cobros en efectivo")
+    # 19.0.1.129.27 (#103, distri_pedido.caja_v2): «Adelanto para la ruta»,
+    # the cash a cashier gave the driver for this route out of his caja
+    # (models/caja_v2.py). It is part of the cash the driver returns.
+    advance_ids = fields.One2many("distri.caja.movimiento", "advance_route_id",
+                                  string="Adelantos para la ruta", readonly=True)
+    advance_total = fields.Monetary(string="Adelanto para la ruta", compute="_compute_advance_total",
+                                    compute_sudo=True,
+                                    help="Lo que el cajero le dio al repartidor para esta ruta: "
+                                         "vuelve en la rendición.")
     stop_count = fields.Integer(string="Pedidos", compute="_compute_totals", store=True)
     parcel_count = fields.Integer(string="Bultos", compute="_compute_totals", store=True)
     departed_at = fields.Datetime(string="Salió a repartir", readonly=True, copy=False)
@@ -300,7 +309,8 @@ class DistriRoute(models.Model):
                 for s in route.stop_ids)
 
     @api.depends("stop_ids.cash_amount", "stop_ids.order_id.distri_bultos",
-                 "expense_ids.amount", "expense_ids.state", "cash_collection_ids.amount")
+                 "expense_ids.amount", "expense_ids.state", "cash_collection_ids.amount",
+                 "advance_ids.amount")
     def _compute_totals(self):
         for route in self:
             route.stop_count = len(route.stop_ids)
@@ -310,7 +320,15 @@ class DistriRoute(models.Model):
                                     + sum(route.cash_collection_ids.mapped("amount")))
             route.expense_total = sum(route.expense_ids.filtered(
                 lambda e: e.state != "cancelled").mapped("amount"))
-            route.cash_expected = route.cash_collected - route.expense_total
+            # 19.0.1.129.27: plus the advance for the route (none unless
+            # distri_pedido.caja_v2 is on: the movements are negative)
+            route.cash_expected = (route.cash_collected - route.expense_total
+                                   - sum(route.advance_ids.mapped("amount")))
+
+    @api.depends("advance_ids.amount")
+    def _compute_advance_total(self):
+        for route in self:
+            route.advance_total = -sum(route.advance_ids.mapped("amount"))
 
     @api.depends("cash_counted", "cash_expected", "cash_count_done")
     def _compute_cash_difference(self):
@@ -1371,6 +1389,14 @@ class DistriRouteCase(models.Model):
                               ondelete="set null")
     promise_id = fields.Many2one("distri.promised.transfer", string="Comprobante pendiente",
                                  readonly=True, ondelete="set null")
+    # 19.0.1.129.27 (distri_pedido.caja_v2, models/caja_v2.py): the shortfall
+    # of this case is booked as the employee's debt in «Deudores varios»
+    # under his own partner (the res.users partner, never a customer)
+    debt_partner_id = fields.Many2one("res.partner", string="Deuda en Deudores varios de",
+                                      readonly=True, copy=False, ondelete="restrict")
+    # ... by the opening entry of scripts/correcciones/v129_27_deudas_iniciales.sh
+    debt_move_id = fields.Many2one("account.move", string="Asiento de la deuda inicial",
+                                   readonly=True, copy=False, ondelete="set null")
 
     @api.depends("kind", "route_id.name", "caja_id.name")
     def _compute_name(self):

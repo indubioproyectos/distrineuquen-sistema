@@ -190,11 +190,14 @@ class ResPartnerDelivery(models.Model):
         """
         self.ensure_one()
         partner = self.commercial_partner_id
+        from .caja_v2 import debt_account_ids
 
         lines = self.env["account.move.line"].sudo().search([
             ("partner_id", "=", partner.id),
             ("parent_state", "=", "posted"),
             ("account_id.account_type", "=", "asset_receivable"),
+            # 19.0.1.129.27: «Deudores varios» (employees' debts) is no sale
+            ("account_id", "not in", debt_account_ids(self.env)),
         ])
         seen = {clave_documento(line.move_id.name, line.debit, line.credit) for line in lines}
         seen.discard(None)

@@ -116,3 +116,4 @@ from . import test_v129_25_reparto
 from . import test_v129_25_entregado_fuera
 from . import test_v129_26_factura_anulada
 from . import test_v129_26_chat_ocr_cron
+from . import test_v129_27_caja

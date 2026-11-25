@@ -46,8 +46,10 @@ class DistriRouteCancel(models.Model):
             found.append("transferencias informadas en las visitas")
         if self.sudo().cash_collection_ids:
             found.append("cobros en efectivo")
+        # 19.0.1.129.27: an «Adelanto para la ruta» is money of the route too
         if env["distri.caja.movimiento"].sudo().search_count(
-                ["|", ("route_id", "=", self.id), ("box_id", "=", self.id)]):
+                ["|", "|", ("route_id", "=", self.id), ("box_id", "=", self.id),
+                 ("advance_route_id", "=", self.id)]):
             found.append("movimientos de caja")
         if self.sudo().expense_ids:
             found.append("gastos")

@@ -129,6 +129,7 @@
           <div><dt>+ Rendiciones y recepciones</dt><dd class="dn-num" t-esc="money(caja.total_rendiciones)"/></div>
           <div t-if="caja.total_ajustes"><dt>± Ajustes</dt><dd class="dn-num" t-esc="money(caja.total_ajustes)"/></div>
           <div><dt>− Gastos y proveedores</dt><dd class="dn-num" t-esc="money(-caja.total_salidas)"/></div>
+          <div t-if="caja.total_adelantos"><dt>− Adelantos para rutas</dt><dd class="dn-num" t-esc="money(-caja.total_adelantos)"/></div>
           <div><dt>− Retiros y banco</dt><dd class="dn-num" t-esc="money(-caja.total_retiros)"/></div>
         </dl>
       </section>
@@ -143,6 +144,9 @@
           <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'minus'"/></t> Gasto</a>
         <a class="dn-btn dn-btn--outline" href="/caja/salida?tipo=retiro" data-dn="down">
           <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'minus'"/></t> Retiro</a>
+        <!-- 19.0.1.129.27 (#103, distri_pedido.caja_v2) -->
+        <a t-if="caja_v2" class="dn-btn dn-btn--outline" href="/caja/adelanto" data-dn="down">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'minus'"/></t> Adelanto para la ruta</a>
       </div>
       <!-- 19.0.1.117.0: cash payments registered in Odoo Online (models/caja.py,
            pending_online_cash): the customer's account already has them, only
@@ -317,6 +321,8 @@
       <section class="dn-card">
         <dl class="caja-res">
           <div><dt>Cobró en efectivo</dt><dd class="dn-num" t-esc="money(route.cash_collected)"/></div>
+          <!-- 19.0.1.129.27 (#103): the advance comes back -->
+          <div t-if="route.advance_total"><dt>Adelanto para la ruta</dt><dd class="dn-num">+ <t t-esc="money(route.advance_total)"/></dd></div>
           <div t-if="expenses"><dt>Gastos con foto</dt><dd class="dn-num">− <t t-esc="money(sum(expenses.mapped('amount')))"/></dd></div>
         </dl>
         <ul class="caja-gastos" t-if="expenses">
@@ -479,6 +485,61 @@
 </html>
   </template>
 
+  <!-- ============================================================ advance -->
+  <!-- 19.0.1.129.27 (#103, distri_pedido.caja_v2, models/caja_v2.py) -->
+
+  <template id="caja_adelanto" name="Caja: adelanto para la ruta">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Adelanto para la ruta · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="caja dn-has-foot" data-parent="/caja" data-page="adelanto">
+  <t t-call="distri_pedido.caja_top">
+    <t t-set="volver" t-value="'/caja'"/>
+    <t t-set="volver_txt" t-value="'Volver a la caja'"/>
+    <t t-set="kicker" t-value="'Caja · en la caja hay %s' % money(caja.expected)"/>
+    <t t-set="titulo" t-value="'Adelanto para la ruta'"/>
+  </t>
+  <t t-call="distri_pedido.caja_avisos"/>
+  <main class="dn-main">
+    <div class="dn-empty" t-if="not rutas">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'cash'"/></t>
+      <p>No hay rutas asignadas o en reparto.</p>
+    </div>
+    <form t-else="" id="caja-adelanto" class="dn-card caja-form" method="post" action="/caja/adelanto"
+          data-caja-form="" data-fetch="">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <p class="caja-muted">La plata sale de tu caja y el repartidor la devuelve en la rendición de esa ruta:
+        tiene que entregar lo que cobró, más el adelanto, menos los gastos.</p>
+      <div class="dn-field">
+        <label for="ruta">Ruta</label>
+        <select id="ruta" class="dn-input" name="ruta" required="required">
+          <option value="">Elegí la ruta</option>
+          <option t-foreach="rutas" t-as="r" t-att-value="r.id" t-esc="r.name"
+                  t-att-selected="form.get('ruta') == str(r.id) or None"/>
+        </select>
+      </div>
+      <div class="dn-field">
+        <label for="importe">Importe</label>
+        <input id="importe" class="dn-input dn-input--big dn-num" type="text" inputmode="decimal" name="importe"
+               autocomplete="off" required="required" placeholder="$ 0" t-att-value="form.get('importe')"/>
+      </div>
+      <div class="dn-field">
+        <label for="nota">Nota</label>
+        <input id="nota" class="dn-input" type="text" name="nota" maxlength="250" t-att-value="form.get('nota')"/>
+      </div>
+    </form>
+  </main>
+  <div class="dn-bottom" t-if="rutas">
+    <div class="dn-foot dn-foot--one">
+      <button type="submit" form="caja-adelanto" class="dn-btn dn-btn--lg">Dar el adelanto</button>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+
   <!-- ============================================================ closing -->
 
   <template id="caja_cierre" name="Caja: cierre">&lt;!DOCTYPE html&gt;
@@ -612,6 +673,13 @@
                 t-att-action="'/caja/online/%s/sacar' % m.id" data-caja-form="" data-fetch="">
             <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
             <button type="submit" class="dn-btn dn-btn--ghost caja-btn-auto">Sacar de mi caja</button>
+          </form>
+          <!-- 19.0.1.129.27: «Quitar el adelanto» while the route was not received -->
+          <form t-if="sacar_online and m.kind == 'adelanto' and m.advance_route_id.state != 'settled'"
+                class="caja-mov__sacar" method="post"
+                t-att-action="'/caja/adelanto/%s/quitar' % m.id" data-caja-form="" data-fetch="">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <button type="submit" class="dn-btn dn-btn--ghost caja-btn-auto">Quitar el adelanto</button>
           </form></span>
         <b class="caja-mov__imp dn-num"><t t-esc="'+' if m.amount &gt;= 0 else '−'"/> <t t-esc="money(abs(m.amount))"/></b>
       </li>

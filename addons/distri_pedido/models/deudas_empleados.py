@@ -7,6 +7,12 @@ entry is made. A charge is «Adeudado» while it is open and nobody marked it
 «Repuesto por el repartidor»; a charge administración closed, or one the
 driver replenished, is «Saldado» with the reason. Only administración and
 gerencia see it (security/ir.model.access.csv and security/reglas.xml).
+
+19.0.1.129.27 (distri_pedido.caja_v2, models/caja_v2.py): a cash shortfall
+or a rejected expense booked as the employee's debt in «Deudores varios»
+(`debt_partner_id` on its case) is listed too, a cashier's own included
+(the case of his caja, without a route: its company is the cashier's, since
+distri_caja does not exist yet when this view is created on install). Without the flag no case has it: same rows as before.
 """
 from odoo import api, fields, models, tools
 
@@ -17,6 +23,9 @@ ORIGINS = [
     ("receipt", "Transferencia sin comprobante"),
     ("unpaid", "Pedido sin cobrar"),
     ("short", "Cobro incompleto"),
+    # 19.0.1.129.27
+    ("cash", "Faltante de efectivo"),
+    ("expense", "Gasto sin comprobante"),
 ]
 DEBT_STATES = [("owed", "Adeudado"), ("settled", "Saldado")]
 
@@ -30,7 +39,8 @@ class DistriEmployeeDebt(models.Model):
     # the view reads these: Odoo flushes them before any query on it
     _depends = {
         "distri.route.case": ["amount", "state", "replenished", "kind", "driver_id", "date",
-                              "route_id", "stop_id", "promise_id", "resolution"],
+                              "route_id", "stop_id", "promise_id", "resolution",
+                              "debt_partner_id"],
         "distri.route": ["company_id"],
         "distri.route.stop": ["order_id", "partner_id", "visit_captured_at"],
         "distri.promised.transfer": ["captured_at"],
@@ -70,7 +80,7 @@ class DistriEmployeeDebt(models.Model):
                        s.partner_id AS partner_id,
                        COALESCE(p.captured_at, s.visit_captured_at) AS delivered_at,
                        c.date AS date,
-                       r.company_id AS company_id,
+                       COALESCE(r.company_id, u.company_id) AS company_id,
                        -c.amount AS charge_amount,
                        CASE WHEN c.state = 'open' AND NOT COALESCE(c.replenished, FALSE)
                             THEN -c.amount ELSE 0 END AS amount_owed,
@@ -78,10 +88,13 @@ class DistriEmployeeDebt(models.Model):
                             THEN 'owed' ELSE 'settled' END AS state,
                        COALESCE(c.replenished, FALSE) AS replenished
                   FROM distri_route_case c
-                  JOIN distri_route r ON r.id = c.route_id
+             LEFT JOIN distri_route r ON r.id = c.route_id
+             LEFT JOIN res_users u ON u.id = c.driver_id
              LEFT JOIN distri_route_stop s ON s.id = c.stop_id
              LEFT JOIN distri_promised_transfer p ON p.id = c.promise_id
-                 WHERE c.kind IN ('receipt', 'unpaid', 'short')
+                 WHERE (c.kind IN ('receipt', 'unpaid', 'short') AND r.id IS NOT NULL)
+                    OR (c.kind IN ('cash', 'expense') AND c.debt_partner_id IS NOT NULL
+                        AND c.amount < 0)
             )""" % self._table)
 
     @api.depends("case_id", "order_id", "state", "replenished")

@@ -15,6 +15,12 @@ proceso». The cash reaches the cash account only through a cash statement:
   opening float against the «diferencias de caja» account; and the amount
   withdrawn at the closing against the owner's withdrawal account. The
   statement goes from the opening float to what stays for tomorrow.
+  19.0.1.129.27 (distri_pedido.caja_v2, models/caja_v2.py has the mapping
+  table): with the flag on, the lines that are a person's shortfall (the
+  rejected expense, a settlement's or the cashier's shortfall, the «ajuste»
+  that cancels one) go to «Deudores varios» under the employee's own
+  partner instead of «diferencias de caja»; an «Adelanto para la ruta» and
+  its return at the settlement too. Surpluses and the opening float stay.
   19.0.1.117.0: a «Cobro cargado en Online» (a cash payment the cashier
   registered in Odoo Online, kind "online") has no lab payment to reconcile.
   Its line debits the cash account (the money IS in the box, and without it
@@ -158,6 +164,17 @@ class DistriCajaAccounting(models.Model):
                 "reconcile": open_lines,
             })
 
+    def _debt_item(self, item, partner, match=None):
+        """19.0.1.129.27: `item` goes to «Deudores varios» of `partner` (an
+        employee's own partner, models/caja_v2.py); `match` = (movements,
+        moves) whose open lines on that account it cancels."""
+        from .caja_v2 import debt_account
+        item.update({"account": debt_account(self.env, self.company_id), "partner": partner,
+                     "debt": True})
+        if match:
+            item["match"] = match
+        return item
+
     def _closing_plan(self):
         """The statement lines of the closing, in order (see the module
         docstring). Their sum goes from the opening to «queda para mañana»
@@ -165,6 +182,7 @@ class DistriCajaAccounting(models.Model):
         self.ensure_one()
         company = self.company_id
         differences = caja_account(self.env, company, "diferencias")
+        Movement = self.env["distri.caja.movimiento"].sudo()
         plan = []
         for move in self.movement_ids.sorted(lambda m: (m.moment, m.id)):
             if move.kind in ("cobro", "factura"):
@@ -174,6 +192,13 @@ class DistriCajaAccounting(models.Model):
             elif move.kind in ("rendicion", "recepcion"):
                 route = move.route_id
                 self._payment_lines(route.payment_ids, move, plan)
+                # 19.0.1.129.27 (#103): the advance for the route comes back
+                for advance in route.advance_ids.sorted("id"):
+                    plan.append(self._debt_item({
+                        "movement": move, "amount": -advance.amount,
+                        "label": "Devuelve el adelanto para la ruta · %s · %s" % (
+                            route.name, advance.caja_id.name),
+                    }, advance.debt_partner_id, match=(advance, self.env["account.move"])))
                 for expense in route.expense_ids.filtered(
                         lambda e: e.state == "approved" and not e.move_id):
                     plan.append({
@@ -185,18 +210,24 @@ class DistriCajaAccounting(models.Model):
                     })
                 for expense in route.expense_ids.filtered(
                         lambda e: e.state == "rejected" and e.case_id and not e.move_id):
-                    plan.append({
+                    item = {
                         "movement": move, "amount": -expense.amount, "account": differences,
                         "label": "Gasto sin comprobante, a cargo de %s · %s" % (
                             route.driver_id.name, route.name),
-                    })
+                    }
+                    if expense.case_id.debt_partner_id:
+                        self._debt_item(item, expense.case_id.debt_partner_id)
+                    plan.append(item)
                 if not self.currency_id.is_zero(move.route_difference):
-                    plan.append({
+                    item = {
                         "movement": move, "amount": move.route_difference, "account": differences,
                         "label": "Diferencia de %s · %s" % (route.name, dict(
                             move._fields["difference_mode"].selection).get(
                             move.difference_mode, "")),
-                    })
+                    }
+                    if move.debt_partner_id:
+                        self._debt_item(item, move.debt_partner_id)
+                    plan.append(item)
             elif move.kind in ("gasto", "proveedor", "retiro", "banco"):
                 key = move.concept if move.kind == "gasto" else move.kind
                 account = caja_account(self.env, company, key)
@@ -213,17 +244,38 @@ class DistriCajaAccounting(models.Model):
                              "label": "Cobro cargado en Online · %s · %s" % (
                                  move.note or "", move.who or "")})
             elif move.kind == "ajuste":
-                plan.append({"movement": move, "amount": move.amount, "account": differences,
-                             "label": "Ajuste · %s" % (move.label or "")})
+                item = {"movement": move, "amount": move.amount, "account": differences,
+                        "label": "Ajuste · %s" % (move.label or "")}
+                if move.debt_partner_id:
+                    # 19.0.1.129.27: he brought the shortfall booked as his
+                    # debt: cancel it on the same account and partner
+                    origin = Movement.search([
+                        ("case_id", "=", move.case_id.id), ("id", "!=", move.id),
+                        ("kind", "in", ("rendicion", "recepcion"))]) if move.case_id else Movement
+                    self._debt_item(item, move.debt_partner_id,
+                                    match=(origin, move.case_id.debt_move_id))
+                plan.append(item)
+            elif move.kind == "adelanto":
+                # 19.0.1.129.27 (#103): cash out to the driver's debt
+                plan.append(self._debt_item({
+                    "movement": move, "amount": move.amount,
+                    "label": "Adelanto para la ruta · %s · %s" % (
+                        move.advance_route_id.name or "", move.who or ""),
+                }, move.debt_partner_id))
         start = self.previous_id.left_for_tomorrow if self.previous_id else self.opening_float
         if not self.currency_id.is_zero(self.opening_float - start):
             plan.append({"amount": self.opening_float - start, "account": differences,
                          "label": "Fondo inicial distinto del cierre anterior · %s" % (
                              self.opening_note or "")})
         if not self.currency_id.is_zero(self.difference):
-            plan.append({"amount": self.difference, "account": differences,
-                         "label": "%s de caja · %s" % (
-                             "Faltante" if self.difference < 0 else "Sobrante", self.reason or "")})
+            item = {"amount": self.difference, "account": differences,
+                    "label": "%s de caja · %s" % (
+                        "Faltante" if self.difference < 0 else "Sobrante", self.reason or "")}
+            # 19.0.1.129.27: the cashier's own shortfall is his debt
+            debt = self._distri_cashier_debt_partner()
+            if debt:
+                self._debt_item(item, debt)
+            plan.append(item)
         if not self.currency_id.is_zero(self.withdrawn):
             plan.append({"amount": -self.withdrawn,
                          "account": caja_account(self.env, company, "retiro"),
@@ -238,10 +290,15 @@ class DistriCajaAccounting(models.Model):
         if not plan:
             return self.env["account.bank.statement"]
         lines = self.env["account.bank.statement.line"]
+        matches = []
         for item in plan:
-            line = self._st_line(item["amount"], "%s · %s" % (self.name, item["label"]),
+            # 19.0.1.129.27: an employee's debt does not rank him as a customer
+            caja = self.with_context(distri_employee_debt=True) if item.get("debt") else self
+            line = caja._st_line(item["amount"], "%s · %s" % (self.name, item["label"]),
                                  item["account"], item.get("partner"), item.get("reconcile"))
             lines |= line
+            if item.get("match"):
+                matches.append((item, line))
             if item.get("movement"):
                 item["movement"].sudo().statement_line_ids = [(4, line.id)]
             expense = item.get("expense")
@@ -272,7 +329,32 @@ class DistriCajaAccounting(models.Model):
             "line_ids": [(6, 0, lines.ids)],
         })
         self.statement_id = statement
+        self._reconcile_debts(matches)
         return statement
+
+    def _reconcile_debts(self, matches):
+        """19.0.1.129.27: a line that cancels an employee's debt (the advance
+        coming back, the «ajuste» of a shortfall he brought) is reconciled
+        with that debt's open line on «Deudores varios», when it is posted
+        (the other caja may still be open: then it stays open on the same
+        account and partner, and the balance nets anyway)."""
+        for item, line in matches:
+            account, partner = item["account"], item["partner"]
+            movements, moves = item["match"]
+
+            def open_lines(records):
+                return records.line_ids.filtered(
+                    lambda l: l.account_id == account and l.partner_id == partner
+                    and l.parent_state == "posted" and not l.reconciled)
+
+            mine = open_lines(line.move_id)
+            others = open_lines(movements.statement_line_ids.move_id | moves) - mine
+            if not mine or not others:
+                continue
+            sign = 1 if sum(mine.mapped("balance")) > 0 else -1
+            others = others.filtered(lambda l: l.balance * sign < 0)
+            if others:
+                (mine | others).reconcile()
 
     def _undo_closing(self):
         """Reopening: unreconcile and delete the closing's statement; the

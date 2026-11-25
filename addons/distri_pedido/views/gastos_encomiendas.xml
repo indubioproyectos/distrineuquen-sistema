@@ -125,6 +125,8 @@
     <field name="arch" type="xml">
       <xpath expr="//page[@name='settlement']//field[@name='cash_expected']" position="before">
         <field name="cash_collected"/>
+        <!-- 19.0.1.129.27 (#103): the advance for the route comes back -->
+        <field name="advance_total" invisible="not advance_total"/>
         <field name="expense_total"/>
       </xpath>
       <xpath expr="//page[@name='settlement']/separator[1]" position="before">

@@ -348,6 +348,9 @@
               <field name="return_id" invisible="not return_id"/>
               <field name="stop_id" invisible="not stop_id"/>
               <field name="promise_id" invisible="not promise_id"/>
+              <!-- 19.0.1.129.27 (distri_pedido.caja_v2) -->
+              <field name="debt_partner_id" invisible="not debt_partner_id"/>
+              <field name="debt_move_id" invisible="not debt_move_id"/>
               <field name="currency_id" invisible="1"/>
             </group>
           </group>

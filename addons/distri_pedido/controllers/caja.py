@@ -18,6 +18,9 @@ depot PC. Levels (back goes UP one level, dn.js):
         POST /caja/online/<id>/traer         19.0.1.117.0: «Traer a mi caja»,
                                  a cash payment registered in Odoo Online
         POST /caja/online/<id>/sacar         «Sacar de mi caja» (the movement)
+        /caja/adelanto           19.0.1.129.27 (#103, distri_pedido.caja_v2):
+                                 «Adelanto para la ruta», cash for a driver
+        POST /caja/adelanto/<id>/quitar      «Quitar el adelanto» (the movement)
       /caja/<id>/etiqueta        the closing label (PDF, new tab)
 
 Every form posts plain HTML (works without JavaScript: the answer is a
@@ -44,6 +47,7 @@ from odoo.http import request
 from ..models.caja import (CHIPS, DIFFERENCE_MODES, OUTFLOW_CHIPS, OUTFLOW_KINDS, CajaQuestion,
                            DuplicateOutflow,
                            can_reopen, is_cashier)
+from ..models.caja_v2 import caja_v2_on
 from ..models.cliente_provisorio import can_confirm
 from ..models.gasto import MAX_PHOTO_BYTES, decode_outflow_receipt
 from ..models.reparto import _money
@@ -142,6 +146,8 @@ class Caja(http.Controller):
             "dif_class": _dif_class,
             "es_cajero": is_cashier(user),
             "es_gerencia": not user.share and can_reopen(user),
+            # 19.0.1.129.27: «Adelanto para la ruta» (models/caja_v2.py)
+            "caja_v2": caja_v2_on(request.env),
         }
         base.update(values)
         html = request.env["ir.qweb"]._render(template, base)
@@ -477,6 +483,61 @@ class Caja(http.Controller):
                 caja, error=text, form=self._form(), status=400))
         return self._done("/caja", "%s: salieron %s." % (movement.label, _money(-movement.amount)))
 
+    # ---------------------------------------------------------------- advance
+    # 19.0.1.129.27 (#103, distri_pedido.caja_v2): «Adelanto para la ruta»;
+    # models/caja_v2.py has the rules.
+
+    @http.route("/caja/adelanto", type="http", auth="user", methods=["GET"], sitemap=False)
+    def advance_page(self, **kw):
+        self._check()
+        caja = self._caja()
+        if not caja or not caja_v2_on(request.env):
+            return request.redirect("/caja", 303)
+        return self._advance(caja)
+
+    def _advance(self, caja, error="", form=None, status=200):
+        return self._render("distri_pedido.caja_adelanto", {
+            "caja": caja, "rutas": request.env["distri.caja"].advance_routes(),
+            "error": error, "form": form or {},
+        }, status=status)
+
+    @http.route("/caja/adelanto", type="http", auth="user", methods=["POST"], sitemap=False)
+    def advance(self, ruta="", importe="", nota="", **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        try:
+            try:
+                route = request.env["distri.route"].sudo().browse(int(ruta))
+            except (TypeError, ValueError):
+                raise UserError("Elegí la ruta del adelanto.") from None
+            with request.env.cr.savepoint():
+                movement = caja.add_advance(route, importe, note=nota)
+        except DuplicateOutflow as exc:
+            return self._done("/caja", str(exc.args[0]))
+        except (UserError, AccessError) as exc:
+            return self._refuse(exc, lambda text, field: self._advance(
+                caja, error=text, form=self._form(), status=400))
+        return self._done("/caja", "%s: salieron %s." % (movement.label, _money(-movement.amount)))
+
+    @http.route("/caja/adelanto/<int:movement_id>/quitar", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def remove_advance(self, movement_id, **kw):
+        self._check()
+        caja = self._caja()
+        if not caja:
+            return request.redirect("/caja", 303)
+        movement = request.env["distri.caja.movimiento"].sudo().browse(movement_id)
+        label, amount = (movement.label, movement.amount) if movement.exists() else ("", 0.0)
+        try:
+            with request.env.cr.savepoint():
+                caja.remove_advance(movement)
+        except (UserError, AccessError) as exc:
+            return self._refuse(exc, lambda text, field: self._home(
+                self._caja(), error=text, status=400))
+        return self._done("/caja", "%s: volvió a la caja (%s)." % (label, _money(-amount)))
+
     # ---------------------------------------------------------------- closing
 
     def _denominations(self):
@@ -600,6 +661,8 @@ class Caja(http.Controller):
             ("Rendiciones y cobros de otros usuarios",
              moves.filtered(lambda m: m.kind in ("rendicion", "recepcion"))),
             ("Salidas de caja", moves.filtered(lambda m: m.kind in OUTFLOW_KINDS)),
+            # 19.0.1.129.27
+            ("Adelantos para rutas", moves.filtered(lambda m: m.kind == "adelanto")),
             ("Otros movimientos de efectivo", moves.filtered(lambda m: m.kind == "ajuste")),
         ]
         own = caja.user_id == user

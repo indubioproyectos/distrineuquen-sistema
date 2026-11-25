@@ -39,7 +39,10 @@ Rules: one open session per cashier; today's cannot open while a previous
 one is open; the opening float is proposed from the previous closing's «queda
 para mañana»; a difference needs a reason, is posted to the «diferencias de
 caja» account and opens a case for the cashier (distri.route.case with
-caja_id).
+caja_id). 19.0.1.129.27 (distri_pedido.caja_v2, off by default; the mapping
+table is in models/caja_v2.py): a person's shortfall goes to «Deudores
+varios» under that employee's own partner instead, and «Adelanto para la
+ruta» gives a driver cash for a route that comes back in its settlement.
 
 Reopening (19.0.1.105.0, owner's decision): the cashier reopens HIS latest
 closed session himself from /caja («Reabrir mi caja», a short reason, no
@@ -90,6 +93,9 @@ MOVEMENT_KINDS = [
     ("online", "Cobro cargado en Online"),
     # 19.0.1.118.0: a cash payment registered on the invoice (see above)
     ("factura", "Cobro registrado en la factura"),
+    # 19.0.1.129.27 (#103, distri_pedido.caja_v2): cash for a driver's route,
+    # it comes back in the settlement (models/caja_v2.py)
+    ("adelanto", "Adelanto para la ruta"),
 ]
 INFLOW_KINDS = ("cobro", "rendicion", "recepcion", "online", "factura")
 # the movements that hold one lab payment of their own (`payment_id`)
@@ -779,6 +785,10 @@ class DistriCaja(models.Model):
         else:
             route._close_depot_box()
         case = route._cash_case()
+        # 19.0.1.129.27 (distri_pedido.caja_v2, models/caja_v2.py): a
+        # shortfall and the rejected expenses become the driver's debt in
+        # «Deudores varios»; the decision is stored here, the closing reads it
+        debt_partner = route._distri_caja_v2_debts(case, difference)
         if case and difference_mode:
             text = dict(DIFFERENCE_MODES)[difference_mode]
             case.write({"driver_explanation": "\n".join(
@@ -795,6 +805,7 @@ class DistriCaja(models.Model):
             "who": route.driver_id.name,
             "note": note or False,
             "case_id": case.id or False,
+            "debt_partner_id": debt_partner.id or False,
         })
         route.message_post(body=Markup("Recibida en la caja de %s: %s%s.") % (
             caja.user_id.name, _money(amount),
@@ -826,6 +837,11 @@ class DistriCaja(models.Model):
             "who": movement.who,
             "note": "Trajo el faltante de %s" % (movement.route_id.name or ""),
             "case_id": movement.case_id.id,
+            # 19.0.1.129.27: a shortfall booked as his debt (at the
+            # settlement or by the opening entry) is cancelled against the
+            # same «Deudores varios» partner; else «Diferencias de caja»
+            "debt_partner_id": (movement.debt_partner_id
+                                or movement.case_id.debt_partner_id).id or False,
         })
         movement.case_id.write({"replenished": True})
         movement.case_id.message_post(body="Lo trajo: %s, en %s." % (_money(amount), caja.name))
@@ -959,10 +975,16 @@ class DistriCaja(models.Model):
 
     def _open_difference_case(self):
         self.ensure_one()
+        # 19.0.1.129.27 (distri_pedido.caja_v2): the cashier's shortfall is
+        # his debt in «Deudores varios» (the closing booked it so)
+        debt = self._distri_cashier_debt_partner()
         if self.case_id and self.case_id.state == "open":
-            self.case_id.write({"amount": self.difference})
+            vals = {"amount": self.difference}
+            if debt or self.case_id.debt_partner_id:
+                vals["debt_partner_id"] = debt.id or False
+            self.case_id.write(vals)
             return self.case_id
-        case = self.env["distri.route.case"].sudo().create({
+        vals = {
             "caja_id": self.id,
             "kind": "cash",
             "amount": self.difference,
@@ -970,9 +992,22 @@ class DistriCaja(models.Model):
                 "Faltante" if self.difference < 0 else "Sobrante",
                 _money(self.expected), _money(self.counted)),
             "driver_explanation": self.reason or False,
-        })
+        }
+        if debt:
+            vals["debt_partner_id"] = debt.id
+        case = self.env["distri.route.case"].sudo().create(vals)
         self.case_id = case
         return case
+
+    def _distri_cashier_debt_partner(self):
+        """19.0.1.129.27: the cashier's partner when his count is short and
+        distri_pedido.caja_v2 is on, else an empty recordset."""
+        from .caja_v2 import caja_v2_on, employee_partner
+        self.ensure_one()
+        if self.difference < 0 and not self.currency_id.is_zero(self.difference) \
+                and caja_v2_on(self.env):
+            return employee_partner(self.user_id)
+        return self.env["res.partner"]
 
     def _later_caja(self):
         """A later session of the same cashier (a later day, or any open
@@ -1146,6 +1181,15 @@ class DistriCajaMovimiento(models.Model):
     online_payment_label = fields.Char(string="Número en Online",
                                        compute="_compute_online_payment_label")
 
+    # 19.0.1.129.27 (distri_pedido.caja_v2, models/caja_v2.py): the route
+    # of an «Adelanto para la ruta», and the employee whose «Deudores varios»
+    # this movement debits or credits (an advance, a settlement's shortfall,
+    # the «ajuste» that cancels it)
+    advance_route_id = fields.Many2one("distri.route", string="Ruta del adelanto", readonly=True,
+                                       index=True, ondelete="restrict")
+    debt_partner_id = fields.Many2one("res.partner", string="Deuda en Deudores varios de",
+                                      readonly=True, ondelete="restrict")
+
     _online_payment_unique = models.UniqueIndex(
         "(online_payment_id) WHERE online_payment_id IS NOT NULL",
         "Ese cobro de Online ya está en una caja.")
@@ -1167,7 +1211,8 @@ class DistriCajaMovimiento(models.Model):
         for move in self:
             move.has_receipt = bool(move.photo or move.document)
 
-    @api.depends("kind", "concept", "who", "partner_id.name", "route_id.name", "note")
+    @api.depends("kind", "concept", "who", "partner_id.name", "route_id.name", "note",
+                 "advance_route_id.name")
     def _compute_label(self):
         kinds = dict(MOVEMENT_KINDS)
         concepts = dict(EXPENSE_CONCEPTS)
@@ -1180,6 +1225,8 @@ class DistriCajaMovimiento(models.Model):
                 detail = move.route_id.name or move.who
             elif move.kind == "recepcion":
                 detail = "de %s" % (move.who or move.route_id.driver_id.name or "")
+            elif move.kind == "adelanto":
+                detail = move.advance_route_id.name or move.who
             else:
                 detail = move.partner_id.name or move.who or move.note or ""
             move.label = " · ".join(x for x in (title, detail) if x)

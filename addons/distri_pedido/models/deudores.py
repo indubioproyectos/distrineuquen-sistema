@@ -102,11 +102,15 @@ def direct_customers(env, wholesale=False):
     env["account.move.line"].flush_model()
     cr.execute("SELECT DISTINCT partner_id FROM distri_cuenta_movimiento")
     with_docs = {row[0] for row in cr.fetchall()}
+    # 19.0.1.129.27: «Deudores varios» holds employees' debts, not sales
+    # (models/caja_v2.py); empty until distri_pedido.caja_v2 is used
+    from .caja_v2 import debt_account_ids
     cr.execute("""
         SELECT DISTINCT l.partner_id
           FROM account_move_line l JOIN account_account a ON a.id = l.account_id
          WHERE a.account_type = 'asset_receivable' AND l.parent_state = 'posted'
-           AND l.partner_id IS NOT NULL""")
+           AND l.partner_id IS NOT NULL AND NOT (l.account_id = ANY(%s))""",
+               [debt_account_ids(env) or [0]])
     with_docs |= {row[0] for row in cr.fetchall()}
     partners = env["res.partner"].sudo().with_context(active_test=False).search([
         ("parent_id", "=", False), ("distri_generic_partner", "=", False)])
@@ -129,10 +133,13 @@ def debtor_balances(env, partners, date_to=False):
     rows = defaultdict(list)  # partner_id -> [(day, kind, debit, credit, sort key)]
     seen = defaultdict(set)
 
+    from .caja_v2 import debt_account_ids
     lines = env["account.move.line"].sudo().search_read([
         ("partner_id", "in", ids),
         ("parent_state", "=", "posted"),
         ("account_id.account_type", "=", "asset_receivable"),
+        # 19.0.1.129.27: employees' debts are not a customer's balance
+        ("account_id", "not in", debt_account_ids(env)),
     ], ["partner_id", "date", "debit", "credit", "move_name", "move_type", "journal_id"],
         order="date, id")
     journal_ids = {line["journal_id"][0] for line in lines if line["journal_id"]}
