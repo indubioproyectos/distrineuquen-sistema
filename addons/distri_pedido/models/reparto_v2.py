@@ -385,8 +385,15 @@ class DistriPromisedTransferRepartoV2(models.Model):
         """19.0.1.129.28: a receipt that arrives after the deadline closes the
         driver's charge by itself (owner), before the 129.24 rules would
         leave it to administración. The Mercado Pago report keeps its own
-        rule (`_distri_close_charge_mp`)."""
-        if reparto_v2_on(self.env) and via != "mp":
+        rule (`_distri_close_charge_mp`).
+
+        19.0.1.129.32: never with the driver's own photo (via «app») nor a
+        receipt he forwarded himself: any photo used to close his charge.
+        The photo still resolves the pending receipt and goes to the
+        verification board; the charge waits for administración or the
+        Mercado Pago report (owner: human verification always)."""
+        from .comprobante_app import APP_VIA
+        if reparto_v2_on(self.env) and via not in ("mp", APP_VIA):
             now = fields.Datetime.now()
             if via == "payment":
                 label = "Pago registrado"
@@ -399,6 +406,9 @@ class DistriPromisedTransferRepartoV2(models.Model):
                 label = ""
             for promise in self.sudo():
                 case = promise.charge_case_id
+                driver = case.route_id.driver_id if case else False
+                if user and driver and user == driver:
+                    continue
                 if promise.state == "overdue" and case and case.state == "open":
                     case.write({"state": "closed",
                                 "resolution": LATE_CLOSED_CASE % (local_when(now), label)})

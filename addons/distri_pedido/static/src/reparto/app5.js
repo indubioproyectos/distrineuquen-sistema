@@ -436,8 +436,8 @@
       resolved.forEach(function (r) { out += claimRow(r); });
     }
     out += '<div class="note">Reclamar los comprobantes es tu responsabilidad. Los de hoy vencen en la rendición de ' +
-      "mañana: si no llegan, se cargan a tu cuenta. Se cierran solos cuando la plata o el comprobante llegan a la " +
-      "empresa, aunque sea tarde.</div></div>";
+      "mañana: si no llegan, se cargan a tu cuenta. Un cargo se descarga cuando administración verifica el " +
+      "comprobante o el pago, aunque llegue tarde.</div></div>";
     return out;
   }
 
