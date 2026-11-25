@@ -77,6 +77,9 @@ FILES = {
     # 19.0.1.129.29: the kit's look for /pedido and /cobro (ui_v2 only)
     "pedido_v2.css": ("kit/pedido_v2.css", "text/css; charset=utf-8"),
     "cobro_v2.css": ("kit/cobro_v2.css", "text/css; charset=utf-8"),
+    # 19.0.1.129.30: «Nueva venta» (controllers/nueva_venta.py, nueva_venta only)
+    "nueva_venta.css": ("nueva_venta/nueva_venta.css", "text/css; charset=utf-8"),
+    "nueva_venta.js": ("nueva_venta/nueva_venta.js", "text/javascript; charset=utf-8"),
 }
 # served without comments and indentation (budget: < 3 KB gzip); the file
 # on disk keeps its documentation
@@ -189,6 +192,9 @@ SCREEN_PARENTS = {
     "/cuentas": (HOME,),
     # sellers, drivers, everyone
     "/pedido": (HOME,),
+    # 19.0.1.129.30: «Nueva venta» (distri_pedido.nueva_venta only)
+    "/nueva-venta": (HOME,),
+    "/nueva-venta/hecho/<id>": ("/nueva-venta",),
     "/mis-ventas": (HOME,),
     "/reparto": (HOME,),
     "/proyecto": (HOME,),

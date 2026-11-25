@@ -1,0 +1,45 @@
+/* «Nueva venta» (19.0.1.129.30): on top of the kit (kit/dn.css tokens). */
+.nv-top__row { display: flex; align-items: center; justify-content: space-between; }
+.nv-back { color: inherit; text-decoration: none; font-weight: 600; }
+.nv-top__txt { padding: 4px 0 2px; }
+.nv-title { margin: 2px 0 0; font-size: 1.45rem; }
+.nv-sub { margin: 4px 0 0; opacity: .85; font-size: .95rem; }
+.nv-main { display: grid; gap: 12px; padding-bottom: 96px; }
+.nv-step { display: grid; gap: 10px; }
+.nv-step__t { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; flex-wrap: wrap; }
+.nv-n { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--dn-navy, #10243f); color: #fff; font-size: .85rem; }
+.nv-meta { color: var(--dn-muted, #5b6573); font-size: .9rem; font-weight: 400; margin: 0; }
+.nv-elegido { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.nv-elegido__txt { display: grid; gap: 2px; }
+.nv-btn-sm { padding: 8px 12px; min-height: 0; font-size: .9rem; }
+.nv-list { display: grid; gap: 6px; }
+.nv-item { display: grid; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--dn-line, #dfe3e8); background: var(--dn-surface, #fff); font: inherit; color: inherit; }
+.nv-item small { color: var(--dn-muted, #5b6573); }
+.nv-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.nv-tools .dn-input { flex: 1 1 200px; }
+.nv-prod { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px;
+  border-radius: 10px; border: 1px solid var(--dn-line, #dfe3e8); background: var(--dn-surface, #fff); }
+.nv-prod.on { border-color: var(--dn-ok, #2b8a3e); }
+.nv-prod__txt { display: grid; gap: 2px; min-width: 0; }
+.nv-prod__txt small { color: var(--dn-muted, #5b6573); }
+.nv-qty { display: flex; align-items: center; gap: 4px; flex: none; }
+.nv-qty .dn-input { width: 3.6em; text-align: center; padding: 6px 4px; }
+.nv-list--carrito:not(:empty) { padding-bottom: 8px; border-bottom: 1px dashed var(--dn-line, #dfe3e8); }
+.nv-total { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 1.05rem; flex-wrap: wrap; }
+.nv-salidas { display: grid; gap: 8px; }
+.nv-salida { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--dn-line, #dfe3e8); cursor: pointer; }
+.nv-salida:has(input:checked) { border-color: var(--dn-navy, #10243f); box-shadow: 0 0 0 1px var(--dn-navy, #10243f); }
+.nv-salida input { margin-top: 4px; }
+.nv-salida__txt { display: grid; gap: 2px; }
+.nv-salida__txt small { color: var(--dn-muted, #5b6573); }
+.nv-extra { display: grid; gap: 8px; }
+.nv-ok { width: 100%; }
+.nv-mensaje { width: 100%; min-height: 160px; font-family: inherit; }
+.nv-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.nv-hecho { display: grid; gap: 8px; }
+.nv-hecho__name { margin: 0; }
+.nv-link { text-align: center; }
+[hidden] { display: none !important; }

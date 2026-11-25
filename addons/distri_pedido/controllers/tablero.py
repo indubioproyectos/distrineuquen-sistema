@@ -184,7 +184,27 @@ def staff_tiles(env):
             continue
         tile.update(menu_id=menu.id, url=url or "/odoo?menu_id=%s" % menu.id)
         tiles.append(tile)
+    nueva = nueva_venta_tile(env)
+    if nueva:
+        tiles.insert(0, nueva)
     return tiles
+
+
+# 19.0.1.129.30: «Nueva venta» (controllers/nueva_venta.py). Not in TILES:
+# it exists only while distri_pedido.nueva_venta is on, first of all, and
+# «Tomar un pedido» stays as it is.
+NUEVA_VENTA_TILE = ("nuevaventa", "Nueva venta", "Cliente, productos y cómo sigue la venta",
+                    IMG + "cuentas.png", "plus", "/nueva-venta")
+
+
+def nueva_venta_tile(env):
+    """The «Nueva venta» tile for staff who take orders, with the flag on."""
+    from ..models.nueva_venta import nueva_venta_on, puede_nueva_venta
+    if not (nueva_venta_on(env) and puede_nueva_venta(env.user)):
+        return None
+    key, title, subtitle, icon, glyph, url = NUEVA_VENTA_TILE
+    return {"key": key, "title": title, "subtitle": subtitle, "icon": icon, "glyph": glyph,
+            "menu_id": False, "url": url, "badge": None}
 
 
 # ------------------------------------------------------------ badges

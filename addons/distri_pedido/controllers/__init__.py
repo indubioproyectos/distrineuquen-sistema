@@ -25,3 +25,4 @@ from . import reparto_anteriores
 from . import rendiciones
 from . import marca
 from . import mis_ventas
+from . import nueva_venta

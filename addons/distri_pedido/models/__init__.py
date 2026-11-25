@@ -98,3 +98,4 @@ from . import reparto_pagos
 from . import reparto_a_confirmar
 from . import reparto_v2
 from . import factura_anulada
+from . import nueva_venta

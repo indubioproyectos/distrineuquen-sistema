@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.30: «Nueva venta» (controllers/nueva_venta.py, models/
+       nueva_venta.py, static/src/nueva_venta/). One screen: the customer,
+       the cart priced with his list, and how the sale goes on. -->
+
+  <template id="nueva_venta_top" name="Nueva venta: barra">
+    <header class="dn-top nv-top">
+      <div class="dn-top__row nv-top__row">
+        <a class="nv-back" t-att-href="volver" data-dn-back="">‹ Volver</a>
+        <t t-call="distri_pedido.dn_ajustes"/>
+      </div>
+      <div class="nv-top__txt">
+        <span class="dn-top__kicker">Distri Neuquén · <t t-esc="user.name"/></span>
+        <h1 class="nv-title" t-esc="titulo"/>
+        <p t-if="sub" class="nv-sub" t-esc="sub"/>
+      </div>
+    </header>
+  </template>
+
+  <template id="nueva_venta_page" name="Nueva venta">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Nueva venta · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="nv dn-has-nav" t-att-data-parent="inicio" data-page="nueva-venta">
+  <t t-call="distri_pedido.nueva_venta_top">
+    <t t-set="volver" t-value="inicio"/>
+    <t t-set="titulo" t-value="'Nueva venta'"/>
+    <t t-set="sub" t-value="'Elegí el cliente, cargá los productos y decí cómo sigue.'"/>
+  </t>
+  <div class="dn-banner dn-banner--err" role="alert" id="nv-error" t-att-hidden="None if error else 'hidden'"><span t-esc="error"/></div>
+
+  <form id="nv-form" class="dn-main nv-main" method="post" action="/nueva-venta/crear" data-nv-form="">
+    <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+    <input type="hidden" name="envio" t-att-value="envio"/>
+    <input type="hidden" name="cliente_id" id="nv-cliente-id" value=""/>
+    <input type="hidden" name="renglones" id="nv-renglones" value="[]"/>
+
+    <section class="dn-card nv-step" aria-labelledby="nv-t1">
+      <h2 class="nv-step__t" id="nv-t1"><span class="nv-n">1</span> Cliente</h2>
+      <div class="nv-elegido" id="nv-elegido" hidden="hidden">
+        <span class="nv-elegido__txt"><b id="nv-cliente-nombre"></b><span class="nv-meta" id="nv-cliente-meta"></span></span>
+        <button type="button" class="dn-btn dn-btn--ghost nv-btn-sm" id="nv-cambiar">Cambiar</button>
+      </div>
+      <div id="nv-buscar-cliente">
+        <label for="nv-q-cliente" class="dn-sr">Buscar cliente</label>
+        <input id="nv-q-cliente" class="dn-input" type="search" maxlength="60" autocomplete="off"
+               placeholder="Buscar cliente por nombre, CUIT o WhatsApp" enterkeyhint="search"/>
+        <div id="nv-clientes" class="nv-list" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="dn-card nv-step" aria-labelledby="nv-t2" id="nv-paso-carrito" hidden="hidden">
+      <h2 class="nv-step__t" id="nv-t2"><span class="nv-n">2</span> Productos
+        <small class="nv-meta" id="nv-lista"></small></h2>
+      <div class="nv-tools">
+        <label for="nv-q-prod" class="dn-sr">Buscar producto</label>
+        <input id="nv-q-prod" class="dn-input" type="search" maxlength="60" autocomplete="off"
+               placeholder="Buscar producto" enterkeyhint="search"/>
+        <button t-if="pegar" type="button" class="dn-btn dn-btn--outline nv-btn-sm" id="nv-pegar-abrir">
+          Pegar mensaje de AgilPedido</button>
+      </div>
+      <p class="nv-meta" id="nv-carrito-vacio">Todavía no hay productos en la venta.</p>
+      <div id="nv-carrito" class="nv-list nv-list--carrito"></div>
+      <div id="nv-productos" class="nv-list" aria-live="polite"></div>
+      <p class="nv-total">Total <b class="dn-num" id="nv-total">$ 0</b>
+        <small class="nv-meta" id="nv-conteo"></small></p>
+    </section>
+
+    <section class="dn-card nv-step" aria-labelledby="nv-t3" id="nv-paso-salida" hidden="hidden">
+      <h2 class="nv-step__t" id="nv-t3"><span class="nv-n">3</span> ¿Cómo sigue?</h2>
+      <div class="nv-salidas" role="radiogroup" aria-labelledby="nv-t3">
+        <label t-foreach="salidas" t-as="s" class="nv-salida">
+          <input type="radio" name="salida" t-att-value="s[0]"/>
+          <span class="nv-salida__txt"><b t-esc="s[1]"/><small t-esc="s[2]"/></span>
+        </label>
+      </div>
+      <div class="nv-extra" data-nv-para="armar presupuesto" hidden="hidden">
+        <div class="dn-field">
+          <label for="nv-entrega">Entrega</label>
+          <select id="nv-entrega" name="entrega" class="dn-input">
+            <option value="domicilio">Envío a domicilio</option>
+            <option value="retira">Lo retira en el depósito</option>
+          </select>
+        </div>
+        <div class="dn-field">
+          <label for="nv-telefono">WhatsApp del cliente</label>
+          <input id="nv-telefono" name="telefono" class="dn-input" type="tel" maxlength="40" autocomplete="off"/>
+        </div>
+        <div class="dn-field">
+          <label for="nv-domicilio">Domicilio de entrega</label>
+          <input id="nv-domicilio" name="domicilio" class="dn-input" type="text" maxlength="200" autocomplete="off"/>
+        </div>
+        <div class="dn-field">
+          <label for="nv-comentario">Comentario del pedido</label>
+          <input id="nv-comentario" name="comentario" class="dn-input" type="text" maxlength="500" autocomplete="off"/>
+        </div>
+        <div class="dn-field">
+          <label for="nv-nota">Nota para el depósito</label>
+          <input id="nv-nota" name="nota_deposito" class="dn-input" type="text" maxlength="500" autocomplete="off"/>
+        </div>
+      </div>
+      <div class="nv-extra" data-nv-para="entregado" hidden="hidden">
+        <div class="dn-field">
+          <label for="nv-fecha">Día en que se entregó</label>
+          <input id="nv-fecha" name="fecha" class="dn-input" type="date"/>
+        </div>
+        <div class="dn-field">
+          <label for="nv-motivo">Motivo</label>
+          <input id="nv-motivo" name="motivo" class="dn-input" type="text" maxlength="250"
+                 t-att-value="motivo" autocomplete="off"/>
+        </div>
+        <p class="nv-meta">Se arma, se factura y queda entregada ese día: no entra a ninguna ruta ni a las
+          entregas del depósito, y no registra cobro.</p>
+      </div>
+      <div class="nv-extra" data-nv-para="mostrador" hidden="hidden">
+        <p class="nv-meta">Se confirma, se arma completo tal como se cargó y sale la factura. Después se
+          registra la entrega y el cobro.</p>
+      </div>
+      <button type="submit" class="dn-btn dn-btn--lg nv-ok" id="nv-ok" disabled="disabled">Cargar la venta</button>
+    </section>
+  </form>
+
+  <div t-if="pegar" class="dn-sheet nv-pegar" id="nv-pegar" role="dialog" aria-labelledby="nv-pegar-t">
+    <h2 id="nv-pegar-t">Pegar mensaje de AgilPedido</h2>
+    <label for="nv-mensaje" class="dn-sr">Mensaje de WhatsApp</label>
+    <textarea id="nv-mensaje" class="dn-input nv-mensaje" rows="8" maxlength="20000"
+              placeholder="Pegá el mensaje tal como llegó, sin editarlo."></textarea>
+    <p class="nv-meta" id="nv-pegar-aviso"></p>
+    <div class="dn-grid2 nv-grid2">
+      <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</button>
+      <button type="button" class="dn-btn" id="nv-pegar-leer">Leer el mensaje</button>
+    </div>
+  </div>
+  <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
+</body>
+</html>
+  </template>
+
+  <template id="nueva_venta_hecho" name="Nueva venta: hecho">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Nueva venta · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="nv dn-has-nav" data-parent="/nueva-venta" data-page="nueva-venta-hecho">
+  <t t-call="distri_pedido.nueva_venta_top">
+    <t t-set="volver" t-value="'/nueva-venta'"/>
+    <t t-set="titulo" t-value="titulo"/>
+    <t t-set="sub" t-value="texto"/>
+  </t>
+  <main class="dn-main nv-main">
+    <section class="dn-card nv-hecho">
+      <p class="nv-hecho__name"><b t-esc="order.name"/> · <span t-esc="order.partner_id.name"/></p>
+      <p class="nv-total">Total <b class="dn-num" t-esc="total"/></p>
+      <p t-if="factura" class="nv-meta">Factura: <t t-esc="factura"/></p>
+      <a t-if="enviar" class="dn-btn dn-btn--outline" t-att-href="enviar" target="_blank" rel="noopener">
+        Enviar al cliente por WhatsApp</a>
+    </section>
+    <a class="dn-btn dn-btn--lg" href="/nueva-venta">Cargar otra venta</a>
+    <a class="dn-link nv-link" t-att-href="mis_ventas">Ver en Mis ventas</a>
+  </main>
+  <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
+</body>
+</html>
+  </template>
+</odoo>
