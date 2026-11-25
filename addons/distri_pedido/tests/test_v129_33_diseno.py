@@ -25,7 +25,8 @@ from odoo.tests import HttpCase, new_test_user, tagged
 
 from odoo.addons.distri_pedido.controllers.equipo import can_see_team, team_rows
 from odoo.addons.distri_pedido.controllers.kit import PARAM_UI_V2, role_nav
-from odoo.addons.distri_pedido.controllers.tablero import apply_user_order, staff_tiles
+from odoo.addons.distri_pedido.controllers.tablero import (
+    apply_user_order, grouped_tiles, staff_tiles)
 from odoo.addons.distri_pedido.models.reparto_v2 import PARAM_REPARTO_V2
 
 from .test_reparto import RepartoMixin
@@ -258,7 +259,9 @@ class TestDiseno3b(RepartoMixin, HttpCase):
         self.assertEqual(res.json()["order"][-2], moved[-1])
         # another user keeps the default order
         self._login(self.admin)
-        admin_default = [t["key"] for t in staff_tiles(self.env(user=self.admin))]
+        # 19.0.1.129.42: administración's Inicio is drawn in groups
+        admin_default = [t["key"] for g in grouped_tiles(staff_tiles(self.env(user=self.admin)))
+                         for t in g["tiles"]]
         self.assertEqual(self._tiles(), admin_default)
         # «Restablecer»
         self._login(self.gerente)

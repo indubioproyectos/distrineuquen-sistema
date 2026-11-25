@@ -82,6 +82,12 @@ class TestRendiciones(RepartoMixin, HttpCase):
     # ------------------------------------------------------------ links
 
     def test_links_point_to_their_screens(self):
+        # 19.0.1.129.42: «Recibir rendiciones» (the cashier's /caja/rendicion)
+        # only for a cashier; administración without the group got a 403
+        rows = {r["key"]: r for r in rendiciones.rows(self.env(user=self.admin))}
+        self.assertEqual(list(rows), ["rutas", "casos", "cargos", "comprobantes"])
+        self.admin.sudo().write({"group_ids": [
+            Command.link(self.env.ref("distri_pedido.grupo_cajero").id)]})
         rows = {r["key"]: r for r in rendiciones.rows(self.env(user=self.admin))}
         self.assertEqual(list(rows), ["recibir", "rutas", "casos", "cargos", "comprobantes"])
         self.assertEqual(rows["recibir"]["url"], "/caja/rendicion")
