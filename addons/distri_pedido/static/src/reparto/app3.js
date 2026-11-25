@@ -73,6 +73,10 @@
  *   markup is unchanged (the same links), so app5.js's back links follow
  *   the same rule. Without history (old browsers, the Node harness) the
  *   links work as before.
+ * - 19.0.1.129.33 («Etapa 3b»): one more guarded hook, "customerHtml" on
+ *   «Ubicación y horarios» (app5.js draws the customer's WhatsApp there,
+ *   «Reparto v2» only), and saveWhatsapp / canReopen in window.RepartoApp.
+ *   Without app5.js or with the flag off the screen is the same.
  */
 (function () {
   "use strict";
@@ -2298,6 +2302,8 @@
           (d.hours.length > 1 ? '<button class="link red" data-a="h-del" data-i="' + i + '">✕</button>' : "") + "</div>";
       }).join("") +
       (d.hours.length < 4 ? '<button class="link" data-a="h-add">+ Agregar horario</button>' : "") + "</div>" +
+      // 19.0.1.129.33: app5.js adds the customer's WhatsApp here («Reparto v2» only)
+      (extHook("customerHtml", stop) || "") +
       '<label class="stack"><span class="label" style="padding:0">Comentario para los repartidores</span>' +
       '<textarea class="inp" rows="4" data-f="note" placeholder="Portón, por dónde descargar, quién atiende">' + h(d.note) +
       "</textarea></label></div>" +
@@ -3119,6 +3125,10 @@
     customerOf: customerOf,
     daysHoursText: daysHoursText,
     whatsappOf: whatsappOf,
+    // 19.0.1.129.33: the customer's WhatsApp from «Ubicación y horarios»
+    // (the same «whatsapp» event as the old visit) and «Reabrir la ruta»
+    saveWhatsapp: saveWhatsapp,
+    canReopen: canReopen,
     waLink: waLink,
     waDigits: waDigits,
     visitClaim: visitClaim,

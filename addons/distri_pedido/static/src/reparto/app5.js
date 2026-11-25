@@ -24,6 +24,17 @@
  *   «Ahora no» hides it for the day. Never a block.
  * - #4 «Cambiar el orden» (#orden): the driver's own order, kept on the
  *   phone (local.order) and sent to /reparto/api/order when there is signal.
+ *
+ * 19.0.1.129.33 («Etapa 3b»), still only with the flag on:
+ * - A tap the visit screen cannot take (the screen on display is older than
+ *   the route's state: the route was closed on this phone, the order was
+ *   held after a download, «Llegué» comes first...) says why in a toast and
+ *   redraws the screen, instead of doing nothing. A closed route then shows
+ *   «Ruta cerrada» with app3.js's «Reabrir la ruta» (129.25) when it applies.
+ * - The customer's WhatsApp on «Ubicación y horarios» (#cliente/<id>, hook
+ *   "customerHtml"): Confirmar / Corregir / Cargar, saved with app3.js's
+ *   saveWhatsapp, the same «whatsapp» sync event and server validation as
+ *   the old visit (models/reparto_sync.py _apply_whatsapp).
  */
 (function () {
   "use strict";
@@ -44,6 +55,7 @@
   var remindOff = "";     // the day «Ahora no» hid the reminder
   var sentPhotos = {};    // stop id -> a receipt photo queued from #reclamar
   var orderTimer = null;
+  var waEdit = null;      // 19.0.1.129.33: {stop_id, number} while the customer's WhatsApp is typed
 
   function h(v) { return APP.h(v); }
   function money(n) { return APP.money(n); }
@@ -78,6 +90,25 @@
     var l = local();
     return on() && !!stop && !stop.parcel && !stop.retained && !APP.redOf(stop) && !!l && !l.closed &&
       !APP.needsArrival(stop);
+  }
+
+  // 19.0.1.129.33: why a tap on the visit screen cannot be taken, "" when it
+  // can. The screen on display may be older than the route's state.
+  function closedText(what) {
+    return APP.canReopen && APP.canReopen() ? "La ruta está cerrada: reabrila para corregir " + what + "." :
+      "La ruta está cerrada. Para corregir " + what + " hay que reabrirla: se puede cuando el cierre ya se " +
+      "envió y hasta que caja cuente el efectivo. Si no, avisale a administración.";
+  }
+  function blockedReason(stop) {
+    var l = local();
+    if (!stop) return "Esta visita ya no está en la ruta.";
+    if (!l || l.closed) return closedText("esta visita");
+    if (!on()) return "La visita cambió de pantalla: revisala de nuevo.";
+    if (stop.retained) return "Este pedido quedó retenido: no se entrega. Volvelo al depósito.";
+    if (stop.parcel) return "Es una encomienda: se carga en su propia pantalla.";
+    if (APP.redOf(stop)) return "Cliente en rojo: seguí los pasos de la pantalla.";
+    if (APP.needsArrival(stop)) return "Primero tocá «Llegué».";
+    return "";
   }
 
   function modeOf(stop, v) {
@@ -345,6 +376,49 @@
     });
   }
 
+  // ------------------------------- 19.0.1.129.33: the customer's WhatsApp
+
+  // on «Ubicación y horarios» (app3.js viewCustomer, hook "customerHtml")
+  function customerHtml(stop) {
+    var l = local();
+    if (!on() || !stop || !l || l.closed) return "";
+    var wa = APP.whatsappOf(stop), editing = !!(waEdit && waEdit.stop_id === stop.id);
+    var out = '<div class="label">WhatsApp del cliente</div><div class="card v2wa"><div class="stack">';
+    if (editing) {
+      out += '<input class="inp" data-f5="cwa" inputmode="tel" value="' + h(waEdit.number) +
+        '" placeholder="Ej.: 299 000-0000"></div><div class="grid2"><button class="opt primary" data-a5="cwa-save">' +
+        'Guardar número</button><button class="opt second" data-a5="cwa-cancel">Cancelar</button></div>';
+    } else if (wa.number) {
+      out += '<span class="phone">' + h(wa.number) + "</span>" +
+        (wa.confirmed ? '<span class="okline">' + APP.icons.check + "Confirmado</span>" : "") + "</div>" +
+        '<div class="grid2"><button class="opt primary" data-a5="cwa-ok">Confirmar</button>' +
+        '<button class="opt second" data-a5="cwa-edit">Corregir</button></div>';
+    } else {
+      out += '<span class="muted">El contacto no tiene número.</span></div>' +
+        '<button class="opt primary" data-a5="cwa-edit">Cargar</button>';
+    }
+    return out + '<div class="small muted">Se guarda en el celular y se envía al sincronizar.</div></div>';
+  }
+
+  function customerWa(a, stop) {
+    var l = local();
+    if (!stop || !on() || !l || l.closed) {
+      APP.toast(!stop ? "Este cliente ya no está en la ruta." : closedText("los datos del cliente"), true);
+      return APP.rerender();
+    }
+    if (a === "cwa-edit") waEdit = { stop_id: stop.id, number: APP.whatsappOf(stop).number || "" };
+    else if (a === "cwa-cancel") waEdit = null;
+    else if (a === "cwa-ok") return APP.saveWhatsapp(stop, APP.whatsappOf(stop).number, "confirm");
+    else if (a === "cwa-save") {
+      var number = String(waEdit && waEdit.stop_id === stop.id ? waEdit.number : "").trim();
+      if (number.replace(/\D/g, "").length < 8) return APP.toast("El número es muy corto.", true);
+      var had = APP.whatsappOf(stop).number;
+      waEdit = null;
+      return APP.saveWhatsapp(stop, number, had ? "correct" : "load");
+    }
+    APP.rerender();
+  }
+
   // ------------------------------------------------- «Mis comprobantes»
 
   function daysAgo(value) {
@@ -603,7 +677,12 @@
       return APP.rerender();
     }
     if (a === "up" || a === "down") return move(+el.getAttribute("data-id"), a === "up" ? -1 : 1);
-    if (!stop || !usable(stop)) return;
+    if (a.indexOf("cwa-") === 0) return customerWa(a, stop);
+    // 19.0.1.129.33: say why instead of doing nothing, and show the real state
+    if (!stop || !usable(stop)) {
+      APP.toast(blockedReason(stop) || "Esta visita no se puede cambiar ahora.", true);
+      return APP.rerender();
+    }
     var d = draftFor(stop);
     if (a === "deliv") {
       if (v === "nd") d.outcome = "not_delivered";
@@ -622,6 +701,12 @@
 
   document.addEventListener("input", function (ev) {
     var el = ev.target, f = el.getAttribute && el.getAttribute("data-f");
+    // 19.0.1.129.33: the customer's WhatsApp being typed (data-f5: app3.js
+    // reads data-f="wa" into the visit draft, which this screen does not have)
+    if (el.getAttribute && el.getAttribute("data-f5") === "cwa") {
+      if (waEdit) waEdit.number = el.value;
+      return;
+    }
     if (f !== "cash" && f !== "tamount") return;
     var stop = APP.stopById(location.hash.replace(/^#/, "").split("/")[1]);
     var d = APP.getDraft();
@@ -649,14 +734,19 @@
     if (document.visibilityState === "visible") fetchHome(false);
   });
 
+  // 19.0.1.129.33: a WhatsApp half typed does not follow to another screen
+  window.addEventListener("hashchange", function () { waEdit = null; });
+
   var ext = window.RepartoExt || {};
   ext.view = view;
+  ext.customerHtml = customerHtml;
   ext.homeHtml = homeHtml;
   ext.visitsTools = visitsTools;
   ext.routeApplied = routeApplied;
   window.RepartoExt = ext;
   // for tests (tests/data/reparto_v129_28.js)
   window.RepartoV2 = { dueOf: dueOf, shortOf: shortOf, home: function () { return home; },
+                       blockedReason: blockedReason,
                        fetchHome: fetchHome, postOrder: postOrder, save: save, setHome: function (x) { home = x; } };
   if (route()) { routeApplied(); APP.rerender(); }
 })();
