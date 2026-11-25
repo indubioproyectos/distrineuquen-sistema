@@ -96,7 +96,10 @@ class SaleOrderRearmar(models.Model):
         old._distri_bloquear()
         old._distri_rearmar_check()
 
-        for invoice in old.invoice_ids.filtered(lambda f: f.state != "cancel"):
+        # 19.0.1.129.26: the order is cancelled on purpose, no «factura
+        # anulada» note (models/factura_anulada.py)
+        invoices = old.invoice_ids.with_context(distri_skip_cancel_notice=True)
+        for invoice in invoices.filtered(lambda f: f.state != "cancel"):
             if invoice.state == "posted":
                 invoice.button_draft()
             invoice.button_cancel()

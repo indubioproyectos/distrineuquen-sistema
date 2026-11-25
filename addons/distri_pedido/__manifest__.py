@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.25",
+    "version": "19.0.1.129.26",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -711,7 +711,8 @@
              "views/rendiciones_app.xml", "views/auditoria.xml", "data/auditoria_cron.xml",
              "views/efectivo_a_rendir.xml", "views/marca.xml", "data/marca.xml",
              "views/enviar_empresa.xml", "views/transferencias_cargadas.xml",
-             "views/mis_ventas_app.xml", "data/ventas_todas.xml"],
+             "views/mis_ventas_app.xml", "data/ventas_todas.xml",
+             "views/factura_anulada.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare

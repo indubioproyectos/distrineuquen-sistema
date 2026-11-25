@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.26 (#97): la factura de un pedido armado o entregado avisa
+       antes de anularla (models/factura_anulada.py). No bloquea nada. -->
+  <record id="view_move_form_aviso_anular" model="ir.ui.view">
+    <field name="name">account.move.form.distri.aviso.anular</field>
+    <field name="model">account.move</field>
+    <field name="inherit_id" ref="account.view_move_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="(//header/button[@name='button_cancel'])[2]" position="attributes">
+        <attribute name="invisible">not id or state != 'draft' or move_type == 'entry' or distri_cancel_warning</attribute>
+      </xpath>
+      <xpath expr="(//header/button[@name='button_cancel'])[2]" position="after">
+        <field name="distri_cancel_warning" invisible="1"/>
+        <button name="button_cancel" string="Cancel" type="object" groups="account.group_account_invoice"
+                data-hotkey="x"
+                confirm="El pedido de esta factura ya está armado o entregado y su remito está validado. Anular la factura no desarma el pedido ni devuelve la mercadería al stock. ¿Anular igual?"
+                invisible="not id or state != 'draft' or move_type == 'entry' or not distri_cancel_warning"/>
+      </xpath>
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-warning mb-0" role="alert" invisible="not distri_cancel_warning">
+          El pedido de esta factura ya está armado o entregado y su remito está validado.
+          Si se anula la factura, el pedido no se desarma ni la mercadería vuelve al stock:
+          revisar si hay que desarmar o devolver.
+        </div>
+      </xpath>
+    </field>
+  </record>
+</odoo>
