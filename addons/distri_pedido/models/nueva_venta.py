@@ -32,7 +32,7 @@ from datetime import datetime, time
 import pytz
 
 from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 
 from .deposito import ADMIN_GROUP, _check_admin
 
@@ -309,6 +309,10 @@ class SaleOrderNuevaVenta(models.Model):
         required, «Confirmar sin WhatsApp»."""
         self.ensure_one()
         self.check_access("write")
+        # 19.0.1.129.39: an external seller only on his customers' orders
+        # (the standard rule lets him write the ones without salesperson)
+        if not self.env.su and not self.env.user._distri_may_reach_record(self):
+            raise AccessError("Ese pedido no es de tus clientes.")
         bloqueo = self._distri_kit_bloqueo_aprobar()
         if bloqueo:
             raise UserError(bloqueo)

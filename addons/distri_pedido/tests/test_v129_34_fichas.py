@@ -158,7 +158,8 @@ class TestFichas(HttpCase):
             return False
         if model == "res.partner":
             return user._distri_may_reach_customer(record.sudo())
-        return True
+        # 19.0.1.129.39: an order or invoice also by the external-seller rule
+        return user._distri_may_reach_record(record.sudo())
 
     # ------------------------------------------------------------ flag off
 

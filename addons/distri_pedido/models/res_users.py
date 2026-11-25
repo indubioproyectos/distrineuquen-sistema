@@ -279,6 +279,28 @@ class ResUsers(models.Model):
         allowed = self._distri_customer_ids_limit()
         return allowed is None or partner.commercial_partner_id.id in allowed
 
+    def _distri_may_reach_record(self, record):
+        """19.0.1.129.39: whether this user may open a sale order or a
+        customer invoice on a kit screen (/pedidos/<id>, «Aprobar», «Anular
+        venta», /facturas/<id>) beyond the backend's record rules. The
+        standard «Personal Orders» / «Personal Invoices» rules let any
+        seller read an order or invoice without salesperson (AgilPedido's,
+        a script's); an external seller is still limited to his customers
+        (_distri_may_reach_customer), plus the orders and invoices that are
+        his own (his salesperson, or an order he created). Everybody else:
+        True."""
+        self.ensure_one()
+        if not self._distri_is_external_seller():
+            return True
+        rec = record.sudo()
+        if rec._name == "sale.order":
+            if rec.user_id == self or rec.create_uid == self:
+                return True
+        elif rec._name == "account.move":
+            if rec.invoice_user_id == self:
+                return True
+        return bool(rec.partner_id) and self._distri_may_reach_customer(rec.partner_id)
+
 
 class ResPartnerChosenSeller(models.Model):
     _inherit = "res.partner"

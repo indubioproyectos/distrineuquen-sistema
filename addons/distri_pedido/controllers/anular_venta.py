@@ -44,8 +44,9 @@ class VentaAcciones(http.Controller):
         return env.user
 
     def _order(self, order_id):
-        """The order in the user's environment, when he may read it (404
-        otherwise, as the order screen)."""
+        """The order in the user's environment, when he may read it and, for
+        an external seller, it is one of his customers' (Fichas._get, since
+        19.0.1.129.39); 404 otherwise, as the order screen."""
         return Fichas()._get("sale.order", order_id)
 
     # ------------------------------------------------------------ «Aprobar»

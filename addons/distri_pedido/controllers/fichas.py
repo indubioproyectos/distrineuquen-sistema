@@ -27,7 +27,9 @@ with the user's own environment and `check_access("read")` (ACLs and record
 rules: an external seller only his customers, an internal seller his
 portfolio and his orders, administración and gerencia everything), plus
 res.users._distri_may_reach_customer for the customer (the kit's one check of
-the external seller). A record the user cannot read answers 404, the same as
+the external seller) and, since 19.0.1.129.39, _distri_may_reach_record for
+an order or invoice (the standard «Personal Orders/Invoices» rules let any
+seller read the ones without salesperson, e.g. AgilPedido's). A record the user cannot read answers 404, the same as
 one that does not exist. The screens are for the daily roles (vendedor,
 administración, gerencia, Sistemas); a packer or driver without them gets 403.
 Related records (the invoice's payments, the order's pickings and stops) are
@@ -170,7 +172,16 @@ class Fichas(http.Controller):
             record.check_access("read")
         except AccessError:
             raise NotFound() from None
+        # 19.0.1.129.39: the backend's «Personal Orders/Invoices» rules let a
+        # seller read every order or invoice without salesperson; an external
+        # seller still reaches only his customers' (the page reads the rest
+        # with sudo, so this check comes before any of it)
+        if model in ("sale.order", "account.move") and not self._may_reach_record(record):
+            raise NotFound()
         return record
+
+    def _may_reach_record(self, record):
+        return request.env.user._distri_may_reach_record(record)
 
     def _may_reach(self, partner):
         return request.env.user._distri_may_reach_customer(partner)
@@ -372,6 +383,8 @@ class Fichas(http.Controller):
         from ..models.nueva_venta import nueva_venta_on
         o = order.sudo()
         if not nueva_venta_on(request.env) or o.state not in ("draft", "sent"):
+            return None
+        if not self._may_reach_record(order):
             return None
         try:
             order.check_access("write")
