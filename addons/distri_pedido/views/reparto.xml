@@ -97,7 +97,7 @@
                          decoration-warning="load_state in ('driver', 'dispatch')"/>
                   <field name="load_sequence" optional="hide"/>
                   <field name="dispatch_checked_by_id" optional="hide"/>
-                  <field name="state" widget="badge" decoration-success="state == 'paid'"
+                  <field name="state" widget="badge" decoration-success="state in ('paid', 'already_paid')"
                          decoration-danger="state == 'not_paid'"/>
                   <field name="delivery_state" optional="show" widget="badge"
                          decoration-warning="delivery_state == 'delivered_no_code'"

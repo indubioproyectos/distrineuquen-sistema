@@ -13,6 +13,12 @@
  * «Actualizar la ruta».
  * «Ver comprobante» opens the receipt fullscreen (/reparto/api/receipt,
  * online only). Only informs: it changes no amount of the visit.
+ *
+ * 19.0.1.129.22: «Ya está pagado» also without a receipt card (the order's
+ * invoices have no residual, e.g. paid with the Mercado Pago report), with
+ * how and when (stop.payments_paid_how); the poll also runs on «Cerrar la
+ * ruta» and hands its rejections to app3.js (RepartoApp.onRejections), which
+ * downloads the route when administración resolved a rejected visit.
  */
 (function () {
   "use strict";
@@ -45,8 +51,12 @@
 
   function noticeHtml(stop, extra) {
     var payments = stop && stop.payments;
-    if (!payments || !payments.length) return "";
     var base = "notice" + (extra ? " " + extra : "");
+    if ((!payments || !payments.length) && stop && stop.payments_paid) {
+      return '<div class="' + base + ' pay-ok"><b>Ya está pagado</b>' +
+        (stop.payments_paid_how ? " · " + h(stop.payments_paid_how) : "") + ". No cobres nada.</div>";
+    }
+    if (!payments || !payments.length) return "";
     var credited = payments.filter(function (p) { return p.state === "acreditado"; });
     var pending = payments.filter(function (p) { return p.state === "sin_acreditar"; });
     var out = "";
@@ -77,7 +87,7 @@
 
   function onScreen() {
     var part = location.hash.replace(/^#/, "").split("/")[0];
-    return part === "visita" || part === "visitas" || part === "";
+    return part === "visita" || part === "visitas" || part === "" || part === "cierre";
   }
 
   function typing() {
@@ -92,12 +102,14 @@
     Object.keys(map).forEach(function (id) {
       var stop = APP.stopById(id), info = map[id];
       if (!stop || !info) return;
-      var before = JSON.stringify([stop.payments || [], stop.payments_due || 0, !!stop.payments_paid]);
-      var after = JSON.stringify([info.payments || [], info.due || 0, !!info.paid]);
+      var before = JSON.stringify([stop.payments || [], stop.payments_due || 0, !!stop.payments_paid,
+                                   stop.payments_paid_how || ""]);
+      var after = JSON.stringify([info.payments || [], info.due || 0, !!info.paid, info.paid_how || ""]);
       if (before === after) return;
       stop.payments = info.payments || [];
       stop.payments_due = info.due || 0;
       stop.payments_paid = !!info.paid;
+      stop.payments_paid_how = info.paid_how || "";
       changed = true;
     });
     if (!changed) return;
@@ -129,6 +141,9 @@
         var current = APP.route();
         if (data && data.ok && data.route && current && current.id === routeId) {
           applyPayments(data.route.payments);
+          if (data.route.rejections && typeof APP.onRejections === "function") {
+            APP.onRejections(data.route.rejections);
+          }
         }
       })
       .catch(function () {})

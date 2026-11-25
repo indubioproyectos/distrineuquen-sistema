@@ -387,11 +387,14 @@ class DistriPromisedTransferComprobante(models.Model):
     def _distri_check_red(self, stop):
         """Delivering to a customer in red without collecting what he owed
         from the days before is a serious fault of the driver."""
+        # 19.0.1.129.22: «Ya estaba pagado» owes nothing for today's order,
+        # only what was owed from the days before
+        today = 0.0 if stop.state == "already_paid" else stop._distri_due_today()
         breach = bool(
-            stop.red and stop.state in ("paid", "not_paid")
+            stop.red and stop.state in ("paid", "not_paid", "already_paid")
             and stop.delivery_state in ("delivered_code", "delivered_no_code")
             and stop.cash_amount + stop.transfer_amount + AMOUNT_TOLERANCE
-            < stop._distri_due_today() + stop.red_debt)
+            < today + stop.red_debt)
         if breach and not stop.red_breach:
             stop.route_id.message_post(body=(
                 "Falta grave: se entregó a %s (%s) en rojo sin cobrar lo que debía de días "

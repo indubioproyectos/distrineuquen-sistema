@@ -58,7 +58,7 @@ TEMPLATE = "distri_pedido.deposito_hub"
 # the same question as the backend button «Venta en mostrador»
 COUNTER_CONFIRM = ("Se confirma el pedido, se arma completo tal como se pidió, se valida el "
                    "remito y sale la factura. Después se registra la entrega y el cobro. ¿Seguir?")
-STOP_CHIP = {"paid": "ok", "not_paid": "err"}
+STOP_CHIP = {"paid": "ok", "already_paid": "ok", "not_paid": "err"}
 DELIVERY_CHIP = {"delivered_code": "ok", "delivered_no_code": "warn"}
 
 

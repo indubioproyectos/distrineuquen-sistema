@@ -206,7 +206,7 @@
                   <field name="order_id"/>
                   <field name="partner_id"/>
                   <field name="parcels"/>
-                  <field name="state" widget="badge" decoration-success="state == 'paid'"
+                  <field name="state" widget="badge" decoration-success="state in ('paid', 'already_paid')"
                          decoration-danger="state == 'not_paid'"/>
                   <field name="delivery_state" widget="badge"
                          decoration-warning="delivery_state == 'delivered_no_code'"

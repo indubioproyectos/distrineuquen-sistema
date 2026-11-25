@@ -38,6 +38,19 @@
  *     server answers with a "reset" flag and the current route. Its pending
  *     changes are kept and still sent: the server applies them or keeps them
  *     in «Cambios rechazados» (distri.sync.rejection), as before.
+ * - 19.0.1.129.22 («etapa 0»):
+ *   · a visit rejected by the server and then resolved or resent there takes
+ *     the server's visit on download (reconcileVisits); only a rejection
+ *     still open on the server blocks «Cerrar la ruta», which asks the
+ *     server first;
+ *   · «Ya estaba pagado» when the server says the order is paid
+ *     (stop.payments_paid): delivered, no cash, no transfer, payload flag
+ *     already_paid; the server may answer «ok» with a warning (still owed);
+ *   · «Entregar igual» sets (one tap), «deshacer» clears it, and before
+ *     «¿Devolvió algo?» it says so instead of doing nothing.
+ *   app3.js and app4.js are edited in place: asset_version()
+ *   (controllers/reparto.py) hashes their size and mtime, so the page and
+ *   the service worker pick up the new files.
  */
 (function () {
   "use strict";
@@ -290,11 +303,13 @@
     if (!v) return "pending";
     if (v.outcome === "not_delivered") return "not_delivered";
     if (v.outcome === "dispatched") return "dispatched";
+    // 19.0.1.129.22: «Ya estaba pagado» (models/reparto_sync.py)
+    if (v.already_paid) return "already_paid";
     if (v.no_payment) return "not_paid";
     if (v.cash > 0 || v.transfer === "yes" || v.transfer === "done") return "paid";
     return "not_paid";
   }
-  var PILL = { pending: "PENDIENTE", paid: "COBRADO", not_paid: "NO PAGÓ",
+  var PILL = { pending: "PENDIENTE", paid: "COBRADO", not_paid: "NO PAGÓ", already_paid: "YA ESTABA PAGADO",
                not_delivered: "NO SE ENTREGÓ", dispatched: "DESPACHADA" };
 
   // --- expenses paid with the day's cash
@@ -627,6 +642,9 @@
           var local = fillLocal(localFor(ev.route_id));
           if (touched.indexOf(local) < 0) touched.push(local);
           markVisit(ev, r.status === "error" || r.status === "discarded" ? r.error : null, local);
+          // 19.0.1.129.22: «Ya estaba pagado» and the order still owes: the
+          // server recorded it as not paid and says why
+          if (r.status === "ok" && r.warning) noteWarning(ev, r.warning, local);
           if (r.status === "error") {
             keepRejected(ev, r.error, local);
           } else if (ev.resends) {
@@ -657,6 +675,71 @@
       local.rejected.push({ root: root, type: ev.type, event: copy, error: error,
                             at: new Date().toISOString(), hidden: false });
     }
+  }
+
+  function noteWarning(ev, warning, local) {
+    var v = ev.type === "visit" ? local.visits[ev.payload.stop_id] : null;
+    if (v && v.visit_uuid === ev.payload.visit_uuid && v.already_paid) {
+      v.already_paid = false; v.no_payment = true; v.warning = warning;
+    }
+    toast(warning, true);
+  }
+
+  // 19.0.1.129.22: what the server says about the rejection of a visit with
+  // an error on this phone: "open" (still blocks), "closed" (resent or
+  // resolved by administración), "none" (the server has no rejection for
+  // it: an edit «discarded» as older than the server's) or "unknown" (the
+  // phone kept a rejection the server no longer lists)
+  function visitRejection(local, rejections, stop, v) {
+    var roots = (local.rejected || []).filter(function (x) {
+      return x.event && (x.type === "visit" || x.type === "parcel") && x.event.payload &&
+        +x.event.payload.stop_id === stop.id;
+    }).map(function (x) { return x.root; });
+    var known = false, open = false;
+    (rejections || []).forEach(function (x) {
+      var mine = roots.indexOf(x.uuid) >= 0 || (v.visit_uuid && x.visit_uuid === v.visit_uuid) ||
+        (x.stop_id === stop.id && (x.type === "visit" || x.type === "parcel"));
+      if (!mine) return;
+      known = true;
+      if (x.state === "open") open = true;
+    });
+    if (open) return "open";
+    if (known) return "closed";
+    return roots.length ? "unknown" : "none";
+  }
+
+  // a visit with an error whose rejection the server closed takes the
+  // server's visit (or goes back to pending when the server has none);
+  // returns how many changed. Never one with a change still to send.
+  function reconcileVisits(local, route) {
+    var changed = 0;
+    (route.stops || []).forEach(function (stop) {
+      var v = local.visits[stop.id];
+      if (!v || !v.error) return;
+      if (S.outbox.some(function (e) { return e.route_id === route.id && e.key === "visit:" + stop.id; })) return;
+      var status = visitRejection(local, route.rejections, stop, v);
+      if (status === "open" || status === "unknown") return;
+      if (stop.visit) {
+        var adopted = JSON.parse(JSON.stringify(stop.visit));
+        adopted.resolved = true;
+        local.visits[stop.id] = adopted;
+      } else if (status === "closed") {
+        delete local.visits[stop.id];
+      } else return;
+      changed += 1;
+    });
+    return changed;
+  }
+
+  // the poll (app4.js) brings the rejections: a download when one of them
+  // unblocks a visit of this phone
+  function onRejections(rejections) {
+    if (!S.route || !S.local) return;
+    var unblocked = stops().some(function (stop) {
+      var v = visitOf(stop);
+      return v && v.error && visitRejection(S.local, rejections, stop, v) === "closed";
+    });
+    if (unblocked) download(false);
   }
 
   function markVisit(ev, error, local) {
@@ -770,6 +853,13 @@
         // after «Controlado» the server's ticks are the ones that count
         if (S.route.controlled) S.local.loaded[stop.id] = !!stop.loaded;
       });
+      // 19.0.1.129.22: a rejected visit that administración resolved (or
+      // that was resent) takes the server's visit, before the rejections go
+      var resolved = reconcileVisits(S.local, S.route);
+      if (resolved) {
+        toast(resolved === 1 ? "Administración resolvió una visita." :
+          "Administración resolvió " + resolved + " visitas.");
+      }
       // the server closed some rejections (resent or resolved by administración)
       var closedOnServer = {};
       (S.route.rejections || []).forEach(function (x) { if (x.state !== "open") closedOnServer[x.uuid] = true; });
@@ -1242,6 +1332,8 @@
         detail = '<div class="d">' + h(pays.join(" · ")) + "</div>";
       } else if (st === "not_paid") {
         detail = '<div class="d">Sin cobrar · ' + money(dueToday(s, v.returns)) + " a tu cargo</div>";
+      } else if (st === "already_paid") {
+        detail = '<div class="d">Entregado · ya estaba pagado, sin cobro</div>';
       } else {
         detail = '<div class="d">' + (v.reason ? "Motivo: " + h(v.reason) : "Falta el motivo") + "</div>";
       }
@@ -1252,6 +1344,8 @@
         detail += '<div class="redline">En rojo · reclamá lo que debe antes de descargar</div>';
       }
       if (v && v.error) detail += '<div class="e">No se envió: ' + h(v.error) + " Abrí la visita y guardala de nuevo.</div>";
+      if (v && !v.error && v.warning) detail += '<div class="e">' + h(v.warning) + "</div>";
+      if (v && v.resolved) detail += '<div class="okline">' + ICON_CHECK + "Administración resolvió esta visita</div>";
       var pill = s === next ? "SUGERIDA" : (s.parcel && st === "pending" ? "ENCOMIENDA" : PILL[st]);
       if (st === "pending" && redOf(s)) pill = "EN ROJO";
       var cls = "visit" + (st !== "pending" ? " done" : "") + (s === next ? " next" : "");
@@ -1520,6 +1614,10 @@
 
   // --- one visit
 
+  function returnsAnswered(d) {
+    return d.returns_answer === "none" || (d.returns_answer === "yes" && d.returns.length > 0);
+  }
+
   function newDraft(stop) {
     var v = visitOf(stop);
     if (v) return JSON.parse(JSON.stringify(v));
@@ -1527,7 +1625,7 @@
       visit_uuid: uuid(), stop_id: stop.id, outcome: "delivered", reason: "",
       returns_answer: null, returns: [], code: "", code_ok: false, without_code: false,
       cash: 0, transfer: "no", transfer_amount: 0, receipt_answer: null, red_ok: false,
-      no_payment: false, comment: "",
+      no_payment: false, already_paid: false, comment: "",
       // the receipt photo: «photo» only until it is queued, the thumbnail stays
       photo: null, thumb: null, photo_uuid: null, receipt_photo: false,
     };
@@ -1543,7 +1641,7 @@
     var notDelivered = d.outcome === "not_delivered";
     var lines = stop.lines, shown = d.showAll ? lines : lines.slice(0, 4);
     var retAmount = returnsAmount(stop, d.returns);
-    var answered = d.returns_answer === "none" || (d.returns_answer === "yes" && d.returns.length > 0);
+    var answered = returnsAnswered(d);
     var noCode = !stop.code_hash;
 
     var out = '<div class="head"><a class="back" href="#visitas">‹ Visitas</a><h1>' + h(stop.name) + "</h1>" +
@@ -1624,8 +1722,10 @@
       '<div id="code-status">' + codeStatus(stop) + "</div>" +
       '<div class="small muted">Obligatorio. Se habilita después de responder si devolvió algo, y acredita lo recibido ' +
       "menos lo devuelto. El cliente lo ve en la página de su pedido. Se valida sin señal.</div>" +
-      '<button class="opt amberopt' + (d.without_code ? " on" : "") + '" data-a="no-code"' + (answered ? "" : " disabled") +
-      ">El cliente no tiene el código · Entregar igual</button>" +
+      // 19.0.1.129.22: never «disabled» (a disabled button swallows the tap):
+      // before «¿Devolvió algo?» it says so
+      '<button class="opt amberopt' + (d.without_code ? " on" : "") + '" data-a="no-code"' +
+      (answered ? "" : ' aria-disabled="true"') + ">El cliente no tiene el código · Entregar igual</button>" +
       '<div class="small amber">Queda como "Entregado sin código": ante un reclamo por faltantes no hay constancia de recibido.</div></div>';
 
     // balance
@@ -1644,7 +1744,16 @@
     }
 
     // payment
-    out += '<div class="label">¿Cómo pagó?</div><div class="card" style="gap:12px">' +
+    out += '<div class="label">¿Cómo pagó?</div><div class="card" style="gap:12px">';
+    // 19.0.1.129.22: the server says the order is already paid (a payment
+    // without a receipt card too, e.g. the Mercado Pago report)
+    if (stop.payments_paid) {
+      out += '<div class="small pay-paid"><b>Ya está pagado</b>' +
+        (stop.payments_paid_how ? " (" + h(stop.payments_paid_how) + ")" : "") +
+        ": no cobres nada, tocá «Ya estaba pagado».</div>" +
+        '<button class="opt teal' + (d.already_paid ? " on" : "") + '" data-a="already-paid">Ya estaba pagado</button>';
+    }
+    out +=
       '<label class="field">Efectivo<input class="inp money" data-f="cash" inputmode="decimal" placeholder="$ 0" value="' +
       (d.cash ? h(money(d.cash)) : "") + '"></label>' +
       '<div class="stack" style="color:inherit"><div style="font-size:17px;font-weight:700">¿Paga con transferencia?</div><div class="grid2">' +
@@ -1652,10 +1761,9 @@
       '<button class="opt teal' + (d.transfer === "yes" ? " on" : "") + '" data-a="tr" data-v="yes">Sí</button>' +
       "</div></div>";
     if (d.transfer === "yes") {
-      var short = round2(dueToday(stop, d.returns) - (d.cash || 0) - (d.transfer_amount || 0));
       out += '<label class="field">Importe transferido<input class="inp money" data-f="tamount" inputmode="decimal" placeholder="$ 0" value="' +
         (d.transfer_amount ? h(money(d.transfer_amount)) : "") + '"></label>' +
-        (short > 1 ? '<div class="small red-text">Faltan ' + money(short) + " del pedido de hoy: exigí el total. La diferencia queda a tu cargo.</div>" : "");
+        '<div id="tr-short">' + shortHtml(stop, d) + "</div>";
       var company = S.route.company_whatsapp || "";
       var cwa = whatsappOf(stop);
       var ra = d.receipt_answer, hasPhoto = !!(d.thumb || d.receipt_photo);
@@ -1689,7 +1797,7 @@
           "empresa lo recibe; se resuelve solo.</div>";
       }
       // WhatsApp stays as the fallback
-      out += (cwa.number ? '<a class="opt second" target="_blank" rel="noopener" href="' +
+      out += (cwa.number ? '<a class="opt second" id="tr-claim" target="_blank" rel="noopener" href="' +
           h(waLink(waDigits(cwa.number), visitClaim(stop, d.transfer_amount || 0))) + '">Pedirle el comprobante por WhatsApp</a>' : "") +
         (company && ra !== "photo" ? '<a class="opt second" target="_blank" rel="noopener" href="' +
           h(waLink(company, "Comprobante del pedido " + stop.order)) + '">Si te lo mandó a vos: reenviar a la empresa</a>' : "") +
@@ -1725,6 +1833,23 @@
     return out;
   }
 
+  // «exigí el total»: what today's order still misses after cash and transfer
+  function shortHtml(stop, d) {
+    var short = round2(dueToday(stop, d.returns) - (d.cash || 0) - (d.transfer_amount || 0));
+    return short > 1 ? '<div class="small red-text">Faltan ' + money(short) +
+      " del pedido de hoy: exigí el total. La diferencia queda a tu cargo.</div>" : "";
+  }
+  // 19.0.1.129.22: an amount typed and then a tap elsewhere updates these in
+  // place; a full re-render on «change» replaced the button under the finger
+  // and the tap was lost
+  function refreshTransferBits(stop) {
+    if (!stop || !draft || draft.stop_id !== stop.id) return;
+    var el = document.getElementById("tr-short");
+    if (el) el.innerHTML = shortHtml(stop, draft);
+    var link = document.getElementById("tr-claim"), cwa = whatsappOf(stop);
+    if (link && cwa.number) link.href = waLink(waDigits(cwa.number), visitClaim(stop, draft.transfer_amount || 0));
+  }
+
   // 19.0.1.99.0 (audit F12): wrong codes per stop, kept on the phone and
   // sent with the visit; at the server's limit the code locks
   function codeTries(stop) {
@@ -1749,6 +1874,11 @@
 
   function codeStatus(stop) {
     var d = draft;
+    // 19.0.1.129.22: «Entregar igual» first, also when the code is locked or missing
+    if (d.without_code) {
+      return '<div class="small amber"><b>Entregado sin código</b> · ' +
+        '<button class="link" data-a="no-code-undo">deshacer</button></div>';
+    }
     if (codeLocked(stop) && !d.code_ok) {
       return '<div class="badline">Código bloqueado por intentos equivocados. Usá «Entregar igual» ' +
         "o pedile a administración que lo desbloquee y actualizá la ruta.</div>";
@@ -1756,7 +1886,6 @@
     if (!stop.code_hash) {
       return '<div class="badline">Este pedido no tiene código cargado. Usá "Entregar igual".</div>';
     }
-    if (d.without_code) return '<div class="small amber"><b>Entregado sin código</b></div>';
     if (d.code_ok) return '<div class="okline">' + ICON_CHECK + "Código correcto · Recibido acreditado</div>";
     if ((d.code || "").length === 4) {
       var left = triesLeft(stop);
@@ -1799,6 +1928,8 @@
       transfer_amount: d.transfer === "yes" ? d.transfer_amount || 0 : 0,
       receipt_answer: d.transfer === "yes" ? d.receipt_answer : null,
       no_payment: !!d.no_payment, comment: d.comment || "",
+      // 19.0.1.129.22: «Ya estaba pagado» (older servers ignore it)
+      already_paid: !!d.already_paid,
     };
   }
 
@@ -1811,7 +1942,7 @@
       without_code: !!d.without_code, cash: d.cash || 0, transfer: d.transfer || "no",
       transfer_amount: d.transfer === "yes" ? d.transfer_amount || 0 : 0,
       receipt_answer: d.transfer === "yes" ? d.receipt_answer : null, red_ok: !!d.red_ok,
-      no_payment: !!d.no_payment,
+      no_payment: !!d.no_payment, already_paid: !!d.already_paid,
       comment: d.comment || "", saved_at: new Date().toISOString(), synced: false, error: null,
       // only the thumbnail: the photo itself lives in its outbox event
       thumb: photoAnswer ? d.thumb || null : null, photo_uuid: photoAnswer ? d.photo_uuid || null : null,
@@ -2066,7 +2197,7 @@
   // --- close the route
 
   function closeSummary() {
-    var list = stops(), sum = { paid: 0, not_paid: 0, not_delivered: 0, pending: 0, dispatched: 0 };
+    var list = stops(), sum = { paid: 0, not_paid: 0, already_paid: 0, not_delivered: 0, pending: 0, dispatched: 0 };
     var cash = 0, transfers = 0, noCode = 0, unsynced = 0, noGuide = [];
     list.forEach(function (s) {
       var st = stopState(s), v = visitOf(s);
@@ -2076,7 +2207,9 @@
       if (v.transfer === "yes") transfers += 1;
       if (v.outcome === "delivered" && v.without_code) noCode += 1;
       if (v.outcome === "dispatched" && !v.thumb && !v.has_photo) noGuide.push(s);
-      if (v.error) unsynced += 1;
+      // 19.0.1.129.22: only while the server keeps its rejection open (a
+      // rejection resolved or resent there no longer blocks the close)
+      if (v.error && visitRejection(S.local, S.route.rejections, s, v) !== "closed") unsynced += 1;
     });
     var expenses = expensesTotal();
     unsynced += expenseItems().filter(function (e) { return e.own && e.error; }).length;
@@ -2160,6 +2293,7 @@
       '<div class="body"><div class="card" style="gap:2px">' +
       '<div class="sum"><span>Pagaron (efectivo o transferencia)</span><b>' + r.sum.paid + "</b></div>" +
       '<div class="sum"><span>No pagaron</span><b>' + r.sum.not_paid + "</b></div>" +
+      (r.sum.already_paid ? '<div class="sum"><span>Ya estaba pagado</span><b>' + r.sum.already_paid + "</b></div>" : "") +
       '<div class="sum"><span>No se entregó</span><b>' + r.sum.not_delivered + "</b></div>" +
       (r.sum.dispatched ? '<div class="sum"><span>Encomiendas despachadas</span><b>' + r.sum.dispatched + "</b></div>" : "") +
       (r.sum.pending ? '<div class="sum" style="color:var(--red)"><span>Sin estado</span><b>' + r.sum.pending + "</b></div>" : "") +
@@ -2295,11 +2429,18 @@
       draft.retLine = null; draft.retQty = ""; draft.retReason = ""; draft.adding = false;
       rerender();
     },
+    // 19.0.1.129.22: «Entregar igual» sets (a re-opened visit already has it
+    // on: a toggle turned it off with the usual tap); «deshacer» clears it
     "no-code": function (el, stop) {
-      draft.without_code = !draft.without_code;
-      if (draft.without_code) { draft.code = ""; draft.code_ok = false; }
+      if (!returnsAnswered(draft)) return toast("Primero contestá ¿Devolvió algo?", true);
+      if (draft.without_code) return;
+      draft.without_code = true; draft.code = ""; draft.code_ok = false;
       rerender();
     },
+    "no-code-undo": function () { draft.without_code = false; rerender(); },
+    // 19.0.1.129.22: «Ya estaba pagado»: delivered, no cash, no transfer, no
+    // «No pagó nada» (nothing at the driver's name)
+    "already-paid": function (el, stop) { alreadyPaid(stop); },
     tr: function (el, stop) {
       draft.transfer = el.getAttribute("data-v");
       if (draft.transfer !== "yes") { draft.transfer_amount = 0; draft.receipt_answer = null; }
@@ -2374,6 +2515,7 @@
       var save = function () {
         d.returns_answer = null; d.returns = []; d.code = ""; d.code_ok = false; d.without_code = false;
         d.cash = 0; d.transfer = "no"; d.transfer_amount = 0; d.receipt_answer = null; d.no_payment = false;
+        d.already_paid = false;
         withGps("close_visit", "guardar la visita", function (gps) {
           storeVisit(stop, d, gps).then(function () { toast("Guardado en el celular: no se entregó."); });
           go("#visitas");
@@ -2396,7 +2538,7 @@
           money(dueToday(stop, d.returns)) + ") queda pendiente a tu nombre: si no se cobra para la rendición " +
           "de mañana, se carga a tu cuenta.",
         onOk: function () {
-          d.no_payment = true;
+          d.no_payment = true; d.already_paid = false;
           withGps("close_visit", "guardar la visita", function (gps) {
             storeVisit(stop, d, gps).then(function () { toast("Guardado: no pagó nada."); });
             go("#visitas");
@@ -2417,9 +2559,12 @@
       if (!err && draft.transfer === "yes" && !draft.receipt_answer) err = "Elegí cómo llega el comprobante.";
       if (!err && draft.transfer === "yes" && draft.receipt_answer === "photo" && !draft.photo && !draft.thumb &&
           !draft.receipt_photo) err = "Sacá la foto del comprobante.";
+      // 19.0.1.129.22: nothing collected from an order the server says is
+      // paid is «Ya estaba pagado», not «No pagó nada»
+      if (!err && !(draft.cash > 0) && draft.transfer === "no" && stop.payments_paid) return alreadyPaid(stop);
       if (!err && !(draft.cash > 0) && draft.transfer === "no") err = "Si no pagó nada, tocá «No pagó nada».";
       if (err) return toast(err, true);
-      draft.no_payment = false;
+      draft.no_payment = false; draft.already_paid = false;
       var d = draft, cwa = whatsappOf(stop);
       withGps("close_visit", "guardar la visita", function (gps) {
         // «Al guardar la visita se abre WhatsApp con el pedido escrito»
@@ -2484,7 +2629,7 @@
       }).then(function () { toast("Datos del cliente guardados en el celular."); });
       go("#visita/" + stop.id);
     },
-    close: function () { closeRoute(); },
+    close: function () { closeRoute(false); },
     arrive: function (el, stop) {
       if (!stop) return;
       withGps("arrive", "marcar «Llegué»", function (gps) {
@@ -2545,6 +2690,28 @@
     },
   };
 
+  function alreadyPaid(stop) {
+    var d = draft, err = validateDelivered(stop, d);
+    if (err) return toast(err, true);
+    var lost = [];
+    if (d.cash > 0) lost.push("efectivo " + money(d.cash));
+    if (d.transfer === "yes") lost.push("transferencia de " + money(d.transfer_amount || 0));
+    askConfirm({
+      title: "¿Ya estaba pagado?", ok: "Sí, ya estaba pagado",
+      text: "Se guarda la visita de " + stop.name + " como entregada, sin cobro: el pedido ya figura pagado" +
+        (stop.payments_paid_how ? " (" + stop.payments_paid_how + ")" : "") + ". No queda nada a tu nombre." +
+        (lost.length ? " Se borra lo que cargaste: " + lost.join(", ") + "." : ""),
+      onOk: function () {
+        d.cash = 0; d.transfer = "no"; d.transfer_amount = 0; d.receipt_answer = null;
+        d.no_payment = false; d.already_paid = true;
+        withGps("close_visit", "guardar la visita", function (gps) {
+          storeVisit(stop, d, gps).then(function () { toast("Guardado: ya estaba pagado."); });
+          go("#visitas");
+        });
+      },
+    });
+  }
+
   function saveWhatsapp(stop, number, action) {
     S.local.whatsapp[stop.partner_id] = { number: number, confirmed: true };
     saveLocal().then(function () {
@@ -2553,13 +2720,18 @@
     rerender();
   }
 
-  function closeRoute() {
+  function closeRoute(refreshed) {
     var r = closeSummary();
     if (r.sum.pending) return toast("Quedan " + r.sum.pending + " visitas sin estado.", true);
     var list = stops().filter(function (s) { return stopState(s) === "not_delivered"; });
     var missing = list.filter(function (s) { return !(visitOf(s).reason || "").trim(); });
     if (missing.length) return toast("Falta el motivo de lo no entregado.", true);
     if (r.noGuide.length) return toast("Falta la foto de la guía de " + r.noGuide[0].name + ".", true);
+    if (r.unsynced && !refreshed && navigator.onLine !== false) {
+      // 19.0.1.129.22: administración may have resolved them: ask the server first
+      toast("Consultando al servidor…");
+      return download(false).then(function () { closeRoute(true); });
+    }
     if (r.unsynced) return toast("Hay visitas o gastos que el servidor rechazó. Abrilos y guardalos de nuevo.", true);
     withGps("end", "cerrar la ruta", sendClose);
   }
@@ -2634,11 +2806,11 @@
     if (f === "cash" && draft) {
       el.value = draft.cash ? money(draft.cash) : "";
       // the «exigí el total» warning follows the cash
-      if (draft.transfer === "yes") rerender();
+      if (draft.transfer === "yes") refreshTransferBits(stopById(location.hash.replace(/^#/, "").split("/")[1]));
     }
     if (f === "tamount" && draft) {
       el.value = draft.transfer_amount ? money(draft.transfer_amount) : "";
-      rerender();
+      refreshTransferBits(stopById(location.hash.replace(/^#/, "").split("/")[1]));
     }
     if (f === "pcost" && draft) el.value = draft.cost ? money(draft.cost) : "";
     if (f === "exp-amount" && expDraft) el.value = expDraft.amount ? money(expDraft.amount) : "";
@@ -2704,6 +2876,8 @@
     fetchWithTimeout: fetchWithTimeout,
     isLoginPage: isLoginPage,
     api: { load: API_LOAD },
+    // 19.0.1.129.22: the rejections of the poll (app4.js)
+    onRejections: onRejections,
   };
 
   boot();

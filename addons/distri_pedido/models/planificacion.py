@@ -63,6 +63,7 @@ STOP_CHIPS = {
     "pending": ("Pendiente", ""),
     "paid": ("Pagó", "ok"),
     "not_paid": ("No pagó", "err"),
+    "already_paid": ("Ya estaba pagado", "ok"),
     "not_delivered": ("No se entregó", "warn"),
     "dispatched": ("Encomienda", "ok"),
 }

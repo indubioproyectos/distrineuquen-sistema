@@ -24,6 +24,9 @@ STOP_STATES = [
     ("pending", "Pendiente"),
     ("paid", "Pagó"),
     ("not_paid", "No pagó"),
+    # 19.0.1.129.22: delivered, nothing to collect: the order was already
+    # paid (e.g. a Mercado Pago payment). No cash, no transfer, no charge.
+    ("already_paid", "Ya estaba pagado"),
     ("not_delivered", "No se entregó"),
     ("dispatched", "Encomienda despachada"),
 ]
@@ -1166,6 +1169,7 @@ class DistriRouteStop(models.Model):
             "receipt_answer": self.receipt_answer or None,
             "red_ok": bool(self.red),
             "no_payment": self.state == "not_paid",
+            "already_paid": self.state == "already_paid",
             "comment": self.comment or "",
             "synced": True,
         }

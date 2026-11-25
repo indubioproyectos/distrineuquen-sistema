@@ -71,6 +71,23 @@ class DiscardedEvent(Exception):
     """An event logged but not applied: the phone gets status «discarded»."""
 
 
+class WarningNote(str):
+    """19.0.1.129.22: the note of an event applied with a warning for the
+    driver; the phone gets status «ok» plus «warning» (older apps ignore it)."""
+
+
+# 19.0.1.129.22: «Ya estaba pagado» (outcome already_paid of a delivered visit);
+# the tolerance is reparto_pagos.PAID_TOLERANCE (not imported here: importing
+# that module early would change the order of the model overrides)
+PAID_TOLERANCE = 1.0
+ALREADY_PAID_STILL_OWED = (
+    "%s todavía debe %s: no figura pagado. Quedó como «No pagó», pendiente a tu nombre "
+    "hasta que se cobre. Si el cliente te mostró el pago, avisale a administración.")
+ALREADY_PAID_NOTHING_DUE = (
+    "Este pedido ya figura pagado ($ 0 a cobrar). Elegí \"Ya estaba pagado\" y guardá sin "
+    "importe.")
+
+
 def parse_phone_time(value):
     """ISO 8601 from the phone (Date.toISOString) -> naive UTC, or None."""
     if not isinstance(value, str) or not value:
@@ -194,6 +211,8 @@ class DistriSyncEvent(models.Model):
                     "error": "Error del servidor. Se reintenta."}
         if discarded:
             return {"uuid": event_uuid, "status": "discarded", "error": OLDER_EDIT}
+        if isinstance(note, WarningNote):
+            return {"uuid": event_uuid, "status": "ok", "warning": str(note)}
         return {"uuid": event_uuid, "status": "ok"}
 
     # ----------------------------------------------------------- apply
@@ -446,6 +465,10 @@ class DistriSyncEvent(models.Model):
         if stop.order_id.distri_retenido and payload.get("outcome") != "not_delivered":
             raise UserError(RETAINED % (stop.order_id.distri_retenido_motivo or "-"))
         self._record_visit(stop, visit_uuid, payload, captured)
+        if payload.get("already_paid") and stop.state != "already_paid":
+            # the order still owes: recorded as not paid, and the driver is told
+            return WarningNote(ALREADY_PAID_STILL_OWED % (
+                stop.order_id.name, _money_text(stop.sudo()._app_payments()["due"])))
         return False
 
     def _record_visit(self, stop, visit_uuid, payload, captured):
@@ -523,7 +546,15 @@ class DistriSyncEvent(models.Model):
             stop, payload, cash, returns)
         self._check_visit_amounts(stop, cash + transfer_amount)
 
-        if payload.get("no_payment"):
+        if payload.get("already_paid"):
+            # 19.0.1.129.22: «Ya estaba pagado». Never rejected for the
+            # amount: when the order still owes it is recorded as not paid
+            # (its «unpaid» item follows the residual) and _apply_visit
+            # returns the warning for the phone.
+            if cash or transfer != "no" or payload.get("no_payment"):
+                raise UserError("«Ya estaba pagado» no lleva efectivo ni transferencia.")
+            state = "already_paid" if stop.sudo()._app_payments()["paid"] else "not_paid"
+        elif payload.get("no_payment"):
             if cash or transfer != "no":
                 raise UserError("«No pagó nada» no lleva efectivo ni transferencia.")
             state = "not_paid"
@@ -567,6 +598,9 @@ class DistriSyncEvent(models.Model):
         # the previous debt (slower) only when the order alone is exceeded
         reference += max(order._distri_previous_debt() or 0.0, 0.0)
         if paid > max(PAID_FACTOR * reference, floor):
+            if reference <= PAID_TOLERANCE:
+                # 19.0.1.129.22: nothing to collect is not a typo
+                raise UserError(ALREADY_PAID_NOTHING_DUE)
             raise UserError(
                 "El cobro de %s (%s) es demasiado: el pedido y la deuda suman %s. Revisá el "
                 "importe: los miles van con punto y los centavos con coma (ej.: 14.307,60)." % (
@@ -831,8 +865,21 @@ class DistriSyncRejection(models.Model):
         recs = self.sudo().search([("user_id", "=", user.id),
                                    ("rejected_at", ">=", fields.Datetime.now()
                                     - timedelta(days=30))])
-        return [{"uuid": r.uuid, "state": r.state, "resolution": r.resolution or ""}
+        # 19.0.1.129.22: the stop and the visit of each one, so the phone
+        # clears the error of a visit resolved on the server
+        return [{"uuid": r.uuid, "state": r.state, "resolution": r.resolution or "",
+                 "type": r.event_type or "", "stop_id": r.stop_id.id or False,
+                 "visit_uuid": _payload_visit_uuid(r.payload)}
                 for r in recs]
+
+
+def _payload_visit_uuid(text):
+    try:
+        payload = json.loads(text or "{}")
+    except ValueError:
+        return ""
+    value = payload.get("visit_uuid") if isinstance(payload, dict) else ""
+    return str(value) if value and UUID_RE.match(str(value)) else ""
 
 
 def _safe_number(value):
@@ -903,3 +950,11 @@ class DistriRouteRejections(models.Model):
         payload["rejections"] = self.env["distri.sync.rejection"].sudo()._distri_app_payload(
             self.driver_id)
         return payload
+
+    def _load_status_payload(self):
+        """19.0.1.129.22: the poll also brings the rejections, so a visit
+        resolved by administración stops blocking the phone's close."""
+        data = super()._load_status_payload()
+        data["rejections"] = self.env["distri.sync.rejection"].sudo()._distri_app_payload(
+            self.driver_id)
+        return data
