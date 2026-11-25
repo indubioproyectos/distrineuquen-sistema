@@ -416,8 +416,8 @@ class DistriMpAnomaly(models.Model):
             # the transfer is real: the income goes back to the board
             income.with_context(distri_audit_annul=True).action_undo()
         if payment.state not in ("draft", "canceled"):
-            payment.action_draft()
-            payment.action_cancel()
+            # 19.0.1.129.24: cancelled, not deleted (keeps its number)
+            payment._distri_cancel_keep_number()
         for card in credited:
             card.write({"state": "ignored", "audit_state": "anulado", "ignore_reason": "other",
                         "ignore_note": "Pago anulado en la auditoría: %s" % note,

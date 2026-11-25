@@ -138,6 +138,26 @@ class AccountPaymentDriverCash(models.Model):
         for payment in self:
             payment.distri_driver_cash_label = labels.get(payment.distri_driver_cash_state, False)
 
+    def _distri_cancel_keep_number(self):
+        """19.0.1.129.24 (#106): void payments keeping their journal entry and
+        its number.
+
+        `action_draft()` + `action_cancel()` deleted the draft entry, and Odoo
+        forbids deleting a numbered entry that is not the last of its
+        sequence unless the user is an account manager (only admin): a
+        driver's settlement failed on 24/11. `account.move.button_cancel()`
+        resets the entry to draft, unreconciles its lines (the invoices owe
+        again), cancels its payments and leaves it «Cancelado» with its name.
+        """
+        for payment in self.filtered(lambda p: p.state != "canceled"):
+            move = payment.move_id
+            if move and move.state != "cancel":
+                move.button_cancel()
+            if payment.state != "canceled":
+                # no journal entry (or one already cancelled): only the state
+                payment.state = "canceled"
+        return True
+
 
 class DistriRouteDriverCash(models.Model):
     _inherit = "distri.route"
@@ -217,8 +237,8 @@ class DistriRouteStopDriverCash(models.Model):
         self.ensure_one()
         for payment in payments.sudo():
             payment.move_id.line_ids.remove_move_reconcile()
-            payment.action_draft()
-            payment.action_cancel()
+            # 19.0.1.129.24: cancelled, not deleted (keeps its number)
+            payment._distri_cancel_keep_number()
             text = Markup("Se anuló el cobro a rendir %s de %s (%s): %s.") % (
                 payment.name or "", _money(payment.amount), self.route_id.name, reason)
             payment.message_post(body=text)

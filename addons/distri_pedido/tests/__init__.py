@@ -109,3 +109,5 @@ from . import test_v129_17_sin_odoo
 from . import test_v129_18_mis_ventas
 from . import test_v129_20_vendedor_externo
 from . import test_v129_24_armado_login_cron
+from . import test_v129_24_armado_login_cron
+from . import test_v129_24_anular_pagos

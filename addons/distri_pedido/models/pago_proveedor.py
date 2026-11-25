@@ -178,8 +178,8 @@ class DistriSupplierPayment(models.Model):
         for rec in self.filtered(lambda r: r.state == "posted"):
             payment = rec.sudo().payment_id
             if payment and payment.state not in ("draft", "canceled"):
-                payment.action_draft()
-                payment.action_cancel()
+                # 19.0.1.129.24: cancelled, not deleted (keeps its number)
+                payment._distri_cancel_keep_number()
             rec.write({"state": "cancelled"})
             rec.message_post(body="Anulado por %s: pago %s anulado." % (
                 self.env.user.name, payment.name or ""))

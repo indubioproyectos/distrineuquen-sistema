@@ -2507,8 +2507,8 @@ class DistriMpCollection(models.Model):
                         rec.name, rec._hand_verified_card().name))
             payment = rec.payment_id
             if payment:
-                payment.action_draft()
-                payment.action_cancel()
+                # 19.0.1.129.24: cancelled, not deleted (keeps its number)
+                payment._distri_cancel_keep_number()
             rec.fulfilled_promise_ids._distri_undo_mp(rec)
             rec.write({"state": "draft", "payment_id": False, "confirmed_by_id": False,
                        "confirmed_at": False, "fulfilled_promise_ids": [(5, 0, 0)]})
