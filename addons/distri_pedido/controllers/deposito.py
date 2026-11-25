@@ -223,6 +223,11 @@ class Deposito(http.Controller):
             "texto": ("%s %s" % (o.name, o.partner_id.name or "")).lower(),
         }
 
+    def _nueva_venta_entry(self):
+        from ..models.nueva_venta import nueva_venta_on, salidas_de
+        env = request.env
+        return nueva_venta_on(env) and "mostrador" in salidas_de(env.user)
+
     @http.route("/deposito", type="http", auth="user", methods=["GET"], sitemap=False)
     def hub(self, q="", ok="", aviso="", **kw):
         user = self._check()
@@ -238,6 +243,10 @@ class Deposito(http.Controller):
         return self._render("distri_pedido.deposito_hub", {
             "q": q, "ok": ok, "rows": rows,
             "retira": len([r for r in rows if r["retira"]]), "aviso": aviso,
+            # 19.0.1.129.35: «Nueva venta» replaces the «Venta en mostrador»
+            # entry while distri_pedido.nueva_venta is on (#27 obsolete);
+            # /deposito/mostrador itself still answers
+            "nueva_venta": self._nueva_venta_entry(),
             "caja": open_today, "cerradas_hoy": today.filtered(lambda r: r.state == "settled"),
             "viejas": older, "stops": stops, "cobros": cobros,
             "por_caja": is_cashier(user),

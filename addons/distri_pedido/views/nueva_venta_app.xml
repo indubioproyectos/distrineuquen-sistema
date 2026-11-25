@@ -25,13 +25,22 @@
   <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
   <t t-call="distri_pedido.dn_head"/>
 </head>
-<body class="nv dn-has-nav" t-att-data-parent="inicio" data-page="nueva-venta">
+<body class="nv dn-has-nav" t-att-data-parent="inicio" data-page="nueva-venta" t-att-data-uid="uid"
+      t-att-data-wa-requerido="'1' if wa_requerido else '0'">
   <t t-call="distri_pedido.nueva_venta_top">
     <t t-set="volver" t-value="inicio"/>
     <t t-set="titulo" t-value="'Nueva venta'"/>
     <t t-set="sub" t-value="'Elegí el cliente, cargá los productos y decí cómo sigue.'"/>
   </t>
   <div class="dn-banner dn-banner--err" role="alert" id="nv-error" t-att-hidden="None if error else 'hidden'"><span t-esc="error"/></div>
+  <!-- 19.0.1.129.35 (#59): the draft kept on the phone (nueva_venta.js) -->
+  <div class="dn-banner dn-banner--warn nv-borrador" role="status" id="nv-borrador" hidden="hidden">
+    <span id="nv-borrador-txt"></span>
+    <span class="nv-borrador__btns">
+      <button type="button" class="dn-btn nv-btn-sm" id="nv-borrador-seguir">Seguir</button>
+      <button type="button" class="dn-btn dn-btn--ghost nv-btn-sm" id="nv-borrador-descartar">Descartar</button>
+    </span>
+  </div>
 
   <form id="nv-form" class="dn-main nv-main" method="post" action="/nueva-venta/crear" data-nv-form="">
     <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
@@ -44,6 +53,41 @@
       <div class="nv-elegido" id="nv-elegido" hidden="hidden">
         <span class="nv-elegido__txt"><b id="nv-cliente-nombre"></b><span class="nv-meta" id="nv-cliente-meta"></span></span>
         <button type="button" class="dn-btn dn-btn--ghost nv-btn-sm" id="nv-cambiar">Cambiar</button>
+      </div>
+      <!-- 19.0.1.129.35: what the customer step adds once he is picked -->
+      <div class="nv-cliente-extra" id="nv-cliente-extra" hidden="hidden">
+        <a class="dn-link nv-cuenta" id="nv-cuenta" href="#" hidden="hidden">Ver su estado de cuenta</a>
+        <div class="nv-wa" id="nv-wa" hidden="hidden">
+          <p class="nv-wa__t"><b>El cliente no tiene WhatsApp. ¿Cuál es?</b>
+            <small class="nv-meta">Queda guardado en el cliente.</small></p>
+          <div class="nv-wa__campos">
+            <div class="dn-field"><label for="nv-wa-area">Código de área</label>
+              <input id="nv-wa-area" name="wa_area" class="dn-input dn-num" inputmode="numeric" maxlength="5"
+                     placeholder="299" autocomplete="off"/></div>
+            <div class="dn-field"><label for="nv-wa-numero">Número</label>
+              <input id="nv-wa-numero" name="wa_numero" class="dn-input dn-num" inputmode="numeric" maxlength="12"
+                     placeholder="4222444" autocomplete="off"/></div>
+          </div>
+          <p class="nv-meta">Sin el 0 del código de área ni el 15 del número.</p>
+          <label t-if="not wa_requerido" class="nv-check"><input type="checkbox" name="sin_whatsapp" value="1" id="nv-sin-wa"/>
+            No tiene WhatsApp</label>
+        </div>
+        <div class="nv-anteriores" id="nv-anteriores-box" hidden="hidden">
+          <h3 class="nv-sub-t">Repetir un pedido anterior</h3>
+          <div id="nv-anteriores" class="nv-list"></div>
+        </div>
+        <div class="dn-field">
+          <label for="nv-contacto">Nombre y apellido de quien pide <small class="nv-meta">(opcional)</small></label>
+          <input id="nv-contacto" name="contacto" class="dn-input" type="text" maxlength="120" autocomplete="off"/>
+        </div>
+        <div class="nv-gps">
+          <button type="button" class="dn-btn dn-btn--outline nv-btn-sm" id="nv-gps">
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'pin'"/></t>Registrar la ubicación (GPS)</button>
+          <small class="nv-meta" id="nv-gps-txt">Opcional: tocalo estando en el comercio.</small>
+          <input type="hidden" name="lat" id="nv-lat" value=""/>
+          <input type="hidden" name="lng" id="nv-lng" value=""/>
+          <input type="hidden" name="precision" id="nv-precision" value=""/>
+        </div>
       </div>
       <div id="nv-buscar-cliente">
         <label for="nv-q-cliente" class="dn-sr">Buscar cliente</label>
@@ -101,6 +145,25 @@
         <div class="dn-field">
           <label for="nv-nota">Nota para el depósito</label>
           <input id="nv-nota" name="nota_deposito" class="dn-input" type="text" maxlength="500" autocomplete="off"/>
+        </div>
+        <!-- 19.0.1.129.35: /pedido's «Soy del interior» (parcel to a terminal) -->
+        <label class="nv-check"><input type="checkbox" name="encomienda" value="1" id="nv-encomienda"/>
+          Va por encomienda a la terminal</label>
+        <div class="nv-enc" id="nv-enc" hidden="hidden">
+          <div class="dn-field">
+            <label for="nv-enc-nombre">Nombre y apellido de quien retira</label>
+            <input id="nv-enc-nombre" name="enc_nombre" class="dn-input" type="text" maxlength="120" autocomplete="off"/>
+          </div>
+          <div class="dn-field">
+            <label for="nv-enc-dni">DNI de quien retira</label>
+            <input id="nv-enc-dni" name="enc_dni" class="dn-input dn-num" inputmode="numeric" maxlength="12" autocomplete="off"/>
+          </div>
+          <div class="dn-field">
+            <label for="nv-enc-localidad">Localidad de la terminal</label>
+            <input id="nv-enc-localidad" name="enc_localidad" class="dn-input" type="text" maxlength="80"
+                   list="nv-localidades" autocomplete="off"/>
+            <datalist id="nv-localidades"><option t-foreach="localidades" t-as="l" t-att-value="l"/></datalist>
+          </div>
         </div>
       </div>
       <div class="nv-extra" data-nv-para="entregado" hidden="hidden">

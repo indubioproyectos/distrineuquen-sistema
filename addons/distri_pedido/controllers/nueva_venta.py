@@ -20,6 +20,25 @@ so the order is exactly the one «Tomar un pedido» makes; «Mostrador» goes
 on to the depot delivery form (/deposito/entrega/<id>?mostrador=1), where
 the payment is registered as today. Errors answer JSON (fetch, X-Distri-
 Fetch: 1) or the page again.
+
+19.0.1.129.35 (the rest of the plan's Etapa 4, same flag):
+- the customer first (#59): once picked, his last orders can be repeated
+  («Repetir»: their lines that are still in his catalog, in the catalog's
+  unit) and, when /cuentas shows him to the user, a link to his account;
+  the cart, the customer and the answers are kept on the phone as a draft
+  until the sale is loaded (static/src/nueva_venta/nueva_venta.js);
+- «¿Cuál es el WhatsApp del cliente?» when he has none, instead of refusing
+  at the confirmation: the number is stored as the backend wizard stores it
+  (models/nueva_venta.py guardar_whatsapp_nueva_venta), or «No tiene
+  WhatsApp» while distri_pedido.pedido_requiere_whatsapp is off;
+- «Va por encomienda» for «A armar» and «Presupuesto»: /pedido's own
+  «Soy del interior» fields, posted to its own code;
+- #56: «Nombre y apellido» of who ordered and «Registrar la ubicación» (the
+  phone's GPS at the shop; it becomes the customer's location only when he
+  has none).
+The «Distribuidoras» section of /pedido is left out on purpose: the plan
+does not define it for «Nueva venta» and the customer's list already prices
+a distributor.
 """
 import hashlib
 import json
@@ -126,6 +145,60 @@ class NuevaVenta(http.Controller):
             return cliente.browse(), MENSAJE_DISTRIBUIDORA
         return cliente, ""
 
+    def _wa_requerido(self):
+        return request.env["distri.pedido.whatsapp.settings"].requires_whatsapp()
+
+    @staticmethod
+    def _sin_whatsapp(cliente):
+        """No WhatsApp on file (the res.partner field, his or his company's):
+        what the confirmation would ask (pedido_whatsapp.py)."""
+        socio = cliente.sudo()
+        return not (socio.distri_whatsapp or socio.commercial_partner_id.distri_whatsapp)
+
+    def _anteriores(self, cliente, vendibles):
+        """#59 «Repetir»: the customer's last orders the user may read, each
+        with its lines that are still in this catalog, in the catalog's unit
+        (a quantity that is not a whole number of it is left out)."""
+        Order = request.env["sale.order"]
+        try:
+            orders = Order.search([("partner_id", "child_of", cliente.id),
+                                   ("state", "in", ("draft", "sent", "sale"))],
+                                  order="date_order desc, id desc", limit=nv.REPETIR_ULTIMOS)
+        except AccessError:
+            return []
+        result = []
+        for order in orders.sudo():
+            renglones, fuera = {}, 0
+            for line in order.order_line.filtered(lambda l: not l.display_type):
+                plantilla = line.product_id.product_tmpl_id
+                if plantilla.id not in vendibles or line.product_uom_qty <= 0:
+                    fuera += 1
+                    continue
+                venta = nv.unidad_de_venta(plantilla)
+                cantidad = line.product_uom_qty
+                if line.product_uom_id and line.product_uom_id != venta:
+                    cantidad = line.product_uom_id._compute_quantity(cantidad, venta, round=False)
+                if abs(cantidad - round(cantidad)) > 1e-6 or round(cantidad) < 1:
+                    fuera += 1
+                    continue
+                renglones[plantilla.id] = renglones.get(plantilla.id, 0) + int(round(cantidad))
+            if not renglones:
+                continue
+            result.append({
+                "nombre": order.name,
+                "fecha": order.date_order.strftime("%d/%m/%Y") if order.date_order else "",
+                "total": _money(order.amount_total),
+                "renglones": [{"id": k, "cantidad": v} for k, v in renglones.items()],
+                "fuera": fuera,
+            })
+        return result
+
+    def _cuenta_url(self, cliente):
+        """/cuentas on the customer, when the accounts app shows him to the
+        user (the order screen's rule, controllers/fichas.py)."""
+        from .fichas import Fichas
+        return Fichas()._account_link(cliente.sudo().commercial_partner_id)
+
     def _lista(self, cliente):
         """The customer's price list: what the order ends up priced with."""
         return cliente.property_product_pricelist or self._pedido()._lista_general()
@@ -138,6 +211,10 @@ class NuevaVenta(http.Controller):
         return self._render(TEMPLATE, {
             "salidas": [s for s in nv.SALIDAS if s[0] in salidas],
             "pegar": puede_pegar(user),
+            # 19.0.1.129.35: the draft on the phone is per user
+            "uid": user.id,
+            "wa_requerido": self._wa_requerido(),
+            "localidades": self._pedido()._localidades_encomienda(),
             # one per page shown: the same form posted twice gives one sale
             "envio": uuid.uuid4().hex,
             "motivo": nv.MOTIVO_ENTREGADO,
@@ -178,13 +255,27 @@ class NuevaVenta(http.Controller):
                     "unidad": fila["unidad"], "contiene": fila["contiene"],
                     "precio": precio, "precio_texto": _money(precio) if precio > 0 else "",
                 })
+        sin_wa = self._sin_whatsapp(cliente)
+        area = numero = ""
+        if sin_wa:
+            # a phone on file is offered as the start (the backend wizard's rule)
+            from ..models.ar_phone import ar_national, split_ar_national
+            for value in (cliente.sudo().phone, cliente.sudo().commercial_partner_id.phone):
+                national = ar_national(value)
+                if national:
+                    area, numero = split_ar_national(national)
+                    break
         return self._json({
             "ok": True,
             "cliente": {"id": cliente.id, "nombre": cliente.name,
                         "whatsapp": cliente._distri_whatsapp_shown() or "",
                         "domicilio": ", ".join(x for x in (cliente.street, cliente.city) if x),
-                        "lista": lista.name or ""},
+                        "lista": lista.name or "",
+                        # 19.0.1.129.35
+                        "sin_whatsapp": sin_wa, "wa_area": area, "wa_numero": numero,
+                        "cuenta": self._cuenta_url(cliente)},
             "productos": productos,
+            "anteriores": self._anteriores(cliente, vendibles),
         })
 
     # ---------------------------------------------------------------- AgilPedido
@@ -276,6 +367,11 @@ class NuevaVenta(http.Controller):
             "nota_deposito": form.get("nota_deposito") or "",
             "token": "",
         }
+        if form.get("encomienda") == "1":
+            # 19.0.1.129.35: /pedido's «Soy del interior» fields, as its page posts them
+            post.update({"encomienda": "1", "enc_nombre": form.get("enc_nombre") or "",
+                         "enc_dni": form.get("enc_dni") or "",
+                         "enc_localidad": form.get("enc_localidad") or ""})
         validos, error = pedido._renglones_validos(post["renglones"], MAX_CANTIDAD)
         if error:
             return None, error
@@ -325,26 +421,70 @@ class NuevaVenta(http.Controller):
             renglones = None
         if not isinstance(renglones, list) or not renglones:
             return self._refuse("Agregá al menos un producto.")
+        respuesta, error = self._respuesta_whatsapp(form, cliente, salida)
+        if error:
+            return self._refuse(error)
         try:
             with request.env.cr.savepoint():
+                if respuesta == "numero":
+                    # stored first: the order and its confirmation see it
+                    nv.guardar_whatsapp_nueva_venta(request.env, cliente, form.get("wa_area"),
+                                                    form.get("wa_numero"), None)
                 if salida in (nv.ARMAR, nv.PRESUPUESTO):
                     order, error = self._por_pedido(form, cliente, renglones)
                     if error:
                         raise UserError(error)
+                    self._extras(order, form)
                     if salida == nv.ARMAR and order.state in ("draft", "sent"):
                         result = order.action_confirm()
                         if isinstance(result, dict):
                             raise UserError("Falta el WhatsApp del cliente para confirmar.")
                     url = "/nueva-venta/hecho/%s" % order.id
                 else:
-                    url = self._crear_admin(form, cliente, renglones, salida)
+                    url, order = self._crear_admin(form, cliente, renglones, salida)
+                if (respuesta == "sin" and order and order.state == "sale"
+                        and self._sin_whatsapp(cliente)):
+                    order.message_post(body="Confirmado sin WhatsApp del cliente por %s "
+                                            "(«Nueva venta»)." % user.name)
         except (UserError, AccessError, ValidationError) as exc:
             return self._refuse(_error_text(exc))
         return self._done(url)
 
+    def _respuesta_whatsapp(self, form, cliente, salida):
+        """19.0.1.129.35: the answer to «¿Cuál es el WhatsApp del cliente?»
+        (asked only when he has none): ("numero" | "sin" | "", error). The
+        exits that confirm need an answer; «Presupuesto» does not. «No tiene
+        WhatsApp» is accepted only while the WhatsApp is not required, the
+        backend wizard's rule («Confirmar sin WhatsApp»)."""
+        if not self._sin_whatsapp(cliente):
+            return "", ""
+        if form.get("wa_area") or form.get("wa_numero"):
+            from ..models.ar_phone import ar_mobile
+            try:
+                ar_mobile(form.get("wa_area"), form.get("wa_numero"))
+            except ValueError as exc:
+                return "", "WhatsApp del cliente: %s" % exc
+            return "numero", ""
+        if salida == nv.PRESUPUESTO:
+            return "", ""
+        if form.get("sin_whatsapp") == "1":
+            if self._wa_requerido():
+                return "", ("Para confirmar la venta hace falta el WhatsApp del cliente: "
+                            "poné el código de área y el número.")
+            return "sin", ""
+        return "", ("El cliente no tiene WhatsApp: poné el código de área y el número, o "
+                    "marcá «No tiene WhatsApp».")
+
+    def _extras(self, order, form):
+        """#56: who ordered and the shop's GPS (models/nueva_venta.py)."""
+        avisos = order._distri_nueva_venta_extras(
+            form.get("contacto"), form.get("lat"), form.get("lng"), form.get("precision"))
+        for aviso in avisos:
+            order.message_post(body="«Nueva venta»: %s" % aviso)
+
     def _crear_admin(self, form, cliente, renglones, salida):
         """«Mostrador» and «Ya entregado»: a backend quotation and the
-        existing step. Returns the URL to go to."""
+        existing step. Returns (the URL to go to, the order made now)."""
         lineas, error = self._renglones_admin(renglones)
         if error:
             raise UserError(error)
@@ -357,7 +497,7 @@ class NuevaVenta(http.Controller):
             if clave else Order
         if previo:
             # a double tap: the first post already did it
-            return self._url_de(Order.browse(previo.id), salida)
+            return self._url_de(Order.browse(previo.id), salida), Order.browse()
         if salida == nv.ENTREGADO:
             # checked before anything is created
             Order._distri_fecha_entregado(form.get("fecha"))
@@ -375,11 +515,12 @@ class NuevaVenta(http.Controller):
             except psycopg2.IntegrityError:
                 order.sudo().unlink()
                 raise UserError(DOBLE_TOQUE) from None
+        self._extras(order, form)
         if salida == nv.MOSTRADOR:
             order._distri_nueva_venta_mostrador()
         else:
             order._distri_nueva_venta_ya_entregado(form.get("fecha"), form.get("motivo"))
-        return self._url_de(order, salida)
+        return self._url_de(order, salida), order
 
     def _url_de(self, order, salida):
         if salida == nv.MOSTRADOR and order.sudo().distri_delivery_state != "delivered":

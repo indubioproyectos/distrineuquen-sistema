@@ -45,7 +45,12 @@
       <span class="dp-act__txt"><b>Entrega en depósito</b><span>Pedidos armados que el cliente retira</span></span>
       <span t-if="retira" class="dn-chip dn-num" t-esc="retira"/>
     </a>
-    <a class="dp-act" href="/deposito/mostrador" data-dn="down">
+    <!-- 19.0.1.129.35: with «Nueva venta» on it replaces «Venta en mostrador» (its exit «Mostrador») -->
+    <a t-if="nueva_venta" class="dp-act" href="/nueva-venta" data-dp-nueva-venta="">
+      <span class="dp-ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'plus'"/></t></span>
+      <span class="dp-act__txt"><b>Nueva venta</b><span>Cliente presente: elegí «Mostrador» al final</span></span>
+    </a>
+    <a t-else="" class="dp-act" href="/deposito/mostrador" data-dn="down">
       <span class="dp-ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'bag'"/></t></span>
       <span class="dp-act__txt"><b>Venta en mostrador</b><span>Cliente presente: se confirma, se arma y sale la factura</span></span>
     </a>

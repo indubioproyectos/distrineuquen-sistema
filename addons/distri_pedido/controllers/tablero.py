@@ -194,6 +194,9 @@ def staff_tiles(env):
         tiles.append(tile)
     nueva = nueva_venta_tile(env)
     if nueva:
+        # 19.0.1.129.35 (plan, Etapa 4): «Nueva venta» replaces «Tomar un
+        # pedido» (/pedido itself still answers; #27 obsolete)
+        tiles = [t for t in tiles if t["key"] != "pedido"]
         tiles.insert(0, nueva)
     verificacion = verificacion_tile(env)
     if verificacion:
@@ -237,8 +240,8 @@ def apply_user_order(tiles, order_text):
 
 
 # 19.0.1.129.30: «Nueva venta» (controllers/nueva_venta.py). Not in TILES:
-# it exists only while distri_pedido.nueva_venta is on, first of all, and
-# «Tomar un pedido» stays as it is.
+# it exists only while distri_pedido.nueva_venta is on, first of all.
+# 19.0.1.129.35: then it takes the place of «Tomar un pedido» (staff_tiles).
 NUEVA_VENTA_TILE = ("nuevaventa", "Nueva venta", "Cliente, productos y cómo sigue la venta",
                     IMG + "cuentas.png", "plus", "/nueva-venta")
 

@@ -44,3 +44,15 @@
 .nv-hecho__name { margin: 0; }
 .nv-link { text-align: center; }
 [hidden] { display: none !important; }
+
+/* 19.0.1.129.35: draft, WhatsApp question, «Repetir», GPS, parcel */
+.nv-borrador{display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between}
+.nv-borrador__btns{display:flex;gap:8px}
+.nv-cliente-extra{display:grid;gap:12px;margin-top:12px}
+.nv-wa{padding:12px;border:2px solid var(--dn-amber-line);background:var(--dn-amber-bg);border-radius:12px}
+.nv-wa__t{margin:0 0 8px;display:grid;gap:2px}
+.nv-wa__campos{display:grid;grid-template-columns:1fr 2fr;gap:8px}
+.nv-check{display:flex;align-items:center;gap:8px;min-height:44px}
+.nv-sub-t{margin:0 0 6px;font-size:15px}
+.nv-gps{display:grid;gap:4px}
+.nv-enc{display:grid;gap:4px}
