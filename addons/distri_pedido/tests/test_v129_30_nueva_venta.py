@@ -299,6 +299,15 @@ class TestV12930NuevaVenta(PedidoAbiertoMixin, RepartoMixin, AccountTestInvoicin
         self.assertIn("La compra mínima", res.json()["error"])
         self.assertEqual(self.env["sale.order"].search_count([]), before)
 
+    def test_no_minimum_for_administracion(self):
+        """25/11/2026: administración, caja and gerencia sell below the
+        minimum (controllers/main.py COMPRA_MINIMA_EXENTOS)."""
+        self._flag()
+        self._login(self.admin)
+        res = self._post("presupuesto", cart=[{"id": self.p2.id, "cantidad": 1}])
+        self.assertEqual(res.status_code, 200, res.text[:300])
+        self.assertNotIn("La compra mínima", res.text)
+
     # ------------------------------------------------------------ exit 2
 
     def test_mostrador_is_the_counter_sale(self):
