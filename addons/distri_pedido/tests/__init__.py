@@ -143,3 +143,4 @@ from . import test_v129_42_inicio
 from . import test_v129_42_rendiciones
 from . import test_v129_42_venta_clientes
 from . import test_v129_42_venta_hecho
+from . import test_v129_43_cuentas

@@ -16,6 +16,9 @@
  * 19.0.1.129.29 (#100): «‹ Deudores», «‹ Transferencias» and closing a row
  * or a receipt go UP one level (history.back() when it was opened from
  * there) instead of adding a history entry.
+ * 19.0.1.129.43: with distri_pedido.ui_v2 on (#app[data-v2]) the list is
+ * the design system's «Cuentas de clientes»: one list of every customer by
+ * pages (/cuentas/api/list), see «list-v2» below. Off, the page is as before.
  */
 (function () {
   "use strict";
@@ -213,11 +216,13 @@
     if (!r.id) {
       S.line = null;
       if (WIDE.matches) S.account = null;
-      if (!S.debtors) loadDebtors(); else render();
+      if (V2) { if (!L.data && !L.loading) loadList(true); else render(); }
+      else if (!S.debtors) loadDebtors(); else render();
       return;
     }
     // the PC shows the list beside the account
-    if (WIDE.matches && !S.debtors) loadDebtors();
+    if (WIDE.matches && V2) { if (!L.data && !L.loading) loadList(true); }
+    else if (WIDE.matches && !S.debtors) loadDebtors();
     if (!S.account || S.account.id !== r.id) {
       S.line = null;
       var prev = S.account || { period: "3m", from: "", to: "" };
@@ -408,12 +413,14 @@
     var csRows = document.getElementById("cs-rows");
     var csKeep = csRows && S.line && csRows.dataset.line === S.line.line_key ? csRows.scrollTop : null;
     document.body.classList.toggle("wide", !!WIDE.matches);
-    app.innerHTML = r.transfers ? viewTransfers() : WIDE.matches ? viewDesk() : r.id ? viewAccount() : viewDebtors();
+    if (V2) document.body.classList.add("cu2");
+    app.innerHTML = r.transfers ? viewTransfers() : WIDE.matches ? (V2 ? viewDesk2() : viewDesk()) : r.id ? viewAccount() :
+      V2 ? viewList2() : viewDebtors();
     side = document.querySelector(".dacc");
     if (side) side.scrollTop = sideY;
     render.lastSide = r.id || 0;
     sheetRoot.innerHTML = (S.line ? viewLine() : "") + (r.transfers && S.trOpen ? viewTransfer(S.trOpen) : "") +
-      (S.zoom ? viewZoom() : "");
+      (S.zoom ? viewZoom() : "") + (V2 && CU.sheet ? viewSheet() : "");
     csRows = document.getElementById("cs-rows");
     if (csRows) {
       csRows.dataset.line = S.line.line_key;
@@ -424,7 +431,7 @@
         if (hit.scrollIntoView) hit.scrollIntoView({ block: "nearest" });
       }
     }
-    document.body.style.overflow = S.line || S.zoom || (r.transfers && S.trOpen) ? "hidden" : "";
+    document.body.style.overflow = S.line || S.zoom || (r.transfers && S.trOpen) || (V2 && CU.sheet) ? "hidden" : "";
     if (focus) {
       var el = document.getElementById(focus);
       if (el) {
@@ -433,6 +440,7 @@
       }
     }
     window.scrollTo(0, keepScroll ? y : 0);
+    if (V2) watchEnd();
   }
 
   // ---- debtors
@@ -541,6 +549,437 @@
       out.push(settled.length ? settled.map(debtorRow).join("") : '<div class="empty">Ninguno.</div>');
     }
     return head + '<div class="body">' + out.join("") + "</div>";
+  }
+
+  // ---- 19.0.1.129.43 («Cuentas de clientes», DistriNeuquén design system):
+  // with distri_pedido.ui_v2 on (#app[data-v2]) the list is ONE list of every
+  // customer, highest debt first, then the zero balances, then the credit
+  // balances, read by pages from /cuentas/api/list (the server searches,
+  // filters, orders and adds the totals). Header: title, Ajustes as a gear
+  // and the ⋯ menu (Actualizar, PDF, Excel, Transferencias, Cobro en
+  // efectivo, Última carga, Salir). No filter is on by default; «Filtrar y
+  // ordenar» is a sheet. From 1024 px: the PC bar, a table and the account
+  // beside it. The account, a row, the transfers: the same views as before.
+
+  // list-v2:start (tests/data/cuentas_v129_43.js runs this block)
+  var LIST_LIMIT = 50;
+  var LIST_DEFAULTS = { q: "", state: "all", sort: "debt", seller: "all", zone: "", minBalance: "", minAge: "0" };
+  var SORTS = [["debt", "Mayor deuda"], ["oldest", "Más vencido"], ["name", "Nombre"]];
+  var SORT_TEXT = { debt: "de mayor a menor deuda", oldest: "la deuda más vieja primero", name: "por nombre" };
+  function listFilters(base) {
+    var f = {};
+    Object.keys(LIST_DEFAULTS).forEach(function (k) { f[k] = base && base[k] != null ? base[k] : LIST_DEFAULTS[k]; });
+    return f;
+  }
+  function listQuery(f, offset, limit, zones) {
+    var q = "q=" + encodeURIComponent(f.q || "") + "&state=" + encodeURIComponent(f.state) +
+      "&sort=" + encodeURIComponent(f.sort) + "&seller=" + encodeURIComponent(f.seller) +
+      "&zone=" + encodeURIComponent(f.zone || "") + "&min_balance=" + encodeURIComponent(+f.minBalance || 0) +
+      "&min_age=" + encodeURIComponent(+f.minAge || 0) + "&offset=" + (offset || 0) +
+      "&limit=" + (limit == null ? LIST_LIMIT : limit);
+    return zones ? q + "&zones=1" : q;
+  }
+  // the filters of the sheet that are on (the dot of the filter button)
+  function sheetFilterCount(f) {
+    return (f.sort !== "debt" ? 1 : 0) + (f.seller !== "all" ? 1 : 0) + (f.zone ? 1 : 0) +
+      (+f.minBalance > 0 ? 1 : 0) + (+f.minAge > 0 ? 1 : 0);
+  }
+  // the server searches from the 2nd letter; less is no search
+  function searchTerm(text) {
+    var t = String(text || "").replace(/\s+/g, " ").trim();
+    return t.length >= 2 ? t : "";
+  }
+  // the status pill of a row: always a word, the colour only goes with it
+  function statePill(d) {
+    if (d.state === "credit") return ["ok", "A favor"];
+    if (d.state === "zero") return ["ok", "Al día"];
+    if (d.state === "uncollectible") return ["neutral", "Incobrable"];
+    var n = d.oldest_owed_days;
+    if (n > 0) return ["err", "Vencido " + n + (n === 1 ? " día" : " días")];
+    return ["", "Con deuda"];
+  }
+  // the ⋯ menu: secondary actions only, the ones this user may use
+  function menuItems(D, seller) {
+    var items = [{ id: "cu-refresh", label: "Actualizar", icon: "refresh" }];
+    if (D && D.can_export) {
+      var s = "?seller=" + encodeURIComponent(seller || "all");
+      items.push({ href: "/cuentas/deudores.pdf" + s, label: "Descargar PDF", icon: "download", blank: true });
+      items.push({ href: "/cuentas/deudores.xlsx" + s, label: "Descargar Excel", icon: "download" });
+    }
+    if (D && D.can_see_transfers) items.push({ href: "#transferencias", label: "Transferencias", icon: "receipt" });
+    items.push({ href: "/cobro", label: "Cobro en efectivo", icon: "cash" });
+    if (D && D.last_load) items.push({ id: "cu-lastload", label: "Última carga de comprobantes", icon: "clock" });
+    items.push({ sep: true });
+    items.push({ href: "/web/session/logout?redirect=%2Fweb%2Flogin", label: "Salir", icon: "logout" });
+    return items;
+  }
+  // one list read by pages: a newer reload drops the answers of an older one;
+  // next() asks the following page once, only while there are more
+  function makeList(fetchPage, changed, failed) {
+    var me = { f: null, rows: [], data: null, more: false, loading: false, loadingMore: false, seq: 0, zones: null };
+    function take(seq, append) {
+      return function (data) {
+        if (seq !== me.seq) return;
+        if (data.zones) me.zones = data.zones;
+        me.rows = append ? me.rows.concat(data.rows || []) : (data.rows || []);
+        me.more = !!data.more;
+        if (!append) me.data = data;
+      };
+    }
+    function done(seq, key) {
+      return function () { if (seq === me.seq) { me[key] = false; changed(); } };
+    }
+    function oops(seq) {
+      return function (err) { if (seq === me.seq) failed(err); };
+    }
+    me.reload = function (f) {
+      me.f = listFilters(f);
+      me.seq += 1;
+      var seq = me.seq;
+      me.loading = true;
+      me.loadingMore = false;
+      changed();
+      return fetchPage(listQuery(me.f, 0, LIST_LIMIT, !me.zones))
+        .then(take(seq, false), oops(seq)).then(done(seq, "loading"));
+    };
+    me.next = function () {
+      if (!me.f || !me.more || me.loading || me.loadingMore) return null;
+      var seq = me.seq;
+      me.loadingMore = true;
+      changed();
+      return fetchPage(listQuery(me.f, me.rows.length, LIST_LIMIT, false))
+        .then(take(seq, true), oops(seq)).then(done(seq, "loadingMore"));
+    };
+    return me;
+  }
+  // list-v2:end
+
+  var V2 = !!(app && app.dataset && app.dataset.v2);
+  var LIST_NAME = V2 ? "Cuentas" : "Deudores";
+  var L = V2 ? makeList(function (query) { return get("list?" + query); }, render, fail) : null;
+  var CU = { f: listFilters(), menu: false, sheet: false, draft: null, draftCount: null, countSeq: 0, lastLoad: false };
+  var ICONS = {
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    more: '<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>',
+    filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+    next: '<path d="M9 5l7 7-7 7"/>',
+    chevdown: '<path d="M5 9l7 7 7-7"/>',
+    refresh: '<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/>',
+    download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+    receipt: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 15l2 2 4-4"/>',
+    cash: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    logout: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/>',
+    empty: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M8 11h6"/>',
+  };
+  function icon(name, size) {
+    var s = size || 24;
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || "") + "</svg>";
+  }
+  // the role's sections, for the PC bar (the same links as the bottom bar)
+  var NAV_ITEMS = Array.prototype.map.call(document.querySelectorAll(".dn-bottom--rol .dn-nav a"), function (a) {
+    var spans = a.querySelectorAll("span");
+    return { href: a.getAttribute("href"), label: spans.length ? spans[spans.length - 1].textContent : a.textContent,
+      on: a.classList.contains("on") };
+  });
+
+  function initials(name) {
+    var words = String(name || "").replace(/[^A-Za-zÁÉÍÓÚÑÜáéíóúñü0-9 ]/g, " ").trim().split(/\s+/);
+    return ((words[0] || "").charAt(0) + (words[1] || "").charAt(0)).toUpperCase() || "·";
+  }
+  function amountClass(d) {
+    return d.state === "credit" ? " dn-rowi__amt--fav" : d.state === "zero" ? " dn-rowi__amt--zero" : "";
+  }
+  // a credit shows its amount in green with «A favor» (the mockups), no sign
+  function rowAmount(d) { return money(d.state === "credit" ? Math.abs(d.balance) : d.balance); }
+  function pillHtml(d) {
+    var p = statePill(d);
+    return '<span class="dn-chip' + (p[0] ? " dn-chip--" + p[0] : "") + '">' + h(p[1]) + "</span>";
+  }
+  function rowSub(d) {
+    var facts = [];
+    if (d.zone) facts.push(h(d.zone));
+    facts.push(d.last_payment_date ? "último pago " + shortDay(d.last_payment_date) : "sin pagos");
+    if (d.candidate_count) facts.push(plural(d.candidate_count, "pago a confirmar", "pagos a confirmar"));
+    if (d.comment_count) facts.push(plural(d.comment_count, "comentario", "comentarios"));
+    return facts.join(" · ");
+  }
+
+  function listRow(d) {
+    return '<a class="dn-rowi" href="#cuenta/' + d.id + '"><span class="dn-rowi__lead" aria-hidden="true">' +
+      h(initials(d.name)) + '</span><span class="dn-rowi__main"><span class="dn-rowi__title">' + h(d.name) +
+      '</span><span class="dn-rowi__sub">' + rowSub(d) + '</span></span><span class="dn-rowi__end">' +
+      '<span class="dn-rowi__amt' + amountClass(d) + '">' + rowAmount(d) + "</span>" + pillHtml(d) + "</span>" +
+      '<span class="dn-rowi__chev">' + icon("next", 20) + "</span></a>";
+  }
+
+  function chipsView(D) {
+    var c = (D && D.counts) || {};
+    var defs = [["all", "Todos"], ["debt", "Con deuda"], ["zero", "Al día"], ["credit", "A favor"]];
+    if (D && D.can_see_uncollectible && (c.uncollectible || CU.f.state === "uncollectible")) {
+      defs.push(["uncollectible", "Incobrables"]);
+    }
+    return '<div class="dn-chips" role="group" aria-label="Estado de la cuenta">' + defs.map(function (x) {
+      var on = CU.f.state === x[0];
+      return '<button type="button" class="dn-fchip' + (on ? " on" : "") + '" aria-pressed="' + on + '" data-cu-state="' +
+        x[0] + '">' + x[1] + (D ? " <b>" + (c[x[0]] || 0) + "</b>" : "") + "</button>";
+    }).join("") + "</div>";
+  }
+
+  function menuView(D) {
+    if (!CU.menu) return "";
+    return '<div class="dn-menu cu-menu" role="menu" id="cu-menu">' + menuItems(D, CU.f.seller).map(function (it) {
+      if (it.sep) return '<div class="dn-menu__sep"></div>';
+      var inner = icon(it.icon, 22) + h(it.label);
+      if (it.href) {
+        return '<a class="dn-menu__item" role="menuitem" href="' + h(it.href) + '"' +
+          (it.blank ? ' target="_blank" rel="noopener"' : "") + ">" + inner + "</a>";
+      }
+      return '<button type="button" class="dn-menu__item" role="menuitem" id="' + it.id + '">' + inner + "</button>";
+    }).join("") + "</div>";
+  }
+
+  function lastLoadView(D) {
+    var load = D && D.last_load;
+    if (!CU.lastLoad || !load) return "";
+    return '<div class="dn-banner dn-banner--card cu-lastload"><span>Comprobantes del chat cargados hasta el <b>' +
+      h(load.receipts_until) + "</b>" + (load.import_file ? ". Zip «" + h(load.import_file) + "», importado el " +
+      h(load.imported_at) + (load.imported_by ? " por " + h(load.imported_by) : "") : "") + ".</span>" +
+      '<button type="button" class="dn-icon-btn" id="cu-lastload-x" aria-label="Cerrar">×</button></div>';
+  }
+
+  function searchView(id) {
+    return '<div class="dn-search">' + icon("search", 22) + '<input id="' + id + '" class="dn-input" type="search" ' +
+      'inputmode="search" autocomplete="off" enterkeyhint="search" aria-label="Buscar cliente, CUIT o WhatsApp" ' +
+      'placeholder="Buscar cliente, CUIT o WhatsApp" value="' + h(S.search) + '"/></div>';
+  }
+
+  function filterDot() {
+    var n = sheetFilterCount(CU.f);
+    return n ? '<span class="dn-icon-btn__dot">' + n + "</span>" : "";
+  }
+
+  function countLine(D) {
+    if (!D) return "";
+    var n = D.total_rows;
+    if (!n) return "";
+    return '<p class="cu-count">' + plural(n, "cliente", "clientes") + " · " + SORT_TEXT[CU.f.sort] + "</p>";
+  }
+
+  function emptyView(D) {
+    var why = CU.f.q ? "Ningún cliente coincide con «" + h(CU.f.q) + "»." :
+      CU.f.state !== "all" || sheetFilterCount(CU.f) ? "Ningún cliente con estos filtros." : "No hay clientes para mostrar.";
+    return '<div class="dn-empty">' + icon("empty", 48) + "<b>" + why + "</b>" +
+      (CU.f.q || CU.f.state !== "all" || sheetFilterCount(CU.f) ?
+        '<button type="button" class="dn-btn dn-btn--secondary dn-btn--sm dn-btn--auto" id="cu-reset">Ver todos los clientes</button>' : "") +
+      "</div>";
+  }
+
+  function moreView(wide) {
+    if (!L.more) return "";
+    var left = Math.max(0, (L.data ? L.data.total_rows : 0) - L.rows.length);
+    return '<div id="cu-sentinel" class="cu-sentinel"></div><button type="button" class="dn-btn dn-btn--secondary' +
+      (wide ? " dn-btn--auto" : "") + ' cu-next" id="cu-next"' + (L.loadingMore ? " disabled" : "") + ">" +
+      (L.loadingMore ? "Cargando…" : "Ver más (" + left + ")") + "</button>";
+  }
+
+  function kpiHint(D) {
+    var bits = [plural(D.debtor_count, "cliente con deuda", "clientes con deuda")];
+    if (D.credit_count) bits.push(D.credit_count + " con saldo a favor");
+    return bits.join(" · ");
+  }
+
+  function viewList2() {
+    var D = L.data;
+    var head = '<header class="dn-top cu-top"><div class="dn-top__row"><div class="dn-top__txt">' +
+      '<h1 class="dn-top__title">Cuentas de clientes</h1></div>' +
+      '<button type="button" class="dn-icon-btn" id="cu-gear" aria-label="Ajustes">' + icon("gear") + "</button>" +
+      '<button type="button" class="dn-icon-btn" id="cu-more" aria-label="Más acciones" aria-haspopup="menu" aria-expanded="' +
+      CU.menu + '">' + icon("more") + "</button></div>" + menuView(D) + "</header>";
+    var out = [banner(), lastLoadView(D)];
+    out.push(D ? '<div class="dn-kpi dn-kpi--hero"><span class="dn-kpi__label">Total a cobrar</span>' +
+      '<span class="dn-kpi__value dn-num">' + money(D.total_debt) + '</span><span class="dn-kpi__hint">' + kpiHint(D) +
+      (D.uncollectible_count ? " · incobrables aparte " + money(D.uncollectible_total) : "") + "</span></div>" :
+      '<div class="dn-skel cu-skel-kpi"></div>');
+    out.push('<div class="cu-searchrow">' + searchView("q") + '<button type="button" class="dn-icon-btn dn-icon-btn--line" ' +
+      'id="cu-filter" aria-label="Filtrar y ordenar" aria-haspopup="dialog">' + icon("filter") + filterDot() + "</button></div>");
+    out.push(chipsView(D));
+    if (!D) {
+      out.push('<div class="dn-skel"></div><div class="dn-skel"></div><div class="dn-skel"></div>');
+    } else {
+      out.push(countLine(D) + (L.loading ? '<p class="cu-count cu-upd">Actualizando…</p>' : ""));
+      out.push(L.rows.length ? '<div class="dn-list">' + L.rows.map(listRow).join("") + "</div>" + moreView(false) :
+        L.loading ? "" : emptyView(D));
+    }
+    return head + '<main class="cu-main">' + out.join("") + "</main>";
+  }
+
+  function deskRow2(d, selected) {
+    var oldest = d.oldest_owed_date ? shortDay(d.oldest_owed_date) + ' <span class="muted">· ' +
+      plural(d.oldest_owed_days, "día", "días") + "</span>" : '<span class="muted">—</span>';
+    var extra = [];
+    if (d.ref) extra.push(h(d.ref));
+    if (d.candidate_count) extra.push(plural(d.candidate_count, "pago a confirmar", "pagos a confirmar"));
+    if (d.comment_count) extra.push(plural(d.comment_count, "comentario", "comentarios"));
+    var amt = d.state === "credit" ? ' style="color:var(--dn-green-text)"' : d.state === "zero" ? ' style="color:var(--dn-muted)"' : "";
+    return '<tr data-pick="' + d.id + '"' + (selected ? ' aria-selected="true"' : "") + ">" +
+      '<td class="cu-name"><a href="#cuenta/' + d.id + '">' + h(d.name) + "</a>" +
+      (extra.length ? '<span class="cu-extra">' + extra.join(" · ") + "</span>" : "") + "</td>" +
+      '<td class="muted">' + h(d.zone) + '</td><td class="muted">' + h(d.seller_label) + "</td>" +
+      '<td class="muted">' + (d.last_payment_date ? shortDay(d.last_payment_date) + " · " + money(d.last_payment_amount) : "Sin pagos") + "</td>" +
+      '<td class="muted">' + oldest + "</td>" +
+      '<td class="num"' + amt + ">" + rowAmount(d) + "</td><td>" + pillHtml(d) + "</td></tr>";
+  }
+
+  function viewDesk2() {
+    var D = L.data;
+    var r = route();
+    var nav = NAV_ITEMS.map(function (it) {
+      return '<a href="' + h(it.href) + '"' + (it.on ? ' class="on" aria-current="page"' : "") + ">" + h(it.label) + "</a>";
+    }).join("");
+    var bar = '<header class="dn-appbar"><div class="dn-appbar__brand"><span class="cu-logo" aria-hidden="true">DN</span>' +
+      "<span>Distri Neuquén</span></div>" + '<nav class="dn-appbar__nav" aria-label="Secciones">' + nav + "</nav>" +
+      (D ? '<span class="dn-appbar__user">' + h(D.user) + "</span>" : "") +
+      '<button type="button" class="dn-icon-btn" id="cu-gear" aria-label="Ajustes">' + icon("gear") + "</button></header>";
+    var n = sheetFilterCount(CU.f);
+    var head = '<div class="dn-pagehead"><div class="dn-pagehead__txt"><h1>Cuentas de clientes</h1><p>' +
+      (D ? plural(D.customer_count, "cliente", "clientes") + " · actualizado hoy " + h(D.updated_at) : "Cargando…") +
+      (L.loading && D ? " · actualizando…" : "") + "</p></div>" +
+      '<div class="cu-pcsearch">' + searchView("q") + "</div>" +
+      '<button type="button" class="dn-btn dn-btn--secondary dn-btn--auto" id="cu-filter" aria-haspopup="dialog">' +
+      icon("filter", 20) + "Filtros" + (n ? " (" + n + ")" : "") + "</button>" +
+      '<span class="cu-morewrap"><button type="button" class="dn-icon-btn dn-icon-btn--line" id="cu-more" ' +
+      'aria-label="Más acciones: actualizar, descargar PDF o Excel" aria-haspopup="menu" aria-expanded="' + CU.menu + '">' +
+      icon("more") + "</button>" + menuView(D) + "</span></div>";
+    var kpis = "";
+    if (D) {
+      kpis = '<div class="cu-kpis"><div class="dn-kpi dn-kpi--hero"><span class="dn-kpi__label">Total a cobrar</span>' +
+        '<span class="dn-kpi__value dn-num">' + money(D.total_debt) + '</span><span class="dn-kpi__hint">' +
+        plural(D.debtor_count, "cliente con deuda", "clientes con deuda") + "</span></div>" +
+        '<div class="dn-kpi"><span class="dn-kpi__label">Pagos a confirmar</span><span class="dn-kpi__value dn-num">' +
+        money(D.total_candidates || 0) + '</span><span class="dn-kpi__hint">no restan de la deuda</span></div>' +
+        '<div class="dn-kpi"><span class="dn-kpi__label">Saldos a favor</span><span class="dn-kpi__value dn-num">' +
+        money(Math.abs(D.credit_total || 0)) + '</span><span class="dn-kpi__hint">' + plural(D.credit_count, "cliente", "clientes") +
+        "</span></div>" +
+        (D.can_see_uncollectible ? '<div class="dn-kpi"><span class="dn-kpi__label">Incobrables (aparte)</span>' +
+          '<span class="dn-kpi__value dn-num">' + money(D.uncollectible_total) + '</span><span class="dn-kpi__hint">' +
+          '<span class="dn-chip dn-chip--neutral">' + plural(D.uncollectible_count, "cliente", "clientes") + "</span></span></div>" : "") +
+        "</div>";
+    }
+    var table;
+    if (!D) {
+      table = '<div class="dn-skel"></div><div class="dn-skel"></div>';
+    } else if (!L.rows.length) {
+      table = L.loading ? '<div class="dn-skel"></div>' : emptyView(D);
+    } else {
+      table = '<div class="dn-table-wrap"><table class="dn-table cu-table"><thead><tr><th>Cliente</th><th>Zona</th>' +
+        '<th>Vendedor</th><th>Último pago</th><th>Deuda más vieja</th><th class="num">Saldo</th><th>Estado</th></tr></thead><tbody>' +
+        L.rows.map(function (d) { return deskRow2(d, d.id === r.id); }).join("") + "</tbody>" +
+        '<tfoot><tr><td colspan="7">' + L.rows.length + " de " + plural(D.total_rows, "cliente", "clientes") + " · " +
+        SORT_TEXT[CU.f.sort] + "</td></tr></tfoot></table></div>" + moreView(true);
+    }
+    return '<div class="cu-desk">' + bar + banner() + '<main class="cu-wrap">' + head + lastLoadView(D) + kpis +
+      chipsView(D) + '<div class="cu-cols"><section class="cu-tablecol" aria-label="Clientes">' + table + "</section>" +
+      deskAccount() + "</div></main></div>";
+  }
+
+  function viewSheet() {
+    var d = CU.draft;
+    var D = L.data;
+    var zones = L.zones || [];
+    var field = function (id, label, control) {
+      return '<div class="dn-field"><label for="' + id + '">' + label + "</label>" + control + "</div>";
+    };
+    var select = function (id, options, value) {
+      return '<div class="dn-selectwrap"><select class="dn-input" id="' + id + '">' + options.map(function (o) {
+        return '<option value="' + h(o[0]) + '"' + (String(value) === String(o[0]) ? " selected" : "") + ">" + h(o[1]) + "</option>";
+      }).join("") + "</select>" + icon("chevdown", 20) + "</div>";
+    };
+    var body = '<div class="dn-field"><span class="dn-field__label">Ordenar por</span><div class="dn-seg" role="group" ' +
+      'aria-label="Ordenar por">' + SORTS.map(function (s) {
+        return '<button type="button" data-cu-sort="' + s[0] + '" aria-pressed="' + (d.sort === s[0]) + '">' + s[1] + "</button>";
+      }).join("") + "</div></div>";
+    if (D && D.can_filter_seller) {
+      body += field("cu-f-seller", "Vendedor", select("cu-f-seller", SELLERS.map(function (s) {
+        return [s[0], s[0] === "all" ? "Todos" : "Clientes de " + s[1]];
+      }), d.seller));
+    }
+    body += field("cu-f-zone", "Zona", select("cu-f-zone", [["", "Todas"]].concat(zones.map(function (z) { return [z, z]; })), d.zone));
+    body += field("cu-f-min", "Deuda mínima", '<input id="cu-f-min" class="dn-input dn-num" type="number" min="0" step="1000" ' +
+      'inputmode="numeric" placeholder="$ 0" value="' + h(d.minBalance) + '"/>');
+    body += field("cu-f-age", "Deuda más vieja", select("cu-f-age", AGES, d.minAge));
+    var label = CU.draftCount == null ? "Ver clientes" : "Ver " + plural(CU.draftCount, "cliente", "clientes");
+    return '<div class="dn-scrim cu-scrim" data-cu-close="1"></div><div class="dn-sheet cu-sheet" role="dialog" ' +
+      'aria-modal="true" aria-labelledby="cu-sheet-t"><span class="dn-sheet__grip" aria-hidden="true"></span>' +
+      '<h2 id="cu-sheet-t">Filtrar y ordenar</h2>' + body + '<div class="dn-foot cu-sheet-foot">' +
+      '<button type="button" class="dn-btn dn-btn--secondary" id="cu-clear">Limpiar</button>' +
+      '<button type="button" class="dn-btn" id="cu-apply">' + label + "</button></div></div>";
+  }
+
+  // ---- list actions
+
+  var LIST_CACHE = "list:v2";
+  function loadList(keepCache) {
+    var plain = JSON.stringify(listFilters(CU.f)) === JSON.stringify(listFilters());
+    if (keepCache && plain && !L.data) {
+      var cached = stored(LIST_CACHE);
+      if (cached && cached.data) { L.data = cached.data; L.rows = cached.rows || []; L.more = !!cached.data.more; }
+    }
+    var seq;
+    var p = L.reload(CU.f);
+    seq = L.seq;
+    return p.then(function () {
+      if (plain && seq === L.seq && L.data && !L.loading) store(LIST_CACHE, { data: L.data, rows: L.rows.slice(0, LIST_LIMIT) });
+    });
+  }
+  function setFilters(next) {
+    CU.f = listFilters(next);
+    loadList(false);
+  }
+  function openSheet() {
+    CU.menu = false;
+    CU.sheet = true;
+    CU.draft = listFilters(CU.f);
+    CU.draftCount = L.data ? L.data.total_rows : null;
+    render();
+  }
+  function closeSheet() {
+    CU.sheet = false;
+    CU.draft = null;
+    render();
+    var b = document.getElementById("cu-filter");
+    if (b) b.focus();
+  }
+  // «Ver N clientes»: the count of the draft filters (limit 0: counts only)
+  function countDraft() {
+    var seq = ++CU.countSeq;
+    clearTimeout(CU.countTimer);
+    CU.countTimer = setTimeout(function () {
+      get("list?" + listQuery(CU.draft, 0, 0, false)).then(function (data) {
+        if (seq !== CU.countSeq || !CU.sheet) return;
+        CU.draftCount = data.total_rows;
+        render();
+      }).catch(function () { /* the button keeps «Ver clientes» */ });
+    }, 250);
+  }
+  // infinite scroll: the next page when the end of the list shows (the
+  // «Ver más» button stays for browsers without IntersectionObserver)
+  var observer = V2 && window.IntersectionObserver ? new IntersectionObserver(function (entries) {
+    if (entries.some(function (e) { return e.isIntersecting; })) L.next();
+  }, { rootMargin: "400px 0px" }) : null;
+  function watchEnd() {
+    if (!observer) return;
+    observer.disconnect();
+    var s = document.getElementById("cu-sentinel");
+    if (s) observer.observe(s);
+  }
+  function bumpListComments(partnerId, delta) {
+    if (!L) return;
+    L.rows.forEach(function (d) {
+      if (d.id === partnerId) d.comment_count = Math.max(0, d.comment_count + delta);
+    });
   }
 
   // ---- account
@@ -762,10 +1201,11 @@
     var p = d && d.partner;
     var head = '<div class="sticky"><div class="head compact">' +
       (S.lastList === "#transferencias" ? '<a class="back" href="#transferencias">‹ Transferencias</a>' :
-        '<a class="back" href="#">‹ Deudores</a>');
+        '<a class="back" href="#">‹ ' + LIST_NAME + "</a>");
     if (acc && acc.error) {
       return head + "<h1>Cuenta</h1></div>" + banner() + '</div><div class="body"><div class="denied">' +
-        '<div class="banner err">' + h(acc.error) + '</div><p><a href="#">Volver a deudores</a></p></div></div>';
+        '<div class="banner err">' + h(acc.error) + '</div><p><a href="#">Volver a ' + LIST_NAME.toLowerCase() +
+        "</a></p></div></div>";
     }
     if (!p) {
       return head + "<h1>Cuenta</h1></div>" + banner() + '</div><div class="body"><div class="cargando">Cargando…</div></div>';
@@ -900,7 +1340,7 @@
   function viewTransfers() {
     var T = S.tr;
     var f = S.trf;
-    var head = '<div class="sticky"><div class="head compact"><a class="back" href="#">‹ Deudores</a>' +
+    var head = '<div class="sticky"><div class="head compact"><a class="back" href="#">‹ ' + LIST_NAME + "</a>" +
       '<div class="kicker">Cuentas de clientes · Transferencias cargadas</div>';
     if (T && !T.error && T.count != null) {
       head += '<div class="total num">' + moneyInt(T.amount) + "</div>" +
@@ -928,7 +1368,8 @@
     if (!T) {
       body = '<div class="cargando">Cargando…</div>';
     } else if (T.error) {
-      body = '<div class="denied"><div class="banner err">' + h(T.error) + '</div><p><a href="#">Volver a deudores</a></p></div>';
+      body = '<div class="denied"><div class="banner err">' + h(T.error) + '</div><p><a href="#">Volver a ' +
+        LIST_NAME.toLowerCase() + "</a></p></div>";
     } else {
       var out = [];
       if (T.by_person && T.by_person.length > 1) {
@@ -1156,6 +1597,7 @@
   }
 
   function bumpDebtorComments(partnerId, delta) {
+    if (V2) bumpListComments(partnerId, delta);
     if (!S.debtors) return;
     ["debtors", "uncollectible", "settled"].forEach(function (k) {
       S.debtors[k].forEach(function (d) {
@@ -1230,7 +1672,75 @@
     goUp("#cuenta/" + r.id);
   }
 
+  // 19.0.1.129.43: the clicks of the v2 list (header, ⋯ menu, chips, sheet)
+  function v2Click(ev) {
+    var t = ev.target.closest && ev.target.closest("#cu-gear,#cu-more,#cu-refresh,#cu-lastload,#cu-lastload-x," +
+      "#cu-filter,#cu-next,#cu-reset,#cu-clear,#cu-apply,[data-cu-state],[data-cu-sort],[data-cu-close],#cu-menu a");
+    var inMenu = t && (t.id === "cu-more" || (t.closest && t.closest("#cu-menu")));
+    if (CU.menu && !inMenu) {
+      CU.menu = false;
+      render();
+    }
+    if (!t) return false;
+    var f;
+    if (t.id === "cu-gear") {
+      var gear = document.getElementById("dn-gear");
+      if (gear) gear.click();
+    } else if (t.id === "cu-more") {
+      CU.menu = !CU.menu;
+      render();
+      var first = CU.menu && document.querySelector("#cu-menu .dn-menu__item");
+      if (first) first.focus();
+    } else if (t.tagName === "A") {
+      // a link of the menu goes by itself; the menu closes
+      CU.menu = false;
+      setTimeout(render, 0);
+    } else if (t.id === "cu-refresh") {
+      CU.menu = false;
+      loadList(false);
+    } else if (t.id === "cu-lastload") {
+      CU.menu = false;
+      CU.lastLoad = true;
+      render();
+    } else if (t.id === "cu-lastload-x") {
+      CU.lastLoad = false;
+      render();
+    } else if (t.id === "cu-filter") {
+      openSheet();
+    } else if (t.id === "cu-next") {
+      L.next();
+    } else if (t.id === "cu-reset") {
+      S.search = "";
+      setFilters(listFilters());
+    } else if (t.dataset.cuState) {
+      if (CU.f.state !== t.dataset.cuState) {
+        f = listFilters(CU.f);
+        f.state = t.dataset.cuState;
+        setFilters(f);
+      }
+    } else if (t.dataset.cuSort) {
+      CU.draft.sort = t.dataset.cuSort;
+      render();
+    } else if (t.dataset.cuClose) {
+      if (ev.target === t) closeSheet();
+    } else if (t.id === "cu-clear") {
+      f = listFilters();
+      f.q = CU.f.q;
+      f.state = CU.f.state;
+      CU.draft = f;
+      render();
+      countDraft();
+    } else if (t.id === "cu-apply") {
+      f = listFilters(CU.draft);
+      CU.sheet = false;
+      CU.draft = null;
+      setFilters(f);
+    }
+    return true;
+  }
+
   document.addEventListener("click", function (ev) {
+    if (V2 && v2Click(ev)) return;
     var t = ev.target.closest("[data-seller],[data-period],[data-line],[data-close],[data-send],[data-delete]," +
       "[data-zoom],[data-unzoom],[data-zoomtoggle],[data-tab],[data-pick],#more,#opts,#lastload,#share-pdf,#refresh," +
       "[data-tperiod],[data-tstate],[data-trow],[data-tclose],#tmore,#t-people");
@@ -1305,7 +1815,21 @@
 
   document.addEventListener("input", function (ev) {
     var t = ev.target;
-    if (t.id === "q") {
+    if (t.id === "q" && V2) {
+      // 19.0.1.129.43: the server searches, 300 ms after the last key
+      S.search = t.value;
+      clearTimeout(S.searchTimer);
+      S.searchTimer = setTimeout(function () {
+        var term = searchTerm(S.search);
+        if (term === CU.f.q) return;
+        var f = listFilters(CU.f);
+        f.q = term;
+        setFilters(f);
+      }, 300);
+    } else if (t.id === "cu-f-min" && CU.draft) {
+      CU.draft.minBalance = t.value;
+      countDraft();
+    } else if (t.id === "q") {
       S.search = t.value;
       clearTimeout(S.searchTimer);
       S.searchTimer = setTimeout(render, 150);
@@ -1318,6 +1842,12 @@
 
   document.addEventListener("change", function (ev) {
     var id = ev.target.id;
+    if (V2 && CU.draft && (id === "cu-f-seller" || id === "cu-f-zone" || id === "cu-f-age")) {
+      CU.draft[{ "cu-f-seller": "seller", "cu-f-zone": "zone", "cu-f-age": "minAge" }[id]] = ev.target.value;
+      countDraft();
+      return;
+    }
+    if (id === "cu-f-min") return;
     if (id === "r-from" || id === "r-to") { setRange(); return; }
     if (id === "t-user") { S.trf.user = ev.target.value; loadTransfers(); return; }
     if (id === "t-from" || id === "t-to") {
@@ -1339,6 +1869,14 @@
 
   document.addEventListener("keydown", function (ev) {
     if (ev.key !== "Escape") return;
+    if (V2 && CU.sheet) { closeSheet(); return; }
+    if (V2 && CU.menu) {
+      CU.menu = false;
+      render();
+      var more = document.getElementById("cu-more");
+      if (more) more.focus();
+      return;
+    }
     if (S.zoom) { S.zoom = null; render(); } else if (S.line) closeLine();
     else if (S.trOpen && route().transfers) goUp("#transferencias");
   });
@@ -1346,7 +1884,10 @@
   window.addEventListener("hashchange", onRoute);
   // the PC layout reloads the list with its filters; the phone without them
   if (WIDE.addEventListener) {
-    WIDE.addEventListener("change", function () { if (S.debtors) loadDebtors(); else render(); });
+    WIDE.addEventListener("change", function () {
+      if (V2) render();
+      else if (S.debtors) loadDebtors(); else render();
+    });
   }
   window.addEventListener("online", function () { S.online = true; render(); });
   window.addEventListener("offline", function () { S.online = false; render(); });

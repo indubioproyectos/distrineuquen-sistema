@@ -54,13 +54,14 @@ from dateutil.relativedelta import relativedelta
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
 
-from .deudores import ADMIN_GROUP, SELLERS, debtor_entries, direct_customers, seller_of, \
-    seller_tags
+from .armado import normalizar_ciudad
+from .deudores import ADMIN_GROUP, DEBT_EPSILON, SELLERS, debtor_balances, debtor_entries, \
+    direct_customers, seller_of, seller_tags
 from .ar_phone import wa_digits
 from .comprobante_pendiente import OPEN_STATES
 from .estado_cuenta import PROVISIONAL_NOTE, SOURCE_LABELS, share_token
 from .lista_oculta import ve_mayoristas
-from .reparto_cliente import AR_TZ, today_ar
+from .reparto_cliente import AR_TZ, today_ar, town_from_name
 
 SELLER_GROUP = "distri_pedido.grupo_vendedor"
 DRIVER_GROUP = "distri_pedido.grupo_reparto"
@@ -79,6 +80,11 @@ SHARE_HIDDEN = ("La cuenta está oculta para el cliente (administración la mues
 SHARE_NO_WHATSAPP = "El cliente no tiene WhatsApp cargado. Mandale el PDF con «Compartir PDF»."
 PAGE_SIZE = 50
 SELLER_FILTER_VALUES = ("all", "italo", "distrineuquen")
+# 19.0.1.129.43: the one list of every customer (app_list), by pages
+LIST_PAGE = 50
+LIST_MAX = 200
+LIST_STATES = ("all", "debt", "zero", "credit", "uncollectible")
+LIST_SORTS = ("debt", "oldest", "name")
 CARD_STATES = {"draft": "A revisar", "confirmed": "Confirmado", "ignored": "Descartado"}
 
 
@@ -142,6 +148,36 @@ def filter_debtors(entries, zone="", min_balance=0.0, min_age=0, today=None):
             continue
         out.append(entry)
     return out
+
+
+def _fold(text):
+    """Lower case without accents, for the list search («Peñón» ~ «penon»)."""
+    import unicodedata
+    text = unicodedata.normalize("NFD", str(text or "").lower())
+    return "".join(ch for ch in text if not unicodedata.combining(ch))
+
+
+def _digits(text):
+    return "".join(ch for ch in str(text or "") if ch.isdigit())
+
+
+def balance_state(balance):
+    """«debt», «zero» or «credit» of a balance, with the debtors' one-cent
+    rule (deudores.DEBT_EPSILON)."""
+    if balance > DEBT_EPSILON:
+        return "debt"
+    if balance < -DEBT_EPSILON:
+        return "credit"
+    return "zero"
+
+
+def _int(value, default=0, low=0, high=None):
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        value = default
+    value = max(value, low)
+    return min(value, high) if high is not None else value
 
 
 def _local_text(moment):
@@ -419,6 +455,230 @@ class DistriAccountApp(models.AbstractModel):
             "uncollectible_total": round(sum(d["balance"] for d in groups["uncollectible"]), 2),
             "last_load": self._app_last_load(),
         }
+
+    # ------------------------------------------------------------ one list (129.43)
+
+    @api.model
+    def _app_candidates(self, ids):
+        """{commercial partner id: [count, amount]} of the Mercado Pago
+        receipt candidates still to confirm: debtor_balances' rule, no cut."""
+        wanted = set(ids)
+        out = {}
+        if not wanted:
+            return out
+        cards = self.env["distri.mp.collection"].sudo().search([
+            ("partner_id", "child_of", sorted(wanted)), ("kind", "=", "income"),
+            ("state", "=", "draft"), ("receipt_candidate", "=", True)])
+        for card in cards:
+            pid = card.partner_id.commercial_partner_id.id
+            if pid in wanted:
+                count, amount = out.get(pid, (0, 0.0))
+                out[pid] = (count + 1, amount + card.amount)
+        return out
+
+    @api.model
+    def app_list(self, q="", seller="all", zone="", min_balance=0, min_age=0, state="all",
+                 sort="debt", offset=0, limit=LIST_PAGE, with_zones=False):
+        """19.0.1.129.43 (owner, 25/11): the ONE list of every customer of the
+        scope, highest debt first, then the zero balances, then the credit
+        balances, by pages. Same customers, scope and balances as
+        app_debtors, but:
+
+        - the balances of the whole scope come from one batched read
+          (res.partner._distri_account_balances, the statement's rule, the
+          same numbers as debtor_balances) and only the page gets the
+          details (last payment and invoice, oldest red row, candidates,
+          comments) through debtor_balances;
+        - the totals are over every customer of the filters (seller, zone,
+          minimum balance, age), never over the page nor the search: the
+          total is app_debtors' total_debt;
+        - `q` searches on the server (name, ref., CUIT, WhatsApp or phone);
+          `state` keeps one kind (debt, zero, credit, uncollectible) and
+          `sort` orders by debt (default), oldest red row or name. None of
+          them is on by default;
+        - `limit` 0 answers only the counts (the filter sheet's «Ver N»).
+
+        Only `min_age` and `sort=oldest` read the details of every debtor
+        (the oldest red row is not in the batched balance)."""
+        scope = self._app_check()
+        hide_uncollectible = scope != "all"
+        if scope != "all" or seller not in SELLER_FILTER_VALUES:
+            seller = "all"
+        state = state if state in LIST_STATES else "all"
+        if hide_uncollectible and state == "uncollectible":
+            state = "all"
+        sort = sort if sort in LIST_SORTS else "debt"
+        offset = _int(offset)
+        limit = _int(limit, LIST_PAGE, 0, LIST_MAX)
+        zone = (zone or "").strip()
+        min_balance = _number(min_balance)
+        min_age = int(_number(min_age))
+        today = today_ar()
+
+        customers = self._app_customers()
+        balances = self.env["res.partner"].sudo()._distri_account_balances(customers.ids)
+        tags = seller_tags(self.env)
+        zone_names = {normalizar_ciudad(z.name): z.name
+                      for z in self.env["distri.zona"].sudo().search([])}
+
+        def zone_of(partner):
+            # debtor_entries' rule: the city, else the town in the name
+            town = partner.city or town_from_name(partner.name) or ""
+            return zone_names.get(normalizar_ciudad(town), town)
+
+        items, zones = [], set()
+        for partner in customers:
+            raw = balances.get(partner.id, 0.0)
+            balance = round(raw, 2)
+            if seller != "all" and seller_of(partner, tags) != seller:
+                continue
+            item = {"partner": partner, "name": partner.name or "", "balance": balance}
+            if zone or with_zones:
+                item["zone"] = zone_of(partner)
+                if item["zone"]:
+                    zones.add(item["zone"])
+                if zone and item["zone"] != zone:
+                    continue
+            if min_balance and balance < min_balance:
+                continue
+            # app_debtors' kinds: an uncollectible customer apart for
+            # administración; a seller never learns the state exists
+            if partner.distri_uncollectible:
+                item["kind"] = "debtor" if hide_uncollectible else "uncollectible"
+            else:
+                item["kind"] = "debtor" if raw > DEBT_EPSILON else "settled"
+            item["state"] = ("uncollectible" if item["kind"] == "uncollectible"
+                             else balance_state(raw))
+            items.append(item)
+
+        oldest = {}
+        if min_age or sort == "oldest":
+            # only a positive balance has red rows (mark_owed_fifo)
+            owing = customers.browse([i["partner"].id for i in items if i["balance"] > 0])
+            oldest = {pid: data["oldest_owed"]
+                      for pid, data in debtor_balances(self.env, owing).items()}
+            if min_age:
+                items = [i for i in items if oldest.get(i["partner"].id)
+                         and (today - oldest[i["partner"].id]).days >= min_age]
+
+        debtors = [i for i in items if i["kind"] == "debtor"]
+        uncollectible = [i for i in items if i["kind"] == "uncollectible"]
+        credit = [i for i in items if i["state"] == "credit"]
+        count_only = limit == 0
+
+        if sort == "name":
+            items.sort(key=lambda i: (_fold(i["name"]), i["partner"].id))
+        elif sort == "oldest":
+            items.sort(key=lambda i: (oldest.get(i["partner"].id) is None,
+                                      oldest.get(i["partner"].id) or date.max,
+                                      -i["balance"], i["name"]))
+        else:
+            # debtor_entries' order: highest balance first, then the name
+            items.sort(key=lambda i: (-i["balance"], i["name"]))
+        for rank, item in enumerate(items, 1):
+            item["rank"] = rank
+        filtered_count = len(items)
+
+        words = _fold(q).split()
+        if words:
+            digits = _digits(q)
+
+            def found(partner):
+                text = _fold(" ".join(filter(None, (partner.name, partner.ref, partner.vat))))
+                if all(word in text for word in words):
+                    return True
+                return len(digits) >= 3 and any(
+                    digits in _digits(value)
+                    for value in (partner.vat, partner.distri_whatsapp, partner.phone))
+
+            items = [i for i in items if found(i["partner"])]
+        counts = dict.fromkeys(LIST_STATES, 0)
+        counts["all"] = len(items)
+        for item in items:
+            counts[item["state"]] += 1
+        shown = items if state == "all" else [i for i in items if i["state"] == state]
+        page = [] if count_only else shown[offset:offset + limit]
+
+        result = {
+            "scope": scope,
+            "q": " ".join(words),
+            "seller": seller,
+            "zone": zone,
+            "min_balance": min_balance,
+            "min_age": min_age,
+            "state": state,
+            "sort": sort,
+            "counts": counts,
+            "total_rows": len(shown),
+            "offset": offset,
+            "customer_count": filtered_count,
+            "total_debt": round(sum(i["balance"] for i in debtors), 2),
+            "debtor_count": len(debtors),
+            "uncollectible_total": round(sum(i["balance"] for i in uncollectible), 2),
+            "uncollectible_count": len(uncollectible),
+            "credit_total": round(sum(i["balance"] for i in credit), 2),
+            "credit_count": len(credit),
+        }
+        if count_only:
+            return result
+        candidates = self._app_candidates([i["partner"].id for i in debtors])
+        result.update({
+            "user": self.env.user.name,
+            "can_filter_seller": scope == "all",
+            "can_see_uncollectible": not hide_uncollectible,
+            "can_see_transfers": self._app_can_see_transfers(),
+            # «Descargar PDF / Excel»: the «Deudores» report (administración)
+            "can_export": self.env.user.has_group(ADMIN_GROUP),
+            "zones": sorted(zones) if with_zones else None,
+            "total_candidates": round(sum(candidates.get(i["partner"].id, (0, 0.0))[1]
+                                          for i in debtors), 2),
+            "rows": self._app_list_rows(page, zone_of, tags, today),
+            "more": offset + len(page) < len(shown),
+            "updated_at": fields.Datetime.now().replace(tzinfo=timezone.utc).astimezone(
+                AR_TZ).strftime("%H:%M"),
+            "last_load": self._app_last_load() if offset == 0 else None,
+        })
+        return result
+
+    @api.model
+    def _app_list_rows(self, items, zone_of, tags, today):
+        """The payload of one page of app_list: app_debtors' row (same keys)
+        plus `state`, with the details read for these customers only."""
+        if not items:
+            return []
+        partners = items[0]["partner"].browse([i["partner"].id for i in items])
+        details = debtor_balances(self.env, partners)
+        counts = self._app_comment_counts(partners)
+        sellers = dict(SELLERS)
+        rows = []
+        for item in items:
+            partner = item["partner"]
+            data = details[partner.id]
+            seller = seller_of(partner, tags)
+            last_payment, last_invoice = data["last_payment"], data["last_invoice"]
+            rows.append({
+                "id": partner.id,
+                "rank": item["rank"],
+                "name": partner.name or "",
+                "ref": partner.ref or "",
+                "phone": partner.distri_whatsapp or partner.phone or "",
+                "zone": item.get("zone", zone_of(partner)) or "",
+                "seller": seller,
+                "seller_label": sellers.get(seller, ""),
+                "balance": item["balance"],
+                "state": item["state"],
+                "last_payment_date": _iso(last_payment and last_payment[0]),
+                "last_payment_amount": last_payment and last_payment[1] or 0.0,
+                "last_invoice_date": _iso(last_invoice and last_invoice[0]),
+                "last_invoice_amount": last_invoice and last_invoice[1] or 0.0,
+                "candidate_count": data["candidate_count"],
+                "candidate_amount": data["candidate_amount"],
+                "comment_count": counts.get(partner.id, 0),
+                "oldest_owed_date": _iso(data["oldest_owed"]),
+                "oldest_owed_days": (today - data["oldest_owed"]).days
+                if data["oldest_owed"] else None,
+            })
+        return rows
 
     @api.model
     def _app_last_load(self):

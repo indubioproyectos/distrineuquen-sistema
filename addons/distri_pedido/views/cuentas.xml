@@ -21,6 +21,7 @@
   <t t-if="ui_v2">
     <link t-if="dn['font']" rel="preload" as="font" type="font/woff2" crossorigin="anonymous" t-att-href="dn['font']"/>
     <link rel="stylesheet" t-att-href="dn['css']"/>
+    <link t-if="dn.get('css_v2')" rel="stylesheet" t-att-href="dn['css_v2']"/>
   </t>
   <link t-else="" rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
   <!-- 19.0.1.112.0: cuentas_app.* (phone statement with dates and sharing,
@@ -34,7 +35,9 @@
 <body t-att-class="('dn-legado' + (' dn-legado--nav' if nav else '')) if ui_v2 else None">
   <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
   <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/><t t-set="sin_inicio" t-value="bool(nav)"/></t>
-  <div id="app" t-att-data-uid="uid"><div class="cargando">Cargando…</div></div>
+  <!-- 19.0.1.129.43: with ui_v2 on, cuentas_app.js draws the one list of
+       customers with the design system's header (data-v2) -->
+  <div id="app" t-att-data-uid="uid" t-att-data-v2="'1' if ui_v2 else None"><div class="cargando">Cargando…</div></div>
   <div id="sheet-root"></div>
   <div id="toast" hidden="hidden"></div>
   <script t-att-src="static + 'cuentas_app.js?v=' + version" defer="defer"></script>

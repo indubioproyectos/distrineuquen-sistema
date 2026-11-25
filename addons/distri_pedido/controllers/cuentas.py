@@ -19,12 +19,19 @@ the loaded transfers for administración, gerencia and sistemas only.
 kit's look (dn.css + kit/cuentas_v2.css instead of distri_ui.css) and the
 role's bottom bar (kit.legacy_ui). Same data, buttons, API and scope; with
 the flag off the page is the same as before.
+
+19.0.1.129.43 («Cuentas de clientes», DistriNeuquén design system): with
+ui_v2 on, the list is ONE list of every customer by pages
+(/cuentas/api/list, models/cuentas_app.py app_list) with the system's
+header; «Descargar PDF / Excel» of the ⋯ menu answer /cuentas/deudores.pdf
+and .xlsx (the «Deudores» report of administración, unchanged).
+/cuentas/api/debtors stays for the page with the flag off.
 """
 import hashlib
 import json
 import os
 
-from werkzeug.exceptions import Forbidden
+from werkzeug.exceptions import Forbidden, NotFound
 
 from odoo import http
 from odoo.exceptions import AccessError, UserError
@@ -112,6 +119,29 @@ class Cuentas(http.Controller):
             ("Cache-Control", "no-cache"),
         ])
 
+    @http.route("/cuentas/deudores.<string:fmt>", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def debtors_export(self, fmt, seller="all", **kw):
+        """19.0.1.129.43: «Descargar PDF» and «Descargar Excel» of the ⋯
+        menu: a fresh «Deudores» snapshot (distri.debtor.report, the backend
+        report as it is: administración and gerencia only, its own check)
+        and its PDF or xlsx. Nothing else is written."""
+        if fmt not in ("pdf", "xlsx"):
+            raise NotFound()
+        if not app_scope(request.env):
+            raise Forbidden()
+        if seller not in ("all", "italo", "distrineuquen"):
+            seller = "all"
+        try:
+            report = request.env["distri.debtor.report"].create({"seller": seller})
+            if fmt == "xlsx":
+                url = report.action_export_xlsx()["url"]
+            else:
+                url = "/report/pdf/distri_pedido.deudores_documento/%d" % report.id
+        except AccessError:
+            raise Forbidden() from None
+        return request.redirect(url, local=True)
+
     @http.route("/cuentas/manifest.webmanifest", type="http", auth="public", sitemap=False)
     def manifest(self, **kw):
         """Add to the home screen; no service worker (online only)."""
@@ -139,6 +169,15 @@ class Cuentas(http.Controller):
     def debtors(self, seller="all", settled="0", zone="", min_balance=0, min_age=0, **kw):
         return self._call("app_debtors", seller=seller, settled=settled == "1", zone=zone,
                           min_balance=min_balance, min_age=min_age)
+
+    @http.route("/cuentas/api/list", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def list_page(self, q="", seller="all", zone="", min_balance=0, min_age=0, state="all",
+             sort="debt", offset=0, limit=50, zones="0", **kw):
+        """19.0.1.129.43: one page of the one list of customers (app_list)."""
+        return self._call("app_list", q=q, seller=seller, zone=zone, min_balance=min_balance,
+                          min_age=min_age, state=state, sort=sort, offset=offset, limit=limit,
+                          with_zones=zones == "1")
 
     @http.route("/cuentas/api/account", type="http", auth="user", methods=["GET"],
                 sitemap=False)
