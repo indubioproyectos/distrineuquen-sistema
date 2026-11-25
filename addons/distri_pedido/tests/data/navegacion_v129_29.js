@@ -2,7 +2,8 @@
 // that used to add history: reparto/app3.js (and app5.js, drawn inside it),
 // despacho/despacho.js and cuentas/cuentas_app.js. Runs each file's
 // «nav-up» block (and app3.js's go()) against a fake browser history and
-// prints the checks as JSON. Used by tests/test_v129_29_navegacion.py.
+// prints the checks as JSON. Used by tests/test_v129_29_navegacion.py and
+// tests/test_v129_32_correcciones.py.
 //   node navegacion_v129_29.js <module root>
 "use strict";
 const fs = require("fs");
@@ -20,8 +21,12 @@ function block(src, start, end) {
 }
 
 // A browser tab with same-document hash entries only.
-function browser(initialHash) {
-  const entries = [{ hash: initialHash || "", state: null }];
+// 19.0.1.129.32: initialState is what history.state already holds when the
+// page loads (it survives reloads); with deferBack, back() waits for flush()
+// like a real browser does.
+function browser(initialHash, initialState, deferBack) {
+  const entries = [{ hash: initialHash || "", state: initialState || null }];
+  let pending = 0;
   let index = 0;
   const listeners = { hashchange: [], click: [] };
   const fire = (type, ev) => listeners[type].forEach((fn) => fn(ev));
@@ -36,7 +41,10 @@ function browser(initialHash) {
     get state() { return entries[index].state; },
     get length() { return entries.length; },
     replaceState(state) { entries[index].state = state; },
-    back() { if (index > 0) moveTo(index - 1, entries[index].hash); },
+    back() {
+      if (deferBack) { pending++; return; }
+      if (index > 0) moveTo(index - 1, entries[index].hash);
+    },
   };
   const location = {
     get hash() { return entries[index].hash ? "#" + entries[index].hash : ""; },
@@ -58,6 +66,13 @@ function browser(initialHash) {
   return {
     history, location, entries, listeners,
     index: () => index,
+    backCalls: () => pending,
+    flush() {
+      const n = pending; pending = 0;
+      for (let i = 0; i < n; i++) if (index > 0) moveTo(index - 1, entries[index].hash);
+    },
+    // the phone's «Atrás»: always the previous entry
+    phoneBack() { if (index > 0) moveTo(index - 1, entries[index].hash); },
     window: { addEventListener: (t, fn) => listeners[t].push(fn), scrollTo() {} },
     document: { addEventListener: (t, fn) => listeners[t].push(fn) },
     clickBack(href) {
@@ -73,13 +88,13 @@ function browser(initialHash) {
   };
 }
 
-function load(file, initialHash, extra) {
-  const b = browser(initialHash);
+function load(file, initialHash, extra, initialState, deferBack) {
+  const b = browser(initialHash, initialState, deferBack);
   const src = read(file);
   let code = block(src, "  // nav-up:start", "  // nav-up:end");
   if (extra) code += "\n" + extra(src);
   const ctx = Object.assign({ history: b.history, location: b.location, window: b.window,
-    document: b.document, Object, String }, (extra && extra.globals) || {});
+    document: b.document, Object, String, setTimeout: () => 0 }, (extra && extra.globals) || {});
   vm.createContext(ctx);
   vm.runInContext(code + "\n;globalThis.__up = goUp;" +
     (extra ? "globalThis.__go = typeof go === 'function' ? go : null;" : ""), ctx);
@@ -166,6 +181,40 @@ function check(name, value) { out[name] = value; }
   const f = load("static/src/reparto/app3.js", "carga", extra);
   f.ctx.__go("#salida");
   check("reparto_forward_go", { hash: f.location.hash, entries: f.entries.length });
+  // 19.0.1.129.32: «Control de carga» is the entry the app loads on.
+  // «Salir a repartir», the phone's «Atrás» to tick a parcel, and
+  // «Salir a repartir» again must open the departure screen again.
+  const loadExtra = (S2) => Object.assign((src) => "var draft, custDraft, expDraft, confirmState = null;" +
+    "function closeConfirm() {} function render() { globalThis.__renders++; }\n" + goSrc(src),
+  { globals: { S: S2, __renders: 0 } });
+  const notDeparted = { local: { departed: false, closed: false } };
+  const d = load("static/src/reparto/app3.js", "", loadExtra(notDeparted));
+  d.ctx.__go("#salida");
+  const first = { hash: d.location.hash, entries: d.entries.length };
+  d.phoneBack();
+  const afterBack = { hash: d.location.hash, dnFrom: d.history.state && d.history.state.dnFrom };
+  d.ctx.__go("#salida");
+  check("reparto_depart_after_phone_back", { first: first, afterBack: afterBack,
+    hash: d.location.hash, entries: d.entries.length, index: d.index() });
+  // a stale mark left in history.state by 129.29-129.31 (it survives a
+  // reload) is cleared when the app loads
+  const r = load("static/src/reparto/app3.js", "", loadExtra(notDeparted), { dnFrom: "salida" });
+  r.ctx.__go("#salida");
+  check("reparto_depart_stale_state", { hash: r.location.hash, entries: r.entries.length });
+  // even with a stale mark, go() never steps back to a forward screen
+  const s2 = load("static/src/reparto/app3.js", "carga", loadExtra(notDeparted));
+  s2.history.replaceState({ dnFrom: "salida" });
+  s2.ctx.__go("#salida");
+  check("reparto_forward_never_back", { hash: s2.location.hash, entries: s2.entries.length });
+  // a double tap on «Guardar» steps back once, not twice
+  const t = load("static/src/reparto/app3.js", "visitas", extra, null, true);
+  t.location.hash = "#visita/704";
+  t.ctx.__go("#visitas");
+  t.ctx.__go("#visitas");
+  const calls = t.backCalls();
+  t.flush();
+  check("reparto_double_tap_save", { backCalls: calls, hash: t.location.hash,
+    leave: t.pressesToLeave() });
   // app5.js «Mis comprobantes a reclamar» uses the same back links
   const app5 = read("static/src/reparto/app5.js");
   check("app5_back_links", (app5.match(/<a class="back" href="/g) || []).length);

@@ -1096,9 +1096,18 @@
   function go(hash) {
     draft = null; custDraft = null; expDraft = null;
     if (confirmState) closeConfirm();
+    // 19.0.1.129.32: one history.back() at a time (a double tap on «Guardar»
+    // used to step back twice); the next hashchange ends it
+    if (backPending) return;
     if (location.hash === hash) render();
-    // 19.0.1.129.29 (#100): back to the level it came from, no new entry
-    else if (cameFrom(hash)) NAV.back();
+    // 19.0.1.129.29 (#100): back to the level it came from, no new entry.
+    // 19.0.1.129.32: only to go UP; a forward step («Salir a repartir»)
+    // always adds its entry, even if the current one says it came from there
+    else if (isUpLevel(hash) && cameFrom(hash)) {
+      backPending = true; NAV.back();
+      // in case no hashchange comes (the entry left the page)
+      setTimeout(function () { backPending = false; }, 1500);
+    }
     else location.hash = hash;
     window.scrollTo(0, 0);
   }
@@ -1112,8 +1121,15 @@
   // 19.0.1.129.29 (#100): «Atrás» goes UP one level (see the header)
   var NAV = typeof history !== "undefined" && history && history.replaceState ? history : null;
   var upReplacing = false;
+  var backPending = false;
   function hashKey(h) { return String(h || "").replace(/^#/, ""); }
   function urlHash(url) { var i = String(url || "").indexOf("#"); return i < 0 ? "" : url.slice(i + 1); }
+  // 19.0.1.129.32: the levels go() may reach with history.back(): the lists
+  // and a visit. «#salida» is always a step forward.
+  function isUpLevel(h) {
+    h = hashKey(h);
+    return h === "" || h === "visitas" || h === "carga" || /^visita\//.test(h);
+  }
   // the visits list is both "" and "visitas" once the driver left
   function sameLevel(a, b) {
     a = hashKey(a); b = hashKey(b);
@@ -1130,8 +1146,22 @@
     if (NAV && location.replace) { upReplacing = true; location.replace("#" + hashKey(hash)); return; }
     location.hash = hash;
   }
+  // 19.0.1.129.32: the entry the page loads on has no known parent. Without
+  // this mark, coming back to it with the phone's «Atrás» wrote as its parent
+  // the screen just left, and go() to that screen stepped back instead of
+  // forward (a stale mark survives a reload in history.state, so it is reset).
+  function markLoadedEntry() {
+    var st = NAV.state;
+    if (st && st.dnFrom === null) return;
+    var next = {};
+    Object.keys(st || {}).forEach(function (k) { next[k] = st[k]; });
+    next.dnFrom = null;
+    NAV.replaceState(next, "");
+  }
   if (NAV) {
+    markLoadedEntry();
     window.addEventListener("hashchange", function (ev) {
+      backPending = false;
       var st = NAV.state;
       if (!st || !("dnFrom" in st)) {
         var next = {};

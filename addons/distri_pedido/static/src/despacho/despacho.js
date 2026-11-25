@@ -35,7 +35,20 @@
     if (NAV && location.replace) { upReplacing = true; location.replace("#" + hashKey(hash)); return; }
     location.hash = hash;
   }
+  // 19.0.1.129.32: the entry the page loads on has no known parent. Without
+  // this mark, coming back to it with the phone's «Atrás» wrote as its parent
+  // the screen just left, and go() to that screen stepped back instead of
+  // forward (a stale mark survives a reload in history.state, so it is reset).
+  function markLoadedEntry() {
+    var st = NAV.state;
+    if (st && st.dnFrom === null) return;
+    var next = {};
+    Object.keys(st || {}).forEach(function (k) { next[k] = st[k]; });
+    next.dnFrom = null;
+    NAV.replaceState(next, "");
+  }
   if (NAV) {
+    markLoadedEntry();
     window.addEventListener("hashchange", function (ev) {
       var st = NAV.state;
       if (!st || !("dnFrom" in st)) {
