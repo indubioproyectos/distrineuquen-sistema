@@ -65,6 +65,14 @@
  *   app3.js and app4.js are edited in place: asset_version()
  *   (controllers/reparto.py) hashes their size and mtime, so the page and
  *   the service worker pick up the new files.
+ * - 19.0.1.129.29 (#100): «‹ Atrás» goes UP one level instead of adding a
+ *   history entry. Every in-page level remembers the level it was opened
+ *   from (history.state.dnFrom, set on hashchange); a back link (a.back)
+ *   to that level is history.back(), to any other level it replaces the
+ *   entry; go() back to the level it came from is history.back() too. The
+ *   markup is unchanged (the same links), so app5.js's back links follow
+ *   the same rule. Without history (old browsers, the Node harness) the
+ *   links work as before.
  */
 (function () {
   "use strict";
@@ -1088,7 +1096,10 @@
   function go(hash) {
     draft = null; custDraft = null; expDraft = null;
     if (confirmState) closeConfirm();
-    if (location.hash === hash) render(); else location.hash = hash;
+    if (location.hash === hash) render();
+    // 19.0.1.129.29 (#100): back to the level it came from, no new entry
+    else if (cameFrom(hash)) NAV.back();
+    else location.hash = hash;
     window.scrollTo(0, 0);
   }
   window.addEventListener("hashchange", function () {
@@ -1096,6 +1107,50 @@
     if (confirmState) closeConfirm();
     render(); window.scrollTo(0, 0);
   });
+
+  // nav-up:start (tests/data/navegacion_v129_29.js runs this block)
+  // 19.0.1.129.29 (#100): «Atrás» goes UP one level (see the header)
+  var NAV = typeof history !== "undefined" && history && history.replaceState ? history : null;
+  var upReplacing = false;
+  function hashKey(h) { return String(h || "").replace(/^#/, ""); }
+  function urlHash(url) { var i = String(url || "").indexOf("#"); return i < 0 ? "" : url.slice(i + 1); }
+  // the visits list is both "" and "visitas" once the driver left
+  function sameLevel(a, b) {
+    a = hashKey(a); b = hashKey(b);
+    if (a === b) return true;
+    var list = { "": 1, visitas: 1 };
+    return !!(list[a] && list[b] && S.local && S.local.departed && !S.local.closed);
+  }
+  function cameFrom(hash) {
+    var st = NAV && NAV.state;
+    return !!(st && typeof st.dnFrom === "string" && sameLevel(st.dnFrom, hash));
+  }
+  function goUp(hash) {
+    if (cameFrom(hash)) { NAV.back(); return; }
+    if (NAV && location.replace) { upReplacing = true; location.replace("#" + hashKey(hash)); return; }
+    location.hash = hash;
+  }
+  if (NAV) {
+    window.addEventListener("hashchange", function (ev) {
+      var st = NAV.state;
+      if (!st || !("dnFrom" in st)) {
+        var next = {};
+        Object.keys(st || {}).forEach(function (k) { next[k] = st[k]; });
+        next.dnFrom = upReplacing ? null : urlHash(ev.oldURL);
+        NAV.replaceState(next, "");
+      }
+      upReplacing = false;
+    });
+    document.addEventListener("click", function (ev) {
+      var a = ev.target && ev.target.closest && ev.target.closest("a.back");
+      if (!a || ev.defaultPrevented || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+      var href = a.getAttribute("href") || "";
+      if (href.charAt(0) !== "#") return;
+      ev.preventDefault();
+      goUp(href);
+    });
+  }
+  // nav-up:end
 
   // --- no route
 

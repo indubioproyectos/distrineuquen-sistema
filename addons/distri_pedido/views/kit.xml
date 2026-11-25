@@ -23,17 +23,34 @@
 
   <!-- Role-based bottom nav (controllers/kit.py staff_nav, depot_nav). Put it
        inside <div class="dn-bottom">, after the page's .dn-foot if it has
-       one. 19.0.1.109.0: an item may carry a count badge (it['badge']). -->
+       one. 19.0.1.109.0: an item may carry a count badge (it['badge']).
+       19.0.1.129.29: legado = a page with sin_historial.js instead of dn.js
+       (/cobro, /pedido): the links also carry its data-side / data-up, so a
+       sibling replaces the page and Inicio goes up there too. -->
   <template id="dn_nav" name="Kit: bottom nav">
     <nav class="dn-nav" aria-label="Secciones" t-if="nav">
       <t t-foreach="nav" t-as="it">
-        <a t-att-href="it['url']" t-att-data-dn="it['how']" t-att-class="'on' if it['on'] else None"
+        <a t-att-href="it['url']" t-att-data-dn="it['how']"
+           t-att-data-side="'' if legado and it['how'] == 'side' else None"
+           t-att-data-up="'' if legado and it['how'] == 'up' else None"
+           t-att-class="'on' if it['on'] else None"
            t-att-aria-current="'page' if it['on'] else None">
           <span class="dn-nav__ic"><svg class="dn-i" aria-hidden="true"><use t-att-href="'%s#%s' % (dn['icons'], it['icon'])"/></svg><i t-if="it.get('badge')" class="dn-nav__bd dn-num" t-esc="it['badge']"/></span>
           <span t-esc="it['label']"/>
         </a>
       </t>
     </nav>
+  </template>
+
+  <!-- 19.0.1.129.29: the role's bottom bar (controllers/kit.py page_nav,
+       empty unless distri_pedido.ui_v2 is on) on a top-level screen without
+       a footer of its own. Call it last inside <body>; it makes room for
+       itself at the bottom. -->
+  <template id="dn_page_nav" name="Kit: role bottom bar of a top-level screen">
+    <t t-if="nav">
+      <div class="dn-bottom dn-bottom--rol"><t t-call="distri_pedido.dn_nav"/></div>
+      <style>body{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}</style>
+    </t>
   </template>
 
   <!-- 19.0.1.95.0: the legacy pages (css/distri_ui.css and the customer

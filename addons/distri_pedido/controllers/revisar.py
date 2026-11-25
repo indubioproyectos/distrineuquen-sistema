@@ -41,7 +41,7 @@ from ..models.asignar_cliente import puede_asignar
 from ..models.reparto import _money
 from ..models.revisar import MOTIVO_MAX, ORIGENES_REVISAR, puede_revisar
 from ..models.semaforo import AR_TZ, GREEN, GREY, RED, SIN_CONFIRMAR, UTC, YELLOW, chips
-from .kit import kit_context
+from .kit import kit_context, page_nav
 from .tablero import wants_tablero
 
 LIMIT = 300
@@ -234,6 +234,8 @@ class Revisar(http.Controller):
             "motivo_max": MOTIVO_MAX,
             "liberar_texto": LIBERAR_TEXTO,
             "inicio": "/tablero" if wants_tablero(user) else (user._distri_landing() or "/tablero"),
+            # 19.0.1.129.29: the role's bottom bar (ui_v2 only)
+            "nav": page_nav(request.env, "revisar"),
             "csrf_token": request.csrf_token(),
             "error": error,
             "ok": self._ok_text(ok, asignado, sin_wa),

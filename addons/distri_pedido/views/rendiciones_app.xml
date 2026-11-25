@@ -32,6 +32,8 @@
       <a t-att-href="ajustes" data-rd="ajustes">Ajustes de reparto (PC)</a>
     </div>
   </main>
+  <!-- 19.0.1.129.29: the role's bottom bar (ui_v2 only) -->
+  <t t-call="distri_pedido.dn_page_nav"/>
 </body>
 </html>
   </template>

@@ -14,6 +14,12 @@ administración, gerencia and Sistemas open /cobro and its routes
 (`can_collect`); anyone else gets the «no es para tu usuario» page (403).
 The receipts of a try that asked a question or was refused stay stored
 («recibo_N»), so they are not attached again.
+
+19.0.1.129.29: with distri_pedido.ui_v2 on, the page takes the kit's look
+(dn.css + kit/cobro_v2.css instead of distri_ui.css) and the role's bottom
+bar (kit.page_nav); the markup, fields, questions and posts do not change.
+«‹ Volver» goes up to the parent of SCREEN_PARENTS («/cobro»: /caja for a
+cashier with his box open, else Inicio).
 """
 import json
 from datetime import datetime, time, timezone
@@ -30,6 +36,7 @@ from ..models.cobrar import COLLECT_DENIED, CREDIT_OK, QUESTIONS, can_collect, q
 from ..models.cobro_efectivo import DuplicateCashError, OverDebtWarning, RouteCashWarning
 from ..models.comprobante_subir import MAX_FILE_BYTES
 from ..models.reparto_cliente import AR_TZ, today_ar
+from .kit import kit_context, page_nav, ui_v2_on
 from .main import FICHA
 from .reparto import SHARED_CSS
 
@@ -108,6 +115,11 @@ class CobroEfectivo(http.Controller):
             "provisional_label": PROVISIONAL_LABEL,
             "today": today,
             "today_total": sum(r.amount for r in today),
+            # 19.0.1.129.29: the kit's look and the role's bottom bar, only
+            # with distri_pedido.ui_v2 on (same markup, fields and posts)
+            "ui_v2": ui_v2_on(request.env),
+            "dn": kit_context("cobro_v2.css"),
+            "nav": page_nav(request.env, "cobro"),
         }, **values)
         html = request.env["ir.qweb"]._render("distri_pedido.cobro_page", values)
         return request.make_response(html, status=status, headers=[

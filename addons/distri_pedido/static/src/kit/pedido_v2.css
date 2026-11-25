@@ -1,0 +1,91 @@
+/* 19.0.1.129.29 («Etapa 3a»): /pedido with the kit's look, only while
+   distri_pedido.ui_v2 is on (views/templates.xml «pantalla» adds the class
+   dn-pedido-v2 to <html> and links this file after its own <style>). The
+   markup, the steps, their order, the fields and the posts are the same as
+   without it: this file only changes colours, type, sizes and corners.
+   Self-contained on purpose: dn.css would restyle the page's own .btn and
+   body rules. Kit rules kept: turquoise only as a fill, links and buttons in
+   the kit green, inputs at 16px or more, touch targets of 44px or more. */
+@font-face{font-family:"Figtree";font-style:normal;font-display:swap;font-weight:300 900;
+  src:url("/distri_tema/static/src/fonts/figtree-latin-wght-normal.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Figtree";font-style:normal;font-display:swap;font-weight:300 900;
+  src:url("/distri_tema/static/src/fonts/figtree-latin-ext-wght-normal.woff2") format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+
+html.dn-pedido-v2{
+  --fondo:#f4f6f8;--tarjeta:#fff;--texto:#14233a;--tenue:#5b6b80;--borde:#dde3ec;--linea:#b9c6d6;
+  --acento:#00806f;--alerta:#a1281e;
+  --dn-navy:#10243f;--dn-navy-2:#2b4262;--dn-turq:#00d1b2;--dn-mint:#5fe0c9;--dn-primary:#00806f;
+  --dn-primary-press:#0a6b5c;--dn-green-bg:#e3f4ef;--dn-on-navy:#c9d4e3;--dn-line:#dde3ec;
+  --dn-muted:#5b6b80;--dn-r:12px
+}
+html.dn-pedido-v2 body{font-family:Figtree,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.4}
+
+/* header: the kit's navy top bar, the logo on a white tile */
+.dn-pedido-v2 .cab{background:var(--dn-navy);color:#fff;padding:calc(env(safe-area-inset-top,0px) + .7rem) 1rem .9rem}
+.dn-pedido-v2 .cab .logo{background:#fff;border-radius:14px;padding:4px}
+.dn-pedido-v2 .cab h1{color:#fff;font-size:1.2rem;font-weight:800}
+.dn-pedido-v2 .cab .dato{color:var(--dn-on-navy);font-size:.8rem}
+.dn-pedido-v2 .cab .sub{color:var(--dn-on-navy)}
+.dn-pedido-v2 .cab .sub b{color:#fff}
+
+/* search */
+.dn-pedido-v2 .caja-buscar{padding:1rem 1rem .8rem}
+.dn-pedido-v2 .buscar{min-height:52px;border-radius:10px 0 0 10px;border-color:var(--linea);font-size:1rem}
+.dn-pedido-v2 .buscar:focus{outline:3px solid var(--dn-mint);outline-offset:1px;border-color:var(--acento)}
+.dn-pedido-v2 .limpiar{border-radius:0 10px 10px 0;width:3.25rem;border-color:var(--linea)}
+.dn-pedido-v2 .tuslistas{background:var(--dn-green-bg);border-color:var(--acento);border-radius:var(--dn-r);color:#00675a}
+
+/* sections and products: white cards with the kit's corners */
+.dn-pedido-v2 .lista{background:transparent;border-top:0;padding:0 .75rem}
+.dn-pedido-v2 .bloque{background:var(--tarjeta);border:1px solid var(--borde);border-radius:var(--dn-r);margin:0 0 .6rem;overflow:hidden}
+.dn-pedido-v2 .cabsec{min-height:56px}
+.dn-pedido-v2 .cabsec .nom{font-weight:800;color:var(--dn-navy)}
+.dn-pedido-v2 .chip{background:var(--dn-turq);color:var(--dn-navy);font-weight:800}
+.dn-pedido-v2 .fila .pnom{font-weight:700}
+.dn-pedido-v2 .fila .ppre b{color:var(--acento);font-weight:800}
+.dn-pedido-v2 .fila img{border-radius:8px}
+.dn-pedido-v2 .stepper{gap:.3rem}
+.dn-pedido-v2 .stepper button{width:44px;height:44px;border-radius:22px;border-color:var(--borde);color:var(--dn-navy);font-size:1.3rem}
+.dn-pedido-v2 .stepper button:active{background:#eef2f6}
+.dn-pedido-v2 .cant{width:3.4rem;height:44px;border-radius:10px;border-color:var(--linea);font-weight:800;font-size:1.05rem}
+
+/* buttons */
+.dn-pedido-v2 .btn{min-height:52px;border-radius:var(--dn-r);font-size:1.05rem;font-weight:800;padding:.75rem 1.2rem}
+.dn-pedido-v2 .btn-p{background:var(--dn-primary);color:#fff}
+.dn-pedido-v2 .btn-p:active{background:var(--dn-primary-press)}
+.dn-pedido-v2 .btn-p:disabled{background:#9fb1aa}
+.dn-pedido-v2 .btn-s{background:#fff;color:var(--dn-navy);border:2px solid var(--dn-navy)}
+
+/* bottom bar and steps 2 and 3 */
+.dn-pedido-v2 .barra{background:#fff;border-top:1px solid var(--borde)}
+.dn-pedido-v2 .barra .carga b{font-weight:800;color:var(--dn-navy)}
+.dn-pedido-v2 .ph{background:var(--dn-navy);border-bottom:0;padding:calc(env(safe-area-inset-top,0px) + 1rem) 1rem 1rem}
+.dn-pedido-v2 .ph h2{color:#fff;font-weight:800}
+.dn-pedido-v2 .pc{border-radius:0 0 var(--dn-r) var(--dn-r)}
+.dn-pedido-v2 .tot{color:var(--dn-navy);font-weight:800}
+.dn-pedido-v2 .opt{border-radius:var(--dn-r);padding:1rem;border-color:var(--borde)}
+.dn-pedido-v2 .opt.sel{border:2px solid var(--acento);background:var(--dn-green-bg)}
+.dn-pedido-v2 .opt b{font-weight:800}
+.dn-pedido-v2 label.campo{font-size:.95rem;font-weight:700}
+.dn-pedido-v2 input.dato,.dn-pedido-v2 textarea.dato,.dn-pedido-v2 select.dato{min-height:52px;border-radius:10px;border-color:var(--linea)}
+.dn-pedido-v2 textarea.dato{min-height:4rem}
+.dn-pedido-v2 input.dato:focus,.dn-pedido-v2 textarea.dato:focus,.dn-pedido-v2 select.dato:focus{outline:3px solid var(--dn-mint);outline-offset:1px;border-color:var(--acento)}
+.dn-pedido-v2 .interior{border-radius:var(--dn-r);border-color:var(--borde)}
+.dn-pedido-v2 .interior.sel{border:2px solid var(--acento);background:var(--dn-green-bg)}
+.dn-pedido-v2 .caja-enc{border-color:var(--acento);border-radius:0 0 var(--dn-r) var(--dn-r)}
+.dn-pedido-v2 .elegir{border-radius:var(--dn-r);background:#fff;border-color:var(--borde)}
+.dn-pedido-v2 .editando a,.dn-pedido-v2 .elegido button{border-radius:10px;min-height:44px}
+
+/* the staff's role bar (views/kit.xml dn_nav) under the order bar */
+.dn-pedido-v2 .barra .dn-nav{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);max-width:760px;margin:.5rem auto 0;
+  padding-top:.3rem;border-top:1px solid var(--borde)}
+.dn-pedido-v2 .dn-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;
+  color:var(--dn-muted);font-size:12px;font-weight:600;text-decoration:none}
+.dn-pedido-v2 .dn-nav a>span:first-child{display:flex;align-items:center;justify-content:center;width:56px;height:28px;border-radius:14px}
+.dn-pedido-v2 .dn-nav a.on{color:var(--dn-primary);font-weight:800}
+.dn-pedido-v2 .dn-nav a.on>span:first-child{background:var(--dn-turq);color:var(--dn-navy)}
+.dn-pedido-v2 .dn-nav .dn-i{width:22px;height:22px}
+.dn-pedido-v2 .dn-nav__bd{display:none}
+html.dn-pedido-v2.dn-con-nav body{padding-bottom:calc(5rem + 64px)}

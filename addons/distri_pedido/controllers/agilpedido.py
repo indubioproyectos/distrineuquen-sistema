@@ -50,7 +50,7 @@ from ..models.importar_pedido import (
 )
 from ..models.reparto import _money
 from ..models.semaforo import AR_TZ, UTC
-from .kit import kit_context
+from .kit import kit_context, page_nav
 from .revisar import _error_text, _phone, cuando
 from .tablero import wants_tablero
 
@@ -220,6 +220,8 @@ class AgilPedido(http.Controller):
             "tabs": TABS,
             "ver": ver if ver in dict(TABS) else "todos",
             "inicio": self._inicio(),
+            # 19.0.1.129.29: the role's bottom bar (ui_v2 only)
+            "nav": page_nav(request.env, "agilpedido"),
             "ok": mensaje,
             "error": (error or aviso or "")[:300],
         })

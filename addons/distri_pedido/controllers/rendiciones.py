@@ -30,7 +30,7 @@ from odoo.http import request
 from ..models.comprobante_pendiente import OPEN_STATES
 from ..models.reparto import _money
 from .caja import _dia
-from .kit import kit_context
+from .kit import kit_context, page_nav
 from .tablero import _menu_url, wants_tablero
 
 TEMPLATE = "distri_pedido.rendiciones_page"
@@ -112,6 +112,8 @@ class Rendiciones(http.Controller):
             "money": _money,
             "dia": _dia,
             "inicio": "/tablero" if wants_tablero(user) else (user._distri_landing() or "/tablero"),
+            # 19.0.1.129.29: the role's bottom bar (ui_v2 only)
+            "nav": page_nav(request.env, "reparto"),
             "ok": "",
             "error": "",
             "csrf_token": request.csrf_token(),

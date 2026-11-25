@@ -9,12 +9,45 @@
  * not on it, «Controlado» comes back with `confirm` (the list) instead of
  * closing the dispatch; a sheet shows them and «Controlar igual» sends it
  * again with `confirmed: true`.
+ *
+ * 19.0.1.129.29 (#100): «‹ Rutas» goes UP to the list (history.back() when
+ * the route was opened from it) instead of adding a history entry.
  */
 (function () {
   "use strict";
 
   var API = "/despacho/api/";
   var POLL_MS = 4000;
+
+  // nav-up:start (tests/data/navegacion_v129_29.js runs this block)
+  // 19.0.1.129.29 (#100): «Atrás» goes UP one level instead of adding a
+  // history entry. Every in-page level remembers the level it was opened
+  // from (history.state.dnFrom, set on hashchange): going up to it is
+  // history.back(), to any other level it replaces the entry. The same
+  // small helper lives in reparto/app3.js and cuentas/cuentas_app.js.
+  var NAV = typeof history !== "undefined" && history && history.replaceState ? history : null;
+  var upReplacing = false;
+  function hashKey(h) { return String(h || "").replace(/^#/, ""); }
+  function urlHash(url) { var i = String(url || "").indexOf("#"); return i < 0 ? "" : url.slice(i + 1); }
+  function goUp(hash) {
+    var st = NAV && NAV.state;
+    if (st && typeof st.dnFrom === "string" && st.dnFrom === hashKey(hash)) { NAV.back(); return; }
+    if (NAV && location.replace) { upReplacing = true; location.replace("#" + hashKey(hash)); return; }
+    location.hash = hash;
+  }
+  if (NAV) {
+    window.addEventListener("hashchange", function (ev) {
+      var st = NAV.state;
+      if (!st || !("dnFrom" in st)) {
+        var next = {};
+        Object.keys(st || {}).forEach(function (k) { next[k] = st[k]; });
+        next.dnFrom = upReplacing ? null : urlHash(ev.oldURL);
+        NAV.replaceState(next, "");
+      }
+      upReplacing = false;
+    });
+  }
+  // nav-up:end
 
   var S = {
     routes: null,     // the list of routes to dispatch
@@ -287,7 +320,7 @@
   // ------------------------------------------------------------- events
 
   var ACTIONS = {
-    back: function () { S.error = null; location.hash = ""; },
+    back: function () { S.error = null; goUp(""); },
     tick: function (el) {
       var s = findStop(+el.getAttribute("data-id"));
       if (s) act({ action: s.dispatch_checked ? "uncheck" : "check", stop_id: s.id });

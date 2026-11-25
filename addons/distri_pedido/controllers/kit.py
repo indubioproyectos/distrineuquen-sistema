@@ -8,6 +8,17 @@ with a version in the query (kit_version(), same idea as reparto's
 asset_version()) and a one-year «immutable» cache, so a phone downloads it
 once per release. Pages include the kit with the QWeb macros in
 views/kit.xml (distri_pedido.dn_head and distri_pedido.dn_nav).
+
+19.0.1.129.29 («Etapa 3a · Navegación y kit mínimo»):
+- SCREEN_PARENTS: the parent of every staff screen, declared once (#100,
+  «Atrás» goes UP one level). Every kit page writes it on <body
+  data-parent>; tests/test_v129_29_navegacion.py walks every chain up to
+  Inicio and checks the pages say the same.
+- ui_v2_on(): the parameter distri_pedido.ui_v2 (OFF by default). With it
+  on, the bottom bar is the bar of the user's role (role_nav: Inicio plus
+  the role's screens, the same on every top-level screen) and /pedido and
+  /cobro take the kit's look (kit/pedido_v2.css, kit/cobro_v2.css). Off, everything is as in
+  19.0.1.129.28.
 """
 import hashlib
 import os
@@ -63,6 +74,9 @@ FILES = {
     "proyecto.js": ("proyecto/proyecto.js", "text/javascript; charset=utf-8"),
     # 19.0.1.95.0: the legacy pages' history fix (models/ir_http.py)
     "sin_historial.js": ("js/sin_historial.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.129.29: the kit's look for /pedido and /cobro (ui_v2 only)
+    "pedido_v2.css": ("kit/pedido_v2.css", "text/css; charset=utf-8"),
+    "cobro_v2.css": ("kit/cobro_v2.css", "text/css; charset=utf-8"),
 }
 # served without comments and indentation (budget: < 3 KB gzip); the file
 # on disk keeps its documentation
@@ -119,6 +133,191 @@ def kit_context(*page_files):
     return dn
 
 
+# ------------------------------------------------------------ 19.0.1.129.29
+
+PARAM_UI_V2 = "distri_pedido.ui_v2"
+ON_VALUES = ("1", "true", "yes", "si", "sí", "on")
+# the staff home: /tablero for whoever has it (tablero.wants_tablero)
+HOME = "inicio"
+
+# 19.0.1.129.29 (#100): the parent of every staff screen, by route. «Atrás»
+# (and the phone back, dn.js) goes to it, never to the previous sibling.
+# A tuple lists the parents a screen may have, by where it was opened from
+# (?desde=, ?volver=) or by the user (a cashier's /caja/historial goes back
+# to /caja, gerencia's to Inicio). () = the top. HOME = Inicio. The
+# in-page levels of the three hash apps (/despacho, /cuentas, /reparto)
+# are in SCREEN_LEVELS.
+SCREEN_PARENTS = {
+    "/tablero": (),
+    # depot / packing
+    "/armado": (HOME,),
+    "/armado/faltantes": (HOME,),
+    "/armado/pedido/<id>": ("/armado",),
+    "/deposito": (HOME,),
+    "/deposito/entrega/<id>": ("/deposito",),
+    "/deposito/mostrador": ("/deposito",),
+    "/deposito/caja": ("/deposito",),
+    "/deposito/caja/<id>": ("/deposito",),
+    "/despacho": (HOME,),
+    # cash
+    "/caja": (HOME,),
+    "/caja/rendicion": ("/caja",),
+    "/caja/rendicion/<id>": ("/caja/rendicion",),
+    "/caja/salida": ("/caja",),
+    "/caja/adelanto": ("/caja",),
+    "/caja/cierre": ("/caja",),
+    "/caja/cerradas": ("/caja",),
+    "/caja/cerradas/<id>": ("/caja/cerradas", "/caja/historial"),
+    "/caja/historial": ("/caja", HOME),
+    "/cobro": ("/caja", HOME),
+    # administración
+    "/revisar": (HOME,),
+    "/revisar/<id>/asignar": ("/revisar", "/agilpedido", HOME),
+    "/rutas": (HOME,),
+    "/agilpedido": (HOME,),
+    "/agilpedido/cargar": ("/agilpedido",),
+    "/agilpedido/cargar/<id>": ("/agilpedido",),
+    "/agilpedido/pedido/<id>": ("/agilpedido",),
+    "/agilpedido/creado/<id>": ("/agilpedido",),
+    "/rendiciones": (HOME,),
+    "/rendiciones/rutas": ("/rendiciones",),
+    "/comprobantes": (HOME,),
+    "/comprobantes/mios": ("/comprobantes",),
+    "/comprobantes/<id>": ("/comprobantes", "/comprobantes/mios"),
+    "/comprobantes/<id>/pago-proveedor": ("/comprobantes/<id>",),
+    "/comprobantes/intento/<id>": ("/comprobantes", "/comprobantes/mios"),
+    "/cuentas": (HOME,),
+    # sellers, drivers, everyone
+    "/pedido": (HOME,),
+    "/mis-ventas": (HOME,),
+    "/reparto": (HOME,),
+    "/proyecto": (HOME,),
+}
+
+# The in-page levels (URL hash) of the hash apps and their parent level;
+# «‹ Atrás» there goes up with history.back() when the level was opened
+# from its parent, else it replaces the entry (static/src/*: «nav-up»).
+SCREEN_LEVELS = {
+    "/despacho": {"": None, "#ruta/<id>": ""},
+    "/cuentas": {"": None, "#cuenta/<id>": "", "#cuenta/<id>/mov/<key>": "#cuenta/<id>",
+                 "#transferencias": "", "#transferencias/<id>": "#transferencias"},
+    "/reparto": {"": None, "#visitas": None, "#carga": None, "#visita/<id>": "#visitas",
+                 "#cliente/<id>": "#visitas", "#cuenta/<id>": "#visita/<id>",
+                 "#gasto": "#visitas", "#cierre": "#visitas", "#rechazos": "#visitas",
+                 "#rutas": "", "#orden": "#carga"},
+}
+
+
+def ui_v2_on(env):
+    """19.0.1.129.29: the kit's navigation and look on /pedido and /cobro."""
+    value = env["ir.config_parameter"].sudo().get_param(PARAM_UI_V2) or "0"
+    return str(value).strip().lower() in ON_VALUES
+
+
+def screen_parents(path):
+    """The declared parents of a route path ("/caja/cerradas/12"), or None
+    when it is not a staff screen of SCREEN_PARENTS."""
+    if path in SCREEN_PARENTS:
+        return SCREEN_PARENTS[path]
+    parts = path.strip("/").split("/")
+    for pattern, parents in SCREEN_PARENTS.items():
+        bits = pattern.strip("/").split("/")
+        if len(bits) == len(parts) and all(
+                b == p or (b == "<id>" and p.isdigit()) for b, p in zip(bits, parts)):
+            return parents
+    return None
+
+
+# 19.0.1.129.29: the bottom bar of each role. A user takes the first role he
+# has, in this order (gerencia implies administración, which implies the
+# seller, packer and driver groups). Each item shows only when the user can
+# open that screen (the same rule as its Inicio tile, tablero.staff_tiles).
+ROLES = (
+    ("gerencia", "distri_pedido.grupo_gerencia",
+     ("revisar", "misventas", "historial", "cuentas")),
+    ("administracion", "distri_pedido.grupo_administracion",
+     ("revisar", "rutas", "comprobantes", "cuentas")),
+    ("cajero", "distri_pedido.grupo_cajero",
+     ("caja", "cobro", "comprobantes")),
+    ("armador", "distri_pedido.grupo_armador",
+     ("armado", "faltantes", "despacho")),
+    ("repartidor", "distri_pedido.grupo_reparto",
+     ("mireparto", "cuentas", "cobro")),
+    ("vendedor", "distri_pedido.grupo_vendedor",
+     ("pedido", "misventas", "cuentas", "comprobantes")),
+)
+# (label, sprite icon) of a bar item; the URL is its Inicio tile's
+NAV_ITEMS = {
+    "revisar": ("Revisar", "target"),
+    "misventas": ("Mis ventas", "bag"),
+    "historial": ("Cajas", "clock"),
+    "cuentas": ("Cuentas", "chart"),
+    "rutas": ("Rutas", "pin"),
+    "comprobantes": ("Comprobantes", "receipt"),
+    "caja": ("Caja", "register"),
+    "cobro": ("Cobrar", "cash"),
+    "armado": ("Pedidos", "list"),
+    "faltantes": ("Faltantes", "alert"),
+    "despacho": ("Despacho", "truck"),
+    "mireparto": ("Mi reparto", "truck"),
+    "pedido": ("Pedido", "order"),
+}
+# screens that come in a group: /armado's two tabs travel together
+NAV_GROUPS = {"armado": ("armado", "faltantes"), "faltantes": ("armado", "faltantes")}
+NAV_MAX = 5
+
+
+def user_role(user):
+    """The role whose bottom bar the user gets, or "" (customers, users of
+    none of the roles)."""
+    if not user or user.share or user._is_public():
+        return ""
+    for role, group, _keys in ROLES:
+        if user.has_group(group):
+            return role
+    return ""
+
+
+def role_nav(env, current):
+    """19.0.1.129.29: Inicio plus the screens of the user's role (ROLES), in
+    that order and only the ones he can open. On a screen of his that is
+    not in his bar (an administrator on /armado) that screen is added,
+    marked, so he sees where he is. «Inicio» goes UP; the rest are sibling
+    screens and replace the page (dn.js «side»)."""
+    from .tablero import staff_tiles, wants_tablero
+
+    user = env.user
+    role = user_role(user)
+    if not role:
+        return []
+    keys = list(dict(((r, k) for r, _g, k in ROLES))[role])
+    urls = {tile["key"]: tile["url"] for tile in staff_tiles(env) if tile["url"]}
+    if "armado" in urls:
+        urls["faltantes"] = "/armado/faltantes"
+    room = NAV_MAX - (1 if wants_tablero(user) else 0)
+    keys = [k for k in keys if k in urls]
+    if current in urls and current in NAV_ITEMS and current not in keys:
+        extra = [k for k in NAV_GROUPS.get(current, (current,)) if k in urls and k not in keys]
+        keys = keys[:max(0, room - len(extra))] + extra
+    keys = keys[:room]
+    items = []
+    if wants_tablero(user):
+        items.append({"key": "inicio", "label": "Inicio", "icon": "home", "url": "/tablero",
+                      "how": "up"})
+    for key in keys:
+        label, icon = NAV_ITEMS[key]
+        items.append({"key": key, "label": label, "icon": icon, "url": urls[key], "how": "side"})
+    for item in items:
+        item["on"] = item["key"] == current
+    return items
+
+
+def page_nav(env, current):
+    """The bottom bar of a top-level screen that had none before 19.0.1.129.29
+    (/revisar, /caja, /cobro...): the role's bar with ui_v2 on, nothing off."""
+    return role_nav(env, current) if ui_v2_on(env) else []
+
+
 def staff_nav(env, current):
     """The bottom nav of a staff page, from the same groups as the menus.
 
@@ -127,9 +326,12 @@ def staff_nav(env, current):
     screen is /armado would just come back here). `current` is the key of
     the active item. «Inicio» goes UP (the home is the parent of every app);
     the rest are siblings and replace the page (dn.js).
+    19.0.1.129.29: with ui_v2 on, the bar of the user's role (role_nav).
     """
     from .tablero import wants_tablero
 
+    if ui_v2_on(env):
+        return role_nav(env, current)
     user = env.user
     items = []
     if wants_tablero(user):

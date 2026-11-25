@@ -1,0 +1,28 @@
+/* 19.0.1.129.29 («Etapa 3a»): /cobro with the kit's look, only while
+   distri_pedido.ui_v2 is on. views/cobro.xml then links dn.css (which
+   carries the old class names on the kit tokens) and this file instead of
+   distri_ui.css, adds the class dn-legado to <body> and the role's bottom
+   bar. The markup, the fields, the questions and the posts are the same:
+   only the look changes. dn.js is NOT loaded: the page keeps
+   sin_historial.js (saves without stacking history). */
+.dn-legado #cobro{max-width:760px;background:var(--dn-bg)}
+.dn-legado .head{position:sticky;top:0;z-index:20;gap:2px;padding:calc(env(safe-area-inset-top,0px) + 4px) 64px 12px 16px}
+.dn-legado .head .back{min-height:44px;font-size:15px}
+.dn-legado .head h1{font-size:20px}
+.dn-legado .head .sub{font-size:13px;line-height:1.35}
+.dn-legado .banner{padding:12px 16px;font-size:15px}
+.dn-legado .body{padding:16px;gap:12px}
+.dn-legado .card{padding:16px;border-radius:var(--dn-r)}
+.dn-legado .card.warn{background:var(--dn-amber-bg);border:1px solid var(--dn-amber-line)}
+.dn-legado .label{font-size:13px}
+.dn-legado label.stack{font-size:15px;font-weight:700;gap:6px}
+.dn-legado .inp{min-height:52px}
+.dn-legado .btn{border-radius:var(--dn-r);font-weight:800;font-size:17px;min-height:52px}
+.dn-legado .btn.teal{background:var(--dn-primary)}
+.dn-legado .btn.teal:active{background:var(--dn-primary-press)}
+.dn-legado .btn.outline{border-width:2px}
+.dn-legado .row2 .btn{min-height:52px}
+.dn-legado a.res{min-height:64px;align-items:center}
+.dn-legado a.res:active{background:var(--dn-tint)}
+.dn-legado .big{font-variant-numeric:tabular-nums}
+.dn-legado .opt{min-height:48px}

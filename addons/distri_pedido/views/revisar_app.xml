@@ -199,6 +199,8 @@
       <button type="button" class="dn-link rv-center" data-dn-close="">Volver</button>
     </div>
   </div>
+  <!-- 19.0.1.129.29: the role's bottom bar (ui_v2 only) -->
+  <t t-call="distri_pedido.dn_page_nav"/>
 </body>
 </html>
   </template>

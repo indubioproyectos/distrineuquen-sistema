@@ -15,7 +15,14 @@
   <meta name="robots" content="noindex,nofollow"/>
   <title>Cobrar · <t t-esc="empresa"/></title>
   <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
-  <link rel="stylesheet" t-att-href="shared_css"/>
+  <!-- 19.0.1.129.29: the kit's look with distri_pedido.ui_v2 on (dn.css
+       carries this page's class names on the kit tokens); no dn.js, the page
+       keeps sin_historial.js -->
+  <t t-if="ui_v2">
+    <link t-if="dn['font']" rel="preload" as="font" type="font/woff2" crossorigin="anonymous" t-att-href="dn['font']"/>
+    <link rel="stylesheet" t-att-href="dn['css']"/>
+  </t>
+  <link t-else="" rel="stylesheet" t-att-href="shared_css"/>
   <t t-call="distri_pedido.sin_historial"/>
   <style>
     #cobro{max-width:640px;margin:0 auto;min-height:100vh;background:var(--bg)}
@@ -68,8 +75,9 @@
     .dest{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-top:8px}
     .opt em.online{font-style:normal;font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--muted);border-radius:4px;padding:0 4px;margin-left:4px}
   </style>
+  <t t-if="ui_v2"><t t-foreach="dn['page_css']" t-as="href"><link rel="stylesheet" t-att-href="href"/></t></t>
 </head>
-<body>
+<body t-att-class="'dn-legado' if ui_v2 else None">
   <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
   <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div id="cobro">
@@ -420,6 +428,8 @@
       </div>
     </div>
   </div>
+  <!-- 19.0.1.129.29: the role's bottom bar (ui_v2 only) -->
+  <t t-call="distri_pedido.dn_page_nav"><t t-set="legado" t-value="True"/></t>
 </body>
 </html>
   </template>

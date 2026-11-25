@@ -72,7 +72,7 @@ from ..models.comprobante_subir import (
 from ..models.pago_proveedor import SUPPLIER_DENIED
 from ..models.pago_proveedor_subir import SUPPLIER_DONE, may_offer_supplier
 from ..models.reparto import _money
-from .kit import kit_context
+from .kit import kit_context, page_nav
 from .tablero import wants_tablero
 
 MAX_BODY = MAX_FILES * MAX_FILE_BYTES + 1024 * 1024
@@ -115,6 +115,8 @@ class Comprobantes(http.Controller):
             "user": user,
             "money": _money,
             "inicio": "/tablero" if wants_tablero(user) else (user._distri_landing() or "/tablero"),
+            # 19.0.1.129.29: the role's bottom bar (ui_v2 only)
+            "nav": page_nav(request.env, "comprobantes"),
             "csrf_token": request.csrf_token(),
             "uploads": uploads,
             "attempts": attempts,

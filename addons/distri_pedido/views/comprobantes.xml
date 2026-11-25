@@ -265,6 +265,8 @@
       <button type="submit" form="comp-form" class="dn-btn dn-btn--lg" data-comp-send=""
               t-esc="'Subir y acreditar' if puede_acreditar else 'Subir'"/>
     </div>
+    <!-- 19.0.1.129.29: the role's bottom bar (ui_v2 only) -->
+    <t t-call="distri_pedido.dn_nav"/>
   </div>
 </body>
 </html>

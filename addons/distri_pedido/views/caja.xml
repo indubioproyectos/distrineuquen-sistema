@@ -224,7 +224,10 @@
     <div class="dn-foot dn-foot--one">
       <a class="dn-btn dn-btn--navy dn-btn--lg" href="/caja/cierre" data-dn="down">Cerrar la caja</a>
     </div>
+    <!-- 19.0.1.129.29: the role's bottom bar (ui_v2 only) -->
+    <t t-call="distri_pedido.dn_nav"/>
   </div>
+  <t t-if="not caja" t-call="distri_pedido.dn_page_nav"/>
 </body>
 </html>
   </template>

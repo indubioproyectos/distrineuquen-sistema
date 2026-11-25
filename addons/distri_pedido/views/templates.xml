@@ -2,7 +2,10 @@
 <odoo>
 
   <template id="pantalla" name="Toma de pedidos">&lt;!DOCTYPE html&gt;
-<html lang="es">
+<!-- 19.0.1.129.29: with distri_pedido.ui_v2 on, the kit's look
+     (kit/pedido_v2.css after the page's own <style>) and, for the staff, the
+     role's bottom bar under the order bar; same steps, fields and post -->
+<html lang="es" t-att-class="(('dn-pedido-v2 dn-con-nav' if nav else 'dn-pedido-v2') if ui_v2 else None)">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
@@ -193,6 +196,7 @@
     .elegido button{border:1px solid var(--linea);background:#fff;border-radius:4px;
                     padding:.35rem .7rem;font:inherit;font-size:.85rem;cursor:pointer}
   </style>
+  <t t-if="ui_v2"><t t-foreach="dn['page_css']" t-as="href"><link rel="stylesheet" t-att-href="href"/></t></t>
   <t t-call="distri_pedido.sin_historial"/>
 </head>
 <body>
@@ -432,6 +436,7 @@
         </div>
         <button type="button" class="btn btn-p" id="ver" disabled="disabled">Ver pedido</button>
       </div>
+      <t t-if="ui_v2 and nav" t-call="distri_pedido.dn_nav"><t t-set="legado" t-value="True"/></t>
     </div>
 
     <!-- paso 2: vista previa -->

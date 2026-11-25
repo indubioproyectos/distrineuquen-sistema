@@ -815,7 +815,19 @@ class TomaDePedidos(http.Controller):
             "presupuestar": self._cigarrillos_a_presupuestar(),
             # 19.0.1.92.0: before sending (models/sale_order.py STOCK_NOTICE)
             "leyenda_stock": request.env["sale.order"]._distri_stock_notice(),
+            **self._contexto_ui_v2(),
         }
+
+    def _contexto_ui_v2(self):
+        """19.0.1.129.29: /pedido with the kit's look while distri_pedido.ui_v2
+        is on (kit/pedido_v2.css; the same steps, fields and post for every
+        visitor), and the role's bottom bar for the staff under the order
+        bar. Off: nothing changes."""
+        from .kit import kit_context, role_nav, ui_v2_on
+        if not ui_v2_on(request.env):
+            return {"ui_v2": False, "nav": []}
+        return {"ui_v2": True, "dn": kit_context("pedido_v2.css"),
+                "nav": role_nav(request.env, "pedido") if self._personal() else []}
 
     def _localidades_encomienda(self):
         """Towns suggested for «Soy del interior»: the zones that ship by

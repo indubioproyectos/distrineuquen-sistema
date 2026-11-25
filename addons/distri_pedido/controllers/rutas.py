@@ -32,7 +32,7 @@ from odoo.http import request
 
 from ..models.planificacion import PLANNING_GROUP
 from ..models.reparto_cliente import today_ar
-from .kit import kit_context
+from .kit import kit_context, page_nav
 from .tablero import wants_tablero
 
 PAGE = "distri_pedido.rutas_app"
@@ -97,6 +97,8 @@ class Rutas(http.Controller):
             "dn": kit_context("rutas.css", "rutas.js"),
             "user": user,
             "inicio": "/tablero" if wants_tablero(user) else "/odoo",
+            # 19.0.1.129.29: the role's bottom bar (ui_v2 only)
+            "nav": page_nav(request.env, "rutas"),
             "backend_url": "/odoo/action-distri_pedido.action_route",
         })
         html = request.env["ir.qweb"]._render(PAGE, values)

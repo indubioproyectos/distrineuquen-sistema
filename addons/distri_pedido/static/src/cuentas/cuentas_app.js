@@ -13,11 +13,52 @@
  * can share files, else a download) and «Por WhatsApp» (a public link the
  * server signs). The rules (who sees which customer, who may share) live on
  * the server (models/cuentas_app.py); the only write is a comment.
+ * 19.0.1.129.29 (#100): «‹ Deudores», «‹ Transferencias» and closing a row
+ * or a receipt go UP one level (history.back() when it was opened from
+ * there) instead of adding a history entry.
  */
 (function () {
   "use strict";
 
   var API = "/cuentas/api/";
+
+  // nav-up:start (tests/data/navegacion_v129_29.js runs this block)
+  // 19.0.1.129.29 (#100): «Atrás» goes UP one level instead of adding a
+  // history entry. Every in-page level remembers the level it was opened
+  // from (history.state.dnFrom, set on hashchange): going up to it is
+  // history.back(), to any other level it replaces the entry. The same
+  // small helper lives in reparto/app3.js and cuentas/cuentas_app.js.
+  var NAV = typeof history !== "undefined" && history && history.replaceState ? history : null;
+  var upReplacing = false;
+  function hashKey(h) { return String(h || "").replace(/^#/, ""); }
+  function urlHash(url) { var i = String(url || "").indexOf("#"); return i < 0 ? "" : url.slice(i + 1); }
+  function goUp(hash) {
+    var st = NAV && NAV.state;
+    if (st && typeof st.dnFrom === "string" && st.dnFrom === hashKey(hash)) { NAV.back(); return; }
+    if (NAV && location.replace) { upReplacing = true; location.replace("#" + hashKey(hash)); return; }
+    location.hash = hash;
+  }
+  if (NAV) {
+    document.addEventListener("click", function (ev) {
+      var a = ev.target && ev.target.closest && ev.target.closest("a.back");
+      if (!a || ev.defaultPrevented || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+      var href = a.getAttribute("href") || "";
+      if (href.charAt(0) !== "#") return;
+      ev.preventDefault();
+      goUp(href);
+    });
+    window.addEventListener("hashchange", function (ev) {
+      var st = NAV.state;
+      if (!st || !("dnFrom" in st)) {
+        var next = {};
+        Object.keys(st || {}).forEach(function (k) { next[k] = st[k]; });
+        next.dnFrom = upReplacing ? null : urlHash(ev.oldURL);
+        NAV.replaceState(next, "");
+      }
+      upReplacing = false;
+    });
+  }
+  // nav-up:end
   var PERIODS = [["1m", "Último mes"], ["3m", "3 meses"], ["all", "Todo"], ["custom", "Fechas"]];
   var AGES = [["0", "Cualquiera"], ["30", "Más de 30 días"], ["60", "Más de 60 días"], ["90", "Más de 90 días"],
     ["180", "Más de 180 días"]];
@@ -1173,7 +1214,7 @@
   function closeLine() {
     var r = route();
     S.line = null;
-    location.hash = "#cuenta/" + r.id;
+    goUp("#cuenta/" + r.id);
   }
 
   document.addEventListener("click", function (ev) {
@@ -1195,7 +1236,7 @@
     } else if (t.dataset.trow) {
       location.hash = "#transferencias/" + t.dataset.trow;
     } else if (t.dataset.tclose) {
-      if (ev.target === t) location.hash = "#transferencias";
+      if (ev.target === t) goUp("#transferencias");
     } else if (t.id === "tmore") {
       loadMoreTransfers();
     } else if (t.id === "t-people") {
@@ -1286,7 +1327,7 @@
   document.addEventListener("keydown", function (ev) {
     if (ev.key !== "Escape") return;
     if (S.zoom) { S.zoom = null; render(); } else if (S.line) closeLine();
-    else if (S.trOpen && route().transfers) location.hash = "#transferencias";
+    else if (S.trOpen && route().transfers) goUp("#transferencias");
   });
 
   window.addEventListener("hashchange", onRoute);

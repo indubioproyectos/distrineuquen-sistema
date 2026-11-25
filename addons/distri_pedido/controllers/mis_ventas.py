@@ -17,7 +17,7 @@ from odoo import http
 from odoo.http import request
 
 from ..models import mis_ventas
-from .kit import kit_context
+from .kit import kit_context, page_nav
 from .tablero import wants_tablero
 
 
@@ -48,6 +48,8 @@ class MisVentas(http.Controller):
             vendedores=mis_ventas.vendedores(env) if data["gerencia"] else [],
             url=url,
             inicio="/tablero" if wants_tablero(user) else (user._distri_landing() or "/tablero"),
+            # 19.0.1.129.29: the role's bottom bar (ui_v2 only)
+            nav=page_nav(env, "misventas"),
         ))
         return request.make_response(html, headers=[
             ("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")])

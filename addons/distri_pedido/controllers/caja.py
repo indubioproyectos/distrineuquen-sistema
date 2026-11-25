@@ -54,7 +54,7 @@ from ..models.reparto import _money
 from ..models.reparto_cliente import today_ar
 from .armado import DIAS, UTC
 from .main import HORA_ARGENTINA
-from .kit import kit_context
+from .kit import kit_context, page_nav
 from .tablero import wants_tablero
 
 
@@ -131,6 +131,8 @@ class Caja(http.Controller):
             "hoy": today,
             "hora": _hora,
             "inicio": "/tablero" if wants_tablero(user) else "",
+            # 19.0.1.129.29: the role's bottom bar (ui_v2 only)
+            "nav": page_nav(request.env, "caja"),
             "csrf_token": request.csrf_token(),
             "error": "",
             "form": {},
