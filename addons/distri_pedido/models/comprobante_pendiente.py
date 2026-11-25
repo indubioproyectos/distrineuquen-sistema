@@ -576,8 +576,7 @@ class DistriPromisedTransferComprobante(models.Model):
             if not (was_overdue and case and case.state == "open"):
                 continue
             if via == "mp":
-                case.write({"state": "closed",
-                            "resolution": MP_CLOSED_CASE % (collection.name if collection else "")})
+                promise._distri_close_charge_mp(collection)
             elif promise.kind == "unpaid" and via in ("payment", "whatsapp"):
                 # the customer paid: nothing to charge (decision of ale, 22/10/2026)
                 case.write({"state": "closed", "resolution": (
@@ -825,9 +824,106 @@ class DistriPromisedTransferComprobante(models.Model):
                     case.resolution = MP_CLOSED_CASE % collection.name
             elif promise.state == "fulfilled":
                 promise.fulfilled_by_id = collection.id if collection else False
+                # 19.0.1.129.24: the receipt arrived late by WhatsApp (the
+                # charge stayed open for administración) and now the
+                # transfer is verified: the charge closes, as designed
+                promise._distri_close_charge_mp(collection)
             else:
                 promise._distri_resolve("mp", collection=collection)
         return touched
+
+    def _distri_close_charge_mp(self, collection=None):
+        """19.0.1.129.24: the open charge to the driver closes, the payment is
+        verified in Mercado Pago. Before, only a promise still open or
+        overdue at the confirmation closed it (`_distri_resolve`); one
+        already resolved by a late WhatsApp receipt kept the charge open
+        forever (15 open charges in production on 24/11)."""
+        for promise in self.sudo():
+            case = promise.charge_case_id
+            if case and case.state == "open":
+                case.write({"state": "closed", "resolution": MP_CLOSED_CASE % (
+                    collection.name if collection else "")})
+
+    @api.model
+    def _distri_close_settled_charges(self, apply=False):
+        """19.0.1.129.24, one-off (scripts/correcciones/v129_24_cerrar_cargos.sh,
+        never run by itself): the open charges whose pending item is already
+        settled, closed by the same rules and with the same texts as when it
+        settles now. Idempotent: a closed charge is never touched again.
+
+        - verified in Mercado Pago (a confirmed transfer): MP_CLOSED_CASE;
+        - «Pedido sin cobrar» paid, or its receipt arrived: PAID_CLOSED_CASE
+          or RECEIPT_CLOSED_CASE (decision of ale, 22/10/2026).
+        A transfer receipt that only arrived late by WhatsApp (or was marked
+        by hand) stays open: administración decides it, as designed.
+
+        Owner's rule (24/11, until the accounts audit closes): no customer
+        balance changes. Only the internal charge is written (state,
+        resolution, a chatter note); never a payment, an invoice, a journal
+        entry or a reconciliation. Checked: the receivable total and the
+        number of entries, payments and reconciliations are the same before
+        and after, or nothing is written (UserError, the transaction rolls
+        back), in the dry run too.
+
+        Returns one dict per charge: what was (or would be, `apply=False`)
+        closed, and those left for administración.
+        """
+        before = self._distri_ledger_fingerprint()
+        Case = self.env["distri.route.case"].sudo()
+        cases = Case.search([("state", "=", "open"), ("promise_id", "!=", False),
+                             ("promise_id.state", "=", "fulfilled")], order="id")
+        rows = []
+        for case in cases:
+            promise = case.promise_id
+            collection = promise.fulfilled_by_id
+            if collection and collection.state == "confirmed":
+                resolution = MP_CLOSED_CASE % collection.name
+            elif promise.kind == "unpaid" and promise.resolved_via == "payment":
+                resolution = PAID_CLOSED_CASE % promise.order_id.name
+            elif promise.kind == "unpaid" and promise.resolved_via == "whatsapp":
+                resolution = RECEIPT_CLOSED_CASE % (local_when(promise.resolved_at),
+                                                    promise.resolved_by_label or "")
+            else:
+                resolution = False
+            rows.append({"case": case.display_name, "case_id": case.id,
+                         "promise_id": promise.id, "order": promise.order_id.name or "",
+                         "driver": case.driver_id.name or "", "amount": case.amount,
+                         "close": bool(resolution), "resolution": resolution or
+                         "Queda abierto: el comprobante llegó tarde y no está verificado "
+                         "en Mercado Pago (decide administración)."})
+            if apply and resolution:
+                case.write({"state": "closed", "resolution": resolution})
+                case.message_post(body="Cerrado por la corrección 19.0.1.129.24: el pendiente "
+                                       "ya estaba resuelto (%s)." % (promise.resolved_by_label or ""))
+        self.env.flush_all()
+        after = self._distri_ledger_fingerprint()
+        if after != before:
+            raise UserError("La corrección cambiaría saldos de clientes (%s -> %s): no se cierra "
+                            "nada." % (before, after))
+        if apply:
+            _logger.info("19.0.1.129.24: closed %s settled driver charges",
+                         sum(1 for r in rows if r["close"]))
+        return rows
+
+    @api.model
+    def _distri_ledger_fingerprint(self):
+        """The customers' receivable total (posted entries) and how many
+        entries, payments and reconciliations exist: what a correction that
+        must not touch any balance has to leave as it found it."""
+        self.env.flush_all()
+        cr = self.env.cr
+        cr.execute("""
+            SELECT COALESCE(SUM(l.balance), 0)
+              FROM account_move_line l
+              JOIN account_account a ON a.id = l.account_id
+             WHERE a.account_type = 'asset_receivable' AND l.parent_state = 'posted'
+        """)
+        receivable = round(float(cr.fetchone()[0]), 2)
+        counts = []
+        for table in ("account_move", "account_payment", "account_partial_reconcile"):
+            cr.execute("SELECT COUNT(*) FROM %s" % table)  # fixed names, no input
+            counts.append(cr.fetchone()[0])
+        return (receivable, *counts)
 
     def _distri_undo_mp(self, collection):
         """The confirmation of `collection` was undone."""
@@ -840,6 +936,12 @@ class DistriPromisedTransferComprobante(models.Model):
                     case.write({"state": "open", "resolution": False})
             else:
                 promise.fulfilled_by_id = False
+                # 19.0.1.129.24: a late receipt alone does not close the
+                # charge: open again what the verification closed
+                case = promise.charge_case_id
+                if case and case.state == "closed" and (case.resolution or "").startswith(
+                        "Pago verificado en Mercado Pago"):
+                    case.write({"state": "open", "resolution": False})
         # its payment was cancelled: what is unpaid on the invoice again
         self.sudo().filtered(lambda p: p.kind == "unpaid")._distri_check_paid_items(
             collection.payment_id.move_id if collection.payment_id else None)
