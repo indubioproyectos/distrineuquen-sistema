@@ -36,6 +36,9 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         super().setUpClass()
         Pricelist = cls.env["product.pricelist"]
         currency = cls.env.company.currency_id.id
+        # 19.0.1.129.26 (#109): production has «Listas de precios» on; a fresh
+        # database does not
+        cls.env["res.config.settings"].create({"group_product_pricelist": True}).execute()
         cls.general = Pricelist.search([("name", "=", LISTA_GENERAL)], limit=1) or \
             Pricelist.create({"name": LISTA_GENERAL, "currency_id": currency})
         cls.oculta = Pricelist.search([("name", "=", LISTA_OCULTA)], limit=1) or \

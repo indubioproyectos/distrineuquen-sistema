@@ -39,6 +39,26 @@ def abrir_pedidos(env):
     params.set_param(PARAM_CATALOGO_AGIL, "0")
 
 
+def ensure_company_chart(env, company=None):
+    """19.0.1.129.26 (#109): HTTP tests that run «on the copy's company»
+    (caja, cash payments, cuentas) need its chart and a cash journal. A copy
+    of production has them; a fresh test database has the generic chart,
+    which in Odoo 19 brings no cash journal, so one is created like
+    production's CSH1 (rolled back with the test class). No-op when the
+    company already has a cash journal."""
+    company = company or env.company
+    Journal = env["account.journal"].sudo()
+    if Journal.search_count([("type", "=", "cash"), ("company_id", "=", company.id)], limit=1):
+        return
+    if not company.chart_template:
+        env["account.chart.template"].try_loading("generic_coa", company=company,
+                                                  install_demo=False)
+    if not Journal.search_count([("type", "=", "cash"), ("company_id", "=", company.id)],
+                                limit=1):
+        Journal.create({"name": "Efectivo", "code": "CSH1", "type": "cash",
+                        "company_id": company.id})
+
+
 class PedidoAbiertoMixin:
     """HTTP tests of /pedido: the screen is open, with the usual catalog,
     whatever the database says (19.0.1.91.0). Goes first in the bases, before HttpCase."""

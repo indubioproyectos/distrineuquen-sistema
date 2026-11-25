@@ -270,7 +270,14 @@ class TestVisorChat(AccountTestInvoicingCommon):
         self.assertIn("otro export", data["note"])
 
     def test_pages_never_split_a_minute_nor_repeat(self):
+        # 19.0.1.129.26 (#109): more than half a page (visor_chat.PAGE) before
+        # the anchor, as in production, so the first page has an older cursor
+        # and paging back really runs (a fresh database has only these rows)
+        for i in range(30):
+            self._text(self.manager, DAY_BEFORE - timedelta(hours=1) + timedelta(minutes=i // 3),
+                       "Relleno visor %d" % i, pos=i % 3 + 1)
         first = self.Viewer.distri_chat_open(message_id=self.m_shared_photo.id)
+        self.assertTrue(first["first"], "the first page has an older cursor")
         before = self.Viewer.distri_chat_more("before", first["first"])
         seen = [e["key"] for e in before["entries"] + first["entries"]]
         self.assertEqual(len(seen), len(set(seen)))

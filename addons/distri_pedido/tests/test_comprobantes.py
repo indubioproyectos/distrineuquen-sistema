@@ -135,6 +135,10 @@ class TestComprobantes(RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(promise.amount, 700)
 
     def test_route_payload_for_forwarding_and_claiming(self):
+        # 19.0.1.129.26 (#109): the company number is a parameter loaded in
+        # production (scripts/cargar-datos-empresa.sh); none in a fresh database
+        self.env["ir.config_parameter"].sudo().set_param(
+            "distri_pedido.whatsapp_empresa", "5492990000143")
         self.customer.distri_whatsapp = "299 5000333"
         order = self._order(self.customer, self.product_a)
         route = self._route(order)

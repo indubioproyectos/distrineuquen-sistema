@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from odoo import Command
 from odoo.tests import HttpCase, TransactionCase, tagged
 
+from odoo.addons.distri_pedido.controllers.main import FICHA
 from odoo.addons.distri_pedido.models import whatsapp as wa
 from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin
 
@@ -187,7 +188,9 @@ class TestAccesoWebYPortada(PedidoAbiertoMixin, HttpCase):
         res = self.url_open("/")
         self.assertEqual(res.status_code, 200)
         self.assertIn('href="/pedido"', res.text)
-        self.assertIn(self.env.company.name, res.text)
+        # 19.0.1.104.0 (new public website): the brand of FICHA, not the
+        # company record's name (a fresh database's is «My Company»)
+        self.assertIn(FICHA["nombre"], res.text)
         self.assertNotRegex(res.text.lower(), r"entrega\s+sin\s+comprobante")
 
 

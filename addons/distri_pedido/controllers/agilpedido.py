@@ -45,7 +45,7 @@ from ..models.agilpedido_wa import ORIGEN_AGILPEDIDO_WA, cantidad_texto, leer_me
 from ..models.asignar_cliente import puede_asignar
 from ..models.importar_pedido import (
     CATEGORIAS_A_PRESUPUESTAR, catalogo_normalizado, importe_ar, leer_envase, leer_renglon,
-    lista_general, lista_mayorista, normalizar, precio_en_unidad, producto_por_codigo, unidad_de_venta,
+    lista_general, lista_mayorista, normalizar, precio_en_unidad, precio_sin_lista, producto_por_codigo, unidad_de_venta,
     unidades_de_venta,
 )
 from ..models.reparto import _money
@@ -518,7 +518,7 @@ class AgilPedido(http.Controller):
                     return precio_en_unidad(mayorista, variante, cantidad, unidad)
             if lista:
                 return precio_en_unidad(lista, variante, cantidad, unidad)
-            return variante.lst_price
+            return precio_sin_lista(variante, unidad)
 
         return self._json({"ok": True, "productos": self._productos(q, precio_de, nombre)})
 

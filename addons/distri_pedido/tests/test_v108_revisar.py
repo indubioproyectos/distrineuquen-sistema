@@ -15,6 +15,7 @@ from odoo.addons.distri_pedido.controllers.tablero import (
     my_route_today, staff_tiles, tile_badges)
 from odoo.addons.distri_pedido.models.ar_phone import MSG_SIN_NUMERO
 from odoo.addons.distri_pedido.models.sale_order import SOCIO_SIN_ASIGNAR
+from odoo.addons.distri_pedido.tests.common_pedido import ensure_company_chart
 
 FETCH = {"X-Distri-Fetch": "1"}
 CSRF_RE = re.compile(r'name="csrf-token" content="([^"]+)"')
@@ -27,6 +28,9 @@ class TestRevisarApp(HttpCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # 19.0.1.129.26 (#109): the company's chart and cash journal, also on
+        # a fresh test database (a copy of production has them)
+        ensure_company_chart(cls.env)
         company = {"company_id": cls.env.company.id,
                    "company_ids": [Command.set(cls.env.company.ids)]}
 

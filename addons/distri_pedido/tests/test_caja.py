@@ -15,6 +15,7 @@ from odoo.addons.distri_pedido.models.caja_contabilidad import (
     ACCOUNTS, PARAM_ACCOUNT, PARAM_JOURNAL, caja_account)
 from odoo.addons.distri_pedido.models.gasto import EXPENSE_ACCOUNTS
 from odoo.addons.distri_pedido.models.reparto_cliente import today_ar
+from odoo.addons.distri_pedido.tests.common_pedido import ensure_company_chart
 from odoo.addons.distri_pedido.tests import receipt_images
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin, _uuid
 
@@ -27,6 +28,9 @@ class CajaMixin(RepartoMixin):
 
     @classmethod
     def _setup_caja(cls, company):
+        # 19.0.1.129.26 (#109): the cash journal of the sessions, also on a
+        # fresh test database
+        ensure_company_chart(cls.env, company)
         cls.cashier = new_test_user(
             cls.env, login="cajero_test", name="Cajero Test",
             groups="base.group_user,distri_pedido.grupo_cajero",

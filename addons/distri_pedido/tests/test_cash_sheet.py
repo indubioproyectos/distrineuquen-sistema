@@ -9,6 +9,7 @@ from odoo.tests import HttpCase, new_test_user, tagged
 from odoo.tools import mute_logger
 
 from odoo.addons.distri_pedido.models.cash_sheet import collector_code, fila_position
+from odoo.addons.distri_pedido.tests.common_pedido import ensure_company_chart
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
@@ -26,6 +27,9 @@ class TestCashSheet(HttpCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # 19.0.1.129.26 (#109): the company's chart and cash journal, also on
+        # a fresh test database (a copy of production has them)
+        ensure_company_chart(cls.env)
         company = cls.env.company
         Category = cls.env["res.partner.category"]
         cls.tag_a = Category.create({"name": "Cartera Planillas A"})

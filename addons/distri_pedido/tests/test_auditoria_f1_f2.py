@@ -18,6 +18,7 @@ from odoo.tests.common import JsonRpcException
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.controllers.main import PARAM_MAX_TOTAL, PARAM_MAX_UNIDADES
+from odoo.addons.distri_pedido.models.pedido_whatsapp import PARAM_REQUIRE
 from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
@@ -31,6 +32,9 @@ class TestPedidoAnonimo(PedidoAbiertoMixin, HttpCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # 19.0.1.129.26 (#109): F1's hold, not the WhatsApp wait: phase 1 as in
+        # production (the switch defaults to on when the parameter is missing)
+        cls.env["ir.config_parameter"].sudo().set_param(PARAM_REQUIRE, "0")
         # one unit reaches the minimum purchase (COMPRA_MINIMA)
         cls.plantilla = cls.env["product.template"].create({
             "name": "Producto Auditoria F1", "list_price": 70000.0, "is_published": True,

@@ -13,7 +13,8 @@ from odoo.exceptions import AccessError
 from odoo.tests import HttpCase, TransactionCase, new_test_user, tagged
 
 from odoo.addons.distri_pedido.controllers.main import MENSAJE_CLIENTE_AJENO
-from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
+from odoo.addons.distri_pedido.tests.common_pedido import (
+    PedidoAbiertoMixin, ensure_company_chart, post_pedido)
 
 BIG = 960_000_000.0
 # 1x1 transparent PNG
@@ -27,6 +28,9 @@ class TestVendedorExterno(HttpCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # 19.0.1.129.26 (#109): the company's chart and cash journal, also on
+        # a fresh test database (a copy of production has them)
+        ensure_company_chart(cls.env)
         company = cls.env.company
         cls.tag = cls.env["res.partner.category"].create({"name": "Cartera Externo V20"})
 

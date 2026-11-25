@@ -358,6 +358,16 @@ def unidad_de_venta(plantilla, contiene=None):
     return unidades[:1], True
 
 
+def precio_sin_lista(variante, unidad=None):
+    """19.0.1.129.26 (#109): the product's sale price for ONE unit of the
+    line (the pack, if by pack) when there is no pricelist. `lst_price` is
+    the price of the product's own unit: a pack of 12 was priced as one."""
+    if unidad and variante.uom_id and unidad != variante.uom_id:
+        contiene = unidad._compute_quantity(1.0, variante.uom_id, round=False)
+        return variante.currency_id.round(variante.lst_price * contiene)
+    return variante.lst_price
+
+
 def precio_en_unidad(lista, variante, cantidad, unidad=None):
     """El precio de Odoo por UNA unidad del renglon (el bulto, si es por
     bulto). Como la pagina, la lista se consulta por unidad suelta y se
@@ -834,7 +844,7 @@ class ImportarPedidoKit(models.TransientModel):
         lista = self._distri_lista()
         if lista:
             return precio_en_unidad(lista, variante, linea.cantidad, unidad)
-        return variante.lst_price
+        return precio_sin_lista(variante, unidad)
 
     def _distri_agregar(self, variante, unidad, cantidad):
         """«Agregar renglón a mano» (the resellers' cigarettes never come in

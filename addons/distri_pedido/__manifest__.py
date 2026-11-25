@@ -744,6 +744,8 @@
             "distri_pedido/static/src/js/marca.xml",
         ],
     },
+    # 19.0.1.129.26 (#109): R- remitos and no Odoo.com login on a fresh install
+    "post_init_hook": "post_init_hook",
     "installable": True,
     "application": False,
 }

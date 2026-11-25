@@ -45,6 +45,9 @@ class TestNumeracionFactura(TransactionCase):
         super().setUpClass()
         cls.diario = cls.env["account.journal"].search(
             [("type", "=", "sale"), ("company_id", "=", cls.env.company.id)], limit=1)
+        # 19.0.1.129.26 (#109): like production's «Ventas Preimpreso» 0001, credit
+        # notes in the same series (a fresh database's generic INV has its own RINV)
+        cls.diario.refund_sequence = False
         cls.partner = cls.env["res.partner"].create({"name": "Z - KIOSCO NUMERACION"})
         cls.producto = cls.env["product.product"].create({
             "name": "Producto numeracion", "list_price": 10, "taxes_id": [Command.clear()]})

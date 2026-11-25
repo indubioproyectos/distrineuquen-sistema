@@ -62,8 +62,13 @@ class TestSinOdooPaginas(HttpCase):
         self.assertFalse(GENERATOR.search(page))
 
     def test_app_manifests_use_the_brand_icon(self):
-        for url in ("/tablero/manifest.webmanifest", "/cuentas/manifest.webmanifest",
-                    "/web/manifest.webmanifest"):
+        urls = ["/tablero/manifest.webmanifest", "/cuentas/manifest.webmanifest"]
+        # 19.0.1.129.26 (#109): /web/manifest is distri_tema's (not a dependency;
+        # distri_tema/tests/test_webmanifest.py covers it), checked when installed
+        if self.env["ir.module.module"].search_count(
+                [("name", "=", "distri_tema"), ("state", "=", "installed")]):
+            urls.append("/web/manifest.webmanifest")
+        for url in urls:
             data = self.url_open(url).json()
             sources = [icon["src"] for icon in data["icons"]]
             self.assertTrue(sources, url)

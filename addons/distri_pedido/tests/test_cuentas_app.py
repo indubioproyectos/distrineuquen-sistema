@@ -9,6 +9,7 @@ from odoo.tests import HttpCase, new_test_user, tagged
 from odoo.addons.distri_pedido.controllers.cuentas import Cuentas
 from odoo.addons.distri_pedido.models.cuentas_app import app_scope
 from odoo.addons.distri_pedido.models.deudores import seller_tags
+from odoo.addons.distri_pedido.tests.common_pedido import ensure_company_chart
 
 # far above any real debt of the copied data: these customers come first
 BIG = 950_000_000.0
@@ -27,6 +28,9 @@ class TestCuentasApp(HttpCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # 19.0.1.129.26 (#109): the company's chart and cash journal, also on
+        # a fresh test database (a copy of production has them)
+        ensure_company_chart(cls.env)
         company = cls.env.company
         Category = cls.env["res.partner.category"]
         cls.tag_a = Category.create({"name": "Cartera Prueba A"})
