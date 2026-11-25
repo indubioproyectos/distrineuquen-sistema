@@ -128,8 +128,12 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         self.assertNotIn("Cigarrillos y tabaco a presupuestar", html)
         self.assertNotIn("data-may", html)
         self.assertNotIn('name="modo"', html)
+        # 19.0.1.129.35: the CSRF token (hex + "o" + timestamp) and the form
+        # id (`envio`, hex) are random and may contain these digits
+        # (…o1827147654): they are taken out before looking for the prices
+        sin_tokens = re.sub(r"[0-9a-f]{16,}(o\d+)?", "", html)
         for precio in ("3777.77", "3.778", "7654", "7.654", "8888", "8.888"):
-            self.assertNotIn(precio, html)
+            self.assertNotIn(precio, sin_tokens)
         # the General price is there, and the cigarette has no public price
         self.assertIn('data-id="%s" data-precio="%s"' % (self.remedio.id, PRECIO_GENERAL), html)
         # a zero price is not even rendered: QWeb drops the falsy attribute
