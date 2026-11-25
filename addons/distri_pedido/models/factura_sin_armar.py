@@ -15,6 +15,18 @@ invoice) and never reached route planning (it needs «Armado»). /armado now
 lists those orders apart, «Facturados sin armar» (`_distri_facturados_sin_
 armar`), and «Ya lo armé» (`distri_ya_armado`) marks one packed with its
 bultos and validates its depot delivery as ordered, without a second invoice.
+
+19.0.1.129.25 (owner, 7 real orders such as S00237 and S00390): «Ya lo armé y
+ya se entregó». An invoiced order packed AND physically handed to the
+customer outside the system: packed as with «Ya lo armé» and flagged
+`distri_entregado_fuera` (who and when), so it is «Entregado»
+(`distri_delivery_state`) and leaves every «to deliver» queue: route
+planning and «Asignar pedidos» (`_free_orders_domain`, `_order_is_free`, so
+/rutas «Sin ruta · depósito» and /despacho), and the depot delivery
+(controllers/deposito.py `deliverable_domain`, `_distri_check_depot_delivery`).
+Owner's rule: no payment, invoice or journal entry is created, cancelled or
+reconciled, and no pending collection or charge is created (the depot
+delivery would have asked «pagó / no pagó nada»).
 """
 from datetime import timedelta
 
@@ -94,11 +106,31 @@ class SaleOrderInvoiceUnpacked(models.Model):
         ], order="date_order, id")
         return orders.filtered(lambda o: o._distri_es_facturado_sin_armar())
 
-    def distri_ya_armado(self, bultos):
+    distri_entregado_fuera = fields.Boolean(
+        string="Entregado fuera del sistema", readonly=True, copy=False, index=True,
+        help="Ya estaba facturado y se entregó al cliente sin pasar por una ruta ni por la "
+             "entrega en depósito («Ya lo armé y ya se entregó» en /armado).")
+    distri_entregado_fuera_por_id = fields.Many2one(
+        "res.users", string="Marcó la entrega fuera del sistema", readonly=True, copy=False)
+    distri_entregado_fuera_el = fields.Datetime(
+        string="Entrega fuera del sistema marcada el", readonly=True, copy=False)
+
+    @api.depends("distri_stop_ids.delivery_state", "distri_stop_ids.unloaded",
+                 "distri_entregado_fuera")
+    def _compute_distri_delivery_state(self):
+        """19.0.1.129.25: delivered outside the system is «Entregado»."""
+        super()._compute_distri_delivery_state()
+        for order in self.filtered("distri_entregado_fuera"):
+            order.distri_delivery_state = "delivered"
+
+    def distri_ya_armado(self, bultos, entregado=False):
         """«Ya lo armé»: an invoiced order packed outside /armado. Marks it
         packed by the current user with `bultos`, validates its depot
         delivery with the ordered quantities (nothing was marked missing)
-        and creates no invoice: it has one. Returns an error text or ""."""
+        and creates no invoice: it has one. Returns an error text or "".
+
+        19.0.1.129.25: `entregado` («Ya lo armé y ya se entregó») also
+        marks it delivered outside the system (see the module docstring)."""
         self.ensure_one()
         user = self.env.user
         if not (self.env.su or any(user.has_group(g) for g in YA_ARMADO_GROUPS)):
@@ -107,7 +139,9 @@ class SaleOrderInvoiceUnpacked(models.Model):
         order._distri_bloquear()
         if order.distri_armado == "armado" and order.state != "cancel":
             # a double tap: the first one already did it
-            return "" if order.distri_armador_id == user else "Este pedido ya está armado."
+            same = order.distri_armador_id == user and (
+                not entregado or order.distri_entregado_fuera)
+            return "" if same else "Este pedido ya está armado."
         if not order._distri_es_facturado_sin_armar():
             return "Este pedido ya no está entre los facturados sin armar."
         if not bultos or bultos < 1 or bultos > MAX_BULTOS:
@@ -123,14 +157,36 @@ class SaleOrderInvoiceUnpacked(models.Model):
                     "distri_bultos": bultos,
                 })
                 order._distri_entregar_lo_armado()
+                if entregado:
+                    order.write({"distri_entregado_fuera": True,
+                                 "distri_entregado_fuera_por_id": user.id,
+                                 "distri_entregado_fuera_el": now})
         except UserError as exc:
             return "No se pudo marcar como armado: %s" % (exc.args[0] if exc.args else exc)
-        order.message_post(body="Marcado como armado sin pasar por el armado (ya estaba "
-                                "facturado: %s) por %s, en %s %s." % (
-            order._distri_factura_viva_texto(), user.name, bultos,
-            "bulto" if bultos == 1 else "bultos"))
+        packs = "%s %s" % (bultos, "bulto" if bultos == 1 else "bultos")
+        if entregado:
+            order.message_post(body="Marcado como armado y entregado fuera del sistema por %s, "
+                                    "en %s (ya estaba facturado: %s)." % (
+                user.name, packs, order._distri_factura_viva_texto()))
+        else:
+            order.message_post(body="Marcado como armado sin pasar por el armado (ya estaba "
+                                    "facturado: %s) por %s, en %s." % (
+                order._distri_factura_viva_texto(), user.name, packs))
         order._distri_ensure_receipt_code()
         return ""
+
+
+class DistriRouteDeliveredOutside(models.Model):
+    """19.0.1.129.25: an order delivered outside the system is no route's."""
+    _inherit = "distri.route"
+
+    def _free_orders_domain(self):
+        return super()._free_orders_domain() + [("distri_entregado_fuera", "=", False)]
+
+    def _order_is_free(self, order):
+        if order.distri_entregado_fuera:
+            return False
+        return super()._order_is_free(order)
 
 
 class SaleAdvancePaymentInvUnpacked(models.TransientModel):

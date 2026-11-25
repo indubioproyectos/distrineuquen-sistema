@@ -237,9 +237,10 @@ class Armado(http.Controller):
 
     @http.route("/armado/facturado/<int:pedido_id>/ya-armado", type="http", auth="user",
                 methods=["POST"], website=True, sitemap=False)
-    def ya_armado(self, pedido_id, bultos="", **post):
+    def ya_armado(self, pedido_id, bultos="", entregado="", **post):
         """19.0.1.117.0: «Ya lo armé» on an order invoiced before packing.
-        The armador group (administración implies it) only."""
+        The armador group (administración implies it) only.
+        19.0.1.129.25: `entregado=1` is «Ya lo armé y ya se entregó»."""
         if not request.env.user.has_group(GRUPO_ARMADOR):
             if self._por_fetch():
                 return self._json({"ok": False, "error": "No tenés permiso de armador."}, 403)
@@ -252,11 +253,15 @@ class Armado(http.Controller):
             error = "Poné en cuántos bultos quedó el pedido."
         else:
             # the user's own environment: the model checks the group too
-            error = pedido.with_env(request.env).distri_ya_armado(cuantos)
+            error = pedido.with_env(request.env).distri_ya_armado(
+                cuantos, entregado=entregado == "1")
         if error:
             if self._por_fetch():
                 return self._json({"ok": False, "error": error}, 422)
             return request.redirect("/armado?" + urlencode({"error_ya": error}) + "#facturados")
+        if entregado == "1":
+            # delivered already: no labels to print
+            return self._ir("/armado#facturados")
         return self._ir("/armado?" + urlencode({"terminado": pedido.id}))
 
     def _terminado(self, pedido_id):

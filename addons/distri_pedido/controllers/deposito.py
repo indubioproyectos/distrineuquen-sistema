@@ -80,6 +80,8 @@ def deliverable_domain():
     return [("state", "=", "sale"), ("distri_armado", "=", "armado"),
             ("partner_id.distri_generic_partner", "=", False),
             ("distri_parcel_dispatched", "=", False),
+            # 19.0.1.129.25: «Ya lo armé y ya se entregó» (models/factura_sin_armar.py)
+            ("distri_entregado_fuera", "=", False),
             ("distri_stop_ids", "not any", ["|", ("state", "!=", "not_delivered"),
                                             ("unloaded", "=", False)])]
 

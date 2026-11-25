@@ -107,6 +107,11 @@
             </div>
             <p class="arm-hint">Se entrega todo lo pedido. No se hace otra factura.</p>
             <button type="submit" class="dn-btn dn-btn--lg">Ya lo armé</button>
+            <!-- 19.0.1.129.25: already handed to the customer outside the system -->
+            <p class="arm-hint">¿El cliente ya se lo llevó? Queda armado y entregado: no va a una
+              ruta ni a la entrega en depósito. No toca cobros ni saldos.</p>
+            <button type="submit" class="dn-btn dn-btn--lg dn-btn--outline" name="entregado"
+                    value="1">Ya lo armé y ya se entregó al cliente</button>
           </form>
         </details>
       </div>
