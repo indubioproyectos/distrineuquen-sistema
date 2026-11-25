@@ -29,6 +29,9 @@
   <!-- 19.0.1.129.16: app4.js extends app3.js («Pagado / comprobante cargado»);
        app3.js works alone for the cached older page -->
   <script t-att-src="static + 'app4.js?v=' + version" defer="defer"></script>
+  <!-- 19.0.1.129.28: app5.js, «Reparto v2» (only when the route says so;
+       otherwise app3.js and app4.js draw the screens of before) -->
+  <script t-att-src="static + 'app5.js?v=' + version" defer="defer"></script>
 </body>
 </html>
   </template>

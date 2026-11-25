@@ -225,3 +225,14 @@ button.visit.route-pick{width:100%;text-align:left;font:inherit;color:inherit;cu
 .locked [data-a="no-code"],.locked [data-a="no-code-undo"]{pointer-events:auto}
 /* 19.0.1.129.25: «Ya estaba pagado · a confirmar» and «Reabrir la ruta» */
 .pay-confirm{color:var(--amber-text)}
+/* 19.0.1.129.28: «Reparto v2» (app5.js) */
+.card.v2due{gap:2px;border:2px solid var(--navy)}
+.card.v2due.paid{border-color:var(--green);background:var(--green-bg)}
+.v2amount{font-size:30px;font-weight:800;line-height:1.15}
+.card.v2due.paid .v2amount{color:var(--green)}
+.card.v2pay{gap:10px}
+.card.v2home{text-decoration:none;color:var(--text);margin:10px 16px 0;gap:4px}
+.banner.v2remind{flex-wrap:wrap;gap:6px}
+.v2move{display:flex;gap:6px}
+.v2move .opt{min-height:40px;width:48px;padding:6px 0;font-size:18px}
+.v2short{font-weight:700}

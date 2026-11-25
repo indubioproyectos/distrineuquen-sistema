@@ -26,6 +26,15 @@ the cached older page.
 
 19.0.1.129.25 (#105): POST /reparto/api/reopen, «Reabrir la ruta» by its own
 driver (models/reparto.py `_distri_reopen`), online only.
+
+19.0.1.129.28 («Reparto v2», models/reparto_v2.py, behind the flag
+distri_pedido.reparto_v2): the page loads app5.js (the new visit, «Mis
+comprobantes a reclamar», the open-route reminder and the driver's own
+order); GET /reparto/api/home and POST /reparto/api/order. With the flag
+off /reparto/api/home answers {"v2": false} (app5.js then keeps the old
+screens) and /reparto/api/order refuses; nothing else changes. With it on,
+#37: a phone that asks without a route id (a new phone, site data cleared)
+gets today's route «En reparto» before an older one left open.
 """
 import hashlib
 import json
@@ -39,14 +48,16 @@ from odoo.http import request
 from odoo.modules.module import get_module_path
 
 from .main import FICHA
+from ..models.reparto_cliente import today_ar
+from ..models.reparto_v2 import reparto_v2_on
 
 GROUP_DRIVER = "distri_pedido.grupo_reparto"
 WHOLESALE_ACCOUNT = ("Este cliente es mayorista: su cuenta la lleva administración. "
                      "Podés entregarle y cobrarle como a cualquier cliente.")
 STATIC = "/distri_pedido/static/src/reparto/"
 _DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "src", "reparto")
-ASSETS = ("claim.js", "app.js", "app2.js", "app3.js", "app4.js", "app.css", "icon-192.png",
-          "icon-512.png")
+ASSETS = ("claim.js", "app.js", "app2.js", "app3.js", "app4.js", "app5.js", "app.css",
+          "icon-192.png", "icon-512.png")
 # The look shared with the packing screen (/armado)
 SHARED_CSS = "/distri_pedido/static/src/css/distri_ui.css"
 # Figtree, self-hosted by the theme; distri_ui.css points at these files
@@ -188,6 +199,12 @@ class Reparto(http.Controller):
             return self._json({"ok": False, "error": "No tenés permiso de reparto."}, 403)
         routes = self._routes()
         chosen, gone = routes[:1], False
+        if reparto_v2_on(request.env) and chosen.state == "on_route":
+            # 19.0.1.129.28 (#37): a phone without a route of its own (a new
+            # phone, data cleared) opens today's route, not an older one left
+            # open (the reminder points at that one)
+            today = routes.filtered(lambda r: r.state == "on_route" and r.date == today_ar())
+            chosen = today[:1] or chosen
         if id:
             route, gone = self._wanted_route(id)
             if not gone:
@@ -294,6 +311,54 @@ class Reparto(http.Controller):
             return self._json({"ok": False, "error": exc.args[0] if exc.args else str(exc),
                                "locked": bool(route.cash_count_done)}, 409)
         return self._json({"ok": True, "state": route.state})
+
+    @http.route("/reparto/api/home", type="http", auth="user", methods=["GET"],
+                sitemap=False)
+    def home(self, **kw):
+        """19.0.1.129.28: «Mis comprobantes a reclamar» and the open routes of
+        earlier days (models/reparto_v2.py `_distri_v2_home`), with or without
+        a route on the phone. With the flag off: {"v2": false}."""
+        if not self._is_driver():
+            return self._json({"ok": False, "error": "No tenés permiso de reparto."}, 403)
+        if not reparto_v2_on(request.env):
+            return self._json({"ok": True, "v2": False})
+        data = request.env["distri.route"].sudo()._distri_v2_home(request.env.user)
+        data.update({"ok": True, "v2": True, "user_id": request.env.user.id})
+        return self._json(data)
+
+    @http.route("/reparto/api/order", type="http", auth="user", methods=["POST"],
+                csrf=False, sitemap=False)
+    def order(self, **kw):
+        """19.0.1.129.28 (#4): the driver's own visit order, online and best
+        effort (the phone keeps it anyway). No CSRF token for the same
+        reason as /reparto/api/sync (a JSON body instead)."""
+        if not self._is_driver():
+            return self._json({"ok": False, "error": "No tenés permiso de reparto."}, 403)
+        if not reparto_v2_on(request.env):
+            return self._json({"ok": False, "error": "No disponible."}, 404)
+        httpreq = request.httprequest
+        if httpreq.mimetype != "application/json":
+            return self._json({"ok": False, "error": "Se espera JSON."}, 415)
+        if httpreq.headers.get("Sec-Fetch-Site") == "cross-site":
+            return self._json({"ok": False, "error": "Origen no permitido."}, 403)
+        try:
+            body = json.loads(httpreq.get_data(as_text=True) or "{}")
+            wanted = int(body.get("route_id") or 0) if isinstance(body, dict) else 0
+            stop_ids = body.get("stop_ids") if isinstance(body, dict) else None
+        except (TypeError, ValueError):
+            return self._json({"ok": False, "error": "JSON inválido."}, 400)
+        if not isinstance(stop_ids, list):
+            return self._json({"ok": False, "error": "Falta el orden."}, 400)
+        user = request.env.user
+        route = request.env["distri.route"].sudo().browse(wanted).exists() if wanted > 0 \
+            else request.env["distri.route"]
+        if not route or route.driver_id != user or route.kind != "route":
+            return self._json({"ok": False, "error": "Esa ruta no es tuya."}, 404)
+        try:
+            route._distri_v2_set_order(stop_ids)
+        except UserError as exc:
+            return self._json({"ok": False, "error": exc.args[0] if exc.args else str(exc)}, 409)
+        return self._json({"ok": True})
 
     @http.route("/reparto/api/sync", type="http", auth="user", methods=["POST"],
                 csrf=False, sitemap=False)

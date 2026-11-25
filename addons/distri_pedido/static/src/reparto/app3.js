@@ -56,6 +56,12 @@
  *   · «Reabrir la ruta» on «Ruta cerrada» (POST /reparto/api/reopen, online
  *     only; the server refuses it once the cash was counted), and a route
  *     reopened by administración opens again from the poll (onRouteState).
+ * - 19.0.1.129.28 («Reparto v2», app5.js, only when the route carries
+ *   reparto_v2): guarded hooks for app5.js (extHook "view" in render, a
+ *   "homeHtml" card on the home screens, "visitsTools" on the visits list,
+ *   "routeApplied" after each download) and more of this file in
+ *   window.RepartoApp. Without app5.js, or with the flag off, nothing
+ *   changes: every hook returns nothing and the screens are the same.
  *   app3.js and app4.js are edited in place: asset_version()
  *   (controllers/reparto.py) hashes their size and mtime, so the page and
  *   the service worker pick up the new files.
@@ -569,6 +575,20 @@
       .then(function () { syncNow(); });
   }
 
+  // 19.0.1.129.28: an event of another route of this driver (a receipt photo
+  // from «Mis comprobantes a reclamar», app5.js): the same outbox
+  function enqueueRoute(routeId, type, payload, replaceKey) {
+    var ev = {
+      uuid: uuid(), type: type, route_id: routeId, uid: S.uid,
+      captured_at: new Date().toISOString(), payload: payload, key: replaceKey || null,
+    };
+    var stale = replaceKey ? S.outbox.filter(function (e) { return e.key === replaceKey; }) : [];
+    S.outbox = S.outbox.filter(function (e) { return stale.indexOf(e) < 0; }).concat([ev]);
+    return Promise.all(stale.map(function (e) { return outboxDel(e.uuid); }))
+      .then(function () { return outboxPut(ev); })
+      .then(function () { syncNow(); });
+  }
+
   // a change that never reached the server and is no longer wanted
   function dropQueued(key) {
     var queued = S.outbox.filter(function (e) { return e.key === key; });
@@ -883,6 +903,8 @@
         if (!S.local.expenses[e.uuid]) S.local.expenses[e.uuid] = e;
       });
     }
+    // 19.0.1.129.28: app5.js (the driver's own order, «Mis comprobantes»)
+    extHook("routeApplied", data);
     // the list too, so «Tus rutas de hoy» opens without signal
     var keepList = S.uid === null ? Promise.resolve() : kvSet(userKey("routes"), S.otherRoutes);
     return gone.then(pruneLocals).then(saveRoute).then(saveLocal).then(function () { return keepList; }).then(function () {
@@ -1043,8 +1065,10 @@
     var y = window.scrollY;
     var hash = location.hash.replace(/^#/, "");
     var parts = hash.split("/");
-    var html;
-    if (parts[0] === "rutas" && (S.otherRoutes || []).length) html = viewRoutes();
+    // 19.0.1.129.28: app5.js draws its own screens («Reparto v2» only)
+    var html = extHook("view", parts[0], parts[1]);
+    if (typeof html === "string" && html) { /* app5.js */ }
+    else if (parts[0] === "rutas" && (S.otherRoutes || []).length) html = viewRoutes();
     else if (!S.route) html = viewEmpty();
     else if (S.local.closed) html = viewClosed();
     else if (parts[0] === "gasto") html = viewExpenses(parts[1] === "cierre");
@@ -1078,7 +1102,7 @@
   function viewEmpty() {
     return '<div class="head"><div class="kicker">Reparto</div><h1>Sin ruta asignada</h1>' +
       '<div class="sub">' + h(S.user) + "</div></div>" +
-      '<div id="status">' + statusBanner() + "</div>" +
+      '<div id="status">' + statusBanner() + "</div>" + (extHook("homeHtml") || "") +
       '<div class="body"><div class="card"><div>No tenés una ruta asignada. Cuando administración ' +
       "te asigne una, descargala antes de salir, con conexión.</div></div></div>" +
       '<div class="foot"><button class="btn" data-a="download">Descargar la ruta</button>' +
@@ -1370,8 +1394,9 @@
     return '<div class="head"><div class="row"><h1>Visitas</h1><div class="sub">' + done.length + " de " +
       list.length + " hechas</div></div>" +
       '<div class="bar"><span style="width:' + pct + '%"></span></div>' +
-      '<div class="sub small">Orden sugerido. Tocá el cliente que vas a visitar.</div></div>' +
-      '<div id="status">' + statusBanner() + "</div>" + routesBar() + rejected +
+      '<div class="sub small">Orden sugerido. Tocá el cliente que vas a visitar.' + (extHook("visitsTools") || "") +
+      "</div></div>" +
+      '<div id="status">' + statusBanner() + "</div>" + routesBar() + (extHook("homeHtml") || "") + rejected +
       '<div class="body">' + cards + "</div>" +
       '<div class="foot"><div class="grid2"><a class="btn teal" href="#gasto">Cargar gasto</a>' +
       '<a class="btn outline" href="#cierre">Cerrar la ruta</a></div>' +
@@ -2369,7 +2394,7 @@
     var r = closeSummary();
     var next = S.otherRoutes.filter(function (x) { return x.id !== S.route.id; });
     return '<div class="head"><div class="kicker">' + h(S.route.name) + "</div><h1>Ruta cerrada</h1></div>" +
-      '<div id="status">' + statusBanner() + "</div>" + routesBar() +
+      '<div id="status">' + statusBanner() + "</div>" + routesBar() + (extHook("homeHtml") || "") +
       '<div class="body"><div class="card"><div class="muted">Efectivo para rendir en el depósito</div><div class="cash">' +
       money(r.toSettle) + "</div>" +
       (r.expenses ? '<div class="small">Efectivo cobrado ' + money(r.cash) + " − gastos " + money(r.expenses) + "</div>" : "") +
@@ -2975,6 +3000,51 @@
     onRejections: onRejections,
     // 19.0.1.129.25: the route's state of the poll (app4.js)
     onRouteState: onRouteState,
+    // 19.0.1.129.28: what app5.js («Reparto v2») uses
+    local: function () { return S.local; },
+    uid: function () { return S.uid; },
+    user: function () { return S.user; },
+    otherRoutes: function () { return S.otherRoutes || []; },
+    getDraft: function () { return draft; },
+    setDraft: function (d) { draft = d; },
+    newDraft: newDraft,
+    storeVisit: storeVisit,
+    withGps: withGps,
+    go: go,
+    askConfirm: askConfirm,
+    toast: toast,
+    stops: stops,
+    visitOf: visitOf,
+    stopState: stopState,
+    statusBanner: statusBanner,
+    noticeHtml: noticeHtml,
+    packedHtml: packedHtml,
+    accountLink: accountLink,
+    needsArrival: needsArrival,
+    redOf: redOf,
+    returnsAmount: returnsAmount,
+    returnsAnswered: returnsAnswered,
+    codeStatus: codeStatus,
+    customerOf: customerOf,
+    daysHoursText: daysHoursText,
+    whatsappOf: whatsappOf,
+    waLink: waLink,
+    waDigits: waDigits,
+    visitClaim: visitClaim,
+    kindLabel: kindLabel2,
+    relWhen: relWhen,
+    saveLocal: saveLocal,
+    kvGet: kvGet,
+    kvSet: kvSet,
+    userKey: userKey,
+    enqueueRoute: enqueueRoute,
+    readReceipt: readReceipt,
+    uuid: uuid,
+    round2: round2,
+    qty: qty,
+    reasons: REASONS,
+    icons: { camera: ICON_CAMERA, check: ICON_CHECK, pin: ICON_PIN },
+    actions: ACTIONS,
   };
 
   boot();
