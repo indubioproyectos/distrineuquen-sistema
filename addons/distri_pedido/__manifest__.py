@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.33",
+    "version": "19.0.1.129.34",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -777,6 +777,21 @@
     # of doing nothing, and the customer's WhatsApp is editable on
     # «Ubicación y horarios» (the same «whatsapp» sync event as the old
     # visit). New column res.users distri_inicio_orden. No migration.
+    # 19.0.1.129.34 («Etapa 3b», part 2; behind distri_pedido.ui_v2, with it
+    # off the module behaves as 129.33). The order, the invoice and the
+    # customer as read-only kit screens (/pedidos/<id>, /facturas/<id>,
+    # /clientes/<id>; controllers/fichas.py, views/fichas.xml, static/src/
+    # kit/fichas.css) for vendedor, administración, gerencia and Sistemas,
+    # with exactly the backend's record visibility (check_access, plus the
+    # external seller's customer check), links to the kit screens that act
+    # on them and «Ver en Odoo» for administración and Sistemas. The kit
+    # links that opened the Odoo form (/revisar, /deposito/mostrador,
+    # /agilpedido, «Asignar cliente») open those screens instead, and
+    # «Mis ventas» links each order (#99). The Odoo menus only Sistemas
+    # uses leave everybody else's menu bar (models/menus_sistemas.py,
+    # ir.ui.menu._load_menus_blacklist; no menu, group or access right is
+    # written). One green in the kit files (dn.css --dn-primary, value
+    # unchanged). No new column, no migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth", "mail_bot", "digest"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",
@@ -793,7 +808,7 @@
              "views/mis_ventas_app.xml", "data/ventas_todas.xml",
              "views/factura_anulada.xml", "data/chat_import_cron.xml",
              "views/nueva_venta_app.xml", "views/verificacion.xml",
-             "views/equipo.xml"],
+             "views/equipo.xml", "views/fichas.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare
