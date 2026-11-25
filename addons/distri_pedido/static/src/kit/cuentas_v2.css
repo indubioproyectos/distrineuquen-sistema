@@ -1,0 +1,18 @@
+/* 19.0.1.129.33 («Etapa 3b»): /cuentas with the kit's look, only while
+   distri_pedido.ui_v2 is on. views/cuentas.xml then links dn.css (which
+   carries distri_ui.css's class names on the kit tokens) and this file
+   instead of distri_ui.css, adds the class dn-legado to <body> (plus
+   dn-legado--nav with the role's bottom bar) and the bar itself. The
+   markup is drawn by cuentas_app.js, unchanged: only the look moves. */
+.dn-legado .head .back{min-height:44px}
+.dn-legado .btn{border-radius:var(--dn-r);font-weight:800}
+.dn-legado .btn.teal{background:var(--dn-primary)}
+.dn-legado .btn.teal:active{background:var(--dn-primary-press)}
+.dn-legado .card{border-radius:var(--dn-r)}
+.dn-legado .foot .hint{font-size:13px;color:var(--dn-muted);text-align:center}
+.dn-legado .cargando{padding:3rem 1rem;text-align:center;color:var(--dn-muted)}
+/* the role's bar is fixed at the bottom (z-index 15): sticky feet sit on top
+   of it, the sheets (z-index 20+) cover it, and on the PC the account
+   column ends above it */
+.dn-legado--nav .foot{bottom:calc(64px + var(--dn-safe-b))}
+.dn-legado--nav.wide .dacc{max-height:calc(100vh - 24px - 64px - var(--dn-safe-b))}

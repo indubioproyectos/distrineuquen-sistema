@@ -7,6 +7,14 @@ this addon, and below them every other Odoo app the user can open (the app
 grid that Odoo Community does not have). A tile shows only when the user can
 see its menu, so everything follows the same groups as the Odoo menus.
 /odoo?menu_id=<id> (or any query) skips the redirect to this page.
+
+19.0.1.129.33 («Etapa 3b», part 1), behind distri_pedido.ui_v2 only:
+- #3: each user's own order of the tiles (res.users.distri_inicio_orden,
+  set on /tablero/ordenar, controllers/equipo.py), applied on top of
+  DEFAULT_TILE_ORDER by apply_user_order(); a link «Ordenar el Inicio»
+  under the tiles.
+- #74: the «Equipo» tile (/equipo) for administración, gerencia and Sistemas.
+With the flag off the tiles, their order and the page are as before.
 """
 import json
 from datetime import timedelta
@@ -18,7 +26,7 @@ from odoo.http import request
 from ..models.acreditar import CREDIT_NOTICE
 from ..models.marca import marca_manifest_icons
 from .main import FICHA
-from .kit import kit_context
+from .kit import kit_context, ui_v2_on
 from .reparto import SHARED_CSS
 
 IMG = "/distri_pedido/static/src/img/iconos/"
@@ -190,7 +198,42 @@ def staff_tiles(env):
     verificacion = verificacion_tile(env)
     if verificacion:
         tiles.append(verificacion)
+    equipo = equipo_tile(env)
+    if equipo:
+        # before «Capacitación», which always goes last
+        last = [t["key"] for t in tiles].index("capacitacion") if any(
+            t["key"] == "capacitacion" for t in tiles) else len(tiles)
+        tiles.insert(last, equipo)
     return tiles
+
+
+# 19.0.1.129.33 (#74): «Equipo» (controllers/equipo.py). Not in TILES: it
+# exists only while distri_pedido.ui_v2 is on, for administración (gerencia
+# implies it) and Sistemas.
+EQUIPO_TILE = ("equipo", "Equipo", "Quién está, su rol y su último ingreso",
+               IMG + "app.png", "user", "/equipo")
+
+
+def equipo_tile(env):
+    from .equipo import can_see_team
+    if not (ui_v2_on(env) and can_see_team(env.user)):
+        return None
+    key, title, subtitle, icon, glyph, url = EQUIPO_TILE
+    return {"key": key, "title": title, "subtitle": subtitle, "icon": icon, "glyph": glyph,
+            "menu_id": False, "url": url, "badge": None}
+
+
+def apply_user_order(tiles, order_text):
+    """19.0.1.129.33 (#3): the tiles in the user's own order (a comma list of
+    keys); tiles missing from it keep their default place after the listed
+    ones, keys of tiles he does not see are ignored."""
+    keys = [k for k in (order_text or "").split(",") if k]
+    if not keys:
+        return list(tiles)
+    rank = {key: i for i, key in enumerate(keys)}
+    default = {t["key"]: i for i, t in enumerate(tiles)}
+    return sorted(tiles, key=lambda t: (0, rank[t["key"]]) if t["key"] in rank
+                  else (1, default[t["key"]]))
 
 
 # 19.0.1.129.30: «Nueva venta» (controllers/nueva_venta.py). Not in TILES:
@@ -470,6 +513,10 @@ class Tablero(http.Controller):
         locked = user._distri_seller_only_accounts()
         if locked:
             tiles = [t for t in tiles if not (t["url"] or "").startswith("/odoo")]
+        # 19.0.1.129.33 (#3): the user's own order (ui_v2 only)
+        ordering = ui_v2_on(env)
+        if ordering:
+            tiles = apply_user_order(tiles, user.distri_inicio_orden)
         banner = tile_badges(env, tiles)
         # the root menus behind our tiles (Armado/Despacho tiles are not root menus;
         # 19.0.1.127.0: a tile on a sub-menu takes its root too)
@@ -488,6 +535,8 @@ class Tablero(http.Controller):
             # 19.0.1.126.0: the one-time notice of the instant crediting
             "aviso_acreditar": CREDIT_NOTICE if user._distri_credit_notice_pending() else "",
             "csrf_token": request.csrf_token(),
+            # 19.0.1.129.33 (#3): «Ordenar el Inicio» (ui_v2 only)
+            "ordenar_url": "/tablero/ordenar" if ordering else "",
         })
         return request.make_response(html, headers=[("Content-Type", "text/html; charset=utf-8"),
                                                     ("Cache-Control", "no-store")])

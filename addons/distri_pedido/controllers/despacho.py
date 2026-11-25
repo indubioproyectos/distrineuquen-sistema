@@ -11,6 +11,11 @@ that is not on it (models/planificacion.py _planning_sibling_notes) answers
 {"ok": false, "confirm": [...]} without closing the dispatch; the screen
 lists them and sends the action again with "confirmed": true. Every existing
 refusal comes first and stays as it was.
+
+19.0.1.129.33 («Etapa 3b»): with distri_pedido.ui_v2 on, the page takes the
+kit's look (dn.css + kit/despacho_v2.css instead of distri_ui.css) and the
+role's bottom bar (kit.legacy_ui). The data, the buttons, the API and the
+permissions do not change; with the flag off the page is the same as before.
 """
 import hashlib
 import json
@@ -22,6 +27,7 @@ from odoo import http
 from odoo.exceptions import UserError
 from odoo.http import request
 
+from .kit import legacy_ui
 from .main import FICHA
 from .reparto import SHARED_CSS, _disk
 
@@ -79,6 +85,8 @@ class Despacho(http.Controller):
             "static": STATIC,
             "shared_css": SHARED_CSS,
             "empresa": FICHA["nombre"],
+            # 19.0.1.129.33: the kit's look and the role's bar (ui_v2 only)
+            **legacy_ui(request.env, "despacho", "despacho_v2.css"),
         })
         return request.make_response(html, headers=[
             ("Content-Type", "text/html; charset=utf-8"),

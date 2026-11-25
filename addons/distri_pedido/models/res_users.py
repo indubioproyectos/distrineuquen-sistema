@@ -57,6 +57,11 @@ class ResUsers(models.Model):
         help="Por secciones sigue el orden de recorrido del depósito (Inventario > "
              "Categorías de productos).")
 
+    # 19.0.1.129.33 (#3, ui_v2 only): the user's own order of the Inicio tiles,
+    # a comma list of tile keys (controllers/tablero.py apply_user_order),
+    # set on /tablero/ordenar. Empty = the default order. A plain new column.
+    distri_inicio_orden = fields.Char(string="Orden del Inicio", copy=False)
+
     @property
     def SELF_READABLE_FIELDS(self):
         return super().SELF_READABLE_FIELDS + [

@@ -19,6 +19,13 @@ views/kit.xml (distri_pedido.dn_head and distri_pedido.dn_nav).
   the role's screens, the same on every top-level screen) and /pedido and
   /cobro take the kit's look (kit/pedido_v2.css, kit/cobro_v2.css). Off, everything is as in
   19.0.1.129.28.
+
+19.0.1.129.33 («Etapa 3b», part 1), all behind ui_v2:
+- legacy_ui(): /despacho and /cuentas (the older design) take the kit's look
+  (dn.css + kit/despacho_v2.css, kit/cuentas_v2.css) and the role's bottom
+  bar, like /cobro in 129.29. Same data, buttons and permissions.
+- /equipo («Equipo», #74, read-only) and /tablero/ordenar («Ordenar el
+  Inicio», #3) are declared screens (controllers/equipo.py).
 """
 import hashlib
 import os
@@ -80,6 +87,11 @@ FILES = {
     # 19.0.1.129.30: «Nueva venta» (controllers/nueva_venta.py, nueva_venta only)
     "nueva_venta.css": ("nueva_venta/nueva_venta.css", "text/css; charset=utf-8"),
     "nueva_venta.js": ("nueva_venta/nueva_venta.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.129.33: /despacho and /cuentas with the kit's look, «Equipo» and
+    # «Ordenar el Inicio» (ui_v2 only)
+    "despacho_v2.css": ("kit/despacho_v2.css", "text/css; charset=utf-8"),
+    "cuentas_v2.css": ("kit/cuentas_v2.css", "text/css; charset=utf-8"),
+    "equipo.css": ("kit/equipo.css", "text/css; charset=utf-8"),
 }
 # served without comments and indentation (budget: < 3 KB gzip); the file
 # on disk keeps its documentation
@@ -200,6 +212,9 @@ SCREEN_PARENTS = {
     "/verificacion": (HOME,),
     "/reparto": (HOME,),
     "/proyecto": (HOME,),
+    # 19.0.1.129.33 (ui_v2 only): «Equipo» (#74) and «Ordenar el Inicio» (#3)
+    "/equipo": (HOME,),
+    "/tablero/ordenar": (HOME,),
 }
 # 19.0.1.129.31: one screen per queue of «Tablero de verificación»
 SCREEN_PARENTS.update({"/verificacion/%s" % key: ("/verificacion",) for key in (
@@ -328,6 +343,17 @@ def page_nav(env, current):
     """The bottom bar of a top-level screen that had none before 19.0.1.129.29
     (/revisar, /caja, /cobro...): the role's bar with ui_v2 on, nothing off."""
     return role_nav(env, current) if ui_v2_on(env) else []
+
+
+def legacy_ui(env, current, page_css):
+    """19.0.1.129.33: the values a page of the older design (/despacho,
+    /cuentas) needs to take the kit's look with ui_v2 on: dn.css (it carries
+    distri_ui.css's class names on the kit tokens) plus the page's own
+    kit/<page>_v2.css instead of distri_ui.css, and the role's bottom bar.
+    Off: {"ui_v2": False, "nav": []} and the page renders as before."""
+    if not ui_v2_on(env):
+        return {"ui_v2": False, "nav": []}
+    return {"ui_v2": True, "dn": kit_context(page_css), "nav": role_nav(env, current)}
 
 
 def staff_nav(env, current):

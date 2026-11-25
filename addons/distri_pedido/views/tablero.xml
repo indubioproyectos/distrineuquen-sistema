@@ -64,6 +64,8 @@
   </main>
 
   <section class="tab-more">
+    <!-- 19.0.1.129.33 (#3): each user's own order of the tiles (ui_v2 only) -->
+    <a t-if="ordenar_url" class="dn-link tab-ordenar" t-att-href="ordenar_url" data-dn="down">Ordenar el Inicio</a>
     <t t-if="mi_ruta">
       <h2 class="dn-label">Para el repartidor</h2>
       <a class="tab-row" t-att-href="mi_ruta['url']">

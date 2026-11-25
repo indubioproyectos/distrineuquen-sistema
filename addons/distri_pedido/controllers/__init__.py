@@ -27,3 +27,4 @@ from . import marca
 from . import mis_ventas
 from . import nueva_venta
 from . import verificacion
+from . import equipo

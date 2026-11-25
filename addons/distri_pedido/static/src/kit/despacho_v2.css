@@ -1,0 +1,20 @@
+/* 19.0.1.129.33 («Etapa 3b»): /despacho with the kit's look, only while
+   distri_pedido.ui_v2 is on. views/despacho.xml then links dn.css (which
+   carries distri_ui.css's class names on the kit tokens) and this file
+   instead of distri_ui.css, adds the class dn-legado to <body> (plus
+   dn-legado--nav with the role's bottom bar) and the bar itself. The
+   markup is drawn by despacho.js, unchanged: only the look moves. */
+.dn-legado .head .back{min-height:44px;font-size:15px}
+.dn-legado .head h1{font-size:22px}
+.dn-legado .card,.dn-legado .route-card,.dn-legado .row,.dn-legado .counter{border-radius:var(--dn-r)}
+.dn-legado .route-card:active{background:var(--dn-tint)}
+.dn-legado .btn{border-radius:var(--dn-r);font-weight:800;font-size:17px;min-height:52px}
+.dn-legado .btn.teal{background:var(--dn-primary)}
+.dn-legado .btn.teal:active{background:var(--dn-primary-press)}
+.dn-legado .bar > span{background:var(--dn-primary)}
+.dn-legado .foot .hint{font-size:13px;color:var(--dn-muted);text-align:center}
+.dn-legado .cargando{padding:3rem 1rem;text-align:center;color:var(--dn-muted)}
+/* the role's bar is fixed at the bottom (z-index 15): the sticky foot sits
+   on top of it and the sheets cover it */
+.dn-legado--nav .foot{bottom:calc(64px + var(--dn-safe-b))}
+.dn-legado .sheet-bg{z-index:30}

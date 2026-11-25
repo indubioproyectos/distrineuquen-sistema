@@ -11,15 +11,28 @@
   <meta name="theme-color" content="#10243f"/>
   <title>Despacho · <t t-esc="empresa"/></title>
   <link rel="icon" href="/distri_pedido/static/src/reparto/icon-192.png"/>
-  <link rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
+  <!-- 19.0.1.129.33: the kit's look with distri_pedido.ui_v2 on (dn.css
+       carries distri_ui.css's class names on the kit tokens), plus
+       sin_historial.js for the bar's links; despacho.js is the same -->
+  <t t-if="ui_v2">
+    <link t-if="dn['font']" rel="preload" as="font" type="font/woff2" crossorigin="anonymous" t-att-href="dn['font']"/>
+    <link rel="stylesheet" t-att-href="dn['css']"/>
+  </t>
+  <link t-else="" rel="stylesheet" t-att-href="shared_css + '?v=' + version"/>
   <link rel="stylesheet" t-att-href="static + 'despacho.css?v=' + version"/>
+  <t t-if="ui_v2">
+    <t t-foreach="dn['page_css']" t-as="href"><link rel="stylesheet" t-att-href="href"/></t>
+    <t t-call="distri_pedido.sin_historial"/>
+  </t>
 </head>
-<body>
+<body t-att-class="('dn-legado' + (' dn-legado--nav' if nav else '')) if ui_v2 else None">
   <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
   <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
   <div id="app"><div class="cargando">Cargando…</div></div>
   <div id="toast" hidden="hidden"></div>
   <script t-att-src="static + 'despacho.js?v=' + version" defer="defer"></script>
+  <!-- 19.0.1.129.33: the role's bottom bar (ui_v2 only) -->
+  <t t-call="distri_pedido.dn_page_nav"><t t-set="legado" t-value="True"/></t>
 </body>
 </html>
   </template>

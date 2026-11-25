@@ -14,6 +14,11 @@ the old cuentas.js / cuentas.css are no longer loaded (19.0.1.113.0).
 
 19.0.1.129.8: «Transferencias» (/cuentas/api/transfers, transfer_receipt),
 the loaded transfers for administración, gerencia and sistemas only.
+
+19.0.1.129.33 («Etapa 3b»): with distri_pedido.ui_v2 on, the page takes the
+kit's look (dn.css + kit/cuentas_v2.css instead of distri_ui.css) and the
+role's bottom bar (kit.legacy_ui). Same data, buttons, API and scope; with
+the flag off the page is the same as before.
 """
 import hashlib
 import json
@@ -27,6 +32,7 @@ from odoo.http import request
 
 from ..models.cuentas_app import app_scope
 from ..models.marca import marca_manifest_icons
+from .kit import legacy_ui
 from .main import FICHA
 from .reparto import SHARED_CSS, _disk
 
@@ -98,6 +104,8 @@ class Cuentas(http.Controller):
             "static": STATIC,
             "shared_css": SHARED_CSS,
             "empresa": FICHA["nombre"],
+            # 19.0.1.129.33: the kit's look and the role's bar (ui_v2 only)
+            **legacy_ui(request.env, "cuentas", "cuentas_v2.css"),
         })
         return request.make_response(html, headers=[
             ("Content-Type", "text/html; charset=utf-8"),
