@@ -94,6 +94,10 @@ def _ar_phone():
 # /pedido/enviar enforces it; smaller purchases are made at the store, and the
 # administrator loads them as a quotation from the backend (never blocked).
 COMPRA_MINIMA = 70000.0
+# 25/11/2026 (owner): administración, caja and gerencia (Denis, Gonzalo, Ale)
+# load small counter and depot sales too: no minimum for them
+COMPRA_MINIMA_EXENTOS = ("distri_pedido.grupo_administracion", "distri_pedido.grupo_cajero",
+                         "distri_pedido.grupo_gerencia")
 
 # /pedido/enviar (19.0.1.29.0): what a real order can be. 19.0.1.102.0: an
 # order of ~120 products was refused, so the line cap is above the whole
@@ -223,6 +227,14 @@ class TomaDePedidos(http.Controller):
     def _personal(self):
         """Vendedor, administracion o gerencia con la sesion abierta."""
         return _wa().is_staff(request.env.user)
+
+    def _compra_minima(self):
+        """The minimum purchase for whoever is on the page: 0 for
+        administración, caja and gerencia (COMPRA_MINIMA_EXENTOS)."""
+        user = request.env.user
+        if not user._is_public() and any(user.has_group(g) for g in COMPRA_MINIMA_EXENTOS):
+            return 0.0
+        return COMPRA_MINIMA
 
     def _ve_secciones_solo_agil(self):
         """19.0.1.129.10: whoever may see the hidden list also sees on /pedido
@@ -790,7 +802,7 @@ class TomaDePedidos(http.Controller):
             "vendedores": request.env["distri.vendedor.web"]._distri_para_pagina(),
             "localidades_encomienda": self._localidades_encomienda(),
             "secciones": self._catalogo(),
-            "compra_minima": COMPRA_MINIMA,
+            "compra_minima": self._compra_minima(),
             "pedido": pedido,
             "cantidades": cantidades or {},
             "cantidades_may": cantidades_may or {},
@@ -1790,7 +1802,7 @@ class TomaDePedidos(http.Controller):
         # after the refusals above (19.0.1.91.0):
         # only the priced lines count, a line «a confirmar» has no total yet
         total = sum(v["product_uom_qty"] * v["price_unit"] for _, _, v in lineas)
-        if total < COMPRA_MINIMA:
+        if total < self._compra_minima():
             return self._error_compra_minima(total)
         # 19.0.1.96.0 (audit F1): the page's own required fields, checked
         # here too (a form posted outside the page skipped them), and a cap
