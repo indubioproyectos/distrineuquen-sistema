@@ -223,3 +223,5 @@ button.visit.route-pick{width:100%;text-align:left;font:inherit;color:inherit;cu
 .pill.already_paid{color:var(--green);background:var(--green-bg)}
 .pay-paid{color:var(--green)}
 .locked [data-a="no-code"],.locked [data-a="no-code-undo"]{pointer-events:auto}
+/* 19.0.1.129.25: «Ya estaba pagado · a confirmar» and «Reabrir la ruta» */
+.pay-confirm{color:var(--amber-text)}

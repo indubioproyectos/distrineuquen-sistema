@@ -48,6 +48,14 @@
  *     already_paid; the server may answer «ok» with a warning (still owed);
  *   · «Entregar igual» sets (one tap), «deshacer» clears it, and before
  *     «¿Devolvió algo?» it says so instead of doing nothing.
+ * - 19.0.1.129.25:
+ *   · «Ya estaba pagado · a confirmar» when the customer uploaded a receipt
+ *     not credited yet that covers what is due (stop.payments_to_confirm):
+ *     the same already_paid visit plus to_confirm; nothing at the driver's
+ *     name, administración confirms it with Mercado Pago;
+ *   · «Reabrir la ruta» on «Ruta cerrada» (POST /reparto/api/reopen, online
+ *     only; the server refuses it once the cash was counted), and a route
+ *     reopened by administración opens again from the poll (onRouteState).
  *   app3.js and app4.js are edited in place: asset_version()
  *   (controllers/reparto.py) hashes their size and mtime, so the page and
  *   the service worker pick up the new files.
@@ -59,6 +67,8 @@
   var API_SYNC = "/reparto/api/sync";
   // both ticks of each order while loading (the dispatcher checks on /despacho)
   var API_LOAD = "/reparto/api/load";
+  // 19.0.1.129.25: «Reabrir la ruta» (controllers/reparto.py)
+  var API_REOPEN = "/reparto/api/reopen";
   // 19.0.1.92.0: «Ver cuenta» of a stop (online only) and the cash page
   var API_ACCOUNT = "/reparto/api/account";
   var CASH_PAGE = "/cobro";
@@ -311,6 +321,8 @@
   }
   var PILL = { pending: "PENDIENTE", paid: "COBRADO", not_paid: "NO PAGÓ", already_paid: "YA ESTABA PAGADO",
                not_delivered: "NO SE ENTREGÓ", dispatched: "DESPACHADA" };
+  // 19.0.1.129.25: «Ya estaba pagado · a confirmar» (models/reparto_a_confirmar.py)
+  var TO_CONFIRM_LABEL = "Ya estaba pagado · a confirmar";
 
   // --- expenses paid with the day's cash
 
@@ -680,7 +692,7 @@
   function noteWarning(ev, warning, local) {
     var v = ev.type === "visit" ? local.visits[ev.payload.stop_id] : null;
     if (v && v.visit_uuid === ev.payload.visit_uuid && v.already_paid) {
-      v.already_paid = false; v.no_payment = true; v.warning = warning;
+      v.already_paid = false; v.to_confirm = false; v.no_payment = true; v.warning = warning;
     }
     toast(warning, true);
   }
@@ -1333,7 +1345,8 @@
       } else if (st === "not_paid") {
         detail = '<div class="d">Sin cobrar · ' + money(dueToday(s, v.returns)) + " a tu cargo</div>";
       } else if (st === "already_paid") {
-        detail = '<div class="d">Entregado · ya estaba pagado, sin cobro</div>';
+        detail = v.to_confirm ? '<div class="d">Entregado · ya estaba pagado, a confirmar por administración</div>' :
+          '<div class="d">Entregado · ya estaba pagado, sin cobro</div>';
       } else {
         detail = '<div class="d">' + (v.reason ? "Motivo: " + h(v.reason) : "Falta el motivo") + "</div>";
       }
@@ -1347,6 +1360,7 @@
       if (v && !v.error && v.warning) detail += '<div class="e">' + h(v.warning) + "</div>";
       if (v && v.resolved) detail += '<div class="okline">' + ICON_CHECK + "Administración resolvió esta visita</div>";
       var pill = s === next ? "SUGERIDA" : (s.parcel && st === "pending" ? "ENCOMIENDA" : PILL[st]);
+      if (st === "already_paid" && v && v.to_confirm) pill = "A CONFIRMAR";
       if (st === "pending" && redOf(s)) pill = "EN ROJO";
       var cls = "visit" + (st !== "pending" ? " done" : "") + (s === next ? " next" : "");
       return '<a class="' + cls + '" href="#visita/' + s.id + '"><div class="split"><span class="t">' + n +
@@ -1625,7 +1639,7 @@
       visit_uuid: uuid(), stop_id: stop.id, outcome: "delivered", reason: "",
       returns_answer: null, returns: [], code: "", code_ok: false, without_code: false,
       cash: 0, transfer: "no", transfer_amount: 0, receipt_answer: null, red_ok: false,
-      no_payment: false, already_paid: false, comment: "",
+      no_payment: false, already_paid: false, to_confirm: false, comment: "",
       // the receipt photo: «photo» only until it is queued, the thumbnail stays
       photo: null, thumb: null, photo_uuid: null, receipt_photo: false,
     };
@@ -1752,6 +1766,13 @@
         (stop.payments_paid_how ? " (" + h(stop.payments_paid_how) + ")" : "") +
         ": no cobres nada, tocá «Ya estaba pagado».</div>" +
         '<button class="opt teal' + (d.already_paid ? " on" : "") + '" data-a="already-paid">Ya estaba pagado</button>';
+    } else if (stop.payments_to_confirm) {
+      // 19.0.1.129.25: a receipt not credited yet covers what is due
+      out += '<div class="small pay-confirm"><b>El cliente cargó un comprobante de ' +
+        money(stop.payments_to_confirm_amount || 0) + "</b>, todavía sin acreditar, que cubre lo que debe (" +
+        money(stop.payments_due || 0) + "). Si no te paga de nuevo, tocá «Ya estaba pagado · a confirmar»: " +
+        "no cobrás nada y no queda a tu nombre. Administración lo confirma con Mercado Pago.</div>" +
+        '<button class="opt teal' + (d.already_paid ? " on" : "") + '" data-a="already-paid">' + TO_CONFIRM_LABEL + "</button>";
     }
     out +=
       '<label class="field">Efectivo<input class="inp money" data-f="cash" inputmode="decimal" placeholder="$ 0" value="' +
@@ -1930,6 +1951,8 @@
       no_payment: !!d.no_payment, comment: d.comment || "",
       // 19.0.1.129.22: «Ya estaba pagado» (older servers ignore it)
       already_paid: !!d.already_paid,
+      // 19.0.1.129.25: «a confirmar» (informs only: the server decides)
+      to_confirm: !!(d.already_paid && d.to_confirm),
     };
   }
 
@@ -1942,7 +1965,7 @@
       without_code: !!d.without_code, cash: d.cash || 0, transfer: d.transfer || "no",
       transfer_amount: d.transfer === "yes" ? d.transfer_amount || 0 : 0,
       receipt_answer: d.transfer === "yes" ? d.receipt_answer : null, red_ok: !!d.red_ok,
-      no_payment: !!d.no_payment, already_paid: !!d.already_paid,
+      no_payment: !!d.no_payment, already_paid: !!d.already_paid, to_confirm: !!(d.already_paid && d.to_confirm),
       comment: d.comment || "", saved_at: new Date().toISOString(), synced: false, error: null,
       // only the thumbnail: the photo itself lives in its outbox event
       thumb: photoAnswer ? d.thumb || null : null, photo_uuid: photoAnswer ? d.photo_uuid || null : null,
@@ -2198,11 +2221,12 @@
 
   function closeSummary() {
     var list = stops(), sum = { paid: 0, not_paid: 0, already_paid: 0, not_delivered: 0, pending: 0, dispatched: 0 };
-    var cash = 0, transfers = 0, noCode = 0, unsynced = 0, noGuide = [];
+    var cash = 0, transfers = 0, noCode = 0, unsynced = 0, noGuide = [], toConfirm = 0;
     list.forEach(function (s) {
       var st = stopState(s), v = visitOf(s);
       sum[st] += 1;
       if (!v) return;
+      if (st === "already_paid" && v.to_confirm) toConfirm += 1;
       cash += v.cash || 0;
       if (v.transfer === "yes") transfers += 1;
       if (v.outcome === "delivered" && v.without_code) noCode += 1;
@@ -2215,7 +2239,7 @@
     unsynced += expenseItems().filter(function (e) { return e.own && e.error; }).length;
     return { sum: sum, cash: round2(cash), transfers: transfers, noCode: noCode,
              unsynced: unsynced, total: list.length, expenses: expenses, toSettle: round2(cash - expenses),
-             noGuide: noGuide };
+             noGuide: noGuide, toConfirm: toConfirm };
   }
 
   // «Transferencias sin comprobante · a tu cargo»: what the server knows
@@ -2293,7 +2317,8 @@
       '<div class="body"><div class="card" style="gap:2px">' +
       '<div class="sum"><span>Pagaron (efectivo o transferencia)</span><b>' + r.sum.paid + "</b></div>" +
       '<div class="sum"><span>No pagaron</span><b>' + r.sum.not_paid + "</b></div>" +
-      (r.sum.already_paid ? '<div class="sum"><span>Ya estaba pagado</span><b>' + r.sum.already_paid + "</b></div>" : "") +
+      (r.sum.already_paid ? '<div class="sum"><span>Ya estaba pagado' +
+        (r.toConfirm ? " (" + r.toConfirm + " a confirmar)" : "") + "</span><b>" + r.sum.already_paid + "</b></div>" : "") +
       '<div class="sum"><span>No se entregó</span><b>' + r.sum.not_delivered + "</b></div>" +
       (r.sum.dispatched ? '<div class="sum"><span>Encomiendas despachadas</span><b>' + r.sum.dispatched + "</b></div>" : "") +
       (r.sum.pending ? '<div class="sum" style="color:var(--red)"><span>Sin estado</span><b>' + r.sum.pending + "</b></div>" : "") +
@@ -2348,9 +2373,59 @@
       '<div class="body"><div class="card"><div class="muted">Efectivo para rendir en el depósito</div><div class="cash">' +
       money(r.toSettle) + "</div>" +
       (r.expenses ? '<div class="small">Efectivo cobrado ' + money(r.cash) + " − gastos " + money(r.expenses) + "</div>" : "") +
-      '<div class="small muted">Al volver hoy o mañana a primera hora</div></div></div>' +
+      '<div class="small muted">Al volver hoy o mañana a primera hora</div></div>' +
+      (canReopen() ? '<div class="card"><div class="small muted">¿Te equivocaste en una visita? Reabrí la ruta, ' +
+        "corregila y cerrala de nuevo. Se puede hasta que caja cuente el efectivo.</div>" +
+        '<button class="btn outline" data-a="reopen-route">Reabrir la ruta</button></div>' : "") + "</div>" +
       '<div class="foot"><button class="btn" data-a="next-route">' +
       (next.length ? "Descargar la próxima ruta" : "Buscar otra ruta") + "</button></div>";
+  }
+
+  // 19.0.1.129.25: «Reabrir la ruta», only once its close reached the server
+  // and while caja has not counted the cash (the server decides anyway)
+  function canReopen() {
+    return !!(S.route && S.local && S.local.closed && !pendingFor(S.route.id) && !S.route.reopen_locked &&
+              S.route.state !== "settled");
+  }
+
+  function reopenRoute() {
+    var routeId = S.route.id;
+    toast("Reabriendo la ruta…");
+    return fetchWithTimeout(API_REOPEN, { method: "POST", credentials: "same-origin", cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ route_id: routeId, user_id: S.uid }) }, 20000)
+      .then(function (res) {
+        if (isLoginPage(res)) { S.auth = false; throw new Error("Tu sesión venció. Entrá de nuevo con tu usuario."); }
+        return res.json();
+      }).then(function (data) {
+        if (!data || !data.ok) {
+          if (data && data.locked && S.route && S.route.id === routeId) {
+            S.route.reopen_locked = true;
+            saveRoute();
+          }
+          throw new Error((data && data.error) || "No se pudo reabrir la ruta.");
+        }
+        wanted = routeId;
+        return download(false).then(function () {
+          if (S.route && S.route.id === routeId && !S.local.closed) {
+            toast("Ruta reabierta: corregí la visita y cerrala de nuevo.");
+            go("#visitas");
+          }
+        });
+      }).catch(function (e) {
+        toast(e && e.name === "TypeError" || (e && e.name === "AbortError") ?
+          "Sin señal: para reabrir la ruta hace falta señal." : e.message, true);
+        render();
+      });
+  }
+
+  // the poll (app4.js) brings the route's state: reopened by someone else
+  // while «Ruta cerrada» is on screen, download it again
+  function onRouteState(state) {
+    if (state === "on_route" && S.route && S.local && S.local.closed && !pendingFor(S.route.id)) {
+      wanted = S.route.id;
+      download(false);
+    }
   }
 
   // ------------------------------------------------------------- events
@@ -2515,7 +2590,7 @@
       var save = function () {
         d.returns_answer = null; d.returns = []; d.code = ""; d.code_ok = false; d.without_code = false;
         d.cash = 0; d.transfer = "no"; d.transfer_amount = 0; d.receipt_answer = null; d.no_payment = false;
-        d.already_paid = false;
+        d.already_paid = false; d.to_confirm = false;
         withGps("close_visit", "guardar la visita", function (gps) {
           storeVisit(stop, d, gps).then(function () { toast("Guardado en el celular: no se entregó."); });
           go("#visitas");
@@ -2538,7 +2613,7 @@
           money(dueToday(stop, d.returns)) + ") queda pendiente a tu nombre: si no se cobra para la rendición " +
           "de mañana, se carga a tu cuenta.",
         onOk: function () {
-          d.no_payment = true; d.already_paid = false;
+          d.no_payment = true; d.already_paid = false; d.to_confirm = false;
           withGps("close_visit", "guardar la visita", function (gps) {
             storeVisit(stop, d, gps).then(function () { toast("Guardado: no pagó nada."); });
             go("#visitas");
@@ -2562,9 +2637,12 @@
       // 19.0.1.129.22: nothing collected from an order the server says is
       // paid is «Ya estaba pagado», not «No pagó nada»
       if (!err && !(draft.cash > 0) && draft.transfer === "no" && stop.payments_paid) return alreadyPaid(stop);
+      if (!err && !(draft.cash > 0) && draft.transfer === "no" && stop.payments_to_confirm) {
+        err = "Si ya pagó con el comprobante cargado, tocá «" + TO_CONFIRM_LABEL + "». Si no pagó nada, «No pagó nada».";
+      }
       if (!err && !(draft.cash > 0) && draft.transfer === "no") err = "Si no pagó nada, tocá «No pagó nada».";
       if (err) return toast(err, true);
-      draft.no_payment = false; draft.already_paid = false;
+      draft.no_payment = false; draft.already_paid = false; draft.to_confirm = false;
       var d = draft, cwa = whatsappOf(stop);
       withGps("close_visit", "guardar la visita", function (gps) {
         // «Al guardar la visita se abre WhatsApp con el pedido escrito»
@@ -2630,6 +2708,17 @@
       go("#visita/" + stop.id);
     },
     close: function () { closeRoute(false); },
+    // 19.0.1.129.25: no reason asked (owner's decision); the server logs who and when
+    "reopen-route": function () {
+      if (!canReopen()) return;
+      if (navigator.onLine === false) return toast("Sin señal: para reabrir la ruta hace falta señal.", true);
+      askConfirm({
+        title: "¿Reabrir la ruta?", ok: "Sí, reabrir",
+        text: "La ruta vuelve a «En reparto» para que corrijas lo que haga falta. Después cerrala de nuevo. " +
+          "Queda registrado que la reabriste vos.",
+        onOk: function () { reopenRoute(); },
+      });
+    },
     arrive: function (el, stop) {
       if (!stop) return;
       withGps("arrive", "marcar «Llegué»", function (gps) {
@@ -2696,14 +2785,20 @@
     var lost = [];
     if (d.cash > 0) lost.push("efectivo " + money(d.cash));
     if (d.transfer === "yes") lost.push("transferencia de " + money(d.transfer_amount || 0));
+    // 19.0.1.129.25: paid with a receipt still to credit: «a confirmar»
+    var toConfirm = !stop.payments_paid && !!stop.payments_to_confirm;
     askConfirm({
-      title: "¿Ya estaba pagado?", ok: "Sí, ya estaba pagado",
-      text: "Se guarda la visita de " + stop.name + " como entregada, sin cobro: el pedido ya figura pagado" +
-        (stop.payments_paid_how ? " (" + stop.payments_paid_how + ")" : "") + ". No queda nada a tu nombre." +
+      title: toConfirm ? "¿Ya estaba pagado · a confirmar?" : "¿Ya estaba pagado?",
+      ok: toConfirm ? "Sí, a confirmar" : "Sí, ya estaba pagado",
+      text: "Se guarda la visita de " + stop.name + " como entregada, sin cobro: " +
+        (toConfirm ? "el cliente cargó un comprobante de " + money(stop.payments_to_confirm_amount || 0) +
+          " que cubre lo que debe. Queda «a confirmar»: administración lo verifica con Mercado Pago." :
+          "el pedido ya figura pagado" + (stop.payments_paid_how ? " (" + stop.payments_paid_how + ")" : "") + ".") +
+        " No queda nada a tu nombre." +
         (lost.length ? " Se borra lo que cargaste: " + lost.join(", ") + "." : ""),
       onOk: function () {
         d.cash = 0; d.transfer = "no"; d.transfer_amount = 0; d.receipt_answer = null;
-        d.no_payment = false; d.already_paid = true;
+        d.no_payment = false; d.already_paid = true; d.to_confirm = toConfirm;
         withGps("close_visit", "guardar la visita", function (gps) {
           storeVisit(stop, d, gps).then(function () { toast("Guardado: ya estaba pagado."); });
           go("#visitas");
@@ -2878,6 +2973,8 @@
     api: { load: API_LOAD },
     // 19.0.1.129.22: the rejections of the poll (app4.js)
     onRejections: onRejections,
+    // 19.0.1.129.25: the route's state of the poll (app4.js)
+    onRouteState: onRouteState,
   };
 
   boot();

@@ -112,3 +112,4 @@ from . import test_v129_24_anular_pagos
 from . import test_v129_24_armado_login_cron
 from . import test_v129_24_cargos
 from . import test_v129_22_reparto_etapa0
+from . import test_v129_25_reparto

@@ -19,6 +19,11 @@
  * how and when (stop.payments_paid_how); the poll also runs on «Cerrar la
  * ruta» and hands its rejections to app3.js (RepartoApp.onRejections), which
  * downloads the route when administración resolved a rejected visit.
+ *
+ * 19.0.1.129.25: the poll also brings «a confirmar» (a receipt not credited
+ * yet that covers what is due: stop.payments_to_confirm) and the route's
+ * state, handed to app3.js (RepartoApp.onRouteState) so a route reopened
+ * by administración opens again on the phone.
  */
 (function () {
   "use strict";
@@ -78,7 +83,9 @@
     if (pending.length) {
       out += '<div class="' + base + ' pay-wait"><b>Comprobante cargado, sin acreditar: ' +
         h(money(sum(pending))) + "</b>" + receiptLinks(stop, pending) +
-        ". Todavía no bajó el saldo.</div>";
+        ". Todavía no bajó el saldo." +
+        (stop.payments_to_confirm && !stop.payments_paid ?
+          " Cubre lo que debe: si no te paga de nuevo, «Ya estaba pagado · a confirmar»." : "") + "</div>";
     }
     return out;
   }
@@ -103,13 +110,18 @@
       var stop = APP.stopById(id), info = map[id];
       if (!stop || !info) return;
       var before = JSON.stringify([stop.payments || [], stop.payments_due || 0, !!stop.payments_paid,
-                                   stop.payments_paid_how || ""]);
-      var after = JSON.stringify([info.payments || [], info.due || 0, !!info.paid, info.paid_how || ""]);
+                                   stop.payments_paid_how || "", !!stop.payments_to_confirm,
+                                   stop.payments_to_confirm_amount || 0]);
+      var after = JSON.stringify([info.payments || [], info.due || 0, !!info.paid, info.paid_how || "",
+                                  !!info.to_confirm, info.to_confirm_amount || 0]);
       if (before === after) return;
       stop.payments = info.payments || [];
       stop.payments_due = info.due || 0;
       stop.payments_paid = !!info.paid;
       stop.payments_paid_how = info.paid_how || "";
+      // 19.0.1.129.25
+      stop.payments_to_confirm = !!info.to_confirm;
+      stop.payments_to_confirm_amount = info.to_confirm_amount || 0;
       changed = true;
     });
     if (!changed) return;
@@ -143,6 +155,10 @@
           applyPayments(data.route.payments);
           if (data.route.rejections && typeof APP.onRejections === "function") {
             APP.onRejections(data.route.rejections);
+          }
+          // 19.0.1.129.25: reopened by administración while «Ruta cerrada» is on screen
+          if (data.route.state && typeof APP.onRouteState === "function") {
+            APP.onRouteState(data.route.state);
           }
         }
       })
