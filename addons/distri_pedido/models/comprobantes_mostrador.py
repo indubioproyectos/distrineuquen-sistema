@@ -29,6 +29,14 @@ receipt with two answers:
    the transfer: comprobante_pendiente.py, reparto_v2.py). The user sees it
    in «Mis comprobantes a reclamar» (/deposito/reclamar, a row in Inicio).
 
+19.0.1.129.39 (review of 129.37): the mark is put on EVERY depot pending
+receipt of a transfer, whatever the answer («photo», the backend wizard's
+«forwarded», «not_yet»). Before, «Subir comprobante» with any file left the
+item unmarked: a file that is not a receipt kept it open forever, and one
+administración rejected reopened it unmarked, so it never expired nor
+charged anybody. A real receipt still resolves the item before its
+deadline (no charge), and the report or a verified payment closes it.
+
 Owner's rule: nothing here creates, edits or deletes an entry, a payment or
 a reconciliation. Only receipts (messages), pending receipts and charges
 (cases) are written; a receipt credits only by the existing, unchanged paths.
@@ -150,8 +158,9 @@ class DistriPromisedTransferDepot(models.Model):
 
     distri_user_charge = fields.Boolean(
         string="A cargo de quien entregó", readonly=True, index=True, copy=False,
-        help="Entrega en depósito o venta en mostrador con «Lo manda después»: el comprobante "
-             "queda a cargo del usuario que entregó sin él, con las reglas del repartidor.")
+        help="Entrega en depósito o venta en mostrador por transferencia: si el comprobante no "
+             "llega o no sirve, queda a cargo del usuario que entregó, con las reglas del "
+             "repartidor.")
 
     # ------------------------------------------------------------ the visit
 
@@ -161,10 +170,28 @@ class DistriPromisedTransferDepot(models.Model):
         if nueva_venta_on(self.env) and stop.route_id.kind == "depot":
             promise = self.sudo().search([("stop_id", "=", stop.id), ("kind", "=", "done")],
                                          limit=1)
-            later = stop.transfer == "yes" and stop.receipt_answer == LATER_ANSWER
+            # 19.0.1.129.39: every transfer, whatever the receipt answer
+            # («photo», «forwarded» or «not_yet»): a file that is not a
+            # receipt, or one administración rejects (the item reopens),
+            # still expires into the charge of who delivered; a real receipt
+            # or the report resolves it first, as before
+            charged = stop.transfer == "yes"
             if promise and promise.state in OPEN_STATES and \
-                    promise.distri_user_charge != later:
-                promise.distri_user_charge = later
+                    promise.distri_user_charge != charged:
+                promise.distri_user_charge = charged
+        return result
+
+    def _distri_reopen(self):
+        """19.0.1.129.39: a depot item of a transfer reopened (its receipt
+        rejected or found to be a copy) is the user's charge too, also when
+        it was resolved before the visit marked it."""
+        result = super()._distri_reopen()
+        if nueva_venta_on(self.env):
+            for promise in self.sudo():
+                if promise.route_kind == "depot" and (promise.kind or "done") == "done" \
+                        and not promise.distri_user_charge and promise.state in OPEN_STATES \
+                        and promise.stop_id.transfer == "yes":
+                    promise.distri_user_charge = True
         return result
 
     # ------------------------------------------------------------ expiry

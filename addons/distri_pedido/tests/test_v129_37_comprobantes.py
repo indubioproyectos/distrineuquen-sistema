@@ -200,7 +200,8 @@ class TestV12937Comprobantes(RepartoMixin, AccountTestInvoicingHttpCommon):
         promise = self._promise(order)
         self.assertEqual(promise.state, "fulfilled", "the receipt of its own order resolved it")
         self.assertEqual(promise.receipt_id, msg)
-        self.assertFalse(promise.distri_user_charge)
+        # 19.0.1.129.39: marked whatever the answer (a rejected photo expires)
+        self.assertTrue(promise.distri_user_charge)
         self.assertEqual(self._ledger(), before, "nothing credited, no balance moved")
         self.assertFalse(stop.route_id.payment_ids)
 
