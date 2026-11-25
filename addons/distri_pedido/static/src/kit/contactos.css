@@ -1,0 +1,32 @@
+/* 19.0.1.129.41 «Contactos» (ui_v2 only): controllers/contactos.py,
+   views/contactos.xml. On top of dn.css, deposito.css (dp-*) and fichas.css. */
+.ct-form{gap:12px}
+.ct-search{display:flex;gap:8px;align-items:stretch}
+.ct-search .dn-input{flex:1;min-width:0}
+.ct-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ct-chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border:1px solid var(--dn-line);
+  border-radius:999px;background:var(--dn-card);font-weight:700;font-size:14px;cursor:pointer;user-select:none}
+.ct-chip input{margin:0;width:18px;height:18px;accent-color:var(--dn-primary)}
+.ct-chip:has(input:checked){border-color:var(--dn-primary);color:var(--dn-primary)}
+.ct-selects{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+.ct-nuevo{align-self:flex-start}
+.ct-total{margin:0}
+.ct-list{display:flex;flex-direction:column;gap:8px}
+.ct-list[aria-busy="true"]{opacity:.6;transition:opacity .15s}
+.ct-row{color:var(--dn-ink);text-decoration:none}
+.ct-name{overflow-wrap:anywhere}
+.ct-wa--no{color:var(--dn-muted)}
+.ct-saldo--deuda{color:var(--dn-red-text)}
+.ct-mas{align-self:center}
+.ct-edit{display:flex;flex-direction:column;gap:12px}
+.ct-grid2,.ct-wa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.ct-dias{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.ct-dias legend{width:100%;margin-bottom:4px}
+.ct-gps{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.ct-check{display:flex;gap:10px;align-items:flex-start;font-weight:600}
+.ct-check input{width:20px;height:20px;margin-top:2px;accent-color:var(--dn-primary)}
+.ct-unir{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.ct textarea.dn-input{min-height:72px;resize:vertical}
+@media (min-width:900px){
+  .ct .dn-main{max-width:880px;margin-left:auto;margin-right:auto}
+}

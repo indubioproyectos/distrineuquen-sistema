@@ -236,6 +236,21 @@
     <t t-set="sub" t-value="''"/>
   </t>
   <main class="dn-main fi-main">
+    <!-- 19.0.1.129.41 («Contactos»): a customer «a confirmar» -->
+    <section t-if="provisorio" class="dn-card dn-card--warn fi-card" data-fi-provisorio="">
+      <b>Cliente nuevo · a confirmar</b>
+      <span class="dp-meta">Lo cargó <t t-esc="provisorio['quien'] or 'alguien del equipo'"/><t t-if="provisorio['cuando']"> el <t t-esc="provisorio['cuando']"/></t><t t-if="provisorio['nota']"> · <t t-esc="provisorio['nota']"/></t>.</span>
+      <div t-if="provisorio['confirmar']" class="fi-acts">
+        <form method="post" t-att-action="provisorio['confirmar']" data-fi-confirmar="">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <button type="submit" class="dn-btn">
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t>Confirmar</button>
+        </form>
+        <a class="dn-btn dn-btn--ghost" t-att-href="provisorio['unir']" data-dn="down" data-fi-unir="">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>Unir con…</a>
+      </div>
+    </section>
+    <p t-if="archivado" class="dp-warn">Cliente archivado.</p>
     <section class="dn-card fi-card">
       <div t-if="saldo" class="fi-head">
         <span class="dn-label">Saldo</span>
@@ -244,6 +259,13 @@
       <dl t-if="datos" class="dp-kv fi-kv">
         <t t-foreach="datos" t-as="d"><dt t-esc="d[0]"/><dd t-esc="d[1]"/></t>
       </dl>
+      <dl t-if="entrega" class="dp-kv fi-kv">
+        <t t-foreach="entrega" t-as="d"><dt t-esc="d[0]"/><dd t-esc="d[1]"/></t>
+      </dl>
+      <a t-if="mapa" class="dn-link" t-att-href="mapa" target="_blank" rel="noopener" data-fi-mapa="">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'pin'"/></t>Ver la ubicación en el mapa</a>
+      <a t-if="editar_url" class="dn-btn dn-btn--outline" t-att-href="editar_url" data-dn="down" data-fi-editar="">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'doc'"/></t>Editar<t t-if="editar_parcial"> WhatsApp y domicilio</t></a>
     </section>
     <t t-set="liberar" t-value="False"/>
     <t t-call="distri_pedido.ficha_acciones"/>
@@ -270,7 +292,9 @@
     <p t-else="" class="dp-meta">No tiene pedidos que puedas ver.</p>
     <div class="dp-note">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>
-      <span>Esta pantalla es para mirar: los datos del cliente los corrige administración.</span>
+      <span t-if="editar_url and not editar_parcial">Los datos se corrigen con «Editar».</span>
+      <span t-elif="editar_url">Con «Editar» corregís el WhatsApp y el domicilio; el resto lo corrige administración.</span>
+      <span t-else="">Esta pantalla es para mirar: los datos del cliente los corrige administración.</span>
     </div>
   </main>
   <t t-call="distri_pedido.dn_page_nav"/>

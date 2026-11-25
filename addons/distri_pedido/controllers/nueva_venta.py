@@ -97,6 +97,31 @@ def _error_text(exc):
     return exc.args[0] if exc.args else str(exc)
 
 
+def crear_cliente(user, valores, donde):
+    """19.0.1.129.40 «Nuevo cliente» (19.0.1.129.41: shared with «Contactos»,
+    controllers/contactos.py). The backend ACLs are not widened (a seller
+    still cannot create contacts there): like /cobro's «Cliente nuevo»
+    (models/cliente_provisorio.py) the kit creates this one minimal customer
+    with sudo, keeping the user as its creator. A seller's customer carries
+    his portfolio tag and him as salesperson (an external seller's is his as
+    its creator) and is «Cliente nuevo · a confirmar» for administración.
+    `donde` names the screen in the notes. UserError / ValidationError go to
+    the caller."""
+    valores = dict(valores, company_type="company", customer_rank=1)
+    if not user.has_group("distri_pedido.grupo_administracion"):
+        valores.update({"user_id": user.id, "distri_cliente_provisorio": True,
+                        "distri_provisorio_user_id": user.id,
+                        "distri_provisorio_fecha": fields.Datetime.now(),
+                        "distri_provisorio_nota": "Creado en «%s»" % donde})
+        if user.etiqueta_cartera_id:
+            valores["category_id"] = [(4, user.etiqueta_cartera_id.id)]
+    with request.env.cr.savepoint():
+        # sudo keeps the uid: create_uid is the user
+        socio = request.env["res.partner"].sudo().create(valores)
+        socio.message_post(body="Cliente creado por %s en «%s»." % (user.name, donde))
+    return socio
+
+
 # 19.0.1.129.32: the second of two simultaneous posts of the same sale
 DOBLE_TOQUE = "Esa venta ya se está cargando (se tocó dos veces). Fijate en «Mis ventas»."
 
@@ -418,19 +443,8 @@ class NuevaVenta(http.Controller):
             parecidos = [p for p in parecidos if not p.get("provisional")] or parecidos
             if parecidos:
                 return self._json({"ok": True, "parecidos": parecidos})
-        valores.update({"company_type": "company", "customer_rank": 1})
-        if not user.has_group("distri_pedido.grupo_administracion"):
-            valores.update({"user_id": user.id, "distri_cliente_provisorio": True,
-                            "distri_provisorio_user_id": user.id,
-                            "distri_provisorio_fecha": fields.Datetime.now(),
-                            "distri_provisorio_nota": "Creado en «Nueva venta»"})
-            if user.etiqueta_cartera_id:
-                valores["category_id"] = [(4, user.etiqueta_cartera_id.id)]
         try:
-            with request.env.cr.savepoint():
-                # sudo keeps the uid: create_uid is the user
-                socio = request.env["res.partner"].sudo().create(valores)
-                socio.message_post(body="Cliente creado por %s en «Nueva venta»." % user.name)
+            socio = crear_cliente(user, valores, "Nueva venta")
         except (UserError, ValidationError) as exc:
             return self._json({"ok": False, "error": _error_text(exc)}, status=400)
         cliente, error = self._cliente(str(socio.id))

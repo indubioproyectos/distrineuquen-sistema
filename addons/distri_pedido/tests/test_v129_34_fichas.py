@@ -389,9 +389,11 @@ class TestFichas(HttpCase):
             self.assertEqual(menus, before[user] - hidden - {importar} - set(
                 Menu.sudo().search([("id", "child_of", list(hidden))]).ids), user.login)
             self.assertEqual(Menu.with_user(user)._visible_menu_ids(), visible[user], user.login)
-            # the tiles too («Equipo» is the only tile ui_v2 itself adds)
+            # the tiles too («Equipo» and, since 19.0.1.129.41, «Contactos» are
+            # the only tiles ui_v2 itself adds)
             self.assertEqual([t["key"] for t in staff_tiles(self.env(user=user))
-                              if t["key"] != "equipo"], tiles[user], user.login)
+                              if t["key"] not in ("equipo", "contactos")], tiles[user],
+                             user.login)
         # the same actions stay under the «Transición AgilPedido» app
         self.assertIn(app_importar, self._menus(self.admin))
         # Sistemas keeps every menu its groups give it

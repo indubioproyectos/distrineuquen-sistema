@@ -31,6 +31,9 @@ views/kit.xml (distri_pedido.dn_head and distri_pedido.dn_nav).
 customer screens (/pedidos/<id>, /facturas/<id>, /clientes/<id>,
 controllers/fichas.py) with their parents here; route_matches() is the
 pattern test of screen_parents(), also used to accept a ?desde= parent.
+
+19.0.1.129.41, behind ui_v2: «Contactos» (/contactos, controllers/
+contactos.py) and the customer's edit and merge screens.
 """
 import hashlib
 import os
@@ -106,6 +109,9 @@ FILES = {
     "equipo.css": ("kit/equipo.css", "text/css; charset=utf-8"),
     # 19.0.1.129.34: the order, invoice and customer screens (ui_v2 only)
     "fichas.css": ("kit/fichas.css", "text/css; charset=utf-8"),
+    # 19.0.1.129.41: «Contactos» (controllers/contactos.py, ui_v2 only)
+    "contactos.css": ("kit/contactos.css", "text/css; charset=utf-8"),
+    "contactos.js": ("kit/contactos.js", "text/javascript; charset=utf-8"),
 }
 # served without comments and indentation (budget: < 3 KB gzip); the file
 # on disk keeps its documentation
@@ -238,13 +244,18 @@ SCREEN_PARENTS = {
     # order goes up to its customer when opened from it, an invoice to its
     # order or its customer; ?desde= says which parent the screen was opened
     # from, anything else goes up to Inicio.
-    "/clientes/<id>": ("/revisar", "/cuentas", "/nueva-venta", HOME),
+    "/clientes/<id>": ("/revisar", "/cuentas", "/nueva-venta", "/contactos", "/caja", HOME),
     "/pedidos/<id>": ("/revisar", "/agilpedido", "/agilpedido/pedido/<id>",
                       "/agilpedido/creado/<id>", "/deposito/mostrador", "/mis-ventas",
                       "/clientes/<id>", HOME),
     "/facturas/<id>": ("/pedidos/<id>", "/clientes/<id>", HOME),
     # 19.0.1.129.35 (nueva_venta and ui_v2): «Anular venta» of an order
     "/pedidos/<id>/anular": ("/pedidos/<id>",),
+    # 19.0.1.129.41 (ui_v2 only): «Contactos» (controllers/contactos.py)
+    "/contactos": (HOME,),
+    "/contactos/nuevo": ("/contactos",),
+    "/clientes/<id>/editar": ("/clientes/<id>",),
+    "/clientes/<id>/unir": ("/clientes/<id>",),
 }
 # 19.0.1.129.31: one screen per queue of «Tablero de verificación»
 SCREEN_PARENTS.update({"/verificacion/%s" % key: ("/verificacion",) for key in (
@@ -330,6 +341,9 @@ NAV_ITEMS = {
     "mireparto": ("Mi reparto", "truck"),
     "pedido": ("Pedido", "order"),
     "nuevaventa": ("Vender", "plus"),
+    # 19.0.1.129.41: in no role's list (the bars are full); shown, marked,
+    # while on «Contactos» (role_nav adds the current screen)
+    "contactos": ("Contactos", "user"),
 }
 # screens that come in a group: /armado's two tabs travel together
 NAV_GROUPS = {"armado": ("armado", "faltantes"), "faltantes": ("armado", "faltantes")}

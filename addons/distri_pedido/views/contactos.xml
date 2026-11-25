@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.41 (distri_pedido.ui_v2 only), controllers/contactos.py:
+       «Contactos» on the kit. The list works without JavaScript (a GET form
+       and «Ver más» links); static/src/kit/contactos.js searches while
+       typing and appends the next page. On /deposito's top bar plus
+       fichas.css and kit/contactos.css. -->
+
+  <!-- one row of the list (the JS draws the same markup) -->
+  <template id="contactos_fila" name="Contactos: fila">
+    <a class="dp-row ct-row" t-att-href="f['url']" data-dn="down" t-att-data-ct-id="f['id']">
+      <span class="dp-row__txt">
+        <b class="ct-name" t-esc="f['nombre']"/>
+        <span class="dp-meta"><t t-esc="' · '.join(x for x in (f['codigo'], f['localidad'], f['vendedor']) if x)"/></span>
+        <span class="dp-meta ct-wa" t-if="f['whatsapp']">WhatsApp <t t-esc="f['whatsapp']"/></span>
+        <span class="dp-meta ct-wa ct-wa--no" t-else="">Sin WhatsApp</span>
+        <span t-if="f['confirmar'] or f['archivado']" class="dp-chips">
+          <span t-if="f['confirmar']" class="dn-chip dn-chip--warn">A confirmar</span>
+          <span t-if="f['archivado']" class="dn-chip dn-chip--neutral">Archivado</span>
+        </span>
+      </span>
+      <b t-if="f['saldo']" t-att-class="'dp-amt dn-num ct-saldo' + (' ct-saldo--deuda' if f['deuda'] else '')" t-esc="f['saldo']"/>
+    </a>
+  </template>
+
+  <!-- ================================================================ list -->
+  <template id="contactos_page" name="Contactos">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Contactos · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp fi ct" t-att-data-parent="parent" data-page="contactos">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="kicker" t-value="'Distri Neuquén · %s' % user.name"/>
+    <t t-set="titulo" t-value="'Contactos'"/>
+    <t t-set="sub" t-value="'Buscá por nombre, teléfono, CUIT, domicilio o código.'"/>
+  </t>
+  <main class="dn-main fi-main">
+    <form method="get" action="/contactos" class="dn-card fi-card ct-form" id="ct-form" role="search">
+      <div class="ct-search">
+        <input id="ct-q" class="dn-input dn-input--big" type="search" name="q" t-att-value="params['q']"
+               placeholder="Nombre, teléfono, CUIT, calle…" autocomplete="off" enterkeyhint="search"
+               aria-label="Buscar contactos" maxlength="80"/>
+        <button type="submit" class="dn-btn ct-go">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>Buscar</button>
+      </div>
+      <div class="ct-chips" role="group" aria-label="Filtros">
+        <label t-foreach="filtros" t-as="fl" class="ct-chip">
+          <input type="checkbox" t-att-name="fl[0]" value="1" t-att-checked="'checked' if fl[0] in params['filtros'] else None"/>
+          <span t-esc="fl[1]"/>
+        </label>
+      </div>
+      <div class="ct-selects">
+        <div class="dn-field">
+          <label for="ct-localidad">Localidad</label>
+          <select id="ct-localidad" class="dn-input" name="localidad">
+            <option value="">Todas</option>
+            <option t-foreach="localidades" t-as="loc" t-att-value="loc"
+                    t-att-selected="'selected' if loc.lower() == params['localidad'].lower() else None" t-esc="loc"/>
+          </select>
+        </div>
+        <div t-if="todo" class="dn-field">
+          <label for="ct-tipo">Tipo</label>
+          <select id="ct-tipo" class="dn-input" name="tipo">
+            <option t-foreach="tipos" t-as="tp" t-att-value="tp[0]"
+                    t-att-selected="'selected' if tp[0] == params['tipo'] else None" t-esc="tp[1]"/>
+          </select>
+        </div>
+        <div t-if="todo and vendedores" class="dn-field">
+          <label for="ct-vendedor">Cartera de</label>
+          <select id="ct-vendedor" class="dn-input" name="vendedor">
+            <option value="">Todos los vendedores</option>
+            <option t-foreach="vendedores" t-as="vd" t-att-value="vd[0]"
+                    t-att-selected="'selected' if vd[0] == params['vendedor'] else None" t-esc="vd[1]"/>
+          </select>
+        </div>
+      </div>
+    </form>
+    <a t-if="nuevo" class="dn-btn dn-btn--outline ct-nuevo" href="/contactos/nuevo" data-dn="down" data-ct-nuevo="">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'plus'"/></t>Nuevo contacto</a>
+
+    <p class="dp-meta ct-total" id="ct-total" aria-live="polite"><t t-esc="total"/> <t t-esc="'contacto' if total == 1 else 'contactos'"/></p>
+    <div id="ct-list" class="ct-list">
+      <t t-foreach="filas" t-as="f"><t t-call="distri_pedido.contactos_fila"/></t>
+    </div>
+    <p t-if="not filas" class="dn-empty ct-empty" id="ct-empty">No hay contactos con esa búsqueda.</p>
+    <a t-if="mas" id="ct-mas" class="dn-btn dn-btn--ghost ct-mas"
+       t-att-href="mas_url">Ver más</a>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- ================================================================ new -->
+  <template id="contactos_nuevo" name="Contactos: nuevo">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Nuevo contacto · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp fi ct" t-att-data-parent="parent" data-page="contacto-nuevo">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="kicker" t-value="'Contactos'"/>
+    <t t-set="titulo" t-value="'Nuevo contacto'"/>
+    <t t-set="sub" t-value="'Primero te mostramos los parecidos, por si ya estaba cargado.'"/>
+  </t>
+  <main class="dn-main fi-main">
+    <section t-if="parecidos" class="dn-card dn-card--warn fi-card" data-ct-parecidos="">
+      <b>¿Es alguno de estos?</b>
+      <t t-foreach="parecidos" t-as="m">
+        <a t-if="m['url']" class="dp-row fi-row" t-att-href="m['url']" data-dn="down">
+          <span class="dp-row__txt"><b t-esc="m['name']"/>
+            <span class="dp-meta"><t t-esc="m['why']"/><t t-if="m['detail']"> · <t t-esc="m['detail']"/></t></span></span>
+        </a>
+        <div t-else="" class="dp-row fi-row">
+          <span class="dp-row__txt"><b t-esc="m['name']"/>
+            <span class="dp-meta"><t t-esc="m['why']"/> · de otra cartera</span></span>
+        </div>
+      </t>
+    </section>
+    <form method="post" action="/contactos/nuevo" class="dn-card fi-card ct-edit" data-ct-nuevo-form="">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input t-if="parecidos" type="hidden" name="nuevo_ok" value="1"/>
+      <div class="dn-field"><label for="ct-nombre">Nombre (del comercio o de la persona)</label>
+        <input id="ct-nombre" class="dn-input" name="nombre" required="required" minlength="3" maxlength="120"
+               autocomplete="off" enterkeyhint="next" t-att-value="form['nombre']"/></div>
+      <t t-call="distri_pedido.contactos_campos_basicos"/>
+      <button type="submit" class="dn-btn dn-btn--lg">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t><t t-if="parecidos">No es ninguno: crear igual</t><t t-else="">Crear el contacto</t></button>
+    </form>
+    <div class="dp-note">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>
+      <span>Si lo carga un vendedor, queda «a confirmar» para administración.</span>
+    </div>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- WhatsApp, street and town: the fields a seller may change (19.0.1.129.40) -->
+  <template id="contactos_campos_basicos" name="Contactos: WhatsApp y domicilio">
+    <div class="ct-wa-grid">
+      <div class="dn-field"><label for="ct-wa-area">WhatsApp: código de área</label>
+        <input id="ct-wa-area" class="dn-input dn-num" name="wa_area" inputmode="numeric" maxlength="5"
+               placeholder="299" autocomplete="off" enterkeyhint="next" t-att-value="form.get('wa_area')"/></div>
+      <div class="dn-field"><label for="ct-wa-numero">Número</label>
+        <input id="ct-wa-numero" class="dn-input dn-num" name="wa_numero" inputmode="numeric" maxlength="12"
+               placeholder="4222444" autocomplete="off" enterkeyhint="next" t-att-value="form.get('wa_numero')"/></div>
+    </div>
+    <p class="dp-meta">Sin el 0 del código de área ni el 15 del número.</p>
+    <div class="dn-field"><label for="ct-calle">Calle y número</label>
+      <input id="ct-calle" class="dn-input" name="calle" maxlength="120" autocomplete="off" enterkeyhint="next"
+             t-att-value="form.get('calle')"/></div>
+    <div class="dn-field"><label for="ct-ciudad">Localidad</label>
+      <input id="ct-ciudad" class="dn-input" name="ciudad" maxlength="60" autocomplete="off" list="ct-localidades"
+             enterkeyhint="done" t-att-value="form.get('ciudad')"/>
+      <datalist id="ct-localidades"><option t-foreach="localidades" t-as="loc" t-att-value="loc"/></datalist></div>
+  </template>
+
+  <!-- ================================================================ edit -->
+  <template id="contactos_editar" name="Contactos: editar">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Editar <t t-esc="p.name"/> · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp fi ct" t-att-data-parent="parent" data-page="contacto-editar" t-att-data-partner="p.id">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="kicker" t-value="'Editar cliente'"/>
+    <t t-set="titulo" t-value="p.name"/>
+    <t t-set="sub" t-value="'Solo WhatsApp y domicilio: el resto lo corrige administración.' if modo == 'vendedor' else ''"/>
+  </t>
+  <main class="dn-main fi-main">
+    <form method="post" t-att-action="action" class="fi-main ct-edit" data-ct-editar="" t-att-data-modo="modo">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <t t-if="modo == 'vendedor'">
+        <section class="dn-card fi-card">
+          <t t-call="distri_pedido.contactos_campos_basicos"/>
+        </section>
+      </t>
+      <t t-else="">
+        <h2 class="dn-label">Datos</h2>
+        <section class="dn-card fi-card">
+          <div class="dn-field"><label for="ct-nombre">Nombre</label>
+            <input id="ct-nombre" class="dn-input" name="nombre" required="required" minlength="3" maxlength="120"
+                   autocomplete="off" t-att-value="form.get('nombre')"/></div>
+          <div class="ct-grid2">
+            <div class="dn-field"><label for="ct-codigo">Código</label>
+              <input id="ct-codigo" class="dn-input" name="codigo" maxlength="30" autocomplete="off" t-att-value="form.get('codigo')"/></div>
+            <div class="dn-field"><label for="ct-cuit">CUIT o DNI</label>
+              <input id="ct-cuit" class="dn-input dn-num" name="cuit" maxlength="20" inputmode="numeric" autocomplete="off"
+                     placeholder="20-12345678-3" t-att-value="form.get('cuit')"/></div>
+          </div>
+          <div t-if="iva" class="dn-field"><label for="ct-iva">Condición frente al IVA</label>
+            <select id="ct-iva" class="dn-input" name="iva">
+              <option value="">Sin cargar</option>
+              <option t-foreach="iva" t-as="o" t-att-value="o[0]" t-att-selected="'selected' if str(o[0]) == form.get('iva') else None" t-esc="o[1]"/>
+            </select></div>
+          <div class="ct-grid2">
+            <div class="dn-field"><label for="ct-telefono">Teléfono</label>
+              <input id="ct-telefono" class="dn-input dn-num" name="telefono" maxlength="40" inputmode="tel" autocomplete="off"
+                     t-att-value="form.get('telefono')"/></div>
+            <div class="dn-field"><label for="ct-email">Email</label>
+              <input id="ct-email" class="dn-input" name="email" type="email" maxlength="120" autocomplete="off"
+                     t-att-value="form.get('email')"/></div>
+          </div>
+          <t t-call="distri_pedido.contactos_campos_basicos"/>
+        </section>
+
+        <h2 class="dn-label">Ubicación y entrega</h2>
+        <section class="dn-card fi-card">
+          <div class="ct-grid2">
+            <div class="dn-field"><label for="ct-lat">Latitud</label>
+              <input id="ct-lat" class="dn-input dn-num" name="lat" inputmode="decimal" maxlength="14" autocomplete="off"
+                     t-att-value="form.get('lat')"/></div>
+            <div class="dn-field"><label for="ct-lng">Longitud</label>
+              <input id="ct-lng" class="dn-input dn-num" name="lng" inputmode="decimal" maxlength="14" autocomplete="off"
+                     t-att-value="form.get('lng')"/></div>
+          </div>
+          <div class="ct-gps">
+            <button type="button" class="dn-btn dn-btn--ghost" data-ct-gps="" hidden="hidden">
+              <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'pin'"/></t>Usar mi ubicación (estoy en el comercio)</button>
+            <a t-if="mapa" class="dn-link" t-att-href="mapa" target="_blank" rel="noopener">Ver en el mapa</a>
+            <span class="dp-meta" data-ct-gps-msg="" aria-live="polite"/>
+          </div>
+          <fieldset class="ct-dias">
+            <legend class="dn-label">Días en que recibe</legend>
+            <label t-foreach="dias" t-as="d" class="ct-chip">
+              <input type="checkbox" name="dias" t-att-value="d[0]" t-att-checked="'checked' if str(d[0]) in form.get('dias', []) else None"/>
+              <span t-esc="d[1]"/>
+            </label>
+          </fieldset>
+          <div class="dn-field"><label for="ct-horarios">Horarios en que recibe</label>
+            <input id="ct-horarios" class="dn-input" name="horarios" maxlength="120" autocomplete="off"
+                   placeholder="08:00-12:30;17:00-20:30" t-att-value="form.get('horarios')"/></div>
+          <div class="dn-field"><label for="ct-nota-reparto">Comentario para los repartidores</label>
+            <textarea id="ct-nota-reparto" class="dn-input" name="nota_reparto" rows="2" maxlength="1000" t-esc="form.get('nota_reparto')"/></div>
+          <p class="dp-meta">Dirección de entrega, si es otra:</p>
+          <div class="ct-grid2">
+            <div class="dn-field"><label for="ct-entrega-calle">Calle y número</label>
+              <input id="ct-entrega-calle" class="dn-input" name="entrega_calle" maxlength="120" autocomplete="off"
+                     t-att-value="form.get('entrega_calle')"/></div>
+            <div class="dn-field"><label for="ct-entrega-ciudad">Localidad</label>
+              <input id="ct-entrega-ciudad" class="dn-input" name="entrega_ciudad" maxlength="60" autocomplete="off"
+                     list="ct-localidades" t-att-value="form.get('entrega_ciudad')"/></div>
+          </div>
+        </section>
+
+        <h2 class="dn-label">Venta</h2>
+        <section class="dn-card fi-card">
+          <div class="dn-field"><label for="ct-lista">Lista de precios</label>
+            <select id="ct-lista" class="dn-input" name="lista">
+              <option value="">La general</option>
+              <option t-foreach="listas" t-as="o" t-att-value="o[0]" t-att-selected="'selected' if str(o[0]) == form.get('lista') else None" t-esc="o[1]"/>
+            </select></div>
+          <div class="ct-grid2">
+            <div class="dn-field"><label for="ct-vendedor">Vendedor</label>
+              <select id="ct-vendedor" class="dn-input" name="vendedor">
+                <option value="">Sin vendedor</option>
+                <option t-foreach="vendedores" t-as="o" t-att-value="o[0]" t-att-selected="'selected' if str(o[0]) == form.get('vendedor') else None" t-esc="o[1]"/>
+              </select></div>
+            <div class="dn-field"><label for="ct-cartera">Cartera</label>
+              <select id="ct-cartera" class="dn-input" name="cartera">
+                <option value="">Sin cartera</option>
+                <option t-foreach="carteras" t-as="o" t-att-value="o[0]" t-att-selected="'selected' if str(o[0]) == form.get('cartera') else None" t-esc="o[1]"/>
+              </select></div>
+          </div>
+          <div t-if="vendedores_web" class="dn-field"><label for="ct-vendedor-web">Vendedor (según el cliente)</label>
+            <select id="ct-vendedor-web" class="dn-input" name="vendedor_web">
+              <option value="">Sin elegir</option>
+              <option t-foreach="vendedores_web" t-as="o" t-att-value="o[0]" t-att-selected="'selected' if str(o[0]) == form.get('vendedor_web') else None" t-esc="o[1]"/>
+            </select></div>
+          <label t-if="cuenta_corriente" class="ct-check">
+            <input type="checkbox" name="cuenta_corriente" value="1" t-att-checked="'checked' if form.get('cuenta_corriente') else None"/>
+            <span>Cuenta corriente (un pago parcial en el reparto queda a cuenta del cliente)</span>
+          </label>
+        </section>
+
+        <h2 class="dn-label">Notas</h2>
+        <section class="dn-card fi-card">
+          <div class="dn-field"><label for="ct-notas">Notas internas</label>
+            <textarea id="ct-notas" class="dn-input" name="notas" rows="3" maxlength="4000" t-esc="form.get('notas')"/></div>
+        </section>
+      </t>
+      <button type="submit" class="dn-btn dn-btn--lg">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t>Guardar</button>
+      <a class="dn-link" t-att-href="volver" data-dn="up">Volver sin guardar</a>
+    </form>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- ================================================================ merge -->
+  <template id="contactos_unir" name="Contactos: unir">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Unir <t t-esc="p.name"/> · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp fi ct" t-att-data-parent="parent" data-page="contacto-unir" t-att-data-partner="p.id">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="kicker" t-value="'Cliente nuevo · a confirmar'"/>
+    <t t-set="titulo" t-value="'Unir %s con…' % p.name"/>
+    <t t-set="sub" t-value="'Sus pedidos pasan al cliente elegido y el nuevo se archiva. Queda una nota en los dos.'"/>
+  </t>
+  <main class="dn-main fi-main">
+    <p t-if="refusal" class="dn-banner dn-banner--warn" data-ct-refusal="" t-esc="refusal"/>
+    <form method="get" t-att-action="action" class="dn-card fi-card ct-search" role="search">
+      <input class="dn-input" type="search" name="q" t-att-value="q" placeholder="Buscar el cliente que ya existía"
+             autocomplete="off" enterkeyhint="search" aria-label="Buscar el cliente"/>
+      <button type="submit" class="dn-btn">Buscar</button>
+    </form>
+    <t t-foreach="(('Parecidos', parecidos), ('Encontrados', encontrados))" t-as="grupo">
+      <t t-if="grupo[1]">
+        <h2 class="dn-label" t-esc="grupo[0]"/>
+        <form t-foreach="grupo[1]" t-as="m" method="post" t-att-action="action" class="dn-card fi-card ct-unir" data-ct-unir="">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="target_id" t-att-value="m['id']"/>
+          <input t-if="refusal" type="hidden" name="anotar" value="1"/>
+          <span class="dp-row__txt"><b t-esc="m['name']"/>
+            <span class="dp-meta"><t t-esc="m.get('why') or ''"/><t t-if="m.get('why') and m.get('detail')"> · </t><t t-esc="m.get('detail') or ''"/></span></span>
+          <button type="submit" class="dn-btn dn-btn--outline">
+            <t t-if="refusal">Anotar que es este</t><t t-else="">Unir con este</t></button>
+        </form>
+      </t>
+    </t>
+    <p t-if="not parecidos and not encontrados" class="dp-meta">No hay parecidos. Buscalo por nombre, teléfono o CUIT.</p>
+    <a class="dn-link" t-att-href="volver" data-dn="up">Volver sin unir</a>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+</odoo>

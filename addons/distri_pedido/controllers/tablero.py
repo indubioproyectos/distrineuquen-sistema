@@ -201,6 +201,13 @@ def staff_tiles(env):
     verificacion = verificacion_tile(env)
     if verificacion:
         tiles.append(verificacion)
+    contactos = contactos_tile(env)
+    if contactos:
+        # 19.0.1.129.41: right after «Cuentas» (or last before «Capacitación»)
+        keys = [t["key"] for t in tiles]
+        where = keys.index("cuentas") + 1 if "cuentas" in keys else (
+            keys.index("capacitacion") if "capacitacion" in keys else len(tiles))
+        tiles.insert(where, contactos)
     equipo = equipo_tile(env)
     if equipo:
         # before «Capacitación», which always goes last
@@ -208,6 +215,33 @@ def staff_tiles(env):
             t["key"] == "capacitacion" for t in tiles) else len(tiles)
         tiles.insert(last, equipo)
     return tiles
+
+
+# 19.0.1.129.41: «Contactos» (controllers/contactos.py). Not in TILES: it
+# exists only while distri_pedido.ui_v2 is on, for the roles of the record
+# screens (vendedor, administración, gerencia, Sistemas); administración's
+# badge is the count of customers «a confirmar».
+CONTACTOS_TILE = ("contactos", "Contactos", "Clientes: buscar, ver y corregir sus datos",
+                  IMG + "app.png", "user", "/contactos")
+
+
+def contactos_tile(env):
+    from ..models.contactos import puede_contactos
+    if not (ui_v2_on(env) and puede_contactos(env.user)):
+        return None
+    key, title, subtitle, icon, glyph, url = CONTACTOS_TILE
+    return {"key": key, "title": title, "subtitle": subtitle, "icon": icon, "glyph": glyph,
+            "menu_id": False, "url": url, "badge": None}
+
+
+def _badge_contactos(env):
+    """«a confirmar»: the customers created by sellers (and /cobro) that
+    administración still has to confirm or merge."""
+    from ..models.cliente_provisorio import can_confirm
+    if not can_confirm(env):
+        return None
+    n = env["res.partner"].sudo().search_count([("distri_cliente_provisorio", "=", True)])
+    return {"text": "%s a confirmar" % n, "kind": "warn", "n": n} if n else None
 
 
 # 19.0.1.129.33 (#74): «Equipo» (controllers/equipo.py). Not in TILES: it
@@ -407,6 +441,8 @@ TILE_BADGES = {
     "cobros": _badge_cobros,
     # 19.0.1.129.31 (verificacion_v2 only: the tile exists only then)
     "verificacion": _badge_verificacion,
+    # 19.0.1.129.41 (ui_v2 only)
+    "contactos": _badge_contactos,
 }
 
 

@@ -30,3 +30,4 @@ from . import verificacion
 from . import equipo
 from . import fichas
 from . import anular_venta
+from . import contactos

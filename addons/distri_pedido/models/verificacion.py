@@ -150,6 +150,16 @@ QUEUE_KEYS = tuple(q[0] for q in QUEUES)
 LIST_LIMIT = 50
 
 
+def _partner_url(env, partner, user):
+    """The customer an income hidden on the board opens: the Odoo form, or
+    with distri_pedido.ui_v2 on (19.0.1.129.41) the kit's customer screen for
+    whoever uses it (controllers/fichas.py)."""
+    from ..controllers.fichas import may_use, record_link
+    if may_use(user):
+        return record_link(env, "cliente", partner.id)
+    return "/odoo/res.partner/%s" % partner.id
+
+
 def _param(env, key, default=None):
     return env["ir.config_parameter"].sudo().get_param(key) or default
 
@@ -693,7 +703,7 @@ class DistriVerificacion(models.AbstractModel):
         # the incomes hidden on the board open the customer's account instead
         url = "/odoo/distri.mp.collection/%s" % card.id
         if card.kind == "income" and card.state == "draft" and not card.with_user(user).board_visible:
-            url = "/odoo/res.partner/%s" % partner.id if partner else ""
+            url = _partner_url(self.env, partner, user) if partner else ""
         return {
             "model": "distri.mp.collection", "id": card.id, "name": card.name or "",
             "partner": partner.name or "Sin cliente", "amount": _money(card.amount),

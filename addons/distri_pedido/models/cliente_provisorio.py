@@ -114,8 +114,18 @@ class ResPartnerProvisorio(models.Model):
             "when": fields.Datetime.context_timestamp(partner, when).strftime("%d/%m %H:%M")
             if when else "",
             "amount": partner.distri_provisorio_cobrado,
-            "url": "/odoo/action-distri_pedido.action_clientes_provisorios/%d" % partner.id,
+            "url": self._distri_provisorio_url(),
         }
+
+    def _distri_provisorio_url(self):
+        """Where /caja's row opens it: the backend list form, or with
+        distri_pedido.ui_v2 on (19.0.1.129.41) the kit's customer screen,
+        where «Confirmar» and «Unir con…» are, for whoever uses it."""
+        from ..controllers.fichas import ficha_url, may_use
+        from ..controllers.kit import ui_v2_on
+        if ui_v2_on(self.env) and may_use(self.env.user):
+            return ficha_url("cliente", self.id, "/caja")
+        return "/odoo/action-distri_pedido.action_clientes_provisorios/%d" % self.id
 
     # ------------------------------------------------------------ actions
 

@@ -494,7 +494,7 @@ class Fichas(http.Controller):
 
     @http.route("/clientes/<int:partner_id>", type="http", auth="user", methods=["GET"],
                 sitemap=False)
-    def cliente(self, partner_id, desde="", **kw):
+    def cliente(self, partner_id, desde="", hecho="", **kw):
         self._check()
         partner = self._get("res.partner", partner_id)
         commercial = partner.sudo().commercial_partner_id
@@ -551,7 +551,7 @@ class Fichas(http.Controller):
                          "url": subir})
         street = ", ".join(x for x in (p.street, p.street2) if x)
         town = ", ".join(x for x in (p.city, p.state_id.name) if x)
-        return self._render("distri_pedido.ficha_cliente", "cliente", p, desde, {
+        values = {
             "p": p,
             "datos": [(k, v) for k, v in (
                 ("CUIT", p.vat or ""),
@@ -568,4 +568,43 @@ class Fichas(http.Controller):
             "pedidos": pedidos,
             "facturas": facturas,
             "acts": acts,
-        })
+        }
+        values.update(self._contacto_values(partner, p, hecho))
+        return self._render("distri_pedido.ficha_cliente", "cliente", p, desde, values)
+
+    def _contacto_values(self, partner, p, hecho):
+        """19.0.1.129.41 («Contactos», controllers/contactos.py): «Editar»
+        for whoever may change something (models/contactos.py modo_edicion),
+        the delivery data, and «Confirmar» / «Unir con…» on a customer «a
+        confirmar» for administración and gerencia."""
+        from ..models.cliente_provisorio import can_confirm
+        from ..models.contactos import modo_edicion
+        from ..models.datos_entrega import maps_url
+        from .contactos import HECHO as HECHO_CONTACTO
+        env = request.env
+        modo = modo_edicion(env, partner)
+        entrega = [(k, v) for k, v in (
+            ("Recibe", (p.distri_delivery_text or "").replace("Recibe ", "", 1)),
+            ("Para el repartidor", p.distri_driver_note or ""),
+            ("Email", p.email or ""),
+        ) if v]
+        provisorio = None
+        if p.distri_cliente_provisorio:
+            confirma = can_confirm(env)
+            provisorio = {
+                "quien": p.distri_provisorio_user_id.name or "",
+                "cuando": _date(p.distri_provisorio_fecha),
+                "nota": p.distri_provisorio_nota or "",
+                "confirmar": "/clientes/%s/confirmar" % p.id if confirma else "",
+                "unir": "/clientes/%s/unir" % p.id if confirma else "",
+            }
+        return {
+            "editar_url": "/clientes/%s/editar" % p.id if modo else "",
+            "editar_parcial": modo == "vendedor",
+            "entrega": entrega,
+            "mapa": maps_url(p.partner_latitude, p.partner_longitude)
+            if (p.partner_latitude or p.partner_longitude) else "",
+            "archivado": not p.active,
+            "provisorio": provisorio,
+            "ok": HECHO_CONTACTO.get(hecho, ""),
+        }

@@ -133,3 +133,4 @@ from . import test_v129_39_deposito
 from . import test_v129_39_correcciones
 from . import test_v129_39_verificacion
 from . import test_v129_40_venta_rapida
+from . import test_v129_41_contactos
