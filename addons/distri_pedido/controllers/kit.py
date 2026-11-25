@@ -178,6 +178,8 @@ SCREEN_PARENTS = {
     "/deposito": (HOME,),
     "/deposito/entrega/<id>": ("/deposito",),
     "/deposito/mostrador": ("/deposito",),
+    # 19.0.1.129.37 (nueva_venta only): «Mis comprobantes a reclamar»
+    "/deposito/reclamar": ("/deposito",),
     "/deposito/caja": ("/deposito",),
     "/deposito/caja/<id>": ("/deposito",),
     "/despacho": (HOME,),

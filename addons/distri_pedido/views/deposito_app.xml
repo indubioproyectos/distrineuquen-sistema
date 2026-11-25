@@ -69,6 +69,10 @@
         <a t-att-href="'/deposito/caja/%s' % v.id" data-dn="down">Ver esa caja</a></span>
     </div>
 
+    <!-- 19.0.1.129.37 (nueva_venta): «Lo manda después» left at his name -->
+    <a t-if="reclamar" class="dn-banner dn-banner--warn dp-reclamar" t-att-href="reclamar['url']" data-dn="down">
+      <span>Mis comprobantes a reclamar · <b t-esc="reclamar['n']"/> · <span class="dn-num" t-esc="money(reclamar['total'])"/></span>
+    </a>
     <h2 class="dn-label" id="dp-entregar">Para entregar hoy · <t t-esc="len(rows)"/></h2>
     <form class="dp-search" method="get" action="/deposito" role="search">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>
@@ -138,6 +142,7 @@
   </t>
   <main class="dn-main">
     <form id="dp-entrega" class="dp-form" method="post" t-att-action="'/deposito/entrega/%s' % order.id"
+          t-att-enctype="'multipart/form-data' if v137 else None"
           data-dp-form="" data-dp-entrega="" t-att-data-pedido="v.get('order_amount') or 0"
           t-att-data-deuda="v.get('previous_debt') or 0">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
@@ -235,7 +240,30 @@
                    placeholder="$ 0" autocomplete="off" t-att-value="form.get('importe_transf')"/>
           </div>
           <span class="dp-fl" id="dp-comp-l">Comprobante</span>
-          <div class="dp-seg" role="radiogroup" aria-labelledby="dp-comp-l">
+          <!-- 19.0.1.129.37 (nueva_venta): the files on the spot, or at the user's name -->
+          <div t-if="v137" class="dp-comp" role="radiogroup" aria-labelledby="dp-comp-l">
+            <label class="dp-comp__opt dp-comp__opt--main"><input type="radio" name="comprobante" value="subir"
+                   t-att-checked="'checked' if form.get('comprobante') != 'despues' else None"/>
+              <span><b>Subir comprobante</b><small>Foto o PDF, uno o varios</small></span></label>
+            <div class="dp-comp__files" data-dp-show="comprobante=subir"
+                 t-att-hidden="'hidden' if form.get('comprobante') == 'despues' else None">
+              <label class="dn-btn dn-btn--lg dp-comp__pick">Elegir fotos o PDF
+                <input type="file" name="comprobantes" accept="image/*,application/pdf,.pdf" multiple="multiple"
+                       class="dp-comp__input" data-dp-files=""/></label>
+              <ul class="dp-comp__list" data-dp-files-list="" aria-live="polite"></ul>
+              <p class="dp-hint">Cada archivo queda como comprobante de este pedido para administración: el sistema
+                lo lee y lo controla con Mercado Pago. Nunca se acredita solo.</p>
+            </div>
+            <label class="dp-comp__opt"><input type="radio" name="comprobante" value="despues"
+                   t-att-checked="'checked' if form.get('comprobante') == 'despues' else None"/>
+              <span><b>Lo manda después</b><small>Queda a tu cargo</small></span></label>
+            <p class="dp-warn" data-dp-show="comprobante=despues"
+               t-att-hidden="None if form.get('comprobante') == 'despues' else 'hidden'">El comprobante queda
+              a cargo de <b t-esc="user.name"/> hasta que llegue: lo ves en «Mis comprobantes a reclamar». Si no
+              llega para pasado mañana, se carga a tu nombre. Se cierra solo cuando llega o cuando administración
+              verifica la transferencia.</p>
+          </div>
+          <div t-else="" class="dp-seg" role="radiogroup" aria-labelledby="dp-comp-l">
             <label t-foreach="answers" t-as="a"><input type="radio" name="comprobante" t-att-value="a[0]"
                    t-att-checked="'checked' if form.get('comprobante') == a[0] else None"/><span t-esc="a[1]"/></label>
           </div>
@@ -257,6 +285,51 @@
       </div>
     </form>
   </main>
+</body>
+</html>
+  </template>
+
+  <!-- =========================================== 19.0.1.129.37: receipts to claim -->
+
+  <template id="deposito_reclamar" name="Depósito: mis comprobantes a reclamar">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Mis comprobantes a reclamar · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp dn-has-nav" data-parent="/deposito" data-page="reclamar">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/deposito'"/>
+    <t t-set="kicker" t-value="'Depósito'"/>
+    <t t-set="titulo" t-value="'Mis comprobantes a reclamar'"/>
+    <t t-set="sub" t-value="'%s · %s' % (len(rows), money(total)) if rows else 'Nada pendiente'"/>
+  </t>
+  <main class="dn-main">
+    <p class="dp-hint">Son las transferencias que entregaste con «Lo manda después». Quedan a tu cargo hasta que
+      llega el comprobante: subilo acá o pedíselo al cliente. Se borran solas cuando llega o cuando administración
+      verifica la transferencia.</p>
+    <section t-foreach="rows" t-as="r" t-att-class="'dn-card dp-card dp-rec' + (' dp-rec--late' if r['vencido'] else '')">
+      <div class="dp-rec__head"><b t-esc="r['cliente']"/><b class="dn-num" t-esc="money(r['importe'])"/></div>
+      <span class="dp-meta"><t t-esc="r['pedido']"/> · entregado <t t-esc="r['cuando']"/></span>
+      <span t-att-class="'dn-chip ' + ('dn-chip--err' if r['vencido'] else 'dn-chip--warn')" t-esc="r['estado']"/>
+      <form t-if="r['abierto']" class="dp-rec__up" method="post" enctype="multipart/form-data"
+            t-att-action="'/deposito/reclamar/%s/subir' % r['id']" data-dp-form="">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <label class="dn-btn dn-btn--outline">Elegir fotos o PDF
+          <input type="file" name="comprobantes" accept="image/*,application/pdf,.pdf" multiple="multiple"
+                 class="dp-comp__input" data-dp-files=""/></label>
+        <ul class="dp-comp__list" data-dp-files-list="" aria-live="polite"></ul>
+        <button type="submit" class="dn-btn">Subir comprobante</button>
+      </form>
+      <a t-if="r['wa_url']" class="dn-btn dn-btn--ghost" target="_blank" rel="noopener"
+         t-att-href="r['wa_url']">Pedir por WhatsApp</a>
+    </section>
+    <div t-if="not rows" class="dn-empty">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t>
+      <p>No tenés comprobantes a reclamar.</p>
+    </div>
+  </main>
+  <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
 </body>
 </html>
   </template>

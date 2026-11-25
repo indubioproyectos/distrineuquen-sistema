@@ -38,10 +38,16 @@
   </form>
 
   <!-- 19.0.1.113.0: agil_banner, the stopped AgilPedido sync (controllers/tablero.py) -->
-  <div t-if="banner or agil_banner" class="tab-banners">
+  <div t-if="banner or agil_banner or reclamar" class="tab-banners">
     <a t-if="agil_banner" class="tab-alerta tab-alerta--err" t-att-href="agil_banner['url']" role="alert">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'alert'"/></t>
       <span t-esc="agil_banner['text']"/>
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
+    </a>
+    <!-- 19.0.1.129.37 (nueva_venta): the receipts «Lo manda después» left at his name -->
+    <a t-if="reclamar" class="tab-alerta" t-att-href="reclamar['url']" data-dn="down" data-tab="reclamar">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'receipt'"/></t>
+      <span t-esc="reclamar['text']"/>
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
     </a>
     <a t-if="banner" class="tab-alerta" t-att-href="banner['url']" data-dn="down">

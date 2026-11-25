@@ -17,6 +17,11 @@
  * - input[data-dp-buscar]: filters [data-dp-item] by data-texto as you type.
  * - In the delivery and closing forms Enter moves to the next field (it
  *   never sends them).
+ * - 19.0.1.129.37 (nueva_venta): input[data-dp-files] («Subir comprobante»,
+ *   several photos or PDF) lists the chosen files under it
+ *   ([data-dp-files-list]) and says at once which one cannot be a receipt
+ *   (fileProblem: type, more than 10 MB); the server checks them again and
+ *   refuses the whole form with a message per file.
  */
 (function () {
   'use strict';
@@ -95,6 +100,33 @@
     });
     form.addEventListener('input', paint);
     paint();
+  }
+
+  // ------------------------------------------------------------ receipt files
+  // 19.0.1.129.37: the same limits as the server (models/comprobante_subir.py)
+  var RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+  var RECEIPT_TYPES = /^(image\/(jpeg|png|webp)|application\/pdf)$/;
+  var RECEIPT_NAMES = /\.(jpe?g|png|webp|pdf)$/i;
+  function fileProblem(file) {
+    if (!file) { return 'No hay archivo.'; }
+    if (file.size > RECEIPT_MAX_BYTES) { return 'Es demasiado grande (más de 10 MB).'; }
+    if (!RECEIPT_TYPES.test(file.type || '') && !RECEIPT_NAMES.test(file.name || '')) {
+      return 'No es una foto (JPG, PNG o WEBP) ni un PDF.';
+    }
+    return '';
+  }
+  function receiptFiles(form) {
+    DN.$$('input[data-dp-files]', form).forEach(function (input) {
+      var list = input.closest('form').querySelector('[data-dp-files-list]');
+      input.addEventListener('change', function () {
+        if (!list) { return; }
+        list.innerHTML = Array.prototype.map.call(input.files || [], function (f) {
+          var bad = fileProblem(f);
+          return '<li class="' + (bad ? 'bad' : 'ok') + '"><b>' + DN.h(f.name) + '</b> ' +
+            (bad ? DN.h(bad) : Math.max(1, Math.round(f.size / 1024)) + ' KB') + '</li>';
+        }).join('');
+      });
+    });
   }
 
   // ------------------------------------------------------------ closing
@@ -208,6 +240,7 @@
     search();
     DN.$$('form[data-dp-form]').forEach(function (form) {
       form.addEventListener('submit', function (ev) { send(form, ev); });
+      receiptFiles(form);
       if (form.hasAttribute('data-dp-entrega')) { delivery(form); enterMovesOn(form); }
       else if (form.hasAttribute('data-dp-cierre')) { closing(form); enterMovesOn(form); }
       else if (DN.$('[data-dp-show]', form)) {

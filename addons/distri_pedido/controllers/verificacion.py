@@ -64,7 +64,9 @@ class Verificacion(http.Controller):
     def page(self, **kw):
         user = self._check()
         colas = request.env["distri.verificacion"]._summaries(user)
-        return self._render(PAGE, {"colas": colas})
+        from ..models.comprobante_subir import can_upload
+        # 19.0.1.129.37: «Subir comprobantes», several at once
+        return self._render(PAGE, {"colas": colas, "subir": can_upload(user)})
 
     @http.route("/verificacion/<string:cola>", type="http", auth="user", methods=["GET"],
                 sitemap=False)

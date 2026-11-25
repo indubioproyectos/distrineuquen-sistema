@@ -173,7 +173,10 @@ VIAS = [("pantalla", "Pantalla «Subir comprobante»"), ("compartido", "Comparti
         # 19.0.1.103.0: the customer, from his order page
         ("cliente", "Página del pedido (cliente)"),
         # 19.0.1.128.0: the transfer of a one-step «Cobrar» (models/cobrar.py)
-        ("cobrar", "«Cobrar» (cobro en un paso)")]
+        ("cobrar", "«Cobrar» (cobro en un paso)"),
+        # 19.0.1.129.37: «Subir comprobante» of a counter sale or a depot
+        # hand-over (models/comprobantes_mostrador.py)
+        ("deposito", "Entrega en depósito o mostrador")]
 
 
 def _ar(dt, fmt):
@@ -398,7 +401,8 @@ class WhatsappMessageUpload(models.Model):
 
     @api.model
     def _distri_upload_receipts(self, files, partner=None, via="pantalla", amounts=None,
-                                rotations=None, sender_note=None, complete_own=False):
+                                rotations=None, sender_note=None, complete_own=False,
+                                extra=None):
         """Creates one pending receipt per new file.
 
         `files`: [(filename, raw bytes)]. `partner`: the customer the user
@@ -414,7 +418,9 @@ class WhatsappMessageUpload(models.Model):
         can_upload(). `complete_own` (19.0.1.126.2): the same bytes as a
         receipt this user uploaded and left pending assignment are not
         refused: status «completar» offers to complete that receipt
-        (models/subir_v126_2.py)."""
+        (models/subir_v126_2.py). `extra` (19.0.1.129.37): values for every
+        new receipt, as `_distri_upload_create` takes them (the order of a
+        counter sale, models/comprobantes_mostrador.py)."""
         user = self.env.user
         if not can_upload(user):
             raise AccessError("Tu usuario no sube comprobantes.")
@@ -458,7 +464,7 @@ class WhatsappMessageUpload(models.Model):
                                 "message": existing._distri_duplicate_message(user)})
                 continue
             msg = self._distri_upload_create(name, raw, kind, user, customer, via, typed,
-                                             degrees, sender_note=sender_note)
+                                             degrees, extra=extra, sender_note=sender_note)
             created |= msg
             results.append({"name": name, "status": "nuevo", "id": msg.id,
                             "message": "Subido. Lo revisa administración."})

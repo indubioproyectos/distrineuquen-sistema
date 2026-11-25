@@ -138,3 +138,16 @@ a.comp-sug__chip{text-decoration:none;color:inherit}
 .comp-ppc__new summary{cursor:pointer;color:var(--dn-navy);font-weight:700;min-height:44px;
   display:flex;align-items:center}
 .comp-ppc__new label{font-size:14px;color:var(--dn-muted)}
+/* 19.0.1.129.37 (verificacion_v2): drop zone on the PC and the answer of each file */
+.comp-drop__hint{display:none;margin:0;font-size:14px;color:var(--dn-muted)}
+@media (hover:hover) and (pointer:fine){
+  [data-comp-drop]{border:2px dashed var(--dn-input);border-radius:14px;padding:12px}
+  .comp-drop__hint{display:block}
+}
+.comp-pick--over{border-color:var(--dn-primary);background:var(--dn-tint)}
+.comp-thumb__st{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.comp-thumb__st--sending{color:var(--dn-muted)}
+.comp-thumb__st--ok{color:var(--dn-green-text)}
+.comp-thumb__st--seen{color:var(--dn-amber-text)}
+.comp-thumb__st--error{color:var(--dn-red-text)}
+.comp-thumb--bad{opacity:.75}

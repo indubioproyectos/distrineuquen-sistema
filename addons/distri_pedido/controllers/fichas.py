@@ -205,6 +205,16 @@ class Fichas(http.Controller):
             return ""
         return "/cobro?cliente=%s" % commercial.id
 
+    def _upload_link(self, partner):
+        """19.0.1.129.37 (verificacion_v2): «Subir comprobantes» of this
+        customer, several at once (controllers/comprobantes.py)."""
+        from ..models.comprobante_subir import can_upload
+        from ..models.verificacion import verificacion_on
+        env = request.env
+        if partner.distri_generic_partner or not (verificacion_on(env) and can_upload(env.user)):
+            return ""
+        return "/comprobantes?cliente_id=%s" % partner.commercial_partner_id.id
+
     def _render(self, template, kind, record, desde, values, status=200):
         user = request.env.user
         home = _home(user)
@@ -521,6 +531,10 @@ class Fichas(http.Controller):
         if cuenta:
             acts.append({"label": "Estado de cuenta", "icon": "chart", "kind": "ghost",
                          "url": cuenta})
+        subir = self._upload_link(p)
+        if subir:
+            acts.append({"label": "Subir comprobantes", "icon": "receipt", "kind": "ghost",
+                         "url": subir})
         street = ", ".join(x for x in (p.street, p.street2) if x)
         town = ", ".join(x for x in (p.city, p.state_id.name) if x)
         return self._render("distri_pedido.ficha_cliente", "cliente", p, desde, {

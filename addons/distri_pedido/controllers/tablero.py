@@ -438,6 +438,23 @@ def agil_banner(env):
     return env["distri.agil.sincronizacion"].sudo()._distri_banner_incidente()
 
 
+def reclamar_row(env):
+    """19.0.1.129.37: «Mis comprobantes a reclamar · N · $ X» of a user who
+    delivered at the depot with «Lo manda después» (nueva_venta only; None
+    when there is nothing or the user cannot open /deposito)."""
+    from .deposito import is_depot
+    user = env.user
+    if not is_depot(user):
+        return None
+    count, total = env["distri.promised.transfer"]._distri_user_summary(user)
+    if not count:
+        return None
+    from ..models.reparto import _money
+    return {"url": "/deposito/reclamar",
+            "text": "Mis comprobantes a reclamar: %s · %s" % (
+                _plural(count, "comprobante", "comprobantes"), _money(total))}
+
+
 def my_route_today(env):
     """«Mi reparto de hoy» for a user that also drives (administración
     implies the driver group, so only with a route of today)."""
@@ -529,6 +546,8 @@ class Tablero(http.Controller):
             "banner": banner,
             "agil_banner": agil_banner(env),
             "mi_ruta": my_route_today(env),
+            # 19.0.1.129.37 (nueva_venta): «Lo manda después» left at his name
+            "reclamar": reclamar_row(env),
             "apps": [] if locked else other_apps(env, taken),
             "user": user,
             "empresa": FICHA["nombre"],

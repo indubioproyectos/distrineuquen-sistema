@@ -57,10 +57,72 @@
  *   ([data-ppc], /comprobantes/proveedores) also runs on
  *   /comprobantes/<id>/pago-proveedor. A result or a row with «supplier_url»
  *   links «Cargalo como pago a proveedor».
+ * - 19.0.1.129.37, only on a data-comp-multi page (verificacion_v2): files
+ *   dropped on [data-comp-drop] (the PC: several WhatsApp receipts of one
+ *   customer from the Downloads folder) join the list like the chosen ones,
+ *   up to MULTI_MAX. A file that cannot be a receipt (fileProblem: type,
+ *   more than 10 MB) is marked in the list and never sent. With two or more
+ *   files «Subir» sends them one per request (uploadEach), each with the
+ *   customer chosen on the page and without «acreditar» (they wait in «Para
+ *   acreditar» and are read in the background), and each thumbnail says its
+ *   own progress and answer; a file whose request failed stays in the list
+ *   to try again. One file goes as before.
  */
 (function () {
   'use strict';
   var MAX = 10;
+  // 19.0.1.129.37: the multi-file upload (one request per file)
+  var MULTI_MAX = 30;
+  var SUGGEST_MULTI = 3;
+  var RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
+  var RECEIPT_TYPES = /^(image\/(jpeg|png|webp)|application\/pdf)$/;
+  var RECEIPT_NAMES = /\.(jpe?g|png|webp|pdf)$/i;
+
+  // why a file cannot be a receipt (the server's rules,
+  // models/comprobante_subir.py), or '' when it can
+  function fileProblem(file) {
+    if (!file) { return 'No hay archivo.'; }
+    if (file.size > RECEIPT_MAX_BYTES) { return 'Es demasiado grande (más de 10 MB).'; }
+    if (!RECEIPT_TYPES.test(file.type || '') && !RECEIPT_NAMES.test(file.name || '')) {
+      return 'No es una foto (JPG, PNG o WEBP) ni un PDF.';
+    }
+    return '';
+  }
+
+  // sends the items one after the other: postOne(item) is a promise of the
+  // server's result for that file; onStep(item, n, result) after each one
+  // (result.status «enviando» before, «falla» when the request failed).
+  // Resolves with the results in order.
+  function uploadEach(items, postOne, onStep) {
+    var results = [];
+    var n = 0;
+    function next() {
+      if (n >= items.length) { return Promise.resolve(results); }
+      var item = items[n];
+      var at = n;
+      n += 1;
+      if (item.problem) {
+        var refused = {name: item.file.name, status: 'error', message: item.problem};
+        results.push(refused);
+        onStep(item, at, refused);
+        return next();
+      }
+      onStep(item, at, {name: item.file.name, status: 'enviando', message: 'Subiendo…'});
+      return postOne(item).then(function (result) {
+        result = result || {name: item.file.name, status: 'error', message: 'Sin respuesta.'};
+        results.push(result);
+        onStep(item, at, result);
+        return next();
+      }, function (e) {
+        var failed = {name: item.file.name, status: 'falla',
+                      message: 'No se pudo subir' + (e && e.message ? ' (' + e.message + ')' : '') + ': probá de nuevo.'};
+        results.push(failed);
+        onStep(item, at, failed);
+        return next();
+      });
+    }
+    return next();
+  }
 
   function money(n) {
     // like _money on the server: no cents when round, else both digits
@@ -158,7 +220,11 @@
     var v101 = api >= 101;
     var v126 = api >= 126;
     var mayCredit = form.hasAttribute('data-comp-credit');
-    var files = [];  // {file, amount, turn}
+    // 19.0.1.129.37: drop zone, one request per file
+    var multi = form.hasAttribute('data-comp-multi');
+    var limit = multi ? MULTI_MAX : MAX;
+    var sending = false;
+    var files = [];  // {file, amount, turn[, problem, state, answer]}
     var sel = DN.$('[data-comp-sel]');
     var thumbs = DN.$('[data-comp-thumbs]');
     var shared = DN.$('[name=compartido]', form);
@@ -185,8 +251,15 @@
             (v100 && !pdf ? '<button type="button" class="dn-btn dn-btn--outline comp-thumb__turn" data-comp-rot="" aria-label="Girar la foto">↻ Girar</button>' : '') +
             (v100 ? amountField(item.amount) : '');
         }
+        if (multi && (item.problem || item.answer)) {
+          // 19.0.1.129.37: why it is not sent, or its own progress / answer
+          li.innerHTML += '<small class="comp-thumb__st comp-thumb__st--' + DN.h(item.state || 'error') + '" data-comp-st="">' +
+            DN.h(item.problem || item.answer) + '</small>';
+          if (item.problem) { li.classList.add('comp-thumb--bad'); }
+        }
         li.innerHTML +=
-          '<button type="button" class="comp-thumb__x" aria-label="Sacar este archivo" data-comp-x="' + n + '">×</button>';
+          '<button type="button" class="comp-thumb__x" aria-label="Sacar este archivo" data-comp-x="' + n + '"' +
+          (sending ? ' disabled' : '') + '>×</button>';
         if (!pdf) {
           // kept for the zoom while the file is in the list
           item.url = item.url || URL.createObjectURL(file);
@@ -208,10 +281,16 @@
     var ppc = DN.$('[data-comp-ppc]', form);
     var ppcBox = DN.$('[data-comp-ppc-box]', form);
     function ppcOn() { return !!(ppc && ppc.checked); }
+    var multiNote = DN.$('[data-comp-multi-note]', form);
+    function eachOnItsOwn() {
+      // 19.0.1.129.37: several new files, nothing shared, not a supplier payment
+      return multi && files.length > 1 && !sharedCount && !ppcOn();
+    }
     function updateSend() {
       var n = files.length + sharedCount;
       var label = 'Subir';
-      if (v126 && mayCredit && !(noesta && noesta.checked)) { label = 'Subir y acreditar'; }
+      if (v126 && mayCredit && !(noesta && noesta.checked) && !eachOnItsOwn()) { label = 'Subir y acreditar'; }
+      if (multiNote) { multiNote.hidden = !eachOnItsOwn(); }
       if (ppcOn()) { label = 'Registrar pago a proveedor'; n = 0; }
       sendBtn.textContent = n > 1 ? label + ' ' + n : label;
       if (v126) {
@@ -221,21 +300,61 @@
       }
     }
 
+    function addFiles(list) {
+      var full = false;
+      Array.prototype.forEach.call(list || [], function (f) {
+        if (files.length + sharedCount < limit) {
+          var item = {file: f, amount: '', turn: 0};
+          if (multi) { item.problem = fileProblem(f); }
+          files.push(item);
+          var suggested = files.filter(function (o) { return o.suggested; }).length;
+          if (v126 && !item.problem && (!multi || suggested < SUGGEST_MULTI)) {
+            item.suggested = true;
+            suggestFor(item);
+          }
+        } else { full = true; }
+      });
+      if (full) { DN.toast('Hasta ' + limit + ' archivos por vez.', 'err'); }
+      paint();
+    }
     DN.$$('[data-comp-file]', form).forEach(function (input) {
       input.addEventListener('change', function () {
-        Array.prototype.forEach.call(input.files || [], function (f) {
-          if (files.length + sharedCount < MAX) {
-            var item = {file: f, amount: '', turn: 0};
-            files.push(item);
-            if (v126) { suggestFor(item); }
-          } else { DN.toast('Hasta ' + MAX + ' archivos por vez.', 'err'); }
-        });
+        if (!sending) { addFiles(input.files); }
         input.value = '';
-        paint();
       });
     });
+    // 19.0.1.129.37: files dragged from the PC onto the buttons
+    var drop = DN.$('[data-comp-drop]', form);
+    if (multi && drop) {
+      var hasFiles = function (ev) {
+        var types = ev.dataTransfer && ev.dataTransfer.types;
+        return !!types && Array.prototype.indexOf.call(types, 'Files') !== -1;
+      };
+      ['dragenter', 'dragover'].forEach(function (type) {
+        drop.addEventListener(type, function (ev) {
+          if (!hasFiles(ev)) { return; }
+          ev.preventDefault();
+          ev.dataTransfer.dropEffect = 'copy';
+          drop.classList.add('comp-pick--over');
+        });
+      });
+      drop.addEventListener('dragleave', function (ev) {
+        if (!drop.contains(ev.relatedTarget)) { drop.classList.toggle('comp-pick--over', false); }
+      });
+      drop.addEventListener('drop', function (ev) {
+        if (!hasFiles(ev)) { return; }
+        ev.preventDefault();
+        drop.classList.toggle('comp-pick--over', false);
+        if (!sending) { addFiles(ev.dataTransfer.files); }
+      });
+      // a file dropped next to the zone must not open it in the browser
+      ['dragover', 'drop'].forEach(function (type) {
+        document.addEventListener(type, function (ev) { if (hasFiles(ev)) { ev.preventDefault(); } });
+      });
+    }
     thumbs.addEventListener('click', function (ev) {
       var x = ev.target.closest('[data-comp-x]');
+      if (x && sending) { return; }
       if (x) {
         var gone = files.splice(parseInt(x.getAttribute('data-comp-x'), 10), 1)[0];
         if (gone && gone.url) { URL.revokeObjectURL(gone.url); }
@@ -527,6 +646,7 @@
         wrong[0].focus();
         return;
       }
+      if (eachOnItsOwn()) { sendEach(); return; }
       var body = new FormData();
       body.append('csrf_token', DN.$('[name=csrf_token]', form).value);
       body.append('cliente_id', idInput.value || '');
@@ -601,6 +721,74 @@
       });
     });
 
+    // ---- 19.0.1.129.37: several files, one request each, never credited here
+    var STEP_STATE = {enviando: 'sending', nuevo: 'ok', repetido: 'seen', completar: 'seen',
+                      error: 'error', falla: 'error'};
+    function sendEach() {
+      var batch = files.slice();
+      var valid = batch.filter(function (item) { return !item.problem; }).length;
+      if (!valid) {
+        DN.toast('Ninguno de los archivos es una foto o un PDF de hasta 10 MB.', 'err');
+        return;
+      }
+      var common = function () {
+        var body = new FormData();
+        body.append('csrf_token', DN.$('[name=csrf_token]', form).value);
+        body.append('cliente_id', idInput.value || '');
+        if (noesta && noesta.checked) {
+          body.append('no_en_sistema', '1');
+          body.append('remitente', remitente.value.trim());
+        }
+        return body;
+      };
+      var done = 0, last = null;
+      sending = true;
+      sendBtn.disabled = true;
+      uploadEach(batch, function (item) {
+        var body = common();
+        body.append('archivos', item.file, item.file.name);
+        body.append('importes', (item.amount || '').trim());
+        body.append('giros', String(item.turn || 0));
+        return DN.api(form.action, {body: body, timeout: 120000}).then(function (r) {
+          last = r;
+          return ((r && r.results) || [])[0];
+        });
+      }, function (item, n, result) {
+        item.state = STEP_STATE[result.status] || 'error';
+        item.answer = result.message;
+        if (result.status !== 'enviando') { done += 1; }
+        paint();
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Subiendo ' + Math.min(done + 1, batch.length) + ' de ' + batch.length + '…';
+      }).then(function (all) {
+        sending = false;
+        var fresh = all.filter(function (x) { return x.status === 'nuevo'; }).length;
+        var seen = all.filter(function (x) { return x.status === 'repetido'; }).length;
+        var bad = all.filter(function (x) { return x.status === 'error' || x.status === 'falla'; });
+        var parts = [];
+        if (fresh) { parts.push(fresh === 1 ? '1 comprobante subido' : fresh + ' comprobantes subidos'); }
+        if (seen) { parts.push(seen === 1 ? '1 ya estaba cargado' : seen + ' ya estaban cargados'); }
+        if (bad.length) { parts.push(bad.length === 1 ? '1 con problemas: ' + bad[0].name : bad.length + ' con problemas'); }
+        paintResults(all.filter(function (x) { return x.status !== 'falla'; }));
+        DN.toast((parts.join('. ') || 'Nada subido') + '.', bad.length || !fresh ? 'err' : 'ok');
+        // what got an answer leaves the list; a failed request stays to try again
+        files = files.filter(function (item) {
+          var keep = item.state === 'error' && !item.problem && batch.indexOf(item) !== -1 &&
+            all[batch.indexOf(item)] && all[batch.indexOf(item)].status === 'falla';
+          if (!keep && item.url) { URL.revokeObjectURL(item.url); }
+          if (keep) { item.answer = 'No se pudo subir: tocá «Subir» para probar de nuevo.'; }
+          return keep;
+        });
+        if (!files.length) {
+          sugs = [];
+          if (noesta) { noesta.checked = false; remitente.value = ''; noestaBox.hidden = true; }
+          q.value = ''; choose('', '');
+        }
+        paint();
+        if (last && last.uploads) { paintUploads(last.uploads, last.attempts); }
+      });
+    }
+
     // ---- 19.0.1.126.2: the own receipt pending assignment, to complete
     function completeCard(r) {
       var link = function (id) { return DN.h(r.url + (id ? '?cliente_id=' + encodeURIComponent(id) : '')); };
@@ -655,6 +843,10 @@
       });
     }
     if (v126 && shared) { DN.$$('li[data-comp-index]', thumbs).forEach(suggestShared); }
+    // 19.0.1.129.37: the customer the page was opened for (?cliente_id=)
+    if (multi && idInput.value && q.getAttribute('data-comp-q-name')) {
+      choose(idInput.value, q.getAttribute('data-comp-q-name'));
+    }
     paint();
   }
   // 19.0.1.126.0: «Acreditar» on «Ver comprobante» (form.comp-credit): the

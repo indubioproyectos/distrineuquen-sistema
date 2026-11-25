@@ -124,11 +124,13 @@
   <main class="dn-main">
     <form id="comp-form" class="comp-form" method="post" action="/comprobantes/subir"
           enctype="multipart/form-data" data-comp-form="" data-comp-api="126"
-          t-att-data-comp-credit="'1' if puede_acreditar else None">
+          t-att-data-comp-credit="'1' if puede_acreditar else None"
+          t-att-data-comp-multi="'1' if multi else None">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <input t-if="stage" type="hidden" name="compartido" t-att-value="stage.token"/>
 
-      <div class="comp-pick">
+      <!-- 19.0.1.129.37 (verificacion_v2): files dropped on it from the PC, one receipt each -->
+      <div class="comp-pick" t-att-data-comp-drop="'1' if multi else None">
         <label class="dn-btn dn-btn--lg comp-pick__btn">
           <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'camera'"/></t> Sacar foto
           <input type="file" name="archivos" accept="image/*" capture="environment" class="comp-file" data-comp-file=""/>
@@ -140,6 +142,8 @@
         </label>
         <p class="comp-muted">Varias a la vez, foto o PDF. En Android también podés tocar
           <b>Compartir</b> en WhatsApp y elegir <b>Distri</b>.</p>
+        <p t-if="multi" class="comp-drop__hint">En la computadora, arrastrá acá los comprobantes descargados,
+          todos juntos: cada archivo queda como un comprobante del cliente que elijas.</p>
       </div>
 
       <section class="comp-sel" data-comp-sel="" t-att-hidden="None if preview else 'hidden'">
@@ -172,12 +176,18 @@
       <div class="dn-field comp-cliente">
         <label for="comp-q">¿De qué cliente?</label>
         <div class="comp-sug" data-comp-sug="" hidden="hidden" aria-live="polite"></div>
-        <input type="hidden" name="cliente_id" data-comp-cliente-id=""/>
+        <input type="hidden" name="cliente_id" data-comp-cliente-id=""
+               t-att-value="cliente.id if cliente else None"/>
         <input id="comp-q" class="dn-input" type="search" autocomplete="off" maxlength="80"
-               placeholder="Buscar cliente…" data-comp-q=""/>
+               placeholder="Buscar cliente…" data-comp-q=""
+               t-att-value="cliente.name if cliente else None"
+               t-att-data-comp-q-name="cliente.name if cliente else None"/>
         <ul class="comp-res" data-comp-res="" hidden="hidden"></ul>
         <p class="comp-muted" data-comp-cliente-txt="">Elegí el cliente: es obligatorio. El sistema puede
           sugerirlo, pero lo confirmás vos.</p>
+        <p t-if="multi" class="comp-muted" data-comp-multi-note="" hidden="hidden">Con varios archivos el
+          cliente vale para todos y cada uno se sube por separado, sin acreditar: quedan en «Para acreditar»
+          y el sistema los lee de a uno.</p>
       </div>
       <!-- 19.0.1.129.14: only grupo_pago_proveedor (the server checks again) -->
       <div t-if="puede_proveedor" class="dn-field comp-ppc">

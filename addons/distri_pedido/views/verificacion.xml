@@ -82,6 +82,9 @@
     <t t-set="sub" t-value="'Solo lo que necesita a una persona. Cada cola tiene un responsable y un plazo.'"/>
   </t>
   <main class="dn-main">
+    <!-- 19.0.1.129.37: the upload of receipts, several at once (dropped on the PC) -->
+    <a t-if="subir" class="dn-btn dn-btn--outline" href="/comprobantes" data-dn="down">Subir comprobantes
+      (varios a la vez)</a>
     <a t-foreach="colas" t-as="c" class="dn-card dn-row" t-att-href="'/verificacion/%s' % c['key']"
        t-att-data-cola="c['key']">
       <div>

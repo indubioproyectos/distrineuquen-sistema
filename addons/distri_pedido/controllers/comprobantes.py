@@ -53,6 +53,13 @@ server ignores these fields.
 «uploads» (only the receipts created) and adds «attempts» (the refused
 duplicates of today); the page merges both by time.
 
+19.0.1.129.37 (distri_pedido.verificacion_v2 only; off = 129.36): the
+page takes files dropped on it from the PC and, with several files, sends
+them one per request (each one a receipt of the chosen customer, queued for
+the background reading, never credited on upload), with a result per file
+(comprobantes.js). `?cliente_id=` preselects the customer (the board and the
+customer screen link it).
+
 Plain HTML forms that also work without JavaScript; comprobantes.js sends
 them with fetch() (X-Distri-Fetch: 1) and gets JSON. The rules live in
 models/comprobante_subir.py; every route checks the groups first
@@ -72,6 +79,7 @@ from ..models.comprobante_subir import (
 from ..models.pago_proveedor import SUPPLIER_DENIED
 from ..models.pago_proveedor_subir import SUPPLIER_DONE, may_offer_supplier
 from ..models.reparto import _money
+from ..models.verificacion import verificacion_on
 from .kit import kit_context, page_nav
 from .tablero import wants_tablero
 
@@ -133,6 +141,8 @@ class Comprobantes(http.Controller):
             "puede_proveedor": may_offer_supplier(user),
             "ppc": request.env["distri.whatsapp.message"]._distri_supplier_fields()
             if may_offer_supplier(user) else None,
+            # 19.0.1.129.37: drop zone and one request per file
+            "multi": verificacion_on(request.env),
         }
         base.update(values)
         html = request.env["ir.qweb"]._render("distri_pedido.comprobantes_page", base)
@@ -177,9 +187,15 @@ class Comprobantes(http.Controller):
     # ---------------------------------------------------------------- page
 
     @http.route("/comprobantes", type="http", auth="user", methods=["GET"], sitemap=False)
-    def page(self, compartido="", **kw):
+    def page(self, compartido="", cliente_id="", **kw):
         self._check()
         values = {}
+        if cliente_id and verificacion_on(request.env):
+            # 19.0.1.129.37: the customer chosen where the page was opened
+            try:
+                values["cliente"] = self._partner(cliente_id) or None
+            except Forbidden:
+                values["cliente"] = None
         if compartido:
             stage = request.env["distri.receipt.share"]._distri_claim(compartido)
             if stage:

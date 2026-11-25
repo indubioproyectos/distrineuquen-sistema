@@ -15,6 +15,11 @@ static/src/deposito/).
                                         real customers
           /deposito/mostrador/<order> POST confirm, pack as ordered and
                                         invoice, then the delivery form
+        /deposito/reclamar         GET  19.0.1.129.37 (nueva_venta only): «Mis
+                                        comprobantes a reclamar», the receipts
+                                        «Lo manda después» left at the user's
+                                        name
+          .../<promise>/subir      POST its receipt, uploaded later
         /deposito/caja             GET  «Cierre de caja depósito» of the
                                         user's box of today
         /deposito/caja/<route>     GET  one depot box (any user's, as the
@@ -33,6 +38,11 @@ post plain HTML (the answer is a redirect or the page again with the
 error); deposito.js sends them with fetch() (X-Distri-Fetch: 1) and gets
 JSON, like /caja.
 
+19.0.1.129.37 (distri_pedido.nueva_venta only; off = 129.36): a transfer
+asks «Subir comprobante» (files attached on the spot, the staff upload's
+pipeline) or «Lo manda después» (at the name of whoever delivers, with the
+driver's rules): models/comprobantes_mostrador.py.
+
 Until the module is updated the templates do not exist yet (the Python
 code is loaded first): /deposito then sends to the backend and the
 «Depósito» tile stays hidden (installed()).
@@ -46,6 +56,10 @@ from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.http import request
 
 from ..models.caja import is_cashier, parse_amount
+from ..models.comprobante_subir import MAX_FILE_BYTES
+from ..models.comprobantes_mostrador import (
+    ANSWER_LATER, ANSWER_UPLOAD, CTX_UPLOAD, LATER_ANSWER, bad_files_text, check_receipt_files,
+    upload_summary)
 from ..models.deposito import ADMIN_GROUP, COUNTER_REASON
 from ..models.reparto import DEPOT_RECEIPT_ANSWERS, DEPOT_TO_CASHIER, _money
 from ..models.reparto_cliente import today_ar
@@ -228,6 +242,27 @@ class Deposito(http.Controller):
         env = request.env
         return nueva_venta_on(env) and "mostrador" in salidas_de(env.user)
 
+    def _v137(self):
+        """19.0.1.129.37: «Subir comprobante» / «Lo manda después»."""
+        from ..models.nueva_venta import nueva_venta_on
+        return nueva_venta_on(request.env)
+
+    def _receipt_files(self):
+        """[(filename, bytes)] of the «comprobantes» inputs (a byte over the
+        limit is enough to refuse the file)."""
+        out = []
+        for storage in request.httprequest.files.getlist("comprobantes"):
+            if storage and storage.filename:
+                out.append((storage.filename[:120], storage.read(MAX_FILE_BYTES + 1)))
+        return out
+
+    def _reclamar_row(self, user):
+        """«Mis comprobantes a reclamar · N · $ X» (None when there are none)."""
+        count, total = request.env["distri.promised.transfer"]._distri_user_summary(user)
+        if not count:
+            return None
+        return {"n": count, "total": total, "url": "/deposito/reclamar"}
+
     @http.route("/deposito", type="http", auth="user", methods=["GET"], sitemap=False)
     def hub(self, q="", ok="", aviso="", **kw):
         user = self._check()
@@ -247,6 +282,8 @@ class Deposito(http.Controller):
             # entry while distri_pedido.nueva_venta is on (#27 obsolete);
             # /deposito/mostrador itself still answers
             "nueva_venta": self._nueva_venta_entry(),
+            # 19.0.1.129.37: the receipts «Lo manda después» left at his name
+            "reclamar": self._reclamar_row(user),
             "caja": open_today, "cerradas_hoy": today.filtered(lambda r: r.state == "settled"),
             "viejas": older, "stops": stops, "cobros": cobros,
             "por_caja": is_cashier(user),
@@ -283,11 +320,14 @@ class Deposito(http.Controller):
                                      "counter_present", "code_option", "transfer"])
         o = order.sudo()
         lines = order.order_line.filtered(lambda l: not l.display_type and l.product_uom_qty > 0)
+        v137 = self._v137()
         form = form if form is not None else {
             "devolvio": "", "codigo_op": "code", "transferencia": "no",
             "presente": "1" if values.get("counter_present") else "",
             "bultos": str(values.get("parcels") or ""),
         }
+        if v137 and form.get("comprobante") not in (ANSWER_UPLOAD, ANSWER_LATER):
+            form = dict(form, comprobante=ANSWER_UPLOAD)
         return self._render("distri_pedido.deposito_entrega", {
             "order": order, "mostrador": bool(mostrador), "v": values,
             "saldo": (values.get("order_amount") or 0.0) + (values.get("previous_debt") or 0.0),
@@ -300,6 +340,8 @@ class Deposito(http.Controller):
             "locked": bool(o.distri_receipt_hash and o.distri_receipt_locked),
             "answers": DEPOT_RECEIPT_ANSWERS, "counter_reason": COUNTER_REASON,
             "error": error, "form": form,
+            # 19.0.1.129.37 (nueva_venta): «Subir comprobante» / «Lo manda después»
+            "v137": v137,
         }, status=status)
 
     @http.route("/deposito/entrega/<int:order_id>", type="http", auth="user", methods=["GET"],
@@ -360,16 +402,39 @@ class Deposito(http.Controller):
         order = self._order(order_id)
         mostrador = mostrador == "1"
         form = self._form()
+        answers, files, results = dict(form), [], []
         try:
+            if self._v137() and form.get("transferencia") == "yes":
+                # 19.0.1.129.37: the page's two answers as the wizard's
+                if form.get("comprobante") == ANSWER_UPLOAD:
+                    files = self._receipt_files()
+                    bad = check_receipt_files(files)
+                    if bad:
+                        raise UserError(bad_files_text(bad))
+                    # a valid answer for the wizard; the visit says «photo»
+                    answers["comprobante"] = DEPOT_RECEIPT_ANSWERS[0][0]
+                elif form.get("comprobante") == ANSWER_LATER:
+                    answers["comprobante"] = LATER_ANSWER
+                else:
+                    raise UserError("Elegí «Subir comprobante» o «Lo manda después».")
             with request.env.cr.savepoint():
                 action = self._delivery_action(order, mostrador)
-                Wizard = request.env["distri.depot.delivery"].with_context(action["context"])
-                wizard = Wizard.create(self._wizard_values(order, form, mostrador))
+                context = dict(action["context"], **({CTX_UPLOAD: True} if files else {}))
+                Wizard = request.env["distri.depot.delivery"].with_context(context)
+                wizard = Wizard.create(self._wizard_values(order, answers, mostrador))
                 wizard.action_confirm()
+                if files:
+                    results = request.env["distri.whatsapp.message"]._distri_depot_upload(
+                        order, files, amount=wizard.transfer_amount)
         except (UserError, AccessError, ValidationError) as exc:
             return self._refuse(exc, lambda text: self._entrega(
                 order, mostrador=mostrador, error=text, form=form, status=400))
-        return self._done("/deposito", "%s entregado a %s." % (order.name, order.partner_id.name))
+        message = "%s entregado a %s." % (order.name, order.partner_id.name)
+        if results:
+            message += " Comprobante: %s." % upload_summary(results)
+        elif answers.get("comprobante") == LATER_ANSWER and self._v137():
+            message += " El comprobante queda a tu cargo hasta que llegue."
+        return self._done("/deposito", message)
 
     # ---------------------------------------------------------------- counter sale
 
@@ -430,6 +495,54 @@ class Deposito(http.Controller):
         if self._by_fetch():
             return self._json({"ok": True, "url": url, "down": True})
         return request.redirect(url, 303)
+
+    # ---------------------------------------------------------------- «Mis comprobantes a reclamar»
+
+    def _reclamar(self, ok="", error="", status=200):
+        user = request.env.user
+        items = request.env["distri.promised.transfer"]._distri_user_items(user)
+        rows = [item._distri_user_row() for item in items]
+        return self._render("distri_pedido.deposito_reclamar", {
+            "rows": rows, "total": sum(r["importe"] for r in rows),
+            "ok": ok[:300], "error": error,
+            "nav": depot_nav(request.env, "entregas"),
+        }, status=status)
+
+    @http.route("/deposito/reclamar", type="http", auth="user", methods=["GET"], sitemap=False)
+    def reclamar_page(self, ok="", **kw):
+        """19.0.1.129.37: the receipts «Lo manda después» left at the user's
+        name (nueva_venta only)."""
+        if not self._v137():
+            raise NotFound()
+        self._check()
+        if not installed(request.env):
+            return self._not_yet()
+        return self._reclamar(ok=ok)
+
+    @http.route("/deposito/reclamar/<int:promise_id>/subir", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def reclamar_subir(self, promise_id, **kw):
+        """The receipt of one of them, uploaded now: the same upload as at
+        the delivery (it names the order, so it resolves that one)."""
+        if not self._v137():
+            raise NotFound()
+        user = self._check()
+        promise = request.env["distri.promised.transfer"].sudo().browse(promise_id).exists()
+        if not promise:
+            raise NotFound()
+        try:
+            with request.env.cr.savepoint():
+                promise = promise._distri_check_user_item(user)
+                files = self._receipt_files()
+                bad = check_receipt_files(files)
+                if bad:
+                    raise UserError(bad_files_text(bad))
+                results = request.env["distri.whatsapp.message"]._distri_depot_upload(
+                    promise.order_id, files, amount=promise.amount)
+        except (UserError, AccessError, ValidationError) as exc:
+            return self._refuse(exc, lambda text: self._reclamar(error=text, status=400))
+        return self._done("/deposito/reclamar", "%s: %s." % (
+            promise.order_id.name, upload_summary(results) or "nada nuevo"))
 
     # ---------------------------------------------------------------- closing
 
