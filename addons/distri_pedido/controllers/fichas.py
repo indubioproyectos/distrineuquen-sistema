@@ -29,7 +29,8 @@ portfolio and his orders, administración and gerencia everything), plus
 res.users._distri_may_reach_customer for the customer (the kit's one check of
 the external seller) and, since 19.0.1.129.39, _distri_may_reach_record for
 an order or invoice (the standard «Personal Orders/Invoices» rules let any
-seller read the ones without salesperson, e.g. AgilPedido's). A record the user cannot read answers 404, the same as
+seller read the ones without salesperson, e.g. AgilPedido's: a seller only
+reaches his own and his customers'). A record the user cannot read answers 404, the same as
 one that does not exist. The screens are for the daily roles (vendedor,
 administración, gerencia, Sistemas); a packer or driver without them gets 403.
 Related records (the invoice's payments, the order's pickings and stops) are
@@ -173,9 +174,9 @@ class Fichas(http.Controller):
         except AccessError:
             raise NotFound() from None
         # 19.0.1.129.39: the backend's «Personal Orders/Invoices» rules let a
-        # seller read every order or invoice without salesperson; an external
-        # seller still reaches only his customers' (the page reads the rest
-        # with sudo, so this check comes before any of it)
+        # seller read every order or invoice without salesperson; a seller
+        # still reaches only his own or his customers' (the page reads the
+        # rest with sudo, so this check comes before any of it)
         if model in ("sale.order", "account.move") and not self._may_reach_record(record):
             raise NotFound()
         return record

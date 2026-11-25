@@ -309,7 +309,7 @@ class SaleOrderNuevaVenta(models.Model):
         required, «Confirmar sin WhatsApp»."""
         self.ensure_one()
         self.check_access("write")
-        # 19.0.1.129.39: an external seller only on his customers' orders
+        # 19.0.1.129.39: a seller only on his own or his customers' orders
         # (the standard rule lets him write the ones without salesperson)
         if not self.env.su and not self.env.user._distri_may_reach_record(self):
             raise AccessError("Ese pedido no es de tus clientes.")

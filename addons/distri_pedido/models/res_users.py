@@ -285,12 +285,17 @@ class ResUsers(models.Model):
         venta», /facturas/<id>) beyond the backend's record rules. The
         standard «Personal Orders» / «Personal Invoices» rules let any
         seller read an order or invoice without salesperson (AgilPedido's,
-        a script's); an external seller is still limited to his customers
-        (_distri_may_reach_customer), plus the orders and invoices that are
-        his own (his salesperson, or an order he created). Everybody else:
-        True."""
+        a script's), and the screens read its customer with sudo. A seller
+        (internal or external; not administración nor Sistemas) reaches it
+        only when it is his own (his salesperson, or an order he created) or
+        its customer is one he may read: his portfolio (partner record rule
+        regla_partner_vendedor) and, for an external seller, his customers
+        (_distri_may_reach_customer). Everybody else: True."""
         self.ensure_one()
-        if not self._distri_is_external_seller():
+        user = self.sudo()
+        if user.share or not user.has_group("distri_pedido.grupo_vendedor") \
+                or user.has_group("distri_pedido.grupo_administracion") \
+                or user.has_group("base.group_system"):
             return True
         rec = record.sudo()
         if rec._name == "sale.order":
@@ -299,7 +304,12 @@ class ResUsers(models.Model):
         elif rec._name == "account.move":
             if rec.invoice_user_id == self:
                 return True
-        return bool(rec.partner_id) and self._distri_may_reach_customer(rec.partner_id)
+        partner = rec.partner_id
+        if not partner or not self._distri_may_reach_customer(partner):
+            return False
+        Partner = self.env["res.partner"].with_user(self)
+        return any(Partner.browse(p.id).has_access("read")
+                   for p in (partner.commercial_partner_id, partner))
 
 
 class ResPartnerChosenSeller(models.Model):

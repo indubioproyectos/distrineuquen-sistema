@@ -5,8 +5,9 @@ WhatsApp orders are. The kit's order and invoice screens, «Aprobar» and
 «Anular venta» now also apply the external seller's rule
 (res.users._distri_may_reach_record): an external seller gets 404 on an
 order or invoice of a customer that is not his, with or without
-salesperson, on every route and POST. His own customers' orders still open,
-and nobody else changes. Nothing moves a balance."""
+salesperson, on every route and POST; an internal seller only reaches the
+ones of his portfolio (the partner rule) besides his own. Administración
+does not change. Nothing moves a balance."""
 from odoo import Command
 from odoo.exceptions import AccessError
 from odoo.tests import HttpCase, new_test_user, tagged
@@ -36,14 +37,17 @@ class TestV12939Fichas(HttpCase):
                 new.write(vals)
             return new
 
+        cls.tag = cls.env["res.partner.category"].create({"name": "Cartera F39"})
         cls.admin = user("admin_f39", "distri_pedido.grupo_administracion")
-        cls.interno = user("interno_f39", "distri_pedido.grupo_vendedor")
+        cls.interno = user("interno_f39", "distri_pedido.grupo_vendedor",
+                           etiqueta_cartera_id=cls.tag.id)
         cls.otro = user("otro_f39", "distri_pedido.grupo_vendedor")
         cls.externo = user("externo_f39", "distri_pedido.grupo_vendedor",
                            distri_tipo_vendedor="externo")
         Partner = cls.env["res.partner"]
         cls.propio = Partner.create({"name": "PROPIO EXTERNO F39", "customer_rank": 1})
-        cls.ajeno = Partner.create({"name": "AJENO F39", "customer_rank": 1})
+        cls.ajeno = Partner.create({"name": "AJENO F39", "customer_rank": 1,
+                                    "category_id": [Command.link(cls.tag.id)]})
         cls.product = cls.env["product.product"].create({
             "name": "Yerba F39", "type": "consu", "invoice_policy": "order",
             "list_price": 100.0})
@@ -115,8 +119,10 @@ class TestV12939Fichas(HttpCase):
         self.assertFalse(self.externo._distri_may_reach_record(self.inv_agil))
         self.assertTrue(self.externo._distri_may_reach_record(self.q_propio))
         self.assertTrue(self.externo._distri_may_reach_record(self.inv_propio))
-        for user in (self.admin, self.interno, self.otro):
-            self.assertTrue(user._distri_may_reach_record(self.q_agil), user.login)
+        self.assertTrue(self.admin._distri_may_reach_record(self.q_agil))
+        self.assertTrue(self.interno._distri_may_reach_record(self.q_agil), "his portfolio")
+        self.assertTrue(self.q_agil.with_user(self.otro).has_access("read"))
+        self.assertFalse(self.otro._distri_may_reach_record(self.q_agil), "not his portfolio")
 
     # ------------------------------------------------------------ every route and POST
 
@@ -152,8 +158,8 @@ class TestV12939Fichas(HttpCase):
             self.q_agil.with_user(self.externo).distri_kit_aprobar(sin_whatsapp=True)
         self.assertEqual(self.q_agil.state, "draft")
 
-    def test_others_unchanged(self):
-        """Administración and internal sellers keep what the backend gives."""
+    def test_others(self):
+        """Administración keeps everything; an internal seller his portfolio."""
         self._login(self.admin)
         for path in ("/pedidos/%s" % self.q_agil.id, "/pedidos/%s" % self.o_agil.id,
                      "/facturas/%s" % self.inv_agil.id, "/pedidos/%s/anular" % self.o_agil.id):
@@ -162,7 +168,12 @@ class TestV12939Fichas(HttpCase):
                       self._get("/pedidos/%s" % self.q_agil.id).text)
         self._login(self.interno)
         self.assertEqual(self._get("/pedidos/%s" % self.q_agil.id).status_code, 200,
-                         "an internal seller: the backend's rule, as in 129.34")
+                         "the customer is in his portfolio")
+        self.assertEqual(self._get("/facturas/%s" % self.inv_agil.id).status_code, 200)
+        self._login(self.otro)
+        self.assertEqual(self._get("/pedidos/%s" % self.q_agil.id).status_code, 404,
+                         "an internal seller outside his portfolio")
+        self.assertEqual(self._get("/facturas/%s" % self.inv_agil.id).status_code, 404)
 
     def test_flags_off_still_404(self):
         self.env["ir.config_parameter"].sudo().set_param(PARAM_UI_V2, "0")
