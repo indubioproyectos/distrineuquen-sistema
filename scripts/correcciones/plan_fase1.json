@@ -1,0 +1,4594 @@
+{
+ "field_updates": [
+  {
+   "id": 866,
+   "vals": {
+    "distri_amount": 96000,
+    "distri_operation": "ee9e495e-81e3-4824-b53e-a26184b4f324"
+   }
+  },
+  {
+   "id": 868,
+   "vals": {
+    "distri_amount": 80500
+   }
+  },
+  {
+   "id": 869,
+   "vals": {
+    "distri_amount": 101200,
+    "distri_operation": "3036825661"
+   }
+  },
+  {
+   "id": 872,
+   "vals": {
+    "distri_operation": "37019628-9f1e-495d-ae89-aa25ca57363d"
+   }
+  },
+  {
+   "id": 875,
+   "vals": {
+    "distri_operation": "0V1JXON1RYE1Q3E3NZ64EL"
+   }
+  },
+  {
+   "id": 883,
+   "vals": {
+    "distri_operation": "8D0Q619L3KV7GL03N7JZ5R"
+   }
+  },
+  {
+   "id": 887,
+   "vals": {
+    "distri_operation": "e2a04932-078b-4320-a018-ffdadc01eada"
+   }
+  },
+  {
+   "id": 892,
+   "vals": {
+    "distri_operation": "175579033305"
+   }
+  },
+  {
+   "id": 898,
+   "vals": {
+    "distri_operation": "176578805720",
+    "distri_receipt_date": "2026-08-31 21:56:00"
+   }
+  },
+  {
+   "id": 899,
+   "vals": {
+    "distri_receipt_date": "2026-08-31 22:08:00"
+   }
+  },
+  {
+   "id": 903,
+   "vals": {
+    "distri_operation": "WGRXJE276V7JQOPL97MYQL"
+   }
+  },
+  {
+   "id": 908,
+   "vals": {
+    "distri_operation": "175753749749"
+   }
+  },
+  {
+   "id": 912,
+   "vals": {
+    "distri_receipt_date": "2026-09-01 18:20:00"
+   }
+  },
+  {
+   "id": 917,
+   "vals": {
+    "distri_amount": 140000
+   }
+  },
+  {
+   "id": 918,
+   "vals": {
+    "distri_amount": 84700,
+    "distri_operation": "7ea22f31-d256-4575-9bf5-128df44fbd83"
+   }
+  },
+  {
+   "id": 919,
+   "vals": {
+    "distri_amount": 233500,
+    "distri_operation": "0410858775",
+    "distri_receipt_date": "2026-09-01 20:38:00"
+   }
+  },
+  {
+   "id": 922,
+   "vals": {
+    "distri_receipt_date": "2026-09-01 21:26:00"
+   }
+  },
+  {
+   "id": 927,
+   "vals": {
+    "distri_receipt_date": "2026-09-01 22:06:00"
+   }
+  },
+  {
+   "id": 933,
+   "vals": {
+    "distri_receipt_date": "2026-09-02 16:03:00"
+   }
+  },
+  {
+   "id": 944,
+   "vals": {
+    "distri_receipt_date": "2026-09-02 17:27:00"
+   }
+  },
+  {
+   "id": 946,
+   "vals": {
+    "distri_amount": 269860
+   }
+  },
+  {
+   "id": 948,
+   "vals": {
+    "distri_receipt_date": "2026-09-02 19:52:00"
+   }
+  },
+  {
+   "id": 952,
+   "vals": {
+    "distri_amount": 311540
+   }
+  },
+  {
+   "id": 954,
+   "vals": {
+    "distri_receipt_date": "2026-09-03 14:39:00"
+   }
+  },
+  {
+   "id": 955,
+   "vals": {
+    "distri_amount": 74960
+   }
+  },
+  {
+   "id": 957,
+   "vals": {
+    "distri_amount": 149100
+   }
+  },
+  {
+   "id": 960,
+   "vals": {
+    "distri_amount": 109400
+   }
+  },
+  {
+   "id": 962,
+   "vals": {
+    "distri_receipt_date": "2026-09-03 16:28:00"
+   }
+  },
+  {
+   "id": 963,
+   "vals": {
+    "distri_operation": "176109229605",
+    "distri_receipt_date": "2026-09-03 16:58:00"
+   }
+  },
+  {
+   "id": 964,
+   "vals": {
+    "distri_amount": 197400
+   }
+  },
+  {
+   "id": 967,
+   "vals": {
+    "distri_amount": 85000
+   }
+  },
+  {
+   "id": 968,
+   "vals": {
+    "distri_amount": 84900,
+    "distri_operation": "177066086478",
+    "distri_receipt_date": "2026-09-03 16:48:00"
+   }
+  },
+  {
+   "id": 970,
+   "vals": {
+    "distri_receipt_date": "2026-09-03 21:40:00"
+   }
+  },
+  {
+   "id": 971,
+   "vals": {
+    "distri_amount": 258800
+   }
+  },
+  {
+   "id": 974,
+   "vals": {
+    "distri_amount": 437600
+   }
+  },
+  {
+   "id": 975,
+   "vals": {
+    "distri_receipt_date": "2026-09-03 22:24:00"
+   }
+  },
+  {
+   "id": 979,
+   "vals": {
+    "distri_amount": 99800
+   }
+  },
+  {
+   "id": 980,
+   "vals": {
+    "distri_amount": 617500
+   }
+  },
+  {
+   "id": 981,
+   "vals": {
+    "distri_operation": "177232678536",
+    "distri_receipt_date": "2026-09-04 15:15:00"
+   }
+  },
+  {
+   "id": 984,
+   "vals": {
+    "distri_amount": 201000
+   }
+  },
+  {
+   "id": 985,
+   "vals": {
+    "distri_amount": 100000
+   }
+  },
+  {
+   "id": 988,
+   "vals": {
+    "distri_amount": 428820
+   }
+  },
+  {
+   "id": 989,
+   "vals": {
+    "distri_amount": 367800
+   }
+  },
+  {
+   "id": 990,
+   "vals": {
+    "distri_receipt_date": "2026-09-04 17:32:00"
+   }
+  },
+  {
+   "id": 994,
+   "vals": {
+    "distri_amount": 107340
+   }
+  },
+  {
+   "id": 995,
+   "vals": {
+    "distri_amount": 93900
+   }
+  },
+  {
+   "id": 1003,
+   "vals": {
+    "distri_operation": "JMQKYZ9QGPX74Q6VNV50P3"
+   }
+  },
+  {
+   "id": 1004,
+   "vals": {
+    "distri_operation": "176363843839",
+    "distri_receipt_date": "2026-09-04 22:33:00"
+   }
+  },
+  {
+   "id": 1007,
+   "vals": {
+    "distri_operation": "2137875d-2921-4263-9f41-9df953989f4a"
+   }
+  },
+  {
+   "id": 1008,
+   "vals": {
+    "distri_amount": 87420
+   }
+  },
+  {
+   "id": 1010,
+   "vals": {
+    "distri_operation": "177431921932",
+    "distri_receipt_date": "2026-09-05 15:26:00"
+   }
+  },
+  {
+   "id": 1012,
+   "vals": {
+    "distri_operation": "8d8695b0-3821-466d-84bf-dc204bf191f6"
+   }
+  },
+  {
+   "id": 1014,
+   "vals": {
+    "distri_operation": "fa9332cf-317a-4ede-ac8d-fee05b12e1bd"
+   }
+  },
+  {
+   "id": 1017,
+   "vals": {
+    "distri_operation": "Z6OLMDN37ZXV83V69E7RQ5"
+   }
+  },
+  {
+   "id": 1019,
+   "vals": {
+    "distri_operation": "ed3e6039-73f9-4292-a1b8-f0bec5757367"
+   }
+  },
+  {
+   "id": 1020,
+   "vals": {
+    "distri_amount": 123900
+   }
+  },
+  {
+   "id": 1021,
+   "vals": {
+    "distri_amount": 308450
+   }
+  },
+  {
+   "id": 1022,
+   "vals": {
+    "distri_receipt_date": "2026-09-06 19:03:00"
+   }
+  },
+  {
+   "id": 1023,
+   "vals": {
+    "distri_amount": 183100
+   }
+  },
+  {
+   "id": 1024,
+   "vals": {
+    "distri_amount": 122430
+   }
+  },
+  {
+   "id": 1028,
+   "vals": {
+    "distri_amount": 103230
+   }
+  },
+  {
+   "id": 1030,
+   "vals": {
+    "distri_amount": 269400
+   }
+  },
+  {
+   "id": 1031,
+   "vals": {
+    "distri_amount": 220900
+   }
+  },
+  {
+   "id": 1032,
+   "vals": {
+    "distri_amount": 203800,
+    "distri_operation": "3075156867"
+   }
+  },
+  {
+   "id": 1033,
+   "vals": {
+    "distri_amount": 99800
+   }
+  },
+  {
+   "id": 1034,
+   "vals": {
+    "distri_amount": 104300,
+    "distri_receipt_date": "2026-09-07 16:47:00"
+   }
+  },
+  {
+   "id": 1035,
+   "vals": {
+    "distri_receipt_date": "2026-09-07 17:12:00"
+   }
+  },
+  {
+   "id": 1036,
+   "vals": {
+    "distri_amount": 195500
+   }
+  },
+  {
+   "id": 1040,
+   "vals": {
+    "distri_receipt_date": "2026-09-07 17:52:00"
+   }
+  },
+  {
+   "id": 1045,
+   "vals": {
+    "distri_amount": 196860
+   }
+  },
+  {
+   "id": 1051,
+   "vals": {
+    "distri_amount": 40000
+   }
+  },
+  {
+   "id": 1053,
+   "vals": {
+    "distri_amount": 367100
+   }
+  },
+  {
+   "id": 1055,
+   "vals": {
+    "distri_amount": 200000
+   }
+  },
+  {
+   "id": 1057,
+   "vals": {
+    "distri_operation": "177007537183",
+    "distri_receipt_date": "2026-09-08 20:16:00"
+   }
+  },
+  {
+   "id": 1058,
+   "vals": {
+    "distri_amount": 45690,
+    "distri_operation": "177011234187",
+    "distri_receipt_date": "2026-09-08 20:34:00"
+   }
+  },
+  {
+   "id": 1064,
+   "vals": {
+    "distri_amount": 197600
+   }
+  },
+  {
+   "id": 1065,
+   "vals": {
+    "distri_operation": "178004684958",
+    "distri_receipt_date": "2026-09-08 22:48:00"
+   }
+  },
+  {
+   "id": 1067,
+   "vals": {
+    "distri_receipt_date": "2026-09-08 23:49:00"
+   }
+  },
+  {
+   "id": 1068,
+   "vals": {
+    "distri_operation": "1b94cb17-0e4f-49a2-9317-920f65542b5e"
+   }
+  },
+  {
+   "id": 1069,
+   "vals": {
+    "distri_amount": 300000
+   }
+  },
+  {
+   "id": 1073,
+   "vals": {
+    "distri_amount": 65080
+   }
+  },
+  {
+   "id": 1075,
+   "vals": {
+    "distri_receipt_date": "2026-09-09 20:19:00"
+   }
+  },
+  {
+   "id": 1076,
+   "vals": {
+    "distri_amount": 111600
+   }
+  },
+  {
+   "id": 1077,
+   "vals": {
+    "distri_operation": "178170035098",
+    "distri_receipt_date": "2026-09-09 21:07:00"
+   }
+  },
+  {
+   "id": 1079,
+   "vals": {
+    "distri_operation": "e7455b5f-9409-4659-9bcb-6d76ca2b8361"
+   }
+  },
+  {
+   "id": 1080,
+   "vals": {
+    "distri_amount": 269250
+   }
+  },
+  {
+   "id": 1082,
+   "vals": {
+    "distri_amount": 262240
+   }
+  },
+  {
+   "id": 1085,
+   "vals": {
+    "distri_operation": "88748439"
+   }
+  },
+  {
+   "id": 1086,
+   "vals": {
+    "distri_receipt_date": "2026-09-10 15:01:00"
+   }
+  },
+  {
+   "id": 1088,
+   "vals": {
+    "distri_amount": 587500,
+    "distri_operation": "0416894208"
+   }
+  },
+  {
+   "id": 1089,
+   "vals": {
+    "distri_operation": "178301462226",
+    "distri_receipt_date": "2026-09-10 15:53:00"
+   }
+  },
+  {
+   "id": 1093,
+   "vals": {
+    "distri_amount": 86100
+   }
+  },
+  {
+   "id": 1094,
+   "vals": {
+    "distri_receipt_date": "2026-09-10 17:16:00"
+   }
+  },
+  {
+   "id": 1096,
+   "vals": {
+    "distri_receipt_date": "2026-09-10 18:16:00"
+   }
+  },
+  {
+   "id": 1099,
+   "vals": {
+    "distri_amount": 100000
+   }
+  },
+  {
+   "id": 1100,
+   "vals": {
+    "distri_amount": 72400
+   }
+  },
+  {
+   "id": 1103,
+   "vals": {
+    "distri_operation": "10437252021260910",
+    "distri_receipt_date": "2026-09-10 23:50:00"
+   }
+  },
+  {
+   "id": 1105,
+   "vals": {
+    "distri_amount": 166200
+   }
+  },
+  {
+   "id": 1107,
+   "vals": {
+    "distri_amount": 110400
+   }
+  },
+  {
+   "id": 1109,
+   "vals": {
+    "distri_operation": "178504014808",
+    "distri_receipt_date": "2026-09-11 17:14:00"
+   }
+  },
+  {
+   "id": 1113,
+   "vals": {
+    "distri_receipt_date": "2026-09-11 19:40:00"
+   }
+  },
+  {
+   "id": 1114,
+   "vals": {
+    "distri_operation": "3096685816"
+   }
+  },
+  {
+   "id": 1116,
+   "vals": {
+    "distri_receipt_date": "2026-09-11 20:21:00"
+   }
+  },
+  {
+   "id": 1118,
+   "vals": {
+    "distri_amount": 280600,
+    "distri_operation": "177557410293",
+    "distri_receipt_date": "2026-09-11 19:32:00"
+   }
+  },
+  {
+   "id": 1119,
+   "vals": {
+    "distri_operation": "c0855988-a0d1-4c96-8558-c02ff203836e"
+   }
+  },
+  {
+   "id": 1120,
+   "vals": {
+    "distri_amount": 75650,
+    "distri_receipt_date": "2026-09-11 20:40:00"
+   }
+  },
+  {
+   "id": 1124,
+   "vals": {
+    "distri_operation": "178566067028",
+    "distri_receipt_date": "2026-09-11 22:30:00"
+   }
+  },
+  {
+   "id": 1126,
+   "vals": {
+    "distri_operation": "178575589400",
+    "distri_receipt_date": "2026-09-11 23:17:00"
+   }
+  },
+  {
+   "id": 1128,
+   "vals": {
+    "distri_receipt_date": "2026-09-11 23:29:00"
+   }
+  },
+  {
+   "id": 1129,
+   "vals": {
+    "distri_receipt_date": "2026-09-11 23:35:00"
+   }
+  },
+  {
+   "id": 1130,
+   "vals": {
+    "distri_amount": 390970,
+    "distri_receipt_date": "2026-09-11 23:38:00"
+   }
+  },
+  {
+   "id": 1131,
+   "vals": {
+    "distri_receipt_date": "2026-09-11 23:45:00"
+   }
+  },
+  {
+   "id": 1132,
+   "vals": {
+    "distri_operation": "177610793841",
+    "distri_receipt_date": "2026-09-11 23:50:00"
+   }
+  },
+  {
+   "id": 1134,
+   "vals": {
+    "distri_amount": 94700
+   }
+  },
+  {
+   "id": 1136,
+   "vals": {
+    "distri_receipt_date": "2026-09-12 00:47:00"
+   }
+  },
+  {
+   "id": 1137,
+   "vals": {
+    "distri_receipt_date": "2026-09-12 00:57:00"
+   }
+  },
+  {
+   "id": 1138,
+   "vals": {
+    "distri_amount": 418900
+   }
+  },
+  {
+   "id": 1139,
+   "vals": {
+    "distri_operation": "ORD6LEN8MDXXQRJ0NM1Y30"
+   }
+  },
+  {
+   "id": 1141,
+   "vals": {
+    "distri_amount": 268090
+   }
+  },
+  {
+   "id": 1145,
+   "vals": {
+    "distri_amount": 59000
+   }
+  },
+  {
+   "id": 1146,
+   "vals": {
+    "distri_amount": 25000
+   }
+  },
+  {
+   "id": 1150,
+   "vals": {
+    "distri_amount": 304350
+   }
+  },
+  {
+   "id": 1153,
+   "vals": {
+    "distri_amount": 183600
+   }
+  },
+  {
+   "id": 1155,
+   "vals": {
+    "distri_operation": "000419581042"
+   }
+  },
+  {
+   "id": 1156,
+   "vals": {
+    "distri_operation": "178979144804"
+   }
+  },
+  {
+   "id": 1157,
+   "vals": {
+    "distri_amount": 73500
+   }
+  },
+  {
+   "id": 1160,
+   "vals": {
+    "distri_amount": 561000
+   }
+  },
+  {
+   "id": 1161,
+   "vals": {
+    "distri_amount": 50000
+   }
+  },
+  {
+   "id": 1162,
+   "vals": {
+    "distri_operation": "178991490260"
+   }
+  },
+  {
+   "id": 1163,
+   "vals": {
+    "distri_operation": "178997966684"
+   }
+  },
+  {
+   "id": 1165,
+   "vals": {
+    "distri_amount": 923720
+   }
+  },
+  {
+   "id": 1168,
+   "vals": {
+    "distri_amount": 128700
+   }
+  },
+  {
+   "id": 1170,
+   "vals": {
+    "distri_amount": 132600
+   }
+  },
+  {
+   "id": 1172,
+   "vals": {
+    "distri_operation": "178090277091",
+    "distri_receipt_date": "2026-09-15 01:05:00"
+   }
+  },
+  {
+   "id": 1173,
+   "vals": {
+    "distri_amount": 1014250
+   }
+  },
+  {
+   "id": 1174,
+   "vals": {
+    "distri_amount": 585420
+   }
+  },
+  {
+   "id": 1177,
+   "vals": {
+    "distri_receipt_date": "2026-09-15 16:02:00"
+   }
+  },
+  {
+   "id": 1179,
+   "vals": {
+    "distri_amount": 115800,
+    "distri_receipt_date": "2026-09-15 16:50:00"
+   }
+  },
+  {
+   "id": 1183,
+   "vals": {
+    "distri_amount": 10000
+   }
+  },
+  {
+   "id": 1186,
+   "vals": {
+    "distri_receipt_date": "2026-09-15 20:53:00"
+   }
+  },
+  {
+   "id": 1187,
+   "vals": {
+    "distri_operation": "178229285369",
+    "distri_receipt_date": "2026-09-15 21:23:00"
+   }
+  },
+  {
+   "id": 1188,
+   "vals": {
+    "distri_receipt_date": "2026-09-15 21:54:00"
+   }
+  },
+  {
+   "id": 1189,
+   "vals": {
+    "distri_receipt_date": "2026-09-15 22:21:00"
+   }
+  },
+  {
+   "id": 1191,
+   "vals": {
+    "distri_amount": 176920
+   }
+  },
+  {
+   "id": 1192,
+   "vals": {
+    "distri_amount": 147200
+   }
+  },
+  {
+   "id": 1197,
+   "vals": {
+    "distri_amount": 350700,
+    "distri_receipt_date": "2026-09-16 18:51:00"
+   }
+  },
+  {
+   "id": 1198,
+   "vals": {
+    "distri_amount": 63320
+   }
+  },
+  {
+   "id": 1199,
+   "vals": {
+    "distri_amount": 25800
+   }
+  },
+  {
+   "id": 1200,
+   "vals": {
+    "distri_amount": 19200
+   }
+  },
+  {
+   "id": 1204,
+   "vals": {
+    "distri_operation": "179392573106",
+    "distri_receipt_date": "2026-09-16 22:46:00"
+   }
+  },
+  {
+   "id": 1205,
+   "vals": {
+    "distri_operation": "32354370-f397-40c0-960d-34969e380e1d"
+   }
+  },
+  {
+   "id": 1206,
+   "vals": {
+    "distri_amount": 167000
+   }
+  },
+  {
+   "id": 1212,
+   "vals": {
+    "distri_amount": 143300,
+    "distri_receipt_date": "2026-09-17 14:59:00"
+   }
+  },
+  {
+   "id": 1213,
+   "vals": {
+    "distri_amount": 95500
+   }
+  },
+  {
+   "id": 1215,
+   "vals": {
+    "distri_amount": 133650
+   }
+  },
+  {
+   "id": 1216,
+   "vals": {
+    "distri_operation": "179501981212",
+    "distri_receipt_date": "2026-09-17 16:19:00"
+   }
+  },
+  {
+   "id": 1219,
+   "vals": {
+    "distri_operation": "2609150000247541872839"
+   }
+  },
+  {
+   "id": 1225,
+   "vals": {
+    "distri_operation": "b2f890e3-ed66-44f0-94d0-a3b2fac17cae"
+   }
+  },
+  {
+   "id": 1226,
+   "vals": {
+    "distri_receipt_date": "2026-09-17 21:10:00"
+   }
+  },
+  {
+   "id": 1228,
+   "vals": {
+    "distri_receipt_date": "2026-09-17 21:59:00"
+   }
+  },
+  {
+   "id": 1230,
+   "vals": {
+    "distri_amount": 213090
+   }
+  },
+  {
+   "id": 1238,
+   "vals": {
+    "distri_operation": "f1cca9e1-2843-4ad7-b35d-5f2d32b4209a"
+   }
+  },
+  {
+   "id": 1239,
+   "vals": {
+    "distri_amount": 67950
+   }
+  },
+  {
+   "id": 1242,
+   "vals": {
+    "distri_amount": 23950
+   }
+  },
+  {
+   "id": 1243,
+   "vals": {
+    "distri_receipt_date": "2026-09-18 15:04:00"
+   }
+  },
+  {
+   "id": 1245,
+   "vals": {
+    "distri_operation": "179678913898"
+   }
+  },
+  {
+   "id": 1246,
+   "vals": {
+    "distri_receipt_date": "2026-09-18 15:55:00"
+   }
+  },
+  {
+   "id": 1248,
+   "vals": {
+    "distri_amount": 169700
+   }
+  },
+  {
+   "id": 1251,
+   "vals": {
+    "distri_operation": "178714019947",
+    "distri_receipt_date": "2026-09-18 17:26:00"
+   }
+  },
+  {
+   "id": 1256,
+   "vals": {
+    "distri_amount": 253000
+   }
+  },
+  {
+   "id": 1259,
+   "vals": {
+    "distri_amount": 734950
+   }
+  },
+  {
+   "id": 1260,
+   "vals": {
+    "distri_receipt_date": "2026-09-18 21:19:00"
+   }
+  },
+  {
+   "id": 1261,
+   "vals": {
+    "distri_receipt_date": "2026-09-18 21:44:00"
+   }
+  },
+  {
+   "id": 1265,
+   "vals": {
+    "distri_receipt_date": "2026-09-18 22:57:00"
+   }
+  },
+  {
+   "id": 1266,
+   "vals": {
+    "distri_receipt_date": "2026-09-18 22:04:00"
+   }
+  },
+  {
+   "id": 1268,
+   "vals": {
+    "distri_amount": 30000
+   }
+  },
+  {
+   "id": 1269,
+   "vals": {
+    "distri_amount": 10000
+   }
+  },
+  {
+   "id": 1270,
+   "vals": {
+    "distri_amount": 100000
+   }
+  },
+  {
+   "id": 1272,
+   "vals": {
+    "distri_amount": 60000
+   }
+  },
+  {
+   "id": 1274,
+   "vals": {
+    "distri_amount": 185250
+   }
+  },
+  {
+   "id": 1275,
+   "vals": {
+    "distri_operation": "LMORZP90GEOWE4GRNEGJ46"
+   }
+  },
+  {
+   "id": 1280,
+   "vals": {
+    "distri_amount": 164000
+   }
+  },
+  {
+   "id": 1283,
+   "vals": {
+    "distri_operation": "180171494270"
+   }
+  },
+  {
+   "id": 1284,
+   "vals": {
+    "distri_operation": "179183107973"
+   }
+  },
+  {
+   "id": 1285,
+   "vals": {
+    "distri_amount": 131400,
+    "distri_operation": "3daf381d-0691-4084-8cdb-51fd7b2cb2a5"
+   }
+  },
+  {
+   "id": 1289,
+   "vals": {
+    "distri_amount": 181600
+   }
+  },
+  {
+   "id": 1295,
+   "vals": {
+    "distri_amount": 150000
+   }
+  },
+  {
+   "id": 1297,
+   "vals": {
+    "distri_amount": 489000
+   }
+  },
+  {
+   "id": 1300,
+   "vals": {
+    "distri_amount": 78900
+   }
+  },
+  {
+   "id": 1301,
+   "vals": {
+    "distri_amount": 97200,
+    "distri_receipt_date": "2026-09-22 20:55:00"
+   }
+  },
+  {
+   "id": 1304,
+   "vals": {
+    "distri_amount": 10000
+   }
+  },
+  {
+   "id": 1305,
+   "vals": {
+    "distri_amount": 202400
+   }
+  },
+  {
+   "id": 1306,
+   "vals": {
+    "distri_amount": 66000
+   }
+  },
+  {
+   "id": 1313,
+   "vals": {
+    "distri_amount": 393700,
+    "distri_receipt_date": "2026-09-23 15:27:00"
+   }
+  },
+  {
+   "id": 1318,
+   "vals": {
+    "distri_amount": 836000,
+    "distri_receipt_date": "2026-09-23 20:39:00"
+   }
+  },
+  {
+   "id": 1322,
+   "vals": {
+    "distri_amount": 250300
+   }
+  },
+  {
+   "id": 1323,
+   "vals": {
+    "distri_amount": 86600
+   }
+  },
+  {
+   "id": 1324,
+   "vals": {
+    "distri_amount": 74450
+   }
+  },
+  {
+   "id": 1326,
+   "vals": {
+    "distri_operation": "e29271c6-3775-4b0d-b60f-6acec22ac8eb"
+   }
+  },
+  {
+   "id": 1327,
+   "vals": {
+    "distri_amount": 301000,
+    "distri_operation": "e29271c6-3775-4b0d-b60f-6acec22ac8eb",
+    "distri_receipt_date": "2026-09-24 14:23:00"
+   }
+  },
+  {
+   "id": 1328,
+   "vals": {
+    "distri_amount": 18600
+   }
+  },
+  {
+   "id": 1329,
+   "vals": {
+    "distri_amount": 181000,
+    "distri_operation": "180649653080",
+    "distri_receipt_date": "2026-09-24 14:28:00"
+   }
+  },
+  {
+   "id": 1330,
+   "vals": {
+    "distri_amount": 303200,
+    "distri_receipt_date": "2026-09-24 14:45:00"
+   }
+  },
+  {
+   "id": 1331,
+   "vals": {
+    "distri_operation": "180654991586",
+    "distri_receipt_date": "2026-09-24 14:59:00"
+   }
+  },
+  {
+   "id": 1333,
+   "vals": {
+    "distri_amount": 103900,
+    "distri_operation": "180675871418",
+    "distri_receipt_date": "2026-09-24 16:57:00"
+   }
+  },
+  {
+   "id": 1338,
+   "vals": {
+    "distri_amount": 1217900
+   }
+  },
+  {
+   "id": 1340,
+   "vals": {
+    "distri_amount": 291060
+   }
+  },
+  {
+   "id": 1341,
+   "vals": {
+    "distri_receipt_date": "2026-09-24 20:45:00"
+   }
+  },
+  {
+   "id": 1342,
+   "vals": {
+    "distri_operation": "179718512139"
+   }
+  },
+  {
+   "id": 1347,
+   "vals": {
+    "distri_receipt_date": "2026-09-25 16:31:00"
+   }
+  },
+  {
+   "id": 1350,
+   "vals": {
+    "distri_operation": "179846835225"
+   }
+  },
+  {
+   "id": 1353,
+   "vals": {
+    "distri_receipt_date": "2026-09-25 17:05:00"
+   }
+  },
+  {
+   "id": 1355,
+   "vals": {
+    "distri_amount": 130460
+   }
+  },
+  {
+   "id": 1358,
+   "vals": {
+    "distri_operation": "179863797915",
+    "distri_receipt_date": "2026-09-25 18:25:00"
+   }
+  },
+  {
+   "id": 1363,
+   "vals": {
+    "distri_amount": 594900,
+    "distri_operation": "180894812284"
+   }
+  },
+  {
+   "id": 1364,
+   "vals": {
+    "distri_amount": 101400
+   }
+  },
+  {
+   "id": 1369,
+   "vals": {
+    "distri_amount": 76800
+   }
+  },
+  {
+   "id": 1371,
+   "vals": {
+    "distri_amount": 165560
+   }
+  },
+  {
+   "id": 1374,
+   "vals": {
+    "distri_amount": 227600
+   }
+  },
+  {
+   "id": 1375,
+   "vals": {
+    "distri_amount": 116420
+   }
+  },
+  {
+   "id": 1377,
+   "vals": {
+    "distri_amount": 200000
+   }
+  },
+  {
+   "id": 1379,
+   "vals": {
+    "distri_amount": 440000
+   }
+  },
+  {
+   "id": 1382,
+   "vals": {
+    "distri_amount": 201000
+   }
+  },
+  {
+   "id": 1383,
+   "vals": {
+    "distri_amount": 648280
+   }
+  },
+  {
+   "id": 1389,
+   "vals": {
+    "distri_amount": 100000.0
+   }
+  },
+  {
+   "id": 1391,
+   "vals": {
+    "distri_amount": 100000.0
+   }
+  },
+  {
+   "id": 1392,
+   "vals": {
+    "distri_amount": 1042200.0,
+    "distri_operation": "ea1728c0-07f8-4a22-926e-9fe30277e1ab"
+   }
+  },
+  {
+   "id": 1400,
+   "vals": {
+    "distri_amount": 197300.0
+   }
+  },
+  {
+   "id": 1402,
+   "vals": {
+    "distri_receipt_date": "2026-09-29 15:43:00"
+   }
+  },
+  {
+   "id": 1405,
+   "vals": {
+    "distri_amount": 122000.0
+   }
+  },
+  {
+   "id": 1407,
+   "vals": {
+    "distri_amount": 903600.0
+   }
+  },
+  {
+   "id": 1409,
+   "vals": {
+    "distri_amount": 198000.0,
+    "distri_operation": "d885c801-e4d4-445a-b852-49b59d612715"
+   }
+  },
+  {
+   "id": 1411,
+   "vals": {
+    "distri_receipt_date": "2026-09-29 20:45:00"
+   }
+  },
+  {
+   "id": 1414,
+   "vals": {
+    "distri_operation": "8D0Q619L3Q1E7LJVN7JZ5R"
+   }
+  },
+  {
+   "id": 1418,
+   "vals": {
+    "distri_receipt_date": "2026-09-30 16:02:00"
+   }
+  },
+  {
+   "id": 1419,
+   "vals": {
+    "distri_amount": 80320.0
+   }
+  },
+  {
+   "id": 1420,
+   "vals": {
+    "distri_amount": 392850.0
+   }
+  },
+  {
+   "id": 1422,
+   "vals": {
+    "distri_receipt_date": "2026-09-30 16:49:00"
+   }
+  },
+  {
+   "id": 1425,
+   "vals": {
+    "distri_receipt_date": "2026-09-30 17:30:00"
+   }
+  },
+  {
+   "id": 1438,
+   "vals": {
+    "distri_operation": "181804852956"
+   }
+  },
+  {
+   "id": 1441,
+   "vals": {
+    "distri_amount": 74200.0
+   }
+  },
+  {
+   "id": 1442,
+   "vals": {
+    "distri_operation": "181815166996",
+    "distri_receipt_date": "2026-10-01 15:41:00"
+   }
+  },
+  {
+   "id": 1443,
+   "vals": {
+    "distri_receipt_date": "2026-10-01 16:07:00"
+   }
+  },
+  {
+   "id": 1444,
+   "vals": {
+    "distri_receipt_date": "2026-10-01 16:30:00"
+   }
+  },
+  {
+   "id": 1446,
+   "vals": {
+    "distri_receipt_date": "2026-10-01 20:05:00"
+   }
+  },
+  {
+   "id": 1450,
+   "vals": {
+    "distri_operation": "PDX4OGNY4X00XO6R20L6EY",
+    "distri_receipt_date": "2026-10-01 21:37:00"
+   }
+  },
+  {
+   "id": 1452,
+   "vals": {
+    "distri_amount": 160000.0,
+    "distri_receipt_date": "2026-10-01 21:55:00"
+   }
+  },
+  {
+   "id": 1453,
+   "vals": {
+    "distri_receipt_date": "2026-10-01 22:09:00"
+   }
+  },
+  {
+   "id": 1456,
+   "vals": {
+    "distri_amount": 484550.0,
+    "distri_operation": "0431397023"
+   }
+  },
+  {
+   "id": 1468,
+   "vals": {
+    "distri_amount": 323840.0
+   }
+  },
+  {
+   "id": 1471,
+   "vals": {
+    "distri_receipt_date": "2026-10-02 18:51:00"
+   }
+  },
+  {
+   "id": 1472,
+   "vals": {
+    "distri_amount": 793700.0
+   }
+  },
+  {
+   "id": 1477,
+   "vals": {
+    "distri_receipt_date": "2026-10-02 20:08:00"
+   }
+  },
+  {
+   "id": 1482,
+   "vals": {
+    "distri_receipt_date": "2026-10-02 21:33:00"
+   }
+  },
+  {
+   "id": 1483,
+   "vals": {
+    "distri_operation": "960874e7-7b63-407a-85ec-9ac4ae956762",
+    "distri_receipt_date": "2026-10-02 21:49:00"
+   }
+  },
+  {
+   "id": 1486,
+   "vals": {
+    "distri_amount": 88980.0
+   }
+  },
+  {
+   "id": 1488,
+   "vals": {
+    "distri_receipt_date": "2026-10-02 23:15:00"
+   }
+  },
+  {
+   "id": 1494,
+   "vals": {
+    "distri_amount": 45000.0
+   }
+  },
+  {
+   "id": 1501,
+   "vals": {
+    "distri_amount": 31700.0
+   }
+  },
+  {
+   "id": 1502,
+   "vals": {
+    "distri_receipt_date": "2026-10-03 17:28:00"
+   }
+  },
+  {
+   "id": 1508,
+   "vals": {
+    "distri_receipt_date": "2026-10-03 19:22:00"
+   }
+  },
+  {
+   "id": 1515,
+   "vals": {
+    "distri_operation": "ORD6LEN8MOM5KLDONM1Y30"
+   }
+  },
+  {
+   "id": 1516,
+   "vals": {
+    "distri_operation": "beb57742-92a0-4a03-b3c4-92b1126a6b25",
+    "distri_receipt_date": "2026-10-05 02:17:00"
+   }
+  },
+  {
+   "id": 1522,
+   "vals": {
+    "distri_operation": "843863457"
+   }
+  },
+  {
+   "id": 1527,
+   "vals": {
+    "distri_receipt_date": "2026-10-05 16:05:00"
+   }
+  },
+  {
+   "id": 1529,
+   "vals": {
+    "distri_operation": "30332477012261005",
+    "distri_receipt_date": "2026-10-05 16:28:00"
+   }
+  },
+  {
+   "id": 1532,
+   "vals": {
+    "distri_operation": "af68c986-c954-4f79-893b-5e50f0961ef6"
+   }
+  },
+  {
+   "id": 1533,
+   "vals": {
+    "distri_amount": 359200.0
+   }
+  },
+  {
+   "id": 1534,
+   "vals": {
+    "distri_operation": "af68c986-c954-4f79-893b-5e50f0961ef6",
+    "distri_receipt_date": "2026-10-05 17:12:00"
+   }
+  },
+  {
+   "id": 1535,
+   "vals": {
+    "distri_receipt_date": "2026-10-05 17:54:00"
+   }
+  },
+  {
+   "id": 1537,
+   "vals": {
+    "distri_receipt_date": "2026-10-05 18:48:00"
+   }
+  },
+  {
+   "id": 1542,
+   "vals": {
+    "distri_receipt_date": "2026-10-06 17:25:00"
+   }
+  },
+  {
+   "id": 1543,
+   "vals": {
+    "distri_operation": "70484604009261006"
+   }
+  },
+  {
+   "id": 1544,
+   "vals": {
+    "distri_receipt_date": "2026-10-06 19:11:00"
+   }
+  },
+  {
+   "id": 1546,
+   "vals": {
+    "distri_operation": "181735810269"
+   }
+  },
+  {
+   "id": 1548,
+   "vals": {
+    "distri_operation": "182764106414",
+    "distri_receipt_date": "2026-10-06 21:20:00"
+   }
+  },
+  {
+   "id": 1549,
+   "vals": {
+    "distri_amount": 940100.0
+   }
+  },
+  {
+   "id": 1551,
+   "vals": {
+    "distri_amount": 10500.0
+   }
+  },
+  {
+   "id": 1552,
+   "vals": {
+    "distri_amount": 55000.0
+   }
+  },
+  {
+   "id": 1553,
+   "vals": {
+    "distri_amount": 81600.0
+   }
+  },
+  {
+   "id": 1557,
+   "vals": {
+    "distri_amount": 381700.0
+   }
+  },
+  {
+   "id": 1558,
+   "vals": {
+    "distri_amount": 242000.0,
+    "distri_operation": "0434940437",
+    "distri_receipt_date": "2026-10-07 15:10:00"
+   }
+  },
+  {
+   "id": 1560,
+   "vals": {
+    "distri_operation": "182893263432",
+    "distri_receipt_date": "2026-10-07 15:30:00"
+   }
+  },
+  {
+   "id": 1561,
+   "vals": {
+    "distri_receipt_date": "2026-10-07 16:01:00"
+   }
+  },
+  {
+   "id": 1563,
+   "vals": {
+    "distri_amount": 80200.0
+   }
+  },
+  {
+   "id": 1565,
+   "vals": {
+    "distri_amount": 294000.0
+   }
+  },
+  {
+   "id": 1568,
+   "vals": {
+    "distri_receipt_date": "2026-10-07 20:46:00"
+   }
+  },
+  {
+   "id": 1569,
+   "vals": {
+    "distri_receipt_date": "2026-10-06 02:15:00"
+   }
+  },
+  {
+   "id": 1570,
+   "vals": {
+    "distri_amount": 50000.0
+   }
+  },
+  {
+   "id": 1571,
+   "vals": {
+    "distri_amount": 216600.0
+   }
+  },
+  {
+   "id": 1573,
+   "vals": {
+    "distri_operation": "8D0Q619L3G66JRDVN7JZ5R"
+   }
+  },
+  {
+   "id": 1574,
+   "vals": {
+    "distri_amount": 355200.0
+   }
+  },
+  {
+   "id": 1575,
+   "vals": {
+    "distri_amount": 80000.0
+   }
+  },
+  {
+   "id": 1577,
+   "vals": {
+    "distri_amount": 130590.0
+   }
+  },
+  {
+   "id": 1578,
+   "vals": {
+    "distri_amount": 40000.0,
+    "distri_operation": "182075014723",
+    "distri_receipt_date": "2026-10-08 16:06:00"
+   }
+  },
+  {
+   "id": 1579,
+   "vals": {
+    "distri_operation": "182076290053",
+    "distri_receipt_date": "2026-10-08 16:14:00"
+   }
+  },
+  {
+   "id": 1581,
+   "vals": {
+    "distri_receipt_date": "2026-10-08 16:45:00"
+   }
+  },
+  {
+   "id": 1582,
+   "vals": {
+    "distri_amount": 310750.0
+   }
+  },
+  {
+   "id": 1583,
+   "vals": {
+    "distri_amount": 190900.0
+   }
+  },
+  {
+   "id": 1584,
+   "vals": {
+    "distri_receipt_date": "2026-10-08 17:17:00"
+   }
+  },
+  {
+   "id": 1585,
+   "vals": {
+    "distri_operation": "182090261443",
+    "distri_receipt_date": "2026-10-08 17:28:00"
+   }
+  },
+  {
+   "id": 1586,
+   "vals": {
+    "distri_amount": 102800.0,
+    "distri_receipt_date": "2026-10-08 17:33:00"
+   }
+  },
+  {
+   "id": 1588,
+   "vals": {
+    "distri_amount": 60000.0,
+    "distri_operation": "182096946691",
+    "distri_receipt_date": "2026-10-08 18:07:00"
+   }
+  },
+  {
+   "id": 1589,
+   "vals": {
+    "distri_operation": "183116936474"
+   }
+  },
+  {
+   "id": 1590,
+   "vals": {
+    "distri_amount": 100000.0
+   }
+  },
+  {
+   "id": 1591,
+   "vals": {
+    "distri_receipt_date": "2026-10-08 20:02:00"
+   }
+  },
+  {
+   "id": 1592,
+   "vals": {
+    "distri_amount": 441600.0
+   }
+  },
+  {
+   "id": 1593,
+   "vals": {
+    "distri_amount": 1269670.0
+   }
+  },
+  {
+   "id": 1594,
+   "vals": {
+    "distri_amount": 251100.0
+   }
+  },
+  {
+   "id": 1596,
+   "vals": {
+    "distri_amount": 632625.0,
+    "distri_receipt_date": "2026-10-08 22:33:00"
+   }
+  },
+  {
+   "id": 1597,
+   "vals": {
+    "distri_amount": 24600.0,
+    "distri_operation": "183176748106",
+    "distri_receipt_date": "2026-10-08 23:36:00"
+   }
+  },
+  {
+   "id": 1600,
+   "vals": {
+    "distri_amount": 96500.0
+   }
+  },
+  {
+   "id": 1601,
+   "vals": {
+    "distri_amount": 167000.0
+   }
+  },
+  {
+   "id": 1602,
+   "vals": {
+    "distri_amount": 91800.0
+   }
+  },
+  {
+   "id": 1603,
+   "vals": {
+    "distri_amount": 57900.0,
+    "distri_operation": "9ba0cc6d-9719-4f9e-a616-56bdf10b38b0"
+   }
+  },
+  {
+   "id": 1605,
+   "vals": {
+    "distri_amount": 246700.0,
+    "distri_receipt_date": "2026-10-09 16:10:00"
+   }
+  },
+  {
+   "id": 1606,
+   "vals": {
+    "distri_amount": 264550.0
+   }
+  },
+  {
+   "id": 1607,
+   "vals": {
+    "distri_amount": 244030.0
+   }
+  },
+  {
+   "id": 1608,
+   "vals": {
+    "distri_amount": 167600.0
+   }
+  },
+  {
+   "id": 1610,
+   "vals": {
+    "distri_receipt_date": "2026-10-09 18:40:00"
+   }
+  },
+  {
+   "id": 1613,
+   "vals": {
+    "distri_amount": 254800.0
+   }
+  },
+  {
+   "id": 1615,
+   "vals": {
+    "distri_amount": 508500.0
+   }
+  },
+  {
+   "id": 1617,
+   "vals": {
+    "distri_receipt_date": "2026-10-09 21:53:00"
+   }
+  },
+  {
+   "id": 1619,
+   "vals": {
+    "distri_operation": "c10557c7-93f7-4039-b4c3-3f9961ecfbbc",
+    "distri_receipt_date": "2026-10-09 21:13:00"
+   }
+  },
+  {
+   "id": 1622,
+   "vals": {
+    "distri_receipt_date": "2026-10-10 16:30:00"
+   }
+  },
+  {
+   "id": 1623,
+   "vals": {
+    "distri_amount": 13900.0
+   }
+  },
+  {
+   "id": 1624,
+   "vals": {
+    "distri_receipt_date": "2026-10-10 16:55:00"
+   }
+  },
+  {
+   "id": 1625,
+   "vals": {
+    "distri_amount": 144190.0
+   }
+  },
+  {
+   "id": 1626,
+   "vals": {
+    "distri_amount": 138000.0
+   }
+  },
+  {
+   "id": 1627,
+   "vals": {
+    "distri_amount": 164200.0
+   }
+  },
+  {
+   "id": 1629,
+   "vals": {
+    "distri_receipt_date": "2026-10-10 18:57:00"
+   }
+  },
+  {
+   "id": 1631,
+   "vals": {
+    "distri_amount": 135300.0
+   }
+  },
+  {
+   "id": 1632,
+   "vals": {
+    "distri_amount": 207900.0
+   }
+  },
+  {
+   "id": 1633,
+   "vals": {
+    "distri_amount": 99000.0
+   }
+  },
+  {
+   "id": 1635,
+   "vals": {
+    "distri_amount": 636000.0
+   }
+  },
+  {
+   "id": 1636,
+   "vals": {
+    "distri_amount": 150000.0
+   }
+  },
+  {
+   "id": 1638,
+   "vals": {
+    "distri_amount": 151700.0
+   }
+  },
+  {
+   "id": 1639,
+   "vals": {
+    "distri_amount": 230100.0
+   }
+  },
+  {
+   "id": 1641,
+   "vals": {
+    "distri_amount": 475560.0
+   }
+  },
+  {
+   "id": 1642,
+   "vals": {
+    "distri_receipt_date": "2026-10-12 19:44:00"
+   }
+  },
+  {
+   "id": 1643,
+   "vals": {
+    "distri_amount": 192700.0
+   }
+  },
+  {
+   "id": 1644,
+   "vals": {
+    "distri_amount": 146200.0
+   }
+  },
+  {
+   "id": 1645,
+   "vals": {
+    "distri_amount": 200000.0
+   }
+  },
+  {
+   "id": 1646,
+   "vals": {
+    "distri_amount": 204500.0
+   }
+  },
+  {
+   "id": 1647,
+   "vals": {
+    "distri_amount": 130000.0
+   }
+  },
+  {
+   "id": 1648,
+   "vals": {
+    "distri_amount": 377300.0
+   }
+  },
+  {
+   "id": 1649,
+   "vals": {
+    "distri_operation": "182932545039",
+    "distri_receipt_date": "2026-10-13 16:54:00"
+   }
+  },
+  {
+   "id": 1650,
+   "vals": {
+    "distri_amount": 260000.0
+   }
+  },
+  {
+   "id": 1651,
+   "vals": {
+    "distri_amount": 211000.0
+   }
+  },
+  {
+   "id": 1653,
+   "vals": {
+    "distri_amount": 223860.0
+   }
+  },
+  {
+   "id": 1656,
+   "vals": {
+    "distri_amount": 186420.0
+   }
+  },
+  {
+   "id": 1657,
+   "vals": {
+    "distri_amount": 270800.0
+   }
+  },
+  {
+   "id": 1659,
+   "vals": {
+    "distri_receipt_date": "2026-10-13 18:16:00"
+   }
+  },
+  {
+   "id": 1661,
+   "vals": {
+    "distri_operation": "182954929825"
+   }
+  },
+  {
+   "id": 1662,
+   "vals": {
+    "distri_amount": 309900.0
+   }
+  },
+  {
+   "id": 1663,
+   "vals": {
+    "distri_amount": 264800.0
+   }
+  },
+  {
+   "id": 1664,
+   "vals": {
+    "distri_operation": "12368359-bb0f-4bf7-968c-a3ad804f6c23",
+    "distri_receipt_date": "2026-10-13 19:58:00"
+   }
+  },
+  {
+   "id": 1666,
+   "vals": {
+    "distri_amount": 107000.0,
+    "distri_operation": "89733862"
+   }
+  },
+  {
+   "id": 1667,
+   "vals": {
+    "distri_amount": 502100.0
+   }
+  },
+  {
+   "id": 1668,
+   "vals": {
+    "distri_receipt_date": "2026-10-13 19:45:00"
+   }
+  },
+  {
+   "id": 1669,
+   "vals": {
+    "distri_amount": 196200.0
+   }
+  },
+  {
+   "id": 1670,
+   "vals": {
+    "distri_amount": 824000.0
+   }
+  },
+  {
+   "id": 1671,
+   "vals": {
+    "distri_amount": 194000.0
+   }
+  },
+  {
+   "id": 1673,
+   "vals": {
+    "distri_amount": 107000.0
+   }
+  },
+  {
+   "id": 1676,
+   "vals": {
+    "distri_amount": 399150.0
+   }
+  },
+  {
+   "id": 1677,
+   "vals": {
+    "distri_amount": 273700.0
+   }
+  },
+  {
+   "id": 1678,
+   "vals": {
+    "distri_amount": 165150.0
+   }
+  },
+  {
+   "id": 1679,
+   "vals": {
+    "distri_amount": 200000.0
+   }
+  },
+  {
+   "id": 1680,
+   "vals": {
+    "distri_amount": 54350.0
+   }
+  },
+  {
+   "id": 1681,
+   "vals": {
+    "distri_amount": 323750.0
+   }
+  },
+  {
+   "id": 1683,
+   "vals": {
+    "distri_operation": "184128548098",
+    "distri_receipt_date": "2026-10-14 16:06:00"
+   }
+  },
+  {
+   "id": 1684,
+   "vals": {
+    "distri_amount": 248700.0
+   }
+  },
+  {
+   "id": 1685,
+   "vals": {
+    "distri_amount": 713750.0,
+    "distri_receipt_date": "2026-10-14 16:26:00"
+   }
+  },
+  {
+   "id": 1686,
+   "vals": {
+    "distri_amount": 110100.0
+   }
+  },
+  {
+   "id": 1687,
+   "vals": {
+    "distri_amount": 268500.0
+   }
+  },
+  {
+   "id": 1689,
+   "vals": {
+    "distri_receipt_date": "2026-10-14 16:54:00"
+   }
+  },
+  {
+   "id": 1691,
+   "vals": {
+    "distri_amount": 210000.0
+   }
+  },
+  {
+   "id": 1692,
+   "vals": {
+    "distri_amount": 143010.0
+   }
+  },
+  {
+   "id": 1693,
+   "vals": {
+    "distri_amount": 164900.0,
+    "distri_operation": "184144189702",
+    "distri_receipt_date": "2026-10-14 17:32:00"
+   }
+  },
+  {
+   "id": 1696,
+   "vals": {
+    "distri_amount": 1200000.0
+   }
+  },
+  {
+   "id": 1697,
+   "vals": {
+    "distri_amount": 250450.0,
+    "distri_operation": "4bcd6f48-f2eb-44d1-ba71-283243f03c8e"
+   }
+  },
+  {
+   "id": 1698,
+   "vals": {
+    "distri_amount": 150000.0
+   }
+  },
+  {
+   "id": 1699,
+   "vals": {
+    "distri_amount": 515700.0
+   }
+  },
+  {
+   "id": 1700,
+   "vals": {
+    "distri_amount": 300000.0
+   }
+  },
+  {
+   "id": 1701,
+   "vals": {
+    "distri_amount": 127270.0
+   }
+  },
+  {
+   "id": 1703,
+   "vals": {
+    "distri_amount": 412000.0
+   }
+  },
+  {
+   "id": 1704,
+   "vals": {
+    "distri_amount": 92300.0
+   }
+  },
+  {
+   "id": 1705,
+   "vals": {
+    "distri_amount": 455800.0
+   }
+  },
+  {
+   "id": 1707,
+   "vals": {
+    "distri_amount": 414500.0
+   }
+  },
+  {
+   "id": 1708,
+   "vals": {
+    "distri_amount": 388600.0
+   }
+  },
+  {
+   "id": 1712,
+   "vals": {
+    "distri_amount": 105000.0
+   }
+  },
+  {
+   "id": 1713,
+   "vals": {
+    "distri_amount": 74700.0
+   }
+  },
+  {
+   "id": 1714,
+   "vals": {
+    "distri_amount": 71000.0
+   }
+  },
+  {
+   "id": 1718,
+   "vals": {
+    "distri_operation": "184353352870",
+    "distri_receipt_date": "2026-10-15 19:41:00"
+   }
+  },
+  {
+   "id": 1720,
+   "vals": {
+    "distri_amount": 70500.0
+   }
+  },
+  {
+   "id": 1722,
+   "vals": {
+    "distri_receipt_date": "2026-10-15 22:05:00"
+   }
+  },
+  {
+   "id": 1724,
+   "vals": {
+    "distri_amount": 171100.0
+   }
+  },
+  {
+   "id": 1725,
+   "vals": {
+    "distri_receipt_date": "2026-10-15 22:50:00"
+   }
+  },
+  {
+   "id": 1726,
+   "vals": {
+    "distri_amount": 519550.0
+   }
+  },
+  {
+   "id": 1727,
+   "vals": {
+    "distri_receipt_date": "2026-10-15 22:54:00"
+   }
+  },
+  {
+   "id": 1728,
+   "vals": {
+    "distri_amount": 118600.0
+   }
+  },
+  {
+   "id": 1729,
+   "vals": {
+    "distri_operation": "184394346442",
+    "distri_receipt_date": "2026-10-15 23:04:00"
+   }
+  },
+  {
+   "id": 1731,
+   "vals": {
+    "distri_amount": 200000.0
+   }
+  },
+  {
+   "id": 1732,
+   "vals": {
+    "distri_amount": 253955.0
+   }
+  },
+  {
+   "id": 1734,
+   "vals": {
+    "distri_amount": 52100.0,
+    "distri_receipt_date": "2026-10-15 23:15:00"
+   }
+  },
+  {
+   "id": 1735,
+   "vals": {
+    "distri_amount": 204600.0
+   }
+  },
+  {
+   "id": 1738,
+   "vals": {
+    "distri_amount": 91500.0
+   }
+  },
+  {
+   "id": 1739,
+   "vals": {
+    "distri_operation": "183468597957"
+   }
+  },
+  {
+   "id": 1740,
+   "vals": {
+    "distri_amount": 171540.0
+   }
+  },
+  {
+   "id": 1741,
+   "vals": {
+    "distri_amount": 122700.0
+   }
+  },
+  {
+   "id": 1745,
+   "vals": {
+    "distri_amount": 125200.0,
+    "distri_receipt_date": "2026-10-16 16:38:00"
+   }
+  },
+  {
+   "id": 1746,
+   "vals": {
+    "distri_receipt_date": "2026-10-16 17:02:00"
+   }
+  },
+  {
+   "id": 1748,
+   "vals": {
+    "distri_amount": 40000.0
+   }
+  },
+  {
+   "id": 1749,
+   "vals": {
+    "distri_amount": 26000.0
+   }
+  },
+  {
+   "id": 1750,
+   "vals": {
+    "distri_receipt_date": "2026-10-16 17:29:00"
+   }
+  },
+  {
+   "id": 1751,
+   "vals": {
+    "distri_amount": 154200.0
+   }
+  },
+  {
+   "id": 1754,
+   "vals": {
+    "distri_receipt_date": "2026-10-16 18:06:00"
+   }
+  },
+  {
+   "id": 1755,
+   "vals": {
+    "distri_amount": 169800.0
+   }
+  },
+  {
+   "id": 1757,
+   "vals": {
+    "distri_amount": 226600.0
+   }
+  },
+  {
+   "id": 1758,
+   "vals": {
+    "distri_receipt_date": "2026-10-16 20:46:00"
+   }
+  },
+  {
+   "id": 1759,
+   "vals": {
+    "distri_operation": "183543691165"
+   }
+  },
+  {
+   "id": 1761,
+   "vals": {
+    "distri_receipt_date": "2026-10-16 22:34:00"
+   }
+  },
+  {
+   "id": 1762,
+   "vals": {
+    "distri_amount": 164800.0
+   }
+  },
+  {
+   "id": 1764,
+   "vals": {
+    "distri_receipt_date": "2026-10-16 23:58:00"
+   }
+  },
+  {
+   "id": 1765,
+   "vals": {
+    "distri_amount": 300000.0
+   }
+  },
+  {
+   "id": 1767,
+   "vals": {
+    "distri_amount": 265450.0,
+    "distri_operation": "XJ8G7V957V4GXOL4NEMPYR",
+    "distri_receipt_date": "2026-10-17 16:41:00"
+   }
+  },
+  {
+   "id": 1769,
+   "vals": {
+    "distri_amount": 158300.0
+   }
+  },
+  {
+   "id": 1770,
+   "vals": {
+    "distri_amount": 163300.0
+   }
+  },
+  {
+   "id": 1771,
+   "vals": {
+    "distri_operation": "713c6a67-cd86-4722-bf86-a98f0ef96272",
+    "distri_receipt_date": "2026-10-18 00:52:00"
+   }
+  },
+  {
+   "id": 1772,
+   "vals": {
+    "distri_amount": 247910.0
+   }
+  },
+  {
+   "id": 1773,
+   "vals": {
+    "distri_receipt_date": "2026-08-15 10:00:00"
+   }
+  },
+  {
+   "id": 1775,
+   "vals": {
+    "distri_amount": 357850.0
+   }
+  },
+  {
+   "id": 1776,
+   "vals": {
+    "distri_operation": "Z4K6DVNOPJ7K35L195J8LQ"
+   }
+  },
+  {
+   "id": 1778,
+   "vals": {
+    "distri_amount": 208400.0
+   }
+  },
+  {
+   "id": 1779,
+   "vals": {
+    "distri_amount": 202000.0
+   }
+  },
+  {
+   "id": 1781,
+   "vals": {
+    "distri_amount": 102550.0
+   }
+  },
+  {
+   "id": 1783,
+   "vals": {
+    "distri_amount": 89300.0
+   }
+  },
+  {
+   "id": 1786,
+   "vals": {
+    "distri_amount": 145600.0,
+    "distri_receipt_date": "2026-10-19 18:04:00"
+   }
+  },
+  {
+   "id": 1788,
+   "vals": {
+    "distri_amount": 1700000.0
+   }
+  },
+  {
+   "id": 1789,
+   "vals": {
+    "distri_amount": 500000.0
+   }
+  },
+  {
+   "id": 1790,
+   "vals": {
+    "distri_amount": 108920.0
+   }
+  },
+  {
+   "id": 1793,
+   "vals": {
+    "distri_amount": 138450.0
+   }
+  },
+  {
+   "id": 1794,
+   "vals": {
+    "distri_amount": 858460.0
+   }
+  },
+  {
+   "id": 1796,
+   "vals": {
+    "distri_amount": 115700.0
+   }
+  },
+  {
+   "id": 1797,
+   "vals": {
+    "distri_amount": 200000.0
+   }
+  },
+  {
+   "id": 1798,
+   "vals": {
+    "distri_receipt_date": "2026-10-20 14:47:00"
+   }
+  },
+  {
+   "id": 1800,
+   "vals": {
+    "distri_amount": 581640.0
+   }
+  },
+  {
+   "id": 1802,
+   "vals": {
+    "distri_amount": 284200.0
+   }
+  },
+  {
+   "id": 1803,
+   "vals": {
+    "distri_receipt_date": "2026-10-20 20:18:00"
+   }
+  },
+  {
+   "id": 1804,
+   "vals": {
+    "distri_amount": 430550.0
+   }
+  },
+  {
+   "id": 1805,
+   "vals": {
+    "distri_amount": 430550.0
+   }
+  },
+  {
+   "id": 1806,
+   "vals": {
+    "distri_operation": "184203741509",
+    "distri_receipt_date": "2026-10-20 21:38:00"
+   }
+  },
+  {
+   "id": 1807,
+   "vals": {
+    "distri_amount": 216900.0,
+    "distri_receipt_date": "2026-10-20 21:48:00"
+   }
+  },
+  {
+   "id": 1808,
+   "vals": {
+    "distri_amount": 216900.0,
+    "distri_receipt_date": "2026-10-20 21:48:00"
+   }
+  },
+  {
+   "id": 1809,
+   "vals": {
+    "distri_receipt_date": "2026-10-20 21:58:00"
+   }
+  },
+  {
+   "id": 1811,
+   "vals": {
+    "distri_amount": 59000.0
+   }
+  },
+  {
+   "id": 1813,
+   "vals": {
+    "distri_amount": 205100.0
+   }
+  },
+  {
+   "id": 1815,
+   "vals": {
+    "distri_amount": 364100.0
+   }
+  },
+  {
+   "id": 1817,
+   "vals": {
+    "distri_amount": 77400.0
+   }
+  },
+  {
+   "id": 1818,
+   "vals": {
+    "distri_amount": 77400.0
+   }
+  },
+  {
+   "id": 1819,
+   "vals": {
+    "distri_amount": 20000.0
+   }
+  },
+  {
+   "id": 1820,
+   "vals": {
+    "distri_operation": "185365891030",
+    "distri_receipt_date": "2026-10-21 16:23:00"
+   }
+  },
+  {
+   "id": 1822,
+   "vals": {
+    "distri_receipt_date": "2026-10-21 17:39:00"
+   }
+  },
+  {
+   "id": 1824,
+   "vals": {
+    "distri_receipt_date": "2026-10-21 17:55:00"
+   }
+  },
+  {
+   "id": 1826,
+   "vals": {
+    "distri_amount": 35500.0
+   }
+  },
+  {
+   "id": 1828,
+   "vals": {
+    "distri_amount": 90000.0
+   }
+  },
+  {
+   "id": 1830,
+   "vals": {
+    "distri_amount": 280400.0
+   }
+  },
+  {
+   "id": 1831,
+   "vals": {
+    "distri_operation": "184394463747",
+    "distri_receipt_date": "2026-10-21 22:21:00"
+   }
+  },
+  {
+   "id": 1832,
+   "vals": {
+    "distri_amount": 119000.0
+   }
+  },
+  {
+   "id": 1833,
+   "vals": {
+    "distri_amount": 28900.0
+   }
+  },
+  {
+   "id": 1835,
+   "vals": {
+    "distri_amount": 674300.0
+   }
+  },
+  {
+   "id": 1837,
+   "vals": {
+    "distri_amount": 103500.0
+   }
+  },
+  {
+   "id": 1838,
+   "vals": {
+    "distri_amount": 137200.0
+   }
+  },
+  {
+   "id": 1840,
+   "vals": {
+    "distri_operation": "184493926825",
+    "distri_receipt_date": "2026-10-22 14:55:00"
+   }
+  },
+  {
+   "id": 1841,
+   "vals": {
+    "distri_amount": 410400.0
+   }
+  },
+  {
+   "id": 1843,
+   "vals": {
+    "distri_amount": 587400.0,
+    "distri_operation": "43228706728"
+   }
+  },
+  {
+   "id": 1846,
+   "vals": {
+    "distri_amount": 58400.0
+   }
+  },
+  {
+   "id": 1847,
+   "vals": {
+    "distri_amount": 415200.0
+   }
+  },
+  {
+   "id": 1849,
+   "vals": {
+    "distri_amount": 453100.0
+   }
+  },
+  {
+   "id": 1850,
+   "vals": {
+    "distri_amount": 88500.0
+   }
+  },
+  {
+   "id": 1852,
+   "vals": {
+    "distri_operation": "185585507356"
+   }
+  },
+  {
+   "id": 1853,
+   "vals": {
+    "distri_amount": 150000.0
+   }
+  },
+  {
+   "id": 1854,
+   "vals": {
+    "distri_operation": "185604866710",
+    "distri_receipt_date": "2026-10-22 21:37:00"
+   }
+  },
+  {
+   "id": 1855,
+   "vals": {
+    "distri_operation": "184565510099",
+    "distri_receipt_date": "2026-10-22 21:38:00"
+   }
+  },
+  {
+   "id": 1856,
+   "vals": {
+    "distri_amount": 77000.0
+   }
+  },
+  {
+   "id": 1858,
+   "vals": {
+    "distri_amount": 196580.0
+   }
+  },
+  {
+   "id": 1859,
+   "vals": {
+    "distri_amount": 145900.0
+   }
+  },
+  {
+   "id": 1861,
+   "vals": {
+    "distri_receipt_date": "2026-10-22 21:40:00"
+   }
+  },
+  {
+   "id": 1862,
+   "vals": {
+    "distri_amount": 221900.0
+   }
+  },
+  {
+   "id": 1863,
+   "vals": {
+    "distri_amount": 97200.0
+   }
+  },
+  {
+   "id": 1864,
+   "vals": {
+    "distri_amount": 174300.0
+   }
+  },
+  {
+   "id": 1865,
+   "vals": {
+    "distri_operation": "184674386749",
+    "distri_receipt_date": "2026-10-23 15:17:00"
+   }
+  },
+  {
+   "id": 1866,
+   "vals": {
+    "distri_receipt_date": "2026-10-23 15:54:00"
+   }
+  },
+  {
+   "id": 1867,
+   "vals": {
+    "distri_receipt_date": "2026-10-23 15:59:00"
+   }
+  },
+  {
+   "id": 1868,
+   "vals": {
+    "distri_amount": 205400.0,
+    "distri_operation": "c076e4d1-98db-4ea6-8890-78255b2a6edd"
+   }
+  }
+ ],
+ "relink_wrong": [
+  {
+   "id": 1139,
+   "wrong_mp": "178591473740",
+   "real_mp": "178713435552",
+   "online_payment": "PBNK1/2026/03689"
+  },
+  {
+   "id": 1216,
+   "wrong_mp": "178477765085",
+   "real_mp": "179501981212",
+   "online_payment": "PBNK1/2026/03766"
+  },
+  {
+   "id": 1378,
+   "wrong_mp": "181220683308",
+   "real_mp": "181194251458",
+   "online_payment": "PBNK1/2026/03943"
+  }
+ ],
+ "firm": [
+  {
+   "id": 917,
+   "mp": "176731825698",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 919,
+   "mp": "175792090227",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 927,
+   "mp": "176763079220",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 933,
+   "mp": "175923839841",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 946,
+   "mp": "175952990365",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 952,
+   "mp": "177034953560",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 955,
+   "mp": "176092602175",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 957,
+   "mp": "176996645448",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 960,
+   "mp": "177056154074",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 963,
+   "mp": "176109229605",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 964,
+   "mp": "177070084172",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 967,
+   "mp": "176152933087",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 968,
+   "mp": "177066086478",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 971,
+   "mp": "177119599392",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 974,
+   "mp": "177123952546",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 979,
+   "mp": "177176385154",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 980,
+   "mp": "177226541120",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 981,
+   "mp": "177232678536",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 984,
+   "mp": "177242470426",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 988,
+   "mp": "176287625907",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 994,
+   "mp": "176310045173",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 995,
+   "mp": "177269585422",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1004,
+   "mp": "176363843839",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1008,
+   "mp": "176397519343",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1010,
+   "mp": "177431921932",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1020,
+   "mp": "177505006850",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1021,
+   "mp": "176593722247",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1023,
+   "mp": "176547447133",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1024,
+   "mp": "176525362425",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1028,
+   "mp": "176771314327",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1030,
+   "mp": "176781638749",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1032,
+   "mp": "177754755966",
+   "how": "amount_time",
+   "online": false
+  },
+  {
+   "id": 1033,
+   "mp": "177746911194",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1034,
+   "mp": "176795788511",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1045,
+   "mp": "176825848789",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1051,
+   "mp": "177846702462",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1053,
+   "mp": "176908332913",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1055,
+   "mp": "176981560633",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1057,
+   "mp": "177007537183",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1058,
+   "mp": "177011234187",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1064,
+   "mp": "177034472881",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1065,
+   "mp": "178004684958",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1069,
+   "mp": "177122129837",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1073,
+   "mp": "177165561057",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1075,
+   "mp": "178160379482",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1076,
+   "mp": "178160136978",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1077,
+   "mp": "178170035098",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1080,
+   "mp": "177218210679",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1082,
+   "mp": "177298678985",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1088,
+   "mp": "178299702764",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1089,
+   "mp": "178301462226",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1093,
+   "mp": "177334039497",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1099,
+   "mp": "178360163162",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1100,
+   "mp": "177390176215",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1103,
+   "mp": "177422831981",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1105,
+   "mp": "177487265227",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1107,
+   "mp": "177455495955",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1109,
+   "mp": "178504014808",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1118,
+   "mp": "177557410293",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1120,
+   "mp": "178541515008",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1124,
+   "mp": "178566067028",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1126,
+   "mp": "178575589400",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1130,
+   "mp": "177608800257",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1132,
+   "mp": "177610793841",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1134,
+   "mp": "177613180831",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1138,
+   "mp": "177621689865",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1141,
+   "mp": "177790739469",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1145,
+   "mp": "178770950972",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1146,
+   "mp": "177910476089",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1150,
+   "mp": "177964192681",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1153,
+   "mp": "178968579956",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1157,
+   "mp": "177990096545",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1160,
+   "mp": "178008482079",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1161,
+   "mp": "178988810218",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1165,
+   "mp": "179013256942",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1168,
+   "mp": "178063023783",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1170,
+   "mp": "178083108051",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1172,
+   "mp": "178090277091",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1173,
+   "mp": "178091608519",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1174,
+   "mp": "179132312852",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1179,
+   "mp": "179157928862",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1183,
+   "mp": "179174334740",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1187,
+   "mp": "178229285369",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1191,
+   "mp": "178257624765",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1192,
+   "mp": "178268719901",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1197,
+   "mp": "178367388035",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1204,
+   "mp": "179392573106",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1206,
+   "mp": "179432672224",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1212,
+   "mp": "178503474073",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1213,
+   "mp": "179489429140",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1215,
+   "mp": "179497247560",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1230,
+   "mp": "179572158304",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1239,
+   "mp": "178635712945",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1242,
+   "mp": "178684991023",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1248,
+   "mp": "179687065502",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1251,
+   "mp": "178714019947",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1256,
+   "mp": "179710188790",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1259,
+   "mp": "179736806474",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1261,
+   "mp": "179748631704",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1268,
+   "mp": "178665007031",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1269,
+   "mp": "178706917451",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1270,
+   "mp": "179991270150",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1272,
+   "mp": "180055101068",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1274,
+   "mp": "179073059287",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1280,
+   "mp": "179166734921",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1289,
+   "mp": "179980809442",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1295,
+   "mp": "179685381720",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1297,
+   "mp": "179327836525",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1300,
+   "mp": "180357889640",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1301,
+   "mp": "180382650756",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1304,
+   "mp": "180400692056",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1305,
+   "mp": "179408460821",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1306,
+   "mp": "180391050002",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1313,
+   "mp": "180493082038",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1318,
+   "mp": "179550746847",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1322,
+   "mp": "179578321333",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1324,
+   "mp": "180611895926",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1328,
+   "mp": "180649615508",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1329,
+   "mp": "180649653080",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1330,
+   "mp": "179656958541",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1331,
+   "mp": "180654991586",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1333,
+   "mp": "180675871418",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1338,
+   "mp": "180690421954",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1340,
+   "mp": "180704405670",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1355,
+   "mp": "179854066761",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1358,
+   "mp": "179863797915",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1363,
+   "mp": "180894812284",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1364,
+   "mp": "179905846143",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1369,
+   "mp": "179990155749",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1371,
+   "mp": "179993306417",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1374,
+   "mp": "181012034242",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1375,
+   "mp": "181072076028",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1377,
+   "mp": "181100392424",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1379,
+   "mp": "180176759667",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1382,
+   "mp": "180264033755",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1383,
+   "mp": "181265362536",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1384,
+   "mp": "181220683308",
+   "how": "op",
+   "online": false
+  },
+  {
+   "id": 1389,
+   "mp": "181349708782",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1391,
+   "mp": "181363942930",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1392,
+   "mp": "180373159023",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1400,
+   "mp": "180959741604",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1407,
+   "mp": "180479252171",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1419,
+   "mp": "181534952034",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1441,
+   "mp": "180804416297",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1442,
+   "mp": "181815166996",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1446,
+   "mp": "181865196780",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1450,
+   "mp": "180877634759",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1452,
+   "mp": "181887407712",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1456,
+   "mp": "181980958338",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1471,
+   "mp": "182047841656",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1483,
+   "mp": "181076873701",
+   "how": "amount_time",
+   "online": true
+  },
+  {
+   "id": 1501,
+   "mp": "181206404465",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1558,
+   "mp": "182889084192",
+   "how": "amount_time",
+   "online": false
+  },
+  {
+   "id": 1569,
+   "mp": "182620698186",
+   "how": "amount_time",
+   "online": false
+  },
+  {
+   "id": 1578,
+   "mp": "182075014723",
+   "how": "op",
+   "online": false
+  },
+  {
+   "id": 1586,
+   "mp": "182091063741",
+   "how": "amount_time",
+   "online": false
+  },
+  {
+   "id": 1588,
+   "mp": "182096946691",
+   "how": "op",
+   "online": false
+  },
+  {
+   "id": 1597,
+   "mp": "183176748106",
+   "how": "op",
+   "online": false
+  },
+  {
+   "id": 1605,
+   "mp": "182265166965",
+   "how": "amount_time",
+   "online": false
+  },
+  {
+   "id": 1635,
+   "mp": "182534138623",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1671,
+   "mp": "182994915845",
+   "how": "amount_time",
+   "online": false
+  },
+  {
+   "id": 1693,
+   "mp": "184144189702",
+   "how": "op",
+   "online": false
+  },
+  {
+   "id": 1767,
+   "mp": "184699401090",
+   "how": "amount_time",
+   "online": false
+  },
+  {
+   "id": 1797,
+   "mp": "185163089184",
+   "how": "op",
+   "online": true
+  },
+  {
+   "id": 1843,
+   "mp": "184499355099",
+   "how": "amount_time",
+   "online": false
+  }
+ ],
+ "duplicates": [
+  {
+   "id": 894,
+   "of": 892
+  },
+  {
+   "id": 939,
+   "of": 940
+  },
+  {
+   "id": 1327,
+   "of": 1326
+  },
+  {
+   "id": 1534,
+   "of": 1532
+  }
+ ],
+ "loose_review": [
+  {
+   "id": 909,
+   "mp": "175760193637",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 918,
+   "mp": "176742596022",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 920,
+   "mp": "175793903829",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 928,
+   "mp": "175835290307",
+   "how": "amount_date_unique"
+  },
+  {
+   "id": 929,
+   "mp": "176807921150",
+   "how": "amount_date_unique"
+  },
+  {
+   "id": 938,
+   "mp": "176885904126",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 956,
+   "mp": "176085797821",
+   "how": "amount_date_unique"
+  },
+  {
+   "id": 989,
+   "mp": "176297054923",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1011,
+   "mp": "177451031640",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1031,
+   "mp": "177750734326",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1036,
+   "mp": "176800457051",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1037,
+   "mp": "177765595184",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1060,
+   "mp": "177978546680",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1081,
+   "mp": "177230222823",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1085,
+   "mp": "177323631407",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1092,
+   "mp": "177345897593",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1097,
+   "mp": "177359181743",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1122,
+   "mp": "178556793056",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1148,
+   "mp": "177962053851",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1154,
+   "mp": "177998817743",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1164,
+   "mp": "179003776560",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1166,
+   "mp": "179018819334",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1169,
+   "mp": "178078156327",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1178,
+   "mp": "178178314439",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1180,
+   "mp": "178181871105",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1184,
+   "mp": "179187287414",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1190,
+   "mp": "178257622253",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1198,
+   "mp": "179363863824",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1203,
+   "mp": "178408431187",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1210,
+   "mp": "179481207094",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1222,
+   "mp": "178543420659",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1225,
+   "mp": "178566341233",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1262,
+   "mp": "178770119855",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1285,
+   "mp": "180177322426",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1294,
+   "mp": "179194283535",
+   "how": "amount_date_unique"
+  },
+  {
+   "id": 1302,
+   "mp": "179395507645",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1323,
+   "mp": "180578773870",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1326,
+   "mp": "180648934542",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1334,
+   "mp": "180681631440",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1365,
+   "mp": "180909623390",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1370,
+   "mp": "180992089382",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1397,
+   "mp": "181437298706",
+   "how": "amount_date_unique"
+  },
+  {
+   "id": 1405,
+   "mp": "181469148676",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1409,
+   "mp": "181489467964",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1420,
+   "mp": "181635913710",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1448,
+   "mp": "180871814945",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1451,
+   "mp": "180880679601",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1455,
+   "mp": "181977634896",
+   "how": "amount_date_unique"
+  },
+  {
+   "id": 1458,
+   "mp": "181013166973",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1466,
+   "mp": "181034415261",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1468,
+   "mp": "181036436049",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1472,
+   "mp": "181043734739",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1485,
+   "mp": "182092279152",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1494,
+   "mp": "181109443985",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1603,
+   "mp": "183257600656",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1658,
+   "mp": "183967716044",
+   "how": "amount_date_unique"
+  },
+  {
+   "id": 1666,
+   "mp": "183998636258",
+   "how": "amount_date_unique"
+  },
+  {
+   "id": 1697,
+   "mp": "183163186215",
+   "how": "amount_posted_time"
+  },
+  {
+   "id": 1733,
+   "mp": "183114086945",
+   "how": "amount_date_unique"
+  },
+  {
+   "id": 1868,
+   "mp": "185726490038",
+   "how": "amount_posted_time"
+  }
+ ],
+ "untouched": [
+  {
+   "id": 861,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 862,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 863,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 864,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 865,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 866,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 867,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 868,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 869,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 870,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 871,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 872,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 873,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 874,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 875,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 876,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 877,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 878,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 879,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 880,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 881,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 882,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 883,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 884,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 885,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 886,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 887,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 888,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 889,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 890,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 891,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 892,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 893,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 895,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 896,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 897,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 898,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 899,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 900,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 901,
+   "why": "before_mp_coverage"
+  },
+  {
+   "id": 1140,
+   "why": "old_receipt"
+  },
+  {
+   "id": 1352,
+   "why": "other_account"
+  },
+  {
+   "id": 1396,
+   "why": "old_receipt"
+  },
+  {
+   "id": 1702,
+   "why": "old_receipt"
+  },
+  {
+   "id": 1773,
+   "why": "old_receipt"
+  }
+ ]
+}
