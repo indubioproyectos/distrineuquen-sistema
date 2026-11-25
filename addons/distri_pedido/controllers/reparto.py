@@ -23,6 +23,9 @@ a reopened route opens again); app2.js stays for the cached older page.
 19.0.1.129.16: the page loads app4.js («Pagado / comprobante cargado» in the
 visit, models/reparto_pagos.py, and /reparto/api/receipt); app3.js stays for
 the cached older page.
+
+19.0.1.129.25 (#105): POST /reparto/api/reopen, «Reabrir la ruta» by its own
+driver (models/reparto.py `_distri_reopen`), online only.
 """
 import hashlib
 import json
@@ -31,6 +34,7 @@ import os
 from werkzeug.exceptions import Forbidden, NotFound
 
 from odoo import http
+from odoo.exceptions import UserError
 from odoo.http import request
 from odoo.modules.module import get_module_path
 
@@ -260,6 +264,36 @@ class Reparto(http.Controller):
             ("Cache-Control", "private, max-age=600"),
             ("X-Content-Type-Options", "nosniff"),
         ])
+
+    @http.route("/reparto/api/reopen", type="http", auth="user", methods=["POST"],
+                csrf=False, sitemap=False)
+    def reopen(self, **kw):
+        """19.0.1.129.25 (#105): «Reabrir la ruta» from the app, for the
+        route's own driver while the cash was not counted. No CSRF token
+        for the same reason as /reparto/api/sync (a JSON body instead)."""
+        if not self._is_driver():
+            return self._json({"ok": False, "error": "No tenés permiso de reparto."}, 403)
+        httpreq = request.httprequest
+        if httpreq.mimetype != "application/json":
+            return self._json({"ok": False, "error": "Se espera JSON."}, 415)
+        if httpreq.headers.get("Sec-Fetch-Site") == "cross-site":
+            return self._json({"ok": False, "error": "Origen no permitido."}, 403)
+        try:
+            body = json.loads(httpreq.get_data(as_text=True) or "{}")
+            wanted = int(body.get("route_id") or 0) if isinstance(body, dict) else 0
+        except (TypeError, ValueError):
+            return self._json({"ok": False, "error": "JSON inválido."}, 400)
+        user = request.env.user
+        route = request.env["distri.route"].sudo().browse(wanted).exists() if wanted > 0 \
+            else request.env["distri.route"]
+        if not route or route.driver_id != user or route.kind != "route":
+            return self._json({"ok": False, "error": "Esa ruta no es tuya."}, 404)
+        try:
+            route._distri_reopen(user, via="app", by_driver=True)
+        except UserError as exc:
+            return self._json({"ok": False, "error": exc.args[0] if exc.args else str(exc),
+                               "locked": bool(route.cash_count_done)}, 409)
+        return self._json({"ok": True, "state": route.state})
 
     @http.route("/reparto/api/sync", type="http", auth="user", methods=["POST"],
                 csrf=False, sitemap=False)

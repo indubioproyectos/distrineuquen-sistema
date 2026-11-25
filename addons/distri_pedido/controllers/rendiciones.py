@@ -16,8 +16,15 @@ Same access as the tile: whoever sees the menu «Reparto › Rendición de caja�
 /tablero, which sends him to his own screen. Read only: the counts and the
 list use sudo with the same domains as the backend actions and /caja.
 The look is /deposito's (static/src/deposito/deposito.css, dp-* classes).
+
+19.0.1.129.25 (#105): each route of «Rutas para rendir» has «Reabrir para
+el repartidor» (POST /rendiciones/rutas/<id>/reabrir, models/reparto.py
+`_distri_reopen`, which checks the role and the cash-count lock).
 """
+from urllib.parse import urlencode
+
 from odoo import http
+from odoo.exceptions import UserError
 from odoo.http import request
 
 from ..models.comprobante_pendiente import OPEN_STATES
@@ -107,6 +114,7 @@ class Rendiciones(http.Controller):
             "inicio": "/tablero" if wants_tablero(user) else (user._distri_landing() or "/tablero"),
             "ok": "",
             "error": "",
+            "csrf_token": request.csrf_token(),
         }
         base.update(values)
         html = request.env["ir.qweb"]._render(template, base)
@@ -137,11 +145,35 @@ class Rendiciones(http.Controller):
         })
 
     @http.route("/rendiciones/rutas", type="http", auth="user", methods=["GET"], sitemap=False)
-    def routes(self, **kw):
+    def routes(self, ok="", **kw):
         refused = self._refused()
         if refused:
             return refused
-        return self._render("distri_pedido.rendiciones_rutas", {
+        return self._routes_page(ok=ok)
+
+    def _routes_page(self, ok="", error="", status=200):
+        response = self._render("distri_pedido.rendiciones_rutas", {
             "routes": routes_to_settle(request.env),
             "route_url": ROUTE_URL,
+            "ok": ok,
+            "error": error,
         })
+        response.status_code = status
+        return response
+
+    @http.route("/rendiciones/rutas/<int:route_id>/reabrir", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def reopen(self, route_id, **kw):
+        """19.0.1.129.25 (#105): «Reabrir para el repartidor»."""
+        refused = self._refused()
+        if refused:
+            return refused
+        route = request.env["distri.route"].sudo().browse(route_id).exists()
+        if not route:
+            return self._routes_page(error="Esa ruta ya no existe.", status=404)
+        try:
+            route._distri_reopen(request.env.user, via="rendiciones")
+        except UserError as exc:
+            return self._routes_page(error=exc.args[0] if exc.args else str(exc), status=400)
+        return request.redirect("/rendiciones/rutas?" + urlencode(
+            {"ok": "%s: reabierta para el repartidor." % route.name}), 303)

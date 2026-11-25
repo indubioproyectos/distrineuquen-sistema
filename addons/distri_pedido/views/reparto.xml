@@ -34,8 +34,11 @@
                   string="Asignar pedidos armados de las zonas" invisible="state not in ('draft', 'on_route')"/>
           <!-- 19.0.1.115.0: no «Cerrar rendición» here: a cashier receives the
                route in /caja (distri.caja receive_route, models/reparto.py action_settle) -->
+          <!-- 19.0.1.129.25 (#105): administración, caja and gerencia only; once the cash
+               was counted the model lets only caja or gerencia (models/reparto.py) -->
           <button name="action_reopen" type="object" string="Reabrir para el repartidor"
-                  invisible="state != 'closed'"/>
+                  invisible="state != 'closed'"
+                  groups="distri_pedido.grupo_administracion,distri_pedido.grupo_cajero,distri_pedido.grupo_gerencia"/>
           <!-- 19.0.1.113.0: a mistaken or test route without money (models/anular_ruta.py) -->
           <button name="action_distri_cancel_route" type="object" string="Anular ruta"
                   invisible="state != 'draft' or kind != 'route'"
@@ -74,6 +77,9 @@
               <field name="parcel_checked_count"/>
               <field name="departed_at"/>
               <field name="closed_at"/>
+              <!-- 19.0.1.129.25 (#105): the last «Reabrir» (each one is in the chatter) -->
+              <field name="reopened_at" invisible="not reopened_at"/>
+              <field name="reopened_by_id" invisible="not reopened_by_id"/>
               <field name="departure_controlled_by_id" invisible="not departure_controlled_by_id"/>
               <field name="departure_controlled_at" invisible="not departure_controlled_by_id"/>
               <field name="departure_note"/>
@@ -99,6 +105,11 @@
                   <field name="dispatch_checked_by_id" optional="hide"/>
                   <field name="state" widget="badge" decoration-success="state in ('paid', 'already_paid')"
                          decoration-danger="state == 'not_paid'"/>
+                  <!-- 19.0.1.129.25: «Ya estaba pagado · a confirmar» -->
+                  <field name="paid_confirm_state" optional="show" widget="badge"
+                         decoration-warning="paid_confirm_state in ('to_confirm', 'escalated')"
+                         decoration-success="paid_confirm_state == 'confirmed'"/>
+                  <field name="paid_confirm_card_id" optional="hide"/>
                   <field name="delivery_state" optional="show" widget="badge"
                          decoration-warning="delivery_state == 'delivered_no_code'"
                          decoration-success="delivery_state == 'delivered_code'"/>

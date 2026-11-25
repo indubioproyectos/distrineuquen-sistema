@@ -5,13 +5,14 @@ orders to deliver; each stop also holds the visit recorded by the phone
 (see reparto_sync.py). The administrator settles the route at the depot:
 cash expected vs counted, declared returns and undelivered orders.
 """
+from datetime import timezone
 from urllib.parse import quote
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
 from .ar_phone import wa_digits
-from .reparto_cliente import receipt_code_attempt_limit, today_ar
+from .reparto_cliente import AR_TZ, receipt_code_attempt_limit, today_ar
 
 ROUTE_STATES = [
     ("draft", "Asignada"),
@@ -94,6 +95,19 @@ DEPOT_JOURNAL_CODE = "CDEP"
 DEPOT_JOURNAL_NAME = "Caja depósito"
 # 19.0.1.109.0 (owner): nobody closes a depot box by hand any more
 DEPOT_TO_CASHIER = "Esta plata la recibe un cajero en su Caja del día."
+
+# 19.0.1.129.25 (#105): «Reabrir» a route closed on the phone and not settled
+REOPEN_ADMIN = "distri_pedido.grupo_administracion"
+REOPEN_CASHIER = "distri_pedido.grupo_cajero"
+REOPEN_MANAGER = "distri_pedido.grupo_gerencia"
+REOPEN_ONLY_CLOSED = "Solo se reabre una ruta cerrada y sin rendir."
+REOPEN_SETTLED = "La ruta %s ya se rindió: no se reabre."
+REOPEN_COUNTED = ("Ya se cargó el efectivo contado de %s: solo caja o gerencia reabren la "
+                  "ruta. Pediles que la reabran.")
+REOPEN_NOT_YOURS = "Esa ruta no es tuya."
+REOPEN_NO_ROLE = "Solo administración, caja o gerencia reabren una ruta."
+REOPEN_VIA = {"backend": "desde Odoo", "app": "desde la app de reparto",
+              "caja": "desde la caja", "rendiciones": "desde Rendiciones"}
 ROUTE_TO_CASHIER = ("La rendición la recibe un cajero en su Caja del día (/caja › Recibir "
                     "plata): así el efectivo entra a una caja.")
 
@@ -164,6 +178,10 @@ class DistriRoute(models.Model):
                                    readonly=True, copy=False)
     settled_at = fields.Datetime(string="Rendida el", readonly=True, copy=False)
     settled_by_id = fields.Many2one("res.users", string="Rindió", readonly=True, copy=False)
+    # 19.0.1.129.25 (#105): the last «Reabrir» (every one is in the chatter)
+    reopened_at = fields.Datetime(string="Reabierta el", readonly=True, copy=False)
+    reopened_by_id = fields.Many2one("res.users", string="Reabrió", readonly=True, copy=False)
+    reopen_count = fields.Integer(string="Veces reabierta", readonly=True, copy=False)
     depot_status = fields.Selection([("open", "Abierta"), ("closed", "Cerrada")],
                                     string="Caja", compute="_compute_depot_status")
     # 19.0.1.93.0 (C16): a depot box of a day before still open
@@ -409,6 +427,8 @@ class DistriRoute(models.Model):
             "left": self._left_payload(),
             # «Controlado»: the load ticks are locked
             "controlled": bool(self.departure_controlled_at),
+            # 19.0.1.129.25: «Reabrir la ruta» is refused once the cash was counted
+            "reopen_locked": bool(self.cash_count_done),
             # the driver's own expenses, to restore a phone that lost them
             # (parcel shipping comes with its stop)
             "expenses": [{
@@ -438,11 +458,56 @@ class DistriRoute(models.Model):
         }
 
     def action_reopen(self):
-        """Back to "En reparto" so the driver can fix a visit."""
+        """Back to "En reparto" so the driver can fix a visit (the backend
+        button «Reabrir para el repartidor»)."""
         for route in self:
-            if route.state != "closed":
-                raise UserError("Solo se reabre una ruta cerrada y sin rendir.")
-            route.state = "on_route"
+            route._distri_reopen(self.env.user, via="backend")
+        return True
+
+    def _distri_reopen_refusal(self, user, by_driver=False):
+        """19.0.1.129.25 (#105): why `user` may not reopen this route, or "".
+
+        Only a route closed on the phone and not settled. Administración,
+        caja and gerencia reopen it, and its own driver from the app (no
+        reason asked: owner's decision). Once the cash count was entered
+        (`cash_count_done`) only caja or gerencia: the driver's app is
+        refused. The superuser (scripts) always."""
+        self.ensure_one()
+        if self.state == "settled":
+            return REOPEN_SETTLED % self.name
+        if self.state != "closed":
+            return REOPEN_ONLY_CLOSED
+        if user._is_superuser():
+            return ""
+        if by_driver:
+            if self.driver_id != user or self.kind != "route":
+                return REOPEN_NOT_YOURS
+            if self.cash_count_done:
+                return REOPEN_COUNTED % self.name
+            return ""
+        if self.cash_count_done:
+            if user.has_group(REOPEN_CASHIER) or user.has_group(REOPEN_MANAGER):
+                return ""
+            return REOPEN_COUNTED % self.name
+        if any(user.has_group(g) for g in (REOPEN_ADMIN, REOPEN_CASHIER, REOPEN_MANAGER)):
+            return ""
+        return REOPEN_NO_ROLE
+
+    def _distri_reopen(self, user, via="backend", by_driver=False):
+        """Reopens the route for its driver and logs who and when (fields and
+        chatter). Only the route's state and these fields change: no
+        payment, invoice or journal entry is touched (owner's rule)."""
+        self.ensure_one()
+        refusal = self._distri_reopen_refusal(user, by_driver=by_driver)
+        if refusal:
+            raise UserError(refusal)
+        now = fields.Datetime.now()
+        self.sudo().write({"state": "on_route", "reopened_at": now, "reopened_by_id": user.id,
+                           "reopen_count": self.reopen_count + 1})
+        local = now.replace(tzinfo=timezone.utc).astimezone(AR_TZ)
+        self.sudo().message_post(body="Ruta reabierta para el repartidor por %s el %s %s." % (
+            user.name, local.strftime("%d/%m %H:%M"), REOPEN_VIA.get(via, "")))
+        return True
 
     # -------------------------------------------------------- settlement
 

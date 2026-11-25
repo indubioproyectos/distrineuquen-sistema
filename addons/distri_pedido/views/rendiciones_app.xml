@@ -52,12 +52,18 @@
   </t>
   <main class="dn-main">
     <h2 class="dn-label">Para rendir · <t t-esc="len(routes)"/></h2>
-    <a t-foreach="routes" t-as="route" class="dp-row" t-att-href="route_url % route.id"
-       data-rd="ruta">
-      <span class="dp-row__txt"><b t-esc="route.name"/>
-        <span class="dp-meta"><t t-esc="route.driver_id.name"/> · <t t-esc="dia(route.date)"/></span></span>
-      <span class="dp-amt dn-num" t-esc="money(route.cash_expected)"/>
-    </a>
+    <t t-foreach="routes" t-as="route">
+      <a class="dp-row" t-att-href="route_url % route.id" data-rd="ruta">
+        <span class="dp-row__txt"><b t-esc="route.name"/>
+          <span class="dp-meta"><t t-esc="route.driver_id.name"/> · <t t-esc="dia(route.date)"/></span></span>
+        <span class="dp-amt dn-num" t-esc="money(route.cash_expected)"/>
+      </a>
+      <!-- 19.0.1.129.25 (#105): back to the driver's phone, no reason asked -->
+      <form method="post" t-att-action="'/rendiciones/rutas/%s/reabrir' % route.id" class="rd-reabrir">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <button type="submit" class="dn-btn dn-btn--ghost">Reabrir para el repartidor</button>
+      </form>
+    </t>
     <div t-if="not routes" class="dn-empty">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t>
       <p>No hay rutas esperando la rendición.</p>

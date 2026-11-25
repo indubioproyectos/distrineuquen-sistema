@@ -105,3 +105,5 @@ a.dp-row:active{background:var(--dn-tint)}
 .dp-pend form{margin:0}
 .dp-center{margin:0;font-size:13px;text-align:center;color:var(--dn-muted)}
 
+/* 19.0.1.129.25 (#105): «Reabrir para el repartidor» under each route of /rendiciones/rutas */
+.rd-reabrir{display:flex;justify-content:flex-end;margin:4px 0 12px}

@@ -388,6 +388,14 @@
         </div>
       </section>
     </form>
+    <!-- 19.0.1.129.25 (#105): back to the driver's phone, no reason asked -->
+    <form t-if="es_ruta and route.state == 'closed'" class="dn-card" method="post"
+          t-att-action="'/caja/rendicion/%s/reabrir' % route.id">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <p class="caja-muted">¿El repartidor tiene que corregir una visita? La ruta vuelve a su celular
+        como «En reparto» y después la cierra de nuevo. No cambia ningún saldo.</p>
+      <button type="submit" class="dn-btn dn-btn--ghost">Reabrir para el repartidor</button>
+    </form>
   </main>
   <div class="dn-sheet" id="caja-contar" role="dialog" aria-labelledby="caja-contar-tit">
     <h2 id="caja-contar-tit">Contar los billetes</h2>

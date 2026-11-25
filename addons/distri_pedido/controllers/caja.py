@@ -308,6 +308,23 @@ class Caja(http.Controller):
         return self._done("/caja", "%s: entraron %s a la caja." % (
             movement.label, _money(movement.amount)))
 
+    @http.route("/caja/rendicion/<int:route_id>/reabrir", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def reopen_route(self, route_id, **kw):
+        """19.0.1.129.25 (#105): «Reabrir para el repartidor» from «Recibir
+        rendición»: the route goes back to his phone. No reason asked; who
+        and when are logged (models/reparto.py `_distri_reopen`)."""
+        user = self._check()
+        route = self._route(route_id)
+        try:
+            route._distri_reopen(user, via="caja")
+        except UserError as exc:
+            caja = self._caja()
+            if not caja:
+                return request.redirect("/caja", 303)
+            return self._reception(caja, route, error=_error_text(exc), status=400)
+        return self._done("/caja/rendicion", "%s: reabierta para el repartidor." % route.name)
+
     @http.route("/caja/cliente-nuevo/<int:partner_id>/confirmar", type="http", auth="user",
                 methods=["POST"], sitemap=False)
     def confirm_new_customer(self, partner_id, volver="", **kw):
