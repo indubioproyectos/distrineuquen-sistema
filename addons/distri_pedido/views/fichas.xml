@@ -6,7 +6,7 @@
        already do each thing (or /revisar's own «Liberar» post). On the kit
        with /deposito's top bar (deposito_top) plus static/src/kit/fichas.css. -->
 
-  <!-- the action buttons and «Ver en Odoo», shared by the three screens -->
+  <!-- the action buttons and «Ver en el sistema» (the Odoo form; #86: no «Odoo» in visible text), shared by the three screens -->
   <template id="ficha_acciones" name="Ficha: acciones">
     <div t-if="acts or liberar" class="fi-acts">
       <t t-foreach="acts" t-as="a">
@@ -22,7 +22,7 @@
       </form>
     </div>
     <a t-if="odoo_url" class="dn-link fi-odoo" t-att-href="odoo_url" data-fi-odoo="">
-      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Ver en Odoo</a>
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Ver en el sistema</a>
   </template>
 
   <!-- lines of an order or an invoice -->
@@ -73,7 +73,7 @@
         <div t-if="row['pago']"><dt>Pago</dt><dd><span t-att-class="'dn-chip dn-chip--%s' % row['pago_kind']" t-esc="row['pago']"/></dd></div>
       </dl>
       <p t-if="nota" class="dp-warn">Retenido: <t t-esc="nota"/></p>
-      <p t-if="presupuesto" class="dp-hint">Es un presupuesto: todavía no se confirmó.<t t-if="odoo_url"> Para aprobarlo, abrilo en Odoo.</t></p>
+      <p t-if="presupuesto" class="dp-hint">Es un presupuesto: todavía no se confirmó.<t t-if="odoo_url"> Para aprobarlo, abrilo en el sistema.</t></p>
     </section>
     <t t-call="distri_pedido.ficha_acciones"/>
 

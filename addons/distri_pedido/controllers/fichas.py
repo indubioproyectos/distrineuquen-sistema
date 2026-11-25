@@ -16,7 +16,7 @@ Odoo form:
 
 Read-only. Nothing here writes: no route creates, edits or deletes an
 account move, a payment or a reconciliation (not even the invoice PDF, whose
-print saves an attachment on the move: it stays in «Ver en Odoo»). The
+print saves an attachment on the move: it stays in «Ver en el sistema», the Odoo form). The
 actions each screen offers are links to the kit screens that already do them
 («Asignar cliente», «Retener», «Entregar en depósito», «Cobrar», «Estado de
 cuenta») or the same form post as /revisar («Liberar»); each of those checks
@@ -32,7 +32,7 @@ one that does not exist. The screens are for the daily roles (vendedor,
 administración, gerencia, Sistemas); a packer or driver without them gets 403.
 Related records (the invoice's payments, the order's pickings and stops) are
 read with sudo only after that check, as the backend form shows them. «Ver en
-Odoo» is offered to administración (gerencia implies it) and Sistemas.
+el sistema» (the Odoo form; #86 keeps «Odoo» out of visible text) is offered to administración (gerencia implies it) and Sistemas.
 """
 from urllib.parse import quote
 

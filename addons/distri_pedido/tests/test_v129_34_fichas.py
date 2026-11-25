@@ -5,7 +5,7 @@
   exactly the records the backend lets it read (an external seller only his
   customers and their orders, an internal seller his portfolio and his
   orders, administración and gerencia everything), packers and drivers are
-  refused, and «Ver en Odoo» is only for administración and Sistemas.
+  refused, and «Ver en el sistema» is only for administración and Sistemas.
 - The kit links that opened the Odoo form (/revisar, /agilpedido, «Asignar
   cliente», /deposito/mostrador) open those screens with the flag on and the
   form with it off; «Mis ventas» links each order only with the flag on.
@@ -263,7 +263,7 @@ class TestFichas(HttpCase):
         self.assertIn('href="/facturas/%s?desde=/pedidos/%s"' % (self.invoice.id,
                                                                self.o_cartera.id), html)
         self.assertIn('href="/odoo/sale.order/%s"' % self.o_cartera.id, html)
-        self.assertIn("Ver en Odoo", html)
+        self.assertIn("Ver en el sistema", html)
         self.assertIn('href="/cuentas#cuenta/%s"' % self.cartera.id, html)
         self.assertIn('href="/cobro?cliente=%s"' % self.cartera.id, html)
         # a held quotation: «Liberar» posts to /revisar's own route
@@ -278,7 +278,7 @@ class TestFichas(HttpCase):
         self.assertTrue(sees_odoo(self.admin) and sees_odoo(self.sistemas))
         self._login(self.vendedor)
         html = self._get("/pedidos/%s" % self.presupuesto.id).text
-        self.assertNotIn("Ver en Odoo", html)
+        self.assertNotIn("Ver en el sistema", html)
         self.assertNotIn("/odoo/", html)
         self.assertNotIn("/liberar", html)
         self.assertNotIn("/revisar", html)
@@ -393,8 +393,16 @@ class TestFichas(HttpCase):
                               if t["key"] != "equipo"], tiles[user], user.login)
         # the same actions stay under the «Transición AgilPedido» app
         self.assertIn(app_importar, self._menus(self.admin))
-        # Sistemas keeps every menu
-        self.assertIn(transicion, self._menus(self.sistemas))
+        # Sistemas keeps every menu its groups give it
+        self._flag(False)
+        sistemas_off = self._menus(self.sistemas)
+        self._flag(True)
+        self.assertEqual(self._menus(self.sistemas), sistemas_off)
+        admin_sistemas = new_test_user(
+            self.env, login="admin_sistemas_f34",
+            groups="base.group_user,distri_pedido.grupo_administracion,base.group_system",
+            company_id=self.env.company.id, company_ids=[Command.set(self.env.company.ids)])
+        self.assertIn(transicion, self._menus(admin_sistemas))
         # and turning the flag off brings them back at once
         self._flag(False)
         self.assertEqual(self._menus(self.admin), before[self.admin])
