@@ -49,12 +49,17 @@ class TestV12942Rendiciones(HttpCase):
                 self.assertNotIn("recibir", keys, user.login)
                 self.assertIn("rutas", keys, user.login)
             self.assertIn("recibir", [r["key"] for r in rows(self.env(user=self.cajero))])
-        self.authenticate(self.admin.login, self.admin.login)
-        page = self.url_open("/rendiciones").text
-        self.assertNotIn('href="/caja/rendicion"', page)
-        self.assertIn('href="/rendiciones/rutas"', page)
-        self.authenticate(self.cajero.login, self.cajero.login)
-        self.assertIn('href="/caja/rendicion"', self.url_open("/rendiciones").text)
+        # the 129.42 page (flag off); 19.0.1.129.44: with ui_v2 on /rendiciones
+        # is the design system's hub, with the same rule
+        for flag in (False, True):
+            self._flag(flag)
+            self.authenticate(self.admin.login, self.admin.login)
+            page = self.url_open("/rendiciones").text
+            self.assertNotIn('href="/caja/rendicion"', page)
+            if not flag:
+                self.assertIn('href="/rendiciones/rutas"', page)
+            self.authenticate(self.cajero.login, self.cajero.login)
+            self.assertIn('href="/caja/rendicion"', self.url_open("/rendiciones").text)
         self.assertEqual(self._ledger(), before)
 
     def test_branded_spanish_refusal_with_the_next_step(self):

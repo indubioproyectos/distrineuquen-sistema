@@ -1,0 +1,777 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.44 (distri_pedido.ui_v2 only), controllers/rendiciones_v2.py:
+       «Rendiciones» and «Casos» on the DistriNeuquén design system (mockups
+       s26-pc-rendicion, s26-07-casos). Phone: the ScreenHeader (dn-top) and the
+       role's bottom bar; PC (from 1024 px): the role's app bar and a page head
+       (kit/rendiciones_v2.css). Every action is a plain form post; the ones
+       that need a «¿Seguro?» carry data-rd-confirm (kit/rendiciones_v2.js asks
+       in the kit's sheet) and the server asks again without JavaScript. -->
+
+  <!-- the ⋯ menu items: menu = [(label, url, icon)] -->
+  <template id="rendiciones_v2_menu" name="Rendiciones v2: menú ⋯">
+    <details t-if="menu" t-att-class="'rd-more' + (' rd-more--line' if line else '')">
+      <summary t-att-class="'dn-icon-btn' + (' dn-icon-btn--line' if line else '')" aria-label="Más acciones">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'more'"/></t></summary>
+      <nav class="dn-menu" aria-label="Más acciones">
+        <a t-foreach="menu" t-as="m" class="dn-menu__item" t-att-href="m[1]" t-att-data-rd-menu="m[2]">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="m[2]"/></t><t t-esc="m[0]"/></a>
+      </nav>
+    </details>
+  </template>
+
+  <!-- the bars: titulo, kicker, sub, volver (parent), menu -->
+  <template id="rendiciones_v2_bars" name="Rendiciones v2: barras">
+    <header class="dn-appbar rd-pc">
+      <div class="dn-appbar__brand"><span class="rd-logo">DN</span><span>Distri Neuquén</span></div>
+      <nav class="dn-appbar__nav" aria-label="Secciones">
+        <a t-foreach="nav" t-as="it" t-att-href="it['url']" t-att-class="'on' if it['on'] else None"
+           t-att-aria-current="'page' if it['on'] else None">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="it['icon']"/></t><t t-esc="it['label']"/></a>
+      </nav>
+      <span class="dn-appbar__user" t-esc="user.name"/>
+      <a href="#dn-aj" class="dn-icon-btn" data-rd-gear="" aria-label="Ajustes">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'gear'"/></t></a>
+    </header>
+    <header class="dn-top rd-top">
+      <div class="dn-top__row">
+        <a class="dn-icon-btn" t-att-href="volver" data-dn-back="" aria-label="Volver">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t></a>
+        <div class="dn-top__txt">
+          <span class="dn-top__kicker" t-esc="kicker"/>
+          <h1 class="dn-top__title" t-esc="titulo"/>
+        </div>
+        <t t-call="distri_pedido.dn_ajustes"/>
+        <t t-call="distri_pedido.rendiciones_v2_menu"/>
+      </div>
+      <p t-if="sub" class="dn-top__extra dn-top__sub" t-esc="sub"/>
+    </header>
+  </template>
+
+  <!-- the PC page head: titulo, sub, volver + volver_txt, then $0 (buttons) -->
+  <template id="rendiciones_v2_pagehead" name="Rendiciones v2: cabecera PC">
+    <div class="rd-pc">
+      <a class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" t-att-href="volver">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t><t t-esc="volver_txt"/></a>
+    </div>
+    <div class="dn-pagehead rd-pc">
+      <div class="dn-pagehead__txt">
+        <h1 t-esc="titulo"/>
+        <p t-if="sub or pill"><span t-if="pill" t-att-class="'dn-chip dn-chip--%s' % (pill[1] or 'neutral')" t-esc="pill[0]"/>
+          <t t-esc="sub"/></p>
+      </div>
+      <t t-out="0"/>
+      <t t-call="distri_pedido.rendiciones_v2_menu"><t t-set="line" t-value="True"/></t>
+    </div>
+  </template>
+
+  <template id="rendiciones_v2_banners" name="Rendiciones v2: avisos">
+    <div t-if="ok" class="dn-banner dn-banner--ok" role="status"><span t-esc="ok"/></div>
+    <div t-if="error" class="dn-banner dn-banner--err" role="alert" id="rd-error"><span t-esc="error"/></div>
+  </template>
+
+  <!-- a «¿Seguro?» form: action, question, ok (label), btn_class, btn (label) -->
+  <template id="rendiciones_v2_confirm_form" name="Rendiciones v2: formulario con confirmación">
+    <form method="post" t-att-action="action" class="rd-row-form" t-att-data-rd-confirm="question"
+          t-att-data-rd-ok="ok">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input type="hidden" name="confirmar" value=""/>
+      <input t-if="volver_form" type="hidden" name="volver" t-att-value="volver_form"/>
+      <button type="submit" t-att-class="btn_class" t-esc="btn"/>
+    </form>
+  </template>
+
+  <!-- ================================================================ hub -->
+  <template id="rendiciones_v2_hub" name="Rendiciones (sistema de diseño)">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Rendiciones · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="rd2" t-att-data-parent="inicio" data-page="rendiciones" data-v2="1">
+  <t t-set="menu" t-value="[m for m in [
+      ('Casos', '/casos', 'alert') if sees_cases else None,
+      ('Cargos al repartidor', '/casos/cargos', 'user') if sees_charges else None,
+      ('Comprobantes pendientes', '/rendiciones/comprobantes', 'receipt') if sees_promises else None,
+      ('Recibir rendiciones', '/caja/rendicion', 'register') if is_cashier else None,
+      ('Ajustes de reparto (PC)', ajustes, 'pin') if ajustes else None,
+      ('Ver en el sistema', odoo_url, 'external') if odoo_url else None,
+      ('Actualizar', hub_url(), 'refresh')] if m]"/>
+  <t t-call="distri_pedido.rendiciones_v2_bars">
+    <t t-set="volver" t-value="inicio"/>
+    <t t-set="kicker" t-value="'Distri Neuquén · %s' % user.name"/>
+    <t t-set="titulo" t-value="'Rendiciones'"/>
+    <t t-set="sub" t-value="'Rutas para rendir, rendidas, casos y comprobantes.'"/>
+  </t>
+  <main class="rd-main" id="rd-main">
+    <t t-call="distri_pedido.rendiciones_v2_pagehead">
+      <t t-set="volver" t-value="inicio"/>
+      <t t-set="volver_txt" t-value="'Inicio'"/>
+      <t t-set="titulo" t-value="'Rendiciones'"/>
+      <t t-set="sub" t-value="'%s para rendir · %s rendidas en los últimos 7 días' % (h['n_to_settle'], h['n_settled'])"/>
+      <a t-if="is_cashier" class="dn-btn dn-btn--auto" href="/caja/rendicion">Recibir rendiciones</a>
+    </t>
+    <t t-call="distri_pedido.rendiciones_v2_banners"/>
+
+    <div class="rd-kpis">
+      <div class="dn-kpi dn-kpi--hero">
+        <span class="dn-kpi__label">Efectivo a rendir</span>
+        <span class="dn-kpi__value" t-esc="h['cash_to_settle']"/>
+        <span class="dn-kpi__hint"><t t-esc="h['n_to_settle']"/> <t t-esc="'ruta' if h['n_to_settle'] == 1 else 'rutas'"/> para rendir · gastos <t t-esc="h['expenses_to_settle']"/></span>
+      </div>
+      <a t-if="sees_cases" class="dn-kpi" href="/casos" data-dn="down" data-rd-kpi="casos">
+        <span class="dn-kpi__label">Casos abiertos</span>
+        <span class="dn-kpi__value dn-num" t-esc="h['open_cases']"/>
+        <span class="dn-kpi__hint">Diferencias, devoluciones y gastos</span>
+      </a>
+      <a t-if="sees_charges" class="dn-kpi" href="/casos/cargos" data-dn="down" data-rd-kpi="cargos">
+        <span class="dn-kpi__label">Cargos al repartidor</span>
+        <span class="dn-kpi__value dn-num" t-esc="h['open_charges']"/>
+        <span class="dn-kpi__hint">Abiertos</span>
+      </a>
+      <a t-if="sees_promises" class="dn-kpi" href="/rendiciones/comprobantes" data-dn="down" data-rd-kpi="comprobantes">
+        <span class="dn-kpi__label">Comprobantes pendientes</span>
+        <span class="dn-kpi__value dn-num" t-esc="h['open_receipts']"/>
+        <span class="dn-kpi__hint">Sin resolver</span>
+      </a>
+    </div>
+
+    <div class="rd-filters">
+      <nav class="dn-seg rd-tabs" aria-label="Rutas">
+        <a t-att-href="hub_url(vista='para_rendir', ruta='')" t-att-aria-current="'page' if h['vista'] == 'para_rendir' else None">Para rendir · <t t-esc="h['n_to_settle']"/></a>
+        <a t-att-href="hub_url(vista='rendidas', ruta='')" t-att-aria-current="'page' if h['vista'] == 'rendidas' else None">Rendidas · <t t-esc="h['n_settled']"/></a>
+      </nav>
+      <div t-if="len(h['drivers']) &gt; 1" class="dn-chips" role="group" aria-label="Repartidor">
+        <a t-att-class="'dn-fchip' + (' on' if not h['repartidor'] else '')" t-att-href="hub_url(repartidor='', ruta='')">Todos</a>
+        <a t-foreach="h['drivers']" t-as="d" t-att-class="'dn-fchip' + (' on' if d[0] == h['repartidor'] else '')"
+           t-att-href="hub_url(repartidor=d[0], ruta='')" t-esc="d[1]"/>
+      </div>
+    </div>
+
+    <div t-if="not h['rows']" class="dn-empty">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t>
+      <p t-if="h['vista'] == 'para_rendir'">No hay rutas esperando la rendición.</p>
+      <p t-else="">No se rindió ninguna ruta en los últimos 7 días.</p>
+    </div>
+
+    <!-- phone: one row per route -->
+    <div t-if="h['rows']" class="dn-list rd-rows rd-phone" id="rd-list">
+      <a t-foreach="h['rows']" t-as="r" class="dn-rowi" t-att-href="r['url']" data-dn="down" t-att-data-rd-ruta="r['id']">
+        <span class="dn-rowi__lead"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'truck'"/></t></span>
+        <span class="dn-rowi__main">
+          <span class="dn-rowi__title" t-esc="r['name']"/>
+          <span class="dn-rowi__sub"><t t-esc="r['driver']"/> · <t t-esc="r['date']"/> · <t t-esc="r['stops']"/> visitas</span>
+          <span class="rd-sub-extra">Gastos <t t-esc="r['expenses']"/><t t-if="r['receipts']"> · <t t-esc="r['receipts']"/> sin comprobante</t><t t-if="r['cases']"> · <t t-esc="r['cases']"/> <t t-esc="'caso' if r['cases'] == 1 else 'casos'"/></t></span>
+        </span>
+        <span class="dn-rowi__end">
+          <span class="dn-rowi__amt" t-esc="r['expected']"/>
+          <span t-att-class="'dn-chip dn-chip--%s' % r['tone']" t-esc="r['pill']"/>
+        </span>
+      </a>
+    </div>
+
+    <!-- PC: the table and the selected route beside it -->
+    <div t-if="h['rows']" class="rd-cols rd-pc">
+      <div class="rd-colmain">
+        <div class="dn-table-wrap">
+          <table class="dn-table">
+            <thead><tr>
+              <th>Ruta</th><th>Repartidor</th><th>Fecha</th><th class="num">Visitas</th>
+              <th class="num">Efectivo a rendir</th><th class="num">Gastos</th><th class="num">Diferencia</th>
+              <th class="num">Sin comprobante</th><th class="num">Casos</th><th>Estado</th>
+            </tr></thead>
+            <tbody>
+              <tr t-foreach="h['rows']" t-as="r" t-att-data-href="hub_url(ruta=r['id'])"
+                  t-att-aria-selected="'true' if h['selected'] and r['id'] == h['selected']['id'] else 'false'">
+                <td><a t-att-href="hub_url(ruta=r['id'])" t-esc="r['name']"/></td>
+                <td t-esc="r['driver']"/>
+                <td class="muted" t-esc="r['date']"/>
+                <td class="num" t-esc="r['stops']"/>
+                <td class="num" t-esc="r['expected']"/>
+                <td class="num" t-esc="r['expenses']"/>
+                <td t-att-class="'num' + (' rd-amt-neg' if r['difference_tone'] == 'err' else '')" t-esc="r['difference'] or '–'"/>
+                <td class="num" t-esc="r['receipts'] or '–'"/>
+                <td class="num" t-esc="r['cases'] or '–'"/>
+                <td><span t-att-class="'dn-chip dn-chip--%s' % r['tone']" t-esc="r['pill']"/></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <t t-set="s" t-value="h['selected']"/>
+      <aside t-if="s" class="rd-side">
+        <div class="dn-card" t-att-data-rd-panel="s['id']">
+          <h2 class="dn-label" t-esc="s['name']"/>
+          <p class="rd-note"><span t-att-class="'dn-chip dn-chip--%s' % s['tone']" t-esc="s['pill']"/>
+            <t t-esc="s['driver']"/> · <t t-esc="s['date']"/><t t-if="s['closed_at']"> · volvió <t t-esc="s['closed_at']"/></t></p>
+          <dl class="rd-fields">
+            <dt>Efectivo a rendir</dt><dd t-esc="s['expected']"/>
+            <dt>Gastos</dt><dd t-esc="s['expenses']"/>
+            <t t-if="s['counted']"><dt>Efectivo contado</dt><dd t-esc="s['counted']"/>
+              <dt>Diferencia</dt><dd t-esc="s['difference']"/></t>
+            <dt>Comprobantes pendientes</dt><dd t-esc="s['receipts']"/>
+            <dt>Casos abiertos</dt><dd t-esc="s['cases']"/>
+            <t t-if="s['settled_on']"><dt>Rendida</dt><dd t-esc="s['settled_on']"/></t>
+          </dl>
+          <a class="dn-btn" t-att-href="s['url']" data-dn="down">Abrir la rendición</a>
+          <a t-if="is_cashier and h['vista'] == 'para_rendir'" class="dn-btn dn-btn--secondary"
+             t-att-href="'/caja/rendicion/%s' % s['id']">Recibir en mi caja</a>
+        </div>
+      </aside>
+    </div>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- ============================================================== route -->
+  <template id="rendiciones_v2_ruta" name="Rendición de una ruta (sistema de diseño)">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title t-esc="'%s · Rendición · Distri Neuquén' % r['name']"/>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="rd2" data-parent="/rendiciones" data-page="rendiciones-ruta" t-att-data-rd-route="r['id']">
+  <t t-set="menu" t-value="[m for m in [
+      ('Casos de reparto', '/casos', 'alert') if sees_cases else None,
+      ('Ver en el sistema', r['odoo_url'], 'external') if r['odoo_url'] else None,
+      ('Actualizar', '/rendiciones/ruta/%s' % r['id'], 'refresh')] if m]"/>
+  <t t-set="meta" t-value="' · '.join(x for x in [r['date'], r['driver'], '%s visitas' % r['stop_count'], ('volvió %s' % r['closed_at']) if r['closed_at'] else ''] if x)"/>
+  <t t-call="distri_pedido.rendiciones_v2_bars">
+    <t t-set="volver" t-value="'/rendiciones'"/>
+    <t t-set="kicker" t-value="'Rendición · %s' % r['state_label']"/>
+    <t t-set="titulo" t-value="r['name']"/>
+    <t t-set="sub" t-value="meta"/>
+  </t>
+  <main class="rd-main">
+    <t t-call="distri_pedido.rendiciones_v2_pagehead">
+      <t t-set="volver" t-value="'/rendiciones'"/>
+      <t t-set="volver_txt" t-value="'Rendiciones'"/>
+      <t t-set="titulo" t-value="'Rendición · %s' % r['name']"/>
+      <t t-set="sub" t-value="meta"/>
+      <t t-set="pill" t-value="r['pill']"/>
+      <a t-if="r['can_receive']" class="dn-btn dn-btn--auto" t-att-href="r['receive_url']" data-rd-recibir="">Recibir en mi caja</a>
+    </t>
+    <t t-call="distri_pedido.rendiciones_v2_banners"/>
+    <div t-if="r['rejections']" class="dn-banner dn-banner--err" role="alert">
+      <span>La app rechazó cambios de esta ruta que siguen sin resolver (<t t-esc="r['rejections']"/>). Pueden traer efectivo que todavía no figura en la rendición.</span></div>
+    <div t-if="r['double_cash']" class="dn-banner dn-banner--warn" role="status">
+      <span><b>Revisá si alguno pagó dos veces:</b> <t t-esc="r['double_cash']"/></span></div>
+
+    <!-- «Reabrir» asked without JavaScript -->
+    <div t-if="ask_reopen and r['can_reopen']" class="dn-card rd-ask" id="rd-ask" role="alertdialog" aria-labelledby="rd-ask-q">
+      <p id="rd-ask-q" t-esc="r['reopen_question']"/>
+      <div class="rd-ask__btns">
+        <a class="dn-btn dn-btn--secondary" t-att-href="'/rendiciones/ruta/%s' % r['id']">Cancelar</a>
+        <form method="post" t-att-action="'/rendiciones/ruta/%s/reabrir' % r['id']" class="rd-row-form">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="confirmar" value="1"/>
+          <button type="submit" class="dn-btn">Sí, reabrir</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="rd-kpis">
+      <div class="dn-kpi">
+        <span class="dn-kpi__label">Efectivo a rendir</span>
+        <span class="dn-kpi__value" t-esc="r['expected']" data-rd-kpi="esperado"/>
+        <span class="dn-kpi__hint">Cobrado <t t-esc="r['collected']"/> · gastos <t t-esc="r['expense_total']"/><t t-if="r['advance']"> · adelanto <t t-esc="r['advance']"/></t></span>
+      </div>
+      <div class="dn-kpi">
+        <span class="dn-kpi__label">Efectivo contado</span>
+        <span class="dn-kpi__value" t-esc="r['counted'] or 'Sin contar'" data-rd-kpi="contado"/>
+        <span class="dn-kpi__hint" t-if="r['settled']">Rindió <t t-esc="r['settled_by']"/> · <t t-esc="r['settled']"/></span>
+        <span class="dn-kpi__hint" t-elif="not r['counted']">Lo cuenta el cajero al recibir</span>
+      </div>
+      <div class="dn-kpi">
+        <span class="dn-kpi__label">Diferencia</span>
+        <span class="dn-kpi__value" t-esc="r['difference'] or '–'" data-rd-kpi="diferencia"/>
+        <span class="dn-kpi__hint" t-if="r['difference_text']"><span t-att-class="'dn-chip dn-chip--%s' % (r['difference_tone'] or 'ok')" t-esc="r['difference_text']"/></span>
+      </div>
+      <div class="dn-kpi">
+        <span class="dn-kpi__label">Transferencias</span>
+        <span class="dn-kpi__value" t-esc="r['transfer_total']" data-rd-kpi="transferencias"/>
+        <span class="dn-kpi__hint"><span t-if="r['receipts_pending']" class="dn-chip dn-chip--warn"><t t-esc="r['receipts_pending']"/> sin comprobante</span>
+          <t t-elif="r['receipts_ok']"><t t-esc="r['receipts_ok']"/> con comprobante</t></span>
+      </div>
+    </div>
+
+    <div class="rd-cols">
+      <div class="rd-colmain">
+        <!-- visits: list on the phone, table on the PC -->
+        <section class="rd-sec">
+          <h2 class="dn-label">Visitas · <t t-esc="len(r['visits'])"/></h2>
+          <div t-if="r['visits']" class="dn-list rd-rows rd-phone">
+            <div t-foreach="r['visits']" t-as="v" class="dn-rowi">
+              <span class="dn-rowi__lead dn-num" t-esc="v['n']"/>
+              <span class="dn-rowi__main">
+                <span class="dn-rowi__title" t-esc="v['partner']"/>
+                <span class="dn-rowi__sub"><t t-esc="v['order']"/> · saldo <t t-esc="v['balance']"/></span>
+                <span class="rd-sub-extra"><t t-if="v['cash']">Efectivo <t t-esc="v['cash']"/></t><t t-if="v['cash'] and v['transfer']"> · </t><t t-if="v['transfer']">Transferencia <t t-esc="v['transfer']"/></t><t t-if="v['comment']"> · <t t-esc="v['comment']"/></t></span>
+              </span>
+              <span class="dn-rowi__end"><span t-att-class="'dn-chip dn-chip--%s' % v['tone']" t-esc="v['pill']"/></span>
+            </div>
+          </div>
+          <div t-if="r['visits']" class="dn-table-wrap rd-pc">
+            <table class="dn-table">
+              <thead><tr><th>#</th><th>Cliente</th><th>Pedido</th><th class="num">Saldo total</th>
+                <th class="num">Efectivo</th><th class="num">Transferencia</th><th>Estado</th></tr></thead>
+              <tbody>
+                <tr t-foreach="r['visits']" t-as="v">
+                  <td class="muted" t-esc="v['n']"/>
+                  <td><b t-esc="v['partner']"/><span t-if="v['comment']" class="rd-sub-extra" t-esc="v['comment']"/></td>
+                  <td class="muted" t-esc="v['order']"/>
+                  <td class="num" t-esc="v['balance']"/>
+                  <td class="num" t-esc="v['cash'] or '–'"/>
+                  <td class="num" t-esc="v['transfer'] or '–'"/>
+                  <td><span t-att-class="'dn-chip dn-chip--%s' % v['tone']" t-esc="v['pill']"/></td>
+                </tr>
+              </tbody>
+              <tfoot><tr><td colspan="3"><t t-esc="len(r['visits'])"/> visitas</td>
+                <td class="num" t-esc="r['visits_balance']"/><td class="num" t-esc="r['visits_cash']"/>
+                <td class="num" t-esc="r['visits_transfer']"/><td/></tr></tfoot>
+            </table>
+          </div>
+          <p t-if="not r['visits']" class="rd-note">La ruta no tiene visitas.</p>
+        </section>
+
+        <section t-if="r['collections']" class="rd-sec">
+          <h2 class="dn-label">Cobros en el local · <t t-esc="len(r['collections'])"/></h2>
+          <div class="dn-list rd-rows">
+            <div t-foreach="r['collections']" t-as="c" class="dn-rowi">
+              <span class="dn-rowi__main"><span class="dn-rowi__title" t-esc="c['partner']"/>
+                <span class="dn-rowi__sub">Cobró <t t-esc="c['who']"/></span></span>
+              <span class="dn-rowi__end"><span class="dn-rowi__amt" t-esc="c['amount']"/></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="rd-sec">
+          <h2 class="dn-label">Gastos · <t t-esc="r['expense_total']"/></h2>
+          <div t-if="r['expenses']" class="dn-list rd-rows">
+            <div t-foreach="r['expenses']" t-as="e" class="dn-rowi">
+              <span class="dn-rowi__main"><span class="dn-rowi__title" t-esc="e['kind']"/>
+                <span class="dn-rowi__sub"><t t-esc="e['comment'] or 'Sin comentario'"/><t t-if="e['paper']"> · papel recibido</t></span></span>
+              <span class="dn-rowi__end"><span class="dn-rowi__amt" t-esc="e['amount']"/>
+                <span t-att-class="'dn-chip dn-chip--%s' % e['tone']" t-esc="e['pill']"/></span>
+            </div>
+          </div>
+          <p t-else="" class="rd-note">Sin gastos.</p>
+        </section>
+
+        <section class="rd-sec">
+          <h2 class="dn-label">Transferencias y comprobantes · <t t-esc="len(r['transfers'])"/></h2>
+          <div t-if="r['transfers']" class="dn-list rd-rows">
+            <div t-foreach="r['transfers']" t-as="tr" class="dn-rowi">
+              <span class="dn-rowi__main"><span class="dn-rowi__title" t-esc="tr['partner']"/>
+                <span class="dn-rowi__sub" t-esc="tr['kind']"/></span>
+              <span class="dn-rowi__end"><span class="dn-rowi__amt" t-esc="tr['amount']"/>
+                <span t-att-class="'dn-chip dn-chip--%s' % tr['tone']" t-esc="tr['pill']"/></span>
+            </div>
+          </div>
+          <p t-else="" class="rd-note">Sin transferencias.</p>
+          <a t-if="r['transfers'] and sees_promises" class="dn-link" href="/rendiciones/comprobantes" data-dn="down">Comprobantes pendientes de todas las rutas</a>
+        </section>
+
+        <section t-if="r['returns']" class="rd-sec">
+          <h2 class="dn-label">Devoluciones · <t t-esc="len(r['returns'])"/></h2>
+          <div class="dn-list rd-rows">
+            <div t-foreach="r['returns']" t-as="ret" class="dn-rowi">
+              <span class="dn-rowi__main"><span class="dn-rowi__title" t-esc="ret['partner']"/>
+                <span class="dn-rowi__sub"><t t-esc="ret['qty']"/> × <t t-esc="ret['product']"/><t t-if="ret['reason']"> · <t t-esc="ret['reason']"/></t></span></span>
+              <span class="dn-rowi__end"><span class="dn-rowi__amt" t-esc="ret['amount']"/>
+                <span t-att-class="'dn-chip dn-chip--%s' % ret['tone']" t-esc="ret['pill']"/></span>
+            </div>
+          </div>
+        </section>
+
+        <section t-if="r['undelivered']" class="rd-sec">
+          <h2 class="dn-label">Pedidos sin entregar · <t t-esc="len(r['undelivered'])"/></h2>
+          <div class="dn-list rd-rows">
+            <div t-foreach="r['undelivered']" t-as="u" class="dn-rowi">
+              <span class="dn-rowi__main"><span class="dn-rowi__title" t-esc="u['partner']"/>
+                <span class="dn-rowi__sub"><t t-esc="u['order']"/><t t-if="u['reason']"> · <t t-esc="u['reason']"/></t></span></span>
+              <span class="dn-rowi__end"><span t-att-class="'dn-chip dn-chip--%s' % u['tone']" t-esc="u['pill']"/></span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="rd-side">
+        <div class="dn-card" id="rd-acciones">
+          <h2 class="dn-label">Rendición</h2>
+          <dl class="rd-fields">
+            <dt>Efectivo a rendir</dt><dd t-esc="r['expected']"/>
+            <dt>Efectivo contado</dt><dd t-esc="r['counted'] or 'Sin contar'"/>
+            <t t-if="r['difference']"><dt>Diferencia</dt><dd t-esc="r['difference']"/></t>
+          </dl>
+          <t t-if="r['candidates']">
+            <p class="rd-note"><b>Puede explicar la diferencia:</b></p>
+            <ul class="rd-note"><li t-foreach="r['candidates']" t-as="cand" t-esc="cand"/></ul>
+          </t>
+          <p t-if="r['driver_explanation']" class="rd-note rd-text"><b>Explicación del repartidor:</b> <t t-esc="r['driver_explanation']"/></p>
+          <div class="rd-actions">
+            <a t-if="r['can_receive']" class="dn-btn" t-att-href="r['receive_url']" data-rd-recibir="">Recibir en mi caja</a>
+            <p t-if="r['to_cashier']" class="rd-note" t-esc="r['to_cashier']"/>
+            <form t-if="r['can_case']" method="post" t-att-action="'/rendiciones/ruta/%s/caso' % r['id']" class="rd-row-form">
+              <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+              <button type="submit" class="dn-btn dn-btn--secondary">Abrir caso por la diferencia</button>
+            </form>
+            <a t-if="r['cash_case_url']" class="dn-btn dn-btn--secondary" t-att-href="r['cash_case_url']" data-dn="down">Ver el caso de la diferencia</a>
+            <t t-if="r['can_reopen']" t-call="distri_pedido.rendiciones_v2_confirm_form">
+              <t t-set="action" t-value="'/rendiciones/ruta/%s/reabrir' % r['id']"/>
+              <t t-set="question" t-value="r['reopen_question']"/>
+              <t t-set="ok" t-value="'Sí, reabrir'"/>
+              <t t-set="btn_class" t-value="'dn-btn dn-btn--secondary'"/>
+              <t t-set="btn" t-value="'Reabrir para el repartidor'"/>
+            </t>
+            <p t-if="r['reopen_note']" class="rd-note" t-esc="r['reopen_note']"/>
+            <a t-if="r['odoo_url']" class="dn-btn dn-btn--ghost" t-att-href="r['odoo_url']">Ver en el sistema</a>
+          </div>
+        </div>
+        <div class="dn-card">
+          <h2 class="dn-label">Casos de esta ruta · <t t-esc="len(r['cases'])"/></h2>
+          <div t-if="r['cases']" class="dn-list rd-rows">
+            <a t-foreach="r['cases']" t-as="c" class="dn-rowi" t-att-href="c['url'] if sees_cases else None" data-dn="down">
+              <span class="dn-rowi__main"><span class="dn-rowi__title" t-esc="c['kind']"/></span>
+              <span class="dn-rowi__end"><span class="dn-rowi__amt" t-esc="c['amount']"/>
+                <span t-att-class="'dn-chip dn-chip--%s' % c['tone']" t-esc="c['pill']"/></span>
+            </a>
+          </div>
+          <p t-else="" class="rd-note">Sin casos.</p>
+        </div>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- ====================================================== cases / charges -->
+  <template id="rendiciones_v2_case_row" name="Rendiciones v2: fila de caso">
+    <a class="dn-rowi" t-att-href="row['url']" data-dn="down" t-att-data-rd-caso="row['id']">
+      <span class="dn-rowi__main">
+        <span class="dn-rowi__title" t-esc="row['title']"/>
+        <span class="dn-rowi__sub" t-esc="row['sub']"/>
+      </span>
+      <span class="dn-rowi__end">
+        <span t-att-class="'dn-rowi__amt' + (' rd-amt-neg' if row['negative'] else '')" t-esc="row['amount']"/>
+        <span t-att-class="'dn-chip dn-chip--%s' % row['tone']" t-esc="row['pill']"/>
+        <span t-if="row['replenished']" class="dn-chip dn-chip--ok">Repuesto</span>
+      </span>
+      <span class="dn-rowi__chev"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t></span>
+    </a>
+  </template>
+
+  <template id="rendiciones_v2_casos" name="Casos (sistema de diseño)">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title t-esc="'%s · Distri Neuquén' % ('Cargos al repartidor' if charges else 'Casos')"/>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="rd2" data-parent="/rendiciones" t-att-data-page="'casos-cargos' if charges else 'casos'">
+  <t t-set="titulo" t-value="'Cargos al repartidor' if charges else 'Casos'"/>
+  <t t-set="menu" t-value="[m for m in [
+      ('Casos', '/casos', 'alert') if charges and sees_cases else None,
+      ('Cargos al repartidor', '/casos/cargos', 'user') if not charges and sees_charges else None,
+      ('Comprobantes pendientes', '/rendiciones/comprobantes', 'receipt') if sees_promises else None,
+      ('Ver en el sistema', odoo_url, 'external') if odoo_url else None,
+      ('Actualizar', list_url(), 'refresh')] if m]"/>
+  <t t-set="resumen" t-value="'%s %s · %s en total' % (c['total'], ('caso' if c['total'] == 1 else 'casos') + {'abiertos': (' abierto' if c['total'] == 1 else ' abiertos'), 'resueltos': (' resuelto' if c['total'] == 1 else ' resueltos'), 'todos': ''}[c['estado']], c['amount'])"/>
+  <t t-call="distri_pedido.rendiciones_v2_bars">
+    <t t-set="volver" t-value="'/rendiciones'"/>
+    <t t-set="kicker" t-value="'Rendiciones'"/>
+    <t t-set="sub" t-value="'Comprobantes que no llegaron, transferencias de menos y pedidos sin cobrar.' if charges else 'Diferencias de caja, devoluciones, gastos y cargos.'"/>
+  </t>
+  <main class="rd-main rd-main--narrow">
+    <t t-call="distri_pedido.rendiciones_v2_pagehead">
+      <t t-set="volver" t-value="'/rendiciones'"/>
+      <t t-set="volver_txt" t-value="'Rendiciones'"/>
+      <t t-set="sub" t-value="resumen"/>
+    </t>
+    <t t-call="distri_pedido.rendiciones_v2_banners"/>
+    <div class="rd-filters">
+      <nav class="dn-seg rd-tabs" aria-label="Estado">
+        <a t-foreach="c['tabs']" t-as="tab" t-att-href="list_url(estado=tab[0], tipo='', offset='')"
+           t-att-aria-current="'page' if tab[0] == c['estado'] else None" t-esc="tab[1]"/>
+      </nav>
+      <div class="dn-chips" role="group" aria-label="Tipo">
+        <a t-att-class="'dn-fchip' + (' on' if not c['tipo'] else '')" t-att-href="list_url(tipo='', offset='')">Todos <b t-esc="c['n_all_kinds']"/></a>
+        <a t-foreach="c['chips']" t-as="k" t-att-class="'dn-fchip' + (' on' if k[0] == c['tipo'] else '')"
+           t-att-href="list_url(tipo=k[0], offset='')"><t t-esc="k[1]"/> <b t-esc="k[2]"/></a>
+      </div>
+      <form t-if="c['drivers']" method="get" t-att-action="page_url" role="search">
+        <input type="hidden" name="estado" t-att-value="c['estado']"/>
+        <input t-if="c['tipo']" type="hidden" name="tipo" t-att-value="c['tipo']"/>
+        <div class="dn-field">
+          <label class="dn-field__label" for="rd-repartidor">Repartidor</label>
+          <div class="dn-selectwrap">
+            <select id="rd-repartidor" class="dn-input" name="repartidor" data-rd-auto="">
+              <option value="">Todos</option>
+              <option t-foreach="c['drivers']" t-as="d" t-att-value="d[0]"
+                      t-att-selected="'selected' if d[0] == c['repartidor'] else None" t-esc="d[1]"/>
+            </select>
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'chevdown'"/></t>
+          </div>
+        </div>
+        <noscript><button type="submit" class="dn-btn dn-btn--secondary dn-btn--sm dn-btn--auto">Ver</button></noscript>
+      </form>
+    </div>
+    <p class="rd-sum rd-phone" t-esc="resumen"/>
+
+    <div t-if="not c['rows']" class="dn-empty">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t>
+      <p>No hay casos con ese filtro.</p>
+    </div>
+    <t t-if="charges">
+      <t t-foreach="c['groups']" t-as="g">
+        <h2 class="dn-label rd-group"><span t-esc="g['driver']"/><span><t t-esc="len(g['rows'])"/></span></h2>
+        <div class="dn-list rd-rows">
+          <t t-foreach="g['rows']" t-as="row"><t t-call="distri_pedido.rendiciones_v2_case_row"/></t>
+        </div>
+      </t>
+    </t>
+    <div t-elif="c['rows']" class="dn-list rd-rows" id="rd-casos">
+      <t t-foreach="c['rows']" t-as="row"><t t-call="distri_pedido.rendiciones_v2_case_row"/></t>
+    </div>
+    <a t-if="c['more']" class="dn-btn dn-btn--secondary dn-btn--auto rd-more-link" t-att-href="list_url(offset=c['next_offset'])">Ver más</a>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- ================================================================ case -->
+  <template id="rendiciones_v2_caso" name="Caso (sistema de diseño)">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title t-esc="'%s · Caso · Distri Neuquén' % row['title']"/>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="rd2" t-att-data-parent="parent" data-page="caso" t-att-data-rd-case="case.id">
+  <t t-set="menu" t-value="[m for m in [
+      ('Ver en el sistema', odoo_url, 'external') if odoo_url else None] if m]"/>
+  <t t-set="volver_txt" t-value="{'/casos': 'Casos', '/casos/cargos': 'Cargos al repartidor'}.get(parent, 'Rendición de la ruta' if parent.startswith('/rendiciones/') else 'Caja cerrada')"/>
+  <t t-call="distri_pedido.rendiciones_v2_bars">
+    <t t-set="volver" t-value="parent"/>
+    <t t-set="kicker" t-value="kind"/>
+    <t t-set="titulo" t-value="row['title']"/>
+    <t t-set="sub" t-value="row['sub']"/>
+  </t>
+  <main class="rd-main rd-main--narrow">
+    <t t-call="distri_pedido.rendiciones_v2_pagehead">
+      <t t-set="volver" t-value="parent"/>
+      <t t-set="titulo" t-value="row['title']"/>
+      <t t-set="sub" t-value="row['sub']"/>
+      <t t-set="pill" t-value="(row['pill'], row['tone'])"/>
+    </t>
+    <t t-call="distri_pedido.rendiciones_v2_banners"/>
+    <div class="rd-cols">
+      <div class="rd-colmain">
+        <div class="dn-card">
+          <dl class="rd-fields">
+            <dt>Estado</dt><dd><span t-att-class="'dn-chip dn-chip--%s' % row['tone']" t-esc="state"/></dd>
+            <dt>Tipo</dt><dd t-esc="kind"/>
+            <dt>Importe</dt><dd t-att-class="'dn-num' + (' rd-amt-neg' if row['negative'] else '')" t-esc="row['amount']"/>
+            <t t-if="case.route_id"><dt>Ruta</dt><dd><a t-if="route_url" t-att-href="route_url" t-esc="case.route_id.name"/><t t-else="" t-esc="case.route_id.name"/></dd></t>
+            <t t-if="case.caja_id"><dt>Caja</dt><dd t-esc="case.caja_id.name"/></t>
+            <dt>Repartidor</dt><dd t-esc="case.driver_id.name or '–'"/>
+            <t t-if="case.date"><dt>Fecha</dt><dd t-esc="case.date.strftime('%d/%m/%Y')"/></t>
+            <dt>Repuesto por el repartidor</dt><dd t-esc="'Sí' if case.replenished else 'No'"/>
+            <t t-if="case.sudo().return_id"><dt>Devolución</dt><dd t-esc="case.sudo().return_id.display_name"/></t>
+            <t t-if="case.sudo().stop_id"><dt>Visita</dt><dd t-esc="case.sudo().stop_id.display_name"/></t>
+            <t t-if="case.sudo().promise_id"><dt>Comprobante pendiente</dt><dd t-esc="case.sudo().promise_id.status_label"/></t>
+            <t t-if="case.sudo().debt_partner_id"><dt>Deuda en Deudores varios de</dt><dd t-esc="case.sudo().debt_partner_id.name"/></t>
+          </dl>
+        </div>
+        <section t-if="case.candidates" class="rd-sec">
+          <h2 class="dn-label">Candidatos</h2>
+          <p class="dn-card rd-text" t-esc="case.candidates"/>
+        </section>
+        <section t-if="case.driver_explanation" class="rd-sec">
+          <h2 class="dn-label">Explicación del repartidor</h2>
+          <p class="dn-card rd-text" t-esc="case.driver_explanation"/>
+        </section>
+
+        <form t-if="can_edit" method="post" t-att-action="'/casos/%s' % case.id" class="dn-card rd-sec" id="rd-resolver">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input t-if="desde" type="hidden" name="desde" t-att-value="desde"/>
+          <h2 class="dn-label">Resolver</h2>
+          <div class="dn-field">
+            <label for="rd-inv">Investigación</label>
+            <textarea id="rd-inv" class="dn-input" name="investigacion" maxlength="4000" t-esc="form['investigacion']"/>
+          </div>
+          <div class="dn-field">
+            <label for="rd-res">Resolución</label>
+            <textarea id="rd-res" class="dn-input" name="resolucion" maxlength="4000" t-esc="form['resolucion']"/>
+            <span class="dn-field__hint">Para cerrar el caso hay que escribir la resolución.</span>
+          </div>
+          <label class="rd-check"><input type="checkbox" name="repuesto" value="1" t-att-checked="'checked' if form['repuesto'] else None"/>Repuesto por el repartidor</label>
+          <div class="rd-actions">
+            <button type="submit" name="accion" value="cerrar" class="dn-btn">Cerrar caso</button>
+            <button type="submit" name="accion" value="guardar" class="dn-btn dn-btn--secondary">Guardar</button>
+          </div>
+        </form>
+        <t t-else="">
+          <section t-if="case.investigation" class="rd-sec">
+            <h2 class="dn-label">Investigación</h2>
+            <p class="dn-card rd-text" t-esc="case.investigation"/>
+          </section>
+          <section t-if="case.resolution" class="rd-sec">
+            <h2 class="dn-label">Resolución</h2>
+            <p class="dn-card rd-text" t-esc="case.resolution"/>
+          </section>
+        </t>
+
+        <section t-if="amount_history" class="rd-sec">
+          <h2 class="dn-label">Historial del importe</h2>
+          <div class="dn-list rd-rows">
+            <div t-foreach="amount_history" t-as="ah" class="dn-rowi">
+              <span class="dn-rowi__main"><span class="dn-rowi__title"><t t-esc="ah['old']"/> → <t t-esc="ah['new']"/></span>
+                <span class="dn-rowi__sub"><t t-esc="ah['date']"/><t t-if="ah['cause']"> · <t t-esc="ah['cause']"/></t><t t-if="ah['move']"> · <t t-esc="ah['move']"/></t></span></span>
+            </div>
+          </div>
+        </section>
+      </div>
+      <aside class="rd-side">
+        <section class="rd-sec">
+          <h2 class="dn-label">Historial</h2>
+          <ol t-if="history" class="rd-hist">
+            <li t-foreach="history" t-as="hl"><small><t t-esc="hl['when']"/><t t-if="hl['who']"> · <t t-esc="hl['who']"/></t></small>
+              <p t-if="hl['text']" t-esc="hl['text']"/>
+              <p t-foreach="hl['changes']" t-as="ch" t-esc="ch"/></li>
+          </ol>
+          <p t-else="" class="rd-note">Sin movimientos.</p>
+        </section>
+        <a t-if="odoo_url" class="dn-btn dn-btn--ghost" t-att-href="odoo_url">Ver en el sistema</a>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>
+  </template>
+
+  <!-- ======================================================== pending receipts -->
+  <template id="rendiciones_v2_comprobantes" name="Comprobantes pendientes (sistema de diseño)">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Comprobantes pendientes · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="rd2" data-parent="/rendiciones" data-page="rendiciones-comprobantes">
+  <t t-set="menu" t-value="[m for m in [
+      ('Casos', '/casos', 'alert') if sees_cases else None,
+      ('Cargos al repartidor', '/casos/cargos', 'user') if sees_charges else None,
+      ('Ver en el sistema', odoo_url, 'external') if odoo_url else None,
+      ('Actualizar', volver, 'refresh')] if m]"/>
+  <t t-set="resumen" t-value="'%s %s · %s' % (total, 'comprobante' if total == 1 else 'comprobantes', amount)"/>
+  <t t-call="distri_pedido.rendiciones_v2_bars">
+    <t t-set="volver" t-value="'/rendiciones'"/>
+    <t t-set="kicker" t-value="'Rendiciones'"/>
+    <t t-set="titulo" t-value="'Comprobantes pendientes'"/>
+    <t t-set="sub" t-value="'Transferencias sin comprobante y pedidos sin cobrar, a nombre del repartidor.'"/>
+  </t>
+  <main class="rd-main rd-main--narrow">
+    <t t-call="distri_pedido.rendiciones_v2_pagehead">
+      <t t-set="volver" t-value="'/rendiciones'"/>
+      <t t-set="volver_txt" t-value="'Rendiciones'"/>
+      <t t-set="titulo" t-value="'Comprobantes pendientes'"/>
+      <t t-set="sub" t-value="resumen"/>
+    </t>
+    <t t-call="distri_pedido.rendiciones_v2_banners"/>
+    <div t-if="ask" class="dn-card rd-ask" id="rd-ask" role="alertdialog" aria-labelledby="rd-ask-q">
+      <p id="rd-ask-q"><t t-esc="ask['partner']"/>: <t t-esc="ask['question']"/></p>
+      <div class="rd-ask__btns">
+        <a class="dn-btn dn-btn--secondary" t-att-href="volver">Cancelar</a>
+        <form method="post" t-att-action="'/rendiciones/comprobantes/%s/%s' % (ask['id'], ask['accion'])" class="rd-row-form">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="confirmar" value="1"/>
+          <input type="hidden" name="volver" t-att-value="volver"/>
+          <button type="submit" class="dn-btn" t-esc="ask['label']"/>
+        </form>
+      </div>
+    </div>
+    <div class="rd-filters">
+      <nav class="dn-seg rd-tabs" aria-label="Estado">
+        <a t-foreach="tabs" t-as="tab" t-att-href="q(estado=tab[0])"
+           t-att-aria-current="'page' if tab[0] == estado else None" t-esc="tab[1]"/>
+      </nav>
+      <div class="dn-chips" role="group" aria-label="Tipo">
+        <a t-att-class="'dn-fchip' + (' on' if not tipo else '')" t-att-href="q(tipo='')">Todos</a>
+        <a t-att-class="'dn-fchip' + (' on' if tipo == 'done' else '')" t-att-href="q(tipo='done')">Transferencias sin comprobante</a>
+        <a t-att-class="'dn-fchip' + (' on' if tipo == 'unpaid' else '')" t-att-href="q(tipo='unpaid')">Pedidos sin cobrar</a>
+      </div>
+      <form t-if="drivers" method="get" action="/rendiciones/comprobantes" role="search">
+        <input type="hidden" name="estado" t-att-value="estado"/>
+        <input t-if="tipo" type="hidden" name="tipo" t-att-value="tipo"/>
+        <div class="dn-field">
+          <label class="dn-field__label" for="rd-repartidor">Repartidor</label>
+          <div class="dn-selectwrap">
+            <select id="rd-repartidor" class="dn-input" name="repartidor" data-rd-auto="">
+              <option value="">Todos</option>
+              <option t-foreach="drivers" t-as="d" t-att-value="d[0]"
+                      t-att-selected="'selected' if d[0] == repartidor else None" t-esc="d[1]"/>
+            </select>
+            <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'chevdown'"/></t>
+          </div>
+        </div>
+        <noscript><button type="submit" class="dn-btn dn-btn--secondary dn-btn--sm dn-btn--auto">Ver</button></noscript>
+      </form>
+    </div>
+    <p class="rd-sum rd-phone" t-esc="resumen"/>
+    <p t-if="estado == 'hoy'" class="rd-note">Sin resolver y los resueltos desde ayer, como en el sistema.</p>
+    <div t-if="not rows" class="dn-empty">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t>
+      <p>No hay comprobantes con ese filtro.</p>
+    </div>
+    <div t-if="rows" class="dn-list" id="rd-comprobantes">
+      <div t-foreach="rows" t-as="p" class="rd-promise" t-att-data-rd-promise="p['id']">
+        <div class="rd-promise__head">
+          <span class="dn-rowi__main">
+            <span class="dn-rowi__title" t-esc="p['partner']"/>
+            <span class="dn-rowi__sub" t-esc="p['sub']"/>
+            <span t-if="p['route_url'] or p['reminded']" class="rd-sub-extra"><a t-if="p['route_url']" t-att-href="p['route_url']" data-dn="down" t-esc="p['route']"/><t t-if="p['route_url'] and p['reminded']"> · </t><t t-esc="p['reminded']"/></span>
+          </span>
+          <span class="dn-rowi__end">
+            <span class="dn-rowi__amt" t-esc="p['amount']"/>
+            <span t-att-class="'dn-chip dn-chip--%s' % p['tone']" t-esc="p['pill']"/>
+          </span>
+        </div>
+        <div t-if="p['can_remind'] or p['can_arrive'] or p['can_cancel']" class="rd-promise__btns">
+          <form t-if="p['can_remind']" method="post" t-att-action="'/rendiciones/comprobantes/%s/reclamar' % p['id']" target="_blank" class="rd-row-form">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <input type="hidden" name="volver" t-att-value="volver"/>
+            <button type="submit" class="dn-btn dn-btn--secondary dn-btn--sm">Reclamar por WhatsApp</button>
+          </form>
+          <t t-if="p['can_arrive']" t-call="distri_pedido.rendiciones_v2_confirm_form">
+            <t t-set="action" t-value="'/rendiciones/comprobantes/%s/llego' % p['id']"/>
+            <t t-set="question" t-value="p['arrive_question']"/>
+            <t t-set="ok" t-value="'Sí, marcar'"/>
+            <t t-set="btn_class" t-value="'dn-btn dn-btn--sm'"/>
+            <t t-set="btn" t-value="p['arrive_label']"/>
+            <t t-set="volver_form" t-value="volver"/>
+          </t>
+          <t t-if="p['can_cancel']" t-call="distri_pedido.rendiciones_v2_confirm_form">
+            <t t-set="action" t-value="'/rendiciones/comprobantes/%s/anular' % p['id']"/>
+            <t t-set="question" t-value="'Anular deja de reclamarlo y no lo carga al repartidor. ¿Seguir?'"/>
+            <t t-set="ok" t-value="'Sí, anular'"/>
+            <t t-set="btn_class" t-value="'dn-btn dn-btn--ghost dn-btn--sm'"/>
+            <t t-set="btn" t-value="'Anular'"/>
+            <t t-set="volver_form" t-value="volver"/>
+          </t>
+        </div>
+      </div>
+    </div>
+    <p t-if="more" class="rd-note">Se muestran los 200 más recientes. Usá los filtros para ver el resto.</p>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+</odoo>

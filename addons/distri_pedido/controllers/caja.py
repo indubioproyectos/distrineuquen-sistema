@@ -54,7 +54,7 @@ from ..models.reparto import _money
 from ..models.reparto_cliente import today_ar
 from .armado import DIAS, UTC
 from .main import HORA_ARGENTINA
-from .kit import kit_context, page_nav
+from .kit import kit_context, page_nav, ui_v2_on
 from .tablero import wants_tablero
 
 
@@ -676,7 +676,10 @@ class Caja(http.Controller):
             "puede_reabrir": caja.can_reopen_now(),
             "bloqueo": caja.reopen_block() if caja.state == "closed" else "",
             "caso_estado": lambda case: states.get(case.state, ""),
-            "caso_url": (lambda case: "/odoo/distri.route.case/%s" % case.id) if backend
+            # 19.0.1.129.44: the kit's case screen with ui_v2 on
+            "caso_url": ((lambda case: "/casos/%s?desde=/caja/cerradas/%s" % (case.id, caja.id))
+                         if ui_v2_on(request.env) else
+                         (lambda case: "/odoo/distri.route.case/%s" % case.id)) if backend
             else (lambda case: ""),
             "ok": ok, "error": error, "field": field, "form": form or {},
         }, status=status)

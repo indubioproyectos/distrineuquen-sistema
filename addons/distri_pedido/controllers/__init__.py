@@ -32,3 +32,4 @@ from . import fichas
 from . import anular_venta
 from . import contactos
 from . import practica_pase
+from . import rendiciones_v2

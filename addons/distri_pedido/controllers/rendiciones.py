@@ -20,6 +20,12 @@ The look is /deposito's (static/src/deposito/deposito.css, dp-* classes).
 19.0.1.129.25 (#105): each route of «Rutas para rendir» has «Reabrir para
 el repartidor» (POST /rendiciones/rutas/<id>/reabrir, models/reparto.py
 `_distri_reopen`, which checks the role and the cash-count lock).
+
+19.0.1.129.44 (ui_v2 only): /rendiciones is the design system's hub and
+every route opens its kit screen /rendiciones/ruta/<id>; «Casos», «Cargos al
+repartidor» and «Comprobantes pendientes» are kit lists instead of the
+backend menus (controllers/rendiciones_v2.py). /rendiciones/rutas goes to
+the hub, which lists the same routes. Flag off: this page as in 129.43.
 """
 from urllib.parse import urlencode
 
@@ -30,7 +36,7 @@ from odoo.http import request
 from ..models.comprobante_pendiente import OPEN_STATES
 from ..models.reparto import _money
 from .caja import _dia, is_cashier
-from .kit import kit_context, page_nav
+from .kit import kit_context, page_nav, ui_v2_on
 from .tablero import _menu_url, wants_tablero
 
 TEMPLATE = "distri_pedido.rendiciones_page"
@@ -81,21 +87,38 @@ def _backend(env, xmlid):
     return _menu_url(menu)
 
 
+# 19.0.1.129.44: the kit lists that replace the backend menus with ui_v2 on
+KIT_LISTS = {"casos": ("distri_pedido.menu_reparto_cases", "/casos"),
+             "cargos": ("distri_pedido.menu_reparto_charges", "/casos/cargos"),
+             "comprobantes": ("distri_pedido.menu_reparto_promises",
+                              "/rendiciones/comprobantes")}
+
+
+def _follow_up(env, key):
+    """(url, how) of «Casos», «Cargos» or «Comprobantes»: the kit list with
+    ui_v2 on (same menu rule), else the backend menu as before."""
+    menu, url = KIT_LISTS[key]
+    if ui_v2_on(env):
+        return (url, "down") if _backend(env, menu) else ("", "")
+    return _backend(env, menu), ""
+
+
 def rows(env):
     """The rows of the page, in order: dicts with key, title, subtitle,
     icon, url, how (kit «down» or a plain backend link) and badge."""
     n = counts(env)
+    casos, cargos, comprobantes = (_follow_up(env, k) for k in ("casos", "cargos",
+                                                                 "comprobantes"))
     items = [
         ("recibir", "Recibir rendiciones", "Rutas y cajas para pasar a tu caja", "register",
          "/caja/rendicion", "down"),
         ("rutas", "Rutas para rendir", "Cerradas por el repartidor, sin rendir", "truck",
          "/rendiciones/rutas", "down"),
-        ("casos", "Casos", "Diferencias, devoluciones y gastos abiertos", "alert",
-         _backend(env, "distri_pedido.menu_reparto_cases"), ""),
+        ("casos", "Casos", "Diferencias, devoluciones y gastos abiertos", "alert") + casos,
         ("cargos", "Cargos al repartidor", "Comprobantes no rendidos y pedidos no cobrados",
-         "user", _backend(env, "distri_pedido.menu_reparto_charges"), ""),
+         "user") + cargos,
         ("comprobantes", "Comprobantes pendientes", "Transferencias sin comprobante",
-         "receipt", _backend(env, "distri_pedido.menu_reparto_promises"), ""),
+         "receipt") + comprobantes,
     ]
     # 19.0.1.129.42 (bug fix, any flag): «Recibir rendiciones» opens the
     # cashier's /caja/rendicion, which refuses everyone else (403): only a
@@ -144,6 +167,11 @@ class Rendiciones(http.Controller):
         if refused:
             return refused
         env = request.env
+        if ui_v2_on(env):
+            # 19.0.1.129.44: the design system's hub
+            from .rendiciones_v2 import RendicionesV2
+            return RendicionesV2().hub_page(**{k: kw.get(k, "") for k in (
+                "vista", "repartidor", "ruta", "ok")})
         return self._render(TEMPLATE, {
             "rows": rows(env),
             # 19.0.1.127.1: zonas, gastos, transportistas, tiempos: the whole
@@ -156,6 +184,10 @@ class Rendiciones(http.Controller):
         refused = self._refused()
         if refused:
             return refused
+        if ui_v2_on(request.env):
+            # 19.0.1.129.44: the hub lists the same routes, each with its screen
+            return request.redirect("/rendiciones" + ("?" + urlencode({"ok": ok}) if ok else ""),
+                                    303)
         return self._routes_page(ok=ok)
 
     def _routes_page(self, ok="", error="", status=200):

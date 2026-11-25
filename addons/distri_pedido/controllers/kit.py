@@ -39,6 +39,10 @@ contactos.py) and the customer's edit and merge screens.
 (nav_keys: the screen's role first, then the rest that fit), the depot bar
 shared by /deposito and /despacho (DEPOT_ROLE), and the kit's own 403/404
 page for the kit screens (models/ir_http.py _distri_kit_error).
+
+19.0.1.129.44, behind ui_v2: «Rendiciones» (/rendiciones, /rendiciones/
+ruta/<id>, /rendiciones/comprobantes) and «Casos» (/casos, /casos/<id>,
+/casos/cargos) on the design system (controllers/rendiciones_v2.py).
 """
 import hashlib
 import os
@@ -119,6 +123,10 @@ FILES = {
     # 19.0.1.129.41: «Contactos» (controllers/contactos.py, ui_v2 only)
     "contactos.css": ("kit/contactos.css", "text/css; charset=utf-8"),
     "contactos.js": ("kit/contactos.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.129.44: «Rendiciones» and «Casos» (controllers/rendiciones_v2.py,
+    # ui_v2 only); the list, table and KPI pieces come from cuentas_v2.css
+    "rendiciones_v2.css": ("kit/rendiciones_v2.css", "text/css; charset=utf-8"),
+    "rendiciones_v2.js": ("kit/rendiciones_v2.js", "text/javascript; charset=utf-8"),
 }
 # served without comments and indentation (budget: < 3 KB gzip); the file
 # on disk keeps its documentation
@@ -229,6 +237,14 @@ SCREEN_PARENTS = {
     "/agilpedido/creado/<id>": ("/agilpedido",),
     "/rendiciones": (HOME,),
     "/rendiciones/rutas": ("/rendiciones",),
+    # 19.0.1.129.44 (ui_v2 only): «Rendiciones» and «Casos» on the design
+    # system (controllers/rendiciones_v2.py). A case goes up to the list it
+    # was opened from (?desde=): Casos, Cargos, its route or a closed caja.
+    "/rendiciones/ruta/<id>": ("/rendiciones",),
+    "/rendiciones/comprobantes": ("/rendiciones",),
+    "/casos": ("/rendiciones",),
+    "/casos/cargos": ("/rendiciones",),
+    "/casos/<id>": ("/casos", "/casos/cargos", "/rendiciones/ruta/<id>", "/caja/cerradas/<id>"),
     "/comprobantes": (HOME,),
     "/comprobantes/mios": ("/comprobantes",),
     "/comprobantes/<id>": ("/comprobantes", "/comprobantes/mios"),

@@ -1,0 +1,101 @@
+/* 19.0.1.129.44: «Rendiciones» and «Casos» on the DistriNeuquén design
+   system (mockups s26-pc-rendicion and s26-07-casos), only with
+   distri_pedido.ui_v2 on. The list, table, KPI, chip and app-bar pieces are
+   the system's, in kit/cuentas_v2.css (linked before this file); here only
+   the layout of these pages. Phone first; from 1024 px the PC bar, a page
+   head and the side columns. */
+body.rd2{background:var(--dn-bg)}
+.rd-main{display:flex;flex-direction:column;gap:14px;width:100%;max-width:760px;margin:0 auto;padding:16px}
+.rd-pc{display:none}
+.rd-top .dn-top__row{position:relative}
+.rd-top .dn-top__sub{margin:0}
+.rd-top .dn-gear{color:#fff}
+
+/* ⋯ menu: a <details>, works without JavaScript */
+.rd-more{position:relative;flex:none}
+.rd-more>summary{list-style:none;cursor:pointer}
+.rd-more>summary::-webkit-details-marker{display:none}
+.rd-more .dn-menu{position:absolute;top:calc(100% + 4px);right:0;z-index:30}
+.rd-more--line>summary{width:52px;height:52px}
+
+.rd-sec{display:flex;flex-direction:column;gap:8px}
+.rd-sec>h2{display:flex;align-items:center;gap:8px}
+.rd-sec>h2 .dn-chip{letter-spacing:0;text-transform:none}
+.rd-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.rd-kpis .dn-kpi__value{font-size:20px}
+.rd-kpis .dn-kpi--hero{grid-column:1/-1}
+.rd-kpis .dn-kpi--hero .dn-kpi__value{font-size:28px}
+.rd-actions{display:flex;flex-direction:column;gap:8px}
+.rd-actions form{margin:0}
+.rd-row-form{margin:0}
+.rd-note{margin:0;font-size:14px;color:var(--dn-muted)}
+.rd-amt-neg{color:var(--dn-red-text)}
+.rd-rows .dn-rowi{align-items:flex-start}
+.rd-rows .dn-rowi__end .dn-chip{white-space:nowrap}
+.rd-sub-extra{display:block;font-size:13px;color:var(--dn-muted);white-space:normal}
+.rd-filters{display:flex;flex-direction:column;gap:10px}
+.rd-filters form{display:flex;gap:8px;align-items:flex-end;margin:0}
+.rd-filters .dn-field{flex:1}
+.rd-tabs a{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:8px;
+  color:var(--dn-navy-2);font-size:15px;font-weight:700;text-decoration:none}
+.rd-tabs a[aria-current=page]{background:var(--dn-card);color:var(--dn-navy);font-weight:800;
+  box-shadow:0 2px 8px rgba(16,36,63,.12)}
+.rd-sum{margin:0;font-size:15px;color:var(--dn-muted)}
+.rd-sum b{color:var(--dn-ink)}
+.rd-group{margin:6px 0 0;display:flex;justify-content:space-between;gap:8px}
+.rd-ask{display:flex;flex-direction:column;gap:12px;border:2px solid var(--dn-navy)}
+.rd-ask p{margin:0;font-size:16px;font-weight:600}
+.rd-ask .rd-ask__btns{display:flex;flex-wrap:wrap;gap:8px}
+.rd-ask .rd-ask__btns>*{flex:1 1 160px}
+.rd-fields{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);gap:6px 16px;margin:0}
+.rd-fields dt{color:var(--dn-muted);font-size:14px}
+.rd-fields dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.rd-text{white-space:pre-line;margin:0}
+.rd-hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.rd-hist li{padding:10px 12px;background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r)}
+.rd-hist small{display:block;color:var(--dn-muted);font-size:13px}
+.rd-hist p{margin:4px 0 0;white-space:pre-line}
+.rd-check{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:600}
+.rd-check input{width:22px;height:22px}
+.rd-promise{display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-top:1px solid var(--dn-line)}
+.rd-promise:first-child{border-top:0}
+.rd-promise__head{display:flex;gap:12px;align-items:flex-start}
+.rd-promise__btns{display:flex;flex-wrap:wrap;gap:8px}
+.rd-promise__btns form{margin:0}
+.rd-promise__btns .dn-btn{width:auto}
+.rd-more-link{align-self:center}
+textarea.dn-input{min-height:96px;resize:vertical}
+.rd-side .dn-card{display:flex;flex-direction:column;gap:12px}
+.rd-side h2{margin:0}
+.rd-logo{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;
+  background:var(--dn-navy-2);color:#fff;font-weight:800;letter-spacing:.5px;box-shadow:inset 0 -3px 0 var(--dn-turq)}
+.dn-table td a{color:var(--dn-ink);font-weight:700;text-decoration:none}
+.dn-table td a:hover{text-decoration:underline}
+
+/* PC (from 1024 px): the role's bar on top, a page head, side columns */
+@media (min-width:1024px){
+  body.rd2{padding-bottom:0!important}
+  body.rd2 .dn-bottom--rol{display:none}
+  .rd-pc{display:block}
+  .dn-appbar.rd-pc{display:flex}
+  .dn-pagehead.rd-pc{display:flex}
+  .rd-phone{display:none!important}
+  /* the ScreenHeader stays only as the holder of the «Ajustes» sheet */
+  .rd-top{position:static;padding:0;background:none;min-height:0}
+  .rd-top .dn-top__row{display:block;min-height:0}
+  .rd-top .dn-top__row>:not(.dn-aj),.rd-top .dn-top__extra{display:none}
+  .rd-main{max-width:1320px;padding:24px;gap:16px}
+  .rd-main--narrow{max-width:960px}
+  .rd-kpis{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+  .rd-kpis .dn-kpi--hero{grid-column:auto}
+  .rd-kpis .dn-kpi__value{font-size:24px}
+  .rd-cols{display:flex;align-items:flex-start;gap:16px}
+  .rd-cols>.rd-colmain{flex:999 1 640px;min-width:0;display:flex;flex-direction:column;gap:16px}
+  .rd-cols>.rd-side{flex:1 1 340px;max-width:420px;min-width:0;display:flex;flex-direction:column;gap:16px;
+    position:sticky;top:16px}
+  .rd-filters{flex-direction:row;flex-wrap:wrap;align-items:center}
+  .rd-filters .dn-seg{flex:0 0 auto;min-width:360px}
+  .rd-actions{flex-direction:row;flex-wrap:wrap}
+  .rd-actions .dn-btn{width:auto}
+}
+@media (max-width:1023px){.rd-cols>.rd-side{display:flex;flex-direction:column;gap:14px;margin-top:14px}}
