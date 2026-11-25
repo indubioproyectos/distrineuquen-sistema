@@ -20,7 +20,8 @@ Not a «factura directa», so never refused here:
   packing, AgilPedido, Odoo's «Crear factura»), and the credit notes that
   copy those links (Odoo's reversal, «Anular venta», settled returns);
 - a credit note of Odoo's reversal of an invoice (reversed_entry_id) for at
-  most that invoice's total;
+  most that invoice's total, and (19.0.1.129.39) an invoice of Odoo's
+  reversal of a posted credit note for at most its total (undoing an AJC);
 - vendor bills and journal entries;
 - the module's own account tools, which pass DIRECTA_INTERNA in the
   context: «Ajuste de cuenta» (AJC, models/ajuste_cuenta.py) and «Venta sin
@@ -57,6 +58,23 @@ AVISO_NO_PERMITIDO = ("Factura directa (no sale de un pedido): no la vas a poder
                       "se hace en «Nueva venta» («Mostrador» o «Ya entregado»).")
 
 
+SIN_GRUPO = ("«Facturación directa de servicios» no tiene ningún usuario activo: con «Nueva "
+             "venta» prendida nadie podría publicar una factura de servicios (fletes, cargos). "
+             "Corré primero scripts/correcciones/v129_36_facturacion_directa.sh <base> --apply.")
+
+
+def activation_refusal(env):
+    """19.0.1.129.39: why «Nueva venta» must not be turned on yet, or "".
+    While the flag is on only «Facturación directa de servicios» posts an
+    invoice that does not come from an order; with nobody (active, internal)
+    in it, nobody could post a freight or service invoice. Read by
+    scripts/correcciones/v129_30_activar_nueva_venta.sh."""
+    group = env.ref(GRUPO_DIRECTA, raise_if_not_found=False)
+    members = group.sudo().user_ids.filtered(lambda u: u.active and not u.share) \
+        if group else env["res.users"]
+    return "" if members else SIN_GRUPO
+
+
 def puede_facturar_directo(user):
     return bool(user) and not user.share and user.has_group(GRUPO_DIRECTA)
 
@@ -86,6 +104,14 @@ class AccountMoveDirecta(models.Model):
         origin = self.reversed_entry_id
         if (self.move_type == "out_refund" and origin
                 and origin.move_type in ("out_invoice", "out_receipt")
+                and self.currency_id.compare_amounts(self.amount_total,
+                                                     origin.amount_total) <= 0):
+            return False
+        # 19.0.1.129.39: Odoo's reversal of a posted credit note (e.g. undoing
+        # a mistaken AJC adjustment) for at most its total puts back what the
+        # credit note took: not a new sale
+        if (self.move_type == "out_invoice" and origin and origin.move_type == "out_refund"
+                and origin.state == "posted"
                 and self.currency_id.compare_amounts(self.amount_total,
                                                      origin.amount_total) <= 0):
             return False

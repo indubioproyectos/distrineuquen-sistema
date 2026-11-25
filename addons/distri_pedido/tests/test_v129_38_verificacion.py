@@ -329,9 +329,12 @@ class TestV12938Board(BoardMixin, RepartoMixin, AccountTestInvoicingCommon):
         self.assertEqual(Stop._distri_admin_users(), admins.sorted("id"))
         self.assertIn(self.gonzalo, Stop._distri_admin_users())
         _flag(self.env)
+        # 19.0.1.129.39: by login only (Ale = «admin» and Denis)
+        self.env["ir.config_parameter"].sudo().set_param(
+            v2.PARAM_CONFIRM_LOGINS, "admin,%s" % self.denis.login)
         self.assertNotIn(self.gonzalo, Stop._distri_admin_users(), "gerencia is not Denis")
         self.assertIn(self.denis, Stop._distri_admin_users())
-        self.assertIn(self.sistemas, Stop._distri_admin_users())
+        self.assertNotIn(self.sistemas, Stop._distri_admin_users(), "only the listed logins")
         self.assertIn(self.env.ref("base.user_admin"), Stop._distri_admin_users())
         self.assertNotIn(self.cashier, Stop._distri_admin_users())
         self.assertTrue(income.exists())
@@ -398,6 +401,9 @@ class TestV12938ToConfirm(V12925Mixin, AccountTestInvoicingCommon):
 
     def test_escalated_to_ale_and_denis_and_queue_9(self):
         _flag(self.env)
+        # 19.0.1.129.39: the To-Do goes to the listed logins (Ale and Denis)
+        self.env["ir.config_parameter"].sudo().set_param(
+            v2.PARAM_CONFIRM_LOGINS, "admin,%s" % self.admin_user.login)
         card, _route, stop = self._to_confirm_stop()
         self.assertEqual(stop.state, "already_paid", "valid for the delivery")
         self.assertEqual(stop.paid_confirm_state, "to_confirm")

@@ -5,6 +5,9 @@
 # sellers, administración and gerencia. «Mostrador» and «Ya entregado» are
 # for administración and gerencia only. Every other sale path stays as is.
 # It checks the module is at 19.0.1.129.30 or later.
+# 19.0.1.129.39: turning it ON is refused (nothing is written) while
+# «Facturación directa de servicios» has no active user: run
+# v129_36_facturacion_directa.sh <base> --apply first. --off is never refused.
 # Production (distri_lab) gets the code with the flag OFF: this script refuses
 # it unless --produccion is given on purpose.
 #   scripts/correcciones/v129_30_activar_nueva_venta.sh <base>         turn it on
@@ -37,6 +40,15 @@ module = env["ir.module.module"].search([("name", "=", "distri_pedido")])
 version = tuple(int(x) for x in (module.latest_version or "0").split("."))
 assert module.state == "installed" and version >= (19, 0, 1, 129, 30), (
     "distri_pedido %s %s: deploy 19.0.1.129.30 first" % (module.state, module.latest_version))
+if "$VALUE" == "1" and version >= (19, 0, 1, 129, 39):
+    from odoo.addons.distri_pedido.models.factura_directa import activation_refusal
+    refusal = activation_refusal(env)
+    if refusal:
+        print("NUEVA_VENTA", "REFUSED:", refusal)
+        print("NUEVA_VENTA", "OFF" if not nueva_venta_on(env) else "ON", "in", env.cr.dbname,
+              "(unchanged)")
+        env.cr.rollback()
+        raise SystemExit(3)
 env["ir.config_parameter"].sudo().set_param(PARAM_NUEVA_VENTA, "$VALUE")
 env.cr.commit()
 if hasattr(env.registry, "signal_changes"):

@@ -8,7 +8,8 @@ module does.
    models/reparto_a_confirmar.py) and the order stays «a confirmar». After
    48 h without the report it goes to Ale and Denis: queue 9 «Entregados a
    confirmar» of the board and one To-Do each (`_distri_admin_users`), not
-   one per administración user. No accounting.
+   one per administración user. Since 19.0.1.129.39 by login («admin» and
+   «denis», parameter distri_pedido.a_confirmar_logins). No accounting.
 
 2. Queue 7 «En el reporte sin comprobante»:
    - «Reclamar por WhatsApp»: the customer's chat (the driver app's
@@ -47,10 +48,9 @@ from .ar_phone import wa_digits
 from .cobros import ALERT_SUMMARY, AMOUNT_TOLERANCE, PRIORITY_COLUMNS, RECEIPT_TIME_CLOSE, \
     digits, local_when
 from .comprobante_pendiente import relative_when
-from .ingresos_reporte import INCOME_GROUP
 from .reparto import _money
-from .verificacion import ADMIN, GERENCIA, historic_before, is_owner, is_round_amount, \
-    no_receipt_days, round_step, verificacion_on
+from .verificacion import historic_before, is_round_amount, no_receipt_days, round_step, \
+    verificacion_on
 
 _logger = logging.getLogger(__name__)
 
@@ -83,23 +83,27 @@ UPLOAD_DAYS_MAX = 60
 UPLOAD_LIMIT = 300
 
 
+# 19.0.1.129.39 (review of 129.38): the deliveries «a confirmar» after 48 h
+# go to these logins only (Ale = «admin», Denis), not to whoever joins
+# administración later. A parameter so a change of person needs no deploy.
+PARAM_CONFIRM_LOGINS = "distri_pedido.a_confirmar_logins"
+DEFAULT_CONFIRM_LOGINS = "admin,denis"
+
+
+def confirm_logins(env):
+    value = env["ir.config_parameter"].sudo().get_param(PARAM_CONFIRM_LOGINS) \
+        or DEFAULT_CONFIRM_LOGINS
+    return [login.strip() for login in value.split(",") if login.strip()]
+
+
 def _the_ale_and_denis(env):
-    """Ale (the user «admin» or Sistemas) and administración without
-    gerencia (Denis): who gets the deliveries «a confirmar» after 48 h
-    (decision 2 of 24/11/2026)."""
-    Users = env["res.users"].sudo()
+    """Ale (the user «admin») and Denis: who gets the deliveries «a
+    confirmar» after 48 h (decision 2 of 24/11/2026), by login
+    (PARAM_CONFIRM_LOGINS), active internal users only. Empty when none of
+    them exists (the caller then keeps the 129.37 rule)."""
     root = env.ref("base.user_root", raise_if_not_found=False)
-    groups = [env.ref(xmlid, raise_if_not_found=False) for xmlid in (ADMIN, INCOME_GROUP)]
-    users = Users.browse()
-    for group in groups:
-        if group:
-            users |= group.sudo().all_user_ids
-    admin = env.ref("base.user_admin", raise_if_not_found=False)
-    if admin:
-        users |= admin.sudo()
-    return users.filtered(
-        lambda u: u.active and not u.share and u != root
-        and (is_owner(u) or not u.has_group(GERENCIA))).sorted("id")
+    users = env["res.users"].sudo().search([("login", "in", confirm_logins(env))])
+    return users.filtered(lambda u: u.active and not u.share and u != root).sorted("id")
 
 
 class DistriRouteStopVerificacion(models.Model):
@@ -108,7 +112,9 @@ class DistriRouteStopVerificacion(models.Model):
     def _distri_admin_users(self):
         """1. With the flag the delivery «a confirmar» goes to Ale and Denis."""
         if verificacion_on(self.env):
-            return _the_ale_and_denis(self.env)
+            users = _the_ale_and_denis(self.env)
+            if users:
+                return users
         return super()._distri_admin_users()
 
 
@@ -121,42 +127,75 @@ class DistriMpCollectionTramo2(models.Model):
         """(receipt, why) of a pending receipt of ANOTHER customer that may
         be this income's transfer, or (empty, ""). Reads only."""
         self.ensure_one()
-        income = self.sudo()
+        return self._distri_v2_other_customer_map().get(
+            self.id, (self.env["distri.whatsapp.message"].sudo().browse(), ""))
+
+    def _distri_v2_other_customer_map(self):
+        """{income id: (receipt, why)} for these incomes, with two searches
+        for all of them (19.0.1.129.39; before, two per row). The rule per
+        income is unchanged: among the receipts of another customer with
+        one of its operation numbers (at most 5) or its amount (the 40
+        newest), the oldest that has its operation number, or no operation
+        number and the same payer's CUIT, or the amount within 2 minutes."""
         Message = self.env["distri.whatsapp.message"].sudo()
-        customer = income.partner_id.commercial_partner_id
-        if income.kind != "income" or not customer or not income.amount:
-            return Message, ""
-        numbers = {digits(n) for n in (income.source_id, income.bank_transfer_id) if n}
+        incomes = self.sudo().filtered(
+            lambda i: i.kind == "income" and i.partner_id and i.amount)
+        if not incomes:
+            return {}
         base = [("distri_is_receipt", "=", True),
                 ("distri_receipt_state", "in", ("pending", "no_money")),
-                ("distri_partner_id", "!=", False),
-                ("distri_partner_id.commercial_partner_id", "!=", customer.id)]
-        found = Message.browse()
-        if numbers:
-            raw = [n for n in (income.source_id, income.bank_transfer_id) if n]
-            found |= Message.search(base + [("distri_operation", "in", raw)], limit=5)
-        found |= Message.search(base + [
-            ("distri_amount", ">=", income.amount - AMOUNT_TOLERANCE),
-            ("distri_amount", "<=", income.amount + AMOUNT_TOLERANCE)],
-            order="id desc", limit=40)
-        payer = digits(income.payer_cuit)
-        for msg in found.sorted("id"):
-            operation = digits(msg.distri_operation)
-            if operation and operation in numbers:
-                return msg, "operation"
-            if operation or abs((msg.distri_amount or 0.0) - income.amount) > AMOUNT_TOLERANCE:
-                # another transfer, or another amount
-                continue
-            cuit = digits(msg.distri_payer_cuit)
-            if payer and cuit and cuit == payer:
-                return msg, "cuit"
-            read_at = msg.distri_receipt_date
-            if read_at and income.date and abs(read_at - income.date) <= RECEIPT_TIME_CLOSE:
-                return msg, "time"
-        return Message.browse(), ""
+                ("distri_partner_id", "!=", False)]
+        raw = {n for income in incomes for n in (income.source_id, income.bank_transfer_id) if n}
+        by_operation = Message.search(base + [("distri_operation", "in", list(raw))]) \
+            if raw else Message.browse()
+        amounts = incomes.mapped("amount")
+        by_amount = Message.search(base + [
+            ("distri_amount", ">=", min(amounts) - AMOUNT_TOLERANCE),
+            ("distri_amount", "<=", max(amounts) + AMOUNT_TOLERANCE)], order="id desc")
+        # index the receipts by operation and by whole peso (the tolerance
+        # is $ 1, so an amount is looked up in its peso and the two next)
+        op_index, peso_index = {}, {}
+        for msg in by_operation:
+            op_index.setdefault(msg.distri_operation, []).append(msg)
+        for msg in by_amount:  # newest first
+            peso_index.setdefault(round(msg.distri_amount or 0.0), []).append(msg)
+        result = {}
+        for income in incomes:
+            customer = income.partner_id.commercial_partner_id
+            raw_numbers = {n for n in (income.source_id, income.bank_transfer_id) if n}
+            numbers = {digits(n) for n in raw_numbers}
 
-    def _distri_v2_other_customer_text(self):
-        msg, why = self._distri_v2_other_customer_receipt()
+            def others(msg, customer=customer):
+                return msg.distri_partner_id.commercial_partner_id != customer
+            same_op = [m for n in raw_numbers for m in op_index.get(n, ()) if others(m)]
+            peso = round(income.amount)
+            same_amount = sorted(
+                (m for p in (peso - 1, peso, peso + 1) for m in peso_index.get(p, ())
+                 if abs((m.distri_amount or 0.0) - income.amount) <= AMOUNT_TOLERANCE
+                 and others(m)), key=lambda m: -m.id)
+            found = Message.browse([m.id for m in same_op[:5]] + [m.id for m in same_amount[:40]])
+            payer = digits(income.payer_cuit)
+            for msg in found.sorted("id"):
+                operation = digits(msg.distri_operation)
+                if operation and operation in numbers:
+                    result[income.id] = (msg, "operation")
+                    break
+                if operation or abs((msg.distri_amount or 0.0) - income.amount) > AMOUNT_TOLERANCE:
+                    # another transfer, or another amount
+                    continue
+                cuit = digits(msg.distri_payer_cuit)
+                if payer and cuit and cuit == payer:
+                    result[income.id] = (msg, "cuit")
+                    break
+                read_at = msg.distri_receipt_date
+                if read_at and income.date and abs(read_at - income.date) <= RECEIPT_TIME_CLOSE:
+                    result[income.id] = (msg, "time")
+                    break
+        return result
+
+    def _distri_v2_other_customer_text(self, found=None):
+        """The row's flag; `found`: (receipt, why) already computed."""
+        msg, why = found if found is not None else self._distri_v2_other_customer_receipt()
         if not msg:
             return ""
         return OTHER_CUSTOMER_FLAG % (
@@ -302,7 +341,8 @@ class DistriVerificacionTramo2(models.AbstractModel):
         row = super()._card_row(card, key, user)
         if key == "sin_comprobante" and card.kind == "income" and card.partner_id:
             row["claim"] = bool(card._distri_v2_claim_digits())
-            row["other"] = card._distri_v2_other_customer_text()
+            # «otro cliente»: filled for all the rows at once in `_rows`
+            row["other"] = ""
         return row
 
     def _stop_row(self, stop, user):
@@ -333,14 +373,31 @@ class DistriVerificacionTramo2(models.AbstractModel):
         user = user or self.env.user
         if key == "sin_comprobante" and filtro == FILTER_UNIDENTIFIED:
             return self._distri_v2_unidentified_rows(user, limit)
-        if key == "sin_comprobante" and filtro == FILTER_OTHER:
-            rows = [r for r in super()._rows(key, user, limit=OTHER_SCAN) if r.get("other")]
+        if key == "sin_comprobante":
+            rows = super()._rows(key, user, limit=OTHER_SCAN if filtro == FILTER_OTHER else limit)
+            self._distri_v2_fill_other(rows)
+            if filtro == FILTER_OTHER:
+                rows = [r for r in rows if r.get("other")]
         else:
             rows = super()._rows(key, user, limit=limit)
         for row in rows:
             row.setdefault("claim", False)
             row.setdefault("other", "")
         return rows[:limit]
+
+    def _distri_v2_fill_other(self, rows):
+        """«Comprobante de otro cliente» of the queue-7 rows, two searches for
+        all of them (19.0.1.129.39)."""
+        ids = [r["id"] for r in rows if r.get("model") == "distri.mp.collection"]
+        if not ids:
+            return
+        cards = self.env["distri.mp.collection"].sudo().browse(ids)
+        found = cards._distri_v2_other_customer_map()
+        by_id = {card.id: card for card in cards}
+        for row in rows:
+            hit = found.get(row.get("id")) if row.get("model") == "distri.mp.collection" else None
+            if hit:
+                row["other"] = by_id[row["id"]]._distri_v2_other_customer_text(hit)
 
     # ------------------------------------------------------------ «sin cliente» (#48)
 
