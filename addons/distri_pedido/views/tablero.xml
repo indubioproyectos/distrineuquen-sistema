@@ -7,6 +7,19 @@
        glyph per tile, count badges, the «pedidos sin cliente» banner, «Mi
        reparto de hoy» for a user that also drives, and Odoo's other apps
        folded under «Todas las aplicaciones de Odoo». -->
+  <!-- One tile of Inicio (19.0.1.129.42: shared by the plain grid and the groups). -->
+  <template id="tablero_tile" name="Tablero: mosaico">
+    <a class="tab-tile" t-att-href="tile['url']"
+       t-att-data-dn="'down' if not tile['url'].startswith('/odoo') else None"
+       t-att-data-tile="tile['key']">
+      <span t-if="tile['badge']" t-att-class="'tab-badge dn-num' + (' tab-badge--%s' % tile['badge']['kind'] if tile['badge']['kind'] else '')"
+            t-esc="tile['badge']['text']"/>
+      <span class="tab-ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="tile['glyph']"/></t></span>
+      <b t-esc="tile['title']"/>
+      <span class="tab-sub" t-esc="tile['subtitle']"/>
+    </a>
+  </template>
+
   <template id="tablero_page" name="Tablero del equipo">&lt;!DOCTYPE html&gt;
 <html lang="es">
 <head>
@@ -17,7 +30,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 </head>
-<body class="tab" data-parent="" data-page="tablero">
+<body t-att-class="'tab tab--v2' if v2 else 'tab'" data-parent="" data-page="tablero">
   <header class="dn-top">
     <div class="dn-top__row">
       <div class="dn-top__txt">
@@ -57,16 +70,17 @@
     </a>
   </div>
 
-  <main class="tab-tiles">
-    <a t-foreach="tiles" t-as="tile" class="tab-tile" t-att-href="tile['url']"
-       t-att-data-dn="'down' if not tile['url'].startswith('/odoo') else None"
-       t-att-data-tile="tile['key']">
-      <span t-if="tile['badge']" t-att-class="'tab-badge dn-num' + (' tab-badge--%s' % tile['badge']['kind'] if tile['badge']['kind'] else '')"
-            t-esc="tile['badge']['text']"/>
-      <span class="tab-ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="tile['glyph']"/></t></span>
-      <b t-esc="tile['title']"/>
-      <span class="tab-sub" t-esc="tile['subtitle']"/>
-    </a>
+  <!-- 19.0.1.129.42 (ui_v2): administración's tiles in labelled groups -->
+  <main t-if="grupos" class="tab-grupos">
+    <section t-foreach="grupos" t-as="grupo" class="tab-grupo" t-att-aria-label="grupo['label']">
+      <h2 class="dn-label tab-grupo__t" t-esc="grupo['label']"/>
+      <div class="tab-tiles">
+        <t t-foreach="grupo['tiles']" t-as="tile"><t t-call="distri_pedido.tablero_tile"/></t>
+      </div>
+    </section>
+  </main>
+  <main t-else="" class="tab-tiles">
+    <t t-foreach="tiles" t-as="tile"><t t-call="distri_pedido.tablero_tile"/></t>
   </main>
 
   <section class="tab-more">

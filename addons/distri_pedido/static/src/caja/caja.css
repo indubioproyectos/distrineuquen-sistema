@@ -39,7 +39,6 @@
 .caja-item{justify-content:space-between}
 .caja-item__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .caja-item__txt>span{color:var(--dn-muted);font-size:15px}
-.caja-btn-auto{width:auto;flex:none}
 
 /* 19.0.1.117.0: «Cobros en efectivo cargados en Online» */
 .caja-online{display:flex;flex-direction:column;gap:8px}

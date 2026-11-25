@@ -76,7 +76,7 @@ from odoo.http import request
 
 from ..models import nueva_venta as nv
 from ..models.reparto import _money
-from .kit import kit_context, staff_nav
+from .kit import kit_context, staff_nav, ui_v2_on
 from .main import (CTX_DATOS_DE_LA_FICHA, MAX_CANTIDAD, MENSAJE_CLIENTE_AJENO,
                    MENSAJE_DISTRIBUIDORA, TomaDePedidos)
 from .tablero import wants_tablero
@@ -738,15 +738,20 @@ class NuevaVenta(http.Controller):
         return self._url_de(order, salida), order
 
     def _url_de(self, order, salida):
+        # 19.0.1.129.42 (ui_v2): a counter sale comes back to its done page
+        # (?mostrador=1) with «Cobrar ahora» / «Entregar» where pending
+        v2 = ui_v2_on(request.env)
         if salida == nv.MOSTRADOR and order.sudo().distri_delivery_state != "delivered":
-            return "/deposito/entrega/%s?mostrador=1" % order.id
+            return "/deposito/entrega/%s?mostrador=1%s" % (order.id, "&nv=1" if v2 else "")
+        if salida == nv.MOSTRADOR and v2:
+            return "/nueva-venta/hecho/%s?mostrador=1" % order.id
         return "/nueva-venta/hecho/%s" % order.id
 
     # ---------------------------------------------------------------- done
 
     @http.route("/nueva-venta/hecho/<int:order_id>", type="http", auth="user", methods=["GET"],
                 sitemap=False)
-    def hecho(self, order_id, **kw):
+    def hecho(self, order_id, mostrador="", **kw):
         self._check()
         order = request.env["sale.order"].browse(order_id).exists()
         if not order:
@@ -772,9 +777,40 @@ class NuevaVenta(http.Controller):
         if o.distri_wa_state == "staff" and o._distri_wa_customer_number():
             enviar = self._pedido()._url_enviar_al_cliente(
                 o, o.partner_id.name, o._distri_wa_customer_number())
+        pasos = {}
+        if mostrador == "1" and ui_v2_on(request.env) and o.state == "sale":
+            titulo, texto, pasos = self._pasos_mostrador(o)
         return self._render("distri_pedido.nueva_venta_hecho", {
             "order": o, "titulo": titulo, "texto": texto, "enviar": enviar,
             "total": _money(o.amount_total),
             "factura": o._distri_factura_viva_texto() if o.state == "sale" else "",
             "mis_ventas": "/mis-ventas?" + urlencode({"q": o.name}),
+            # 19.0.1.129.42 (ui_v2): the next steps of a counter sale
+            "pasos": pasos,
         })
+
+    def _pasos_mostrador(self, o):
+        """19.0.1.129.42 (ui_v2): «Mostrador»'s done page. «Entregar» while
+        the depot delivery is pending (for the depot role), «Cobrar ahora»
+        while its invoice has something to pay (for whoever collects).
+        Read only: each button's own screen checks its access again."""
+        from ..models.cobrar import can_collect
+        from .deposito import is_depot
+        user = request.env.user
+        entregado = o.distri_delivery_state == "delivered"
+        facturas = o.invoice_ids.filtered(
+            lambda m: m.move_type == "out_invoice" and m.state == "posted")
+        debe = sum(facturas.mapped("amount_residual"))
+        pasos = {}
+        if not entregado and is_depot(user):
+            pasos["entregar"] = "/deposito/entrega/%s?mostrador=1&nv=1" % o.id
+        if debe > 0.005 and can_collect(user):
+            pasos["cobrar"] = "/cobro?" + urlencode({"cliente": o.partner_id.commercial_partner_id.id})
+            pasos["debe"] = _money(debe)
+        if entregado:
+            texto = "Entregada en el depósito, con su factura."
+        else:
+            texto = "Confirmada, armada y facturada. Falta registrar la entrega en el depósito."
+        if pasos.get("cobrar"):
+            texto += " Queda por cobrar %s." % pasos["debe"]
+        return "Venta en mostrador", texto, pasos

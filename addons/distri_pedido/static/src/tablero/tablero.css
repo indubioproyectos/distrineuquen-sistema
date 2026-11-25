@@ -49,3 +49,9 @@
 .tab-app img{width:42px;height:42px;border-radius:10px;object-fit:contain;box-shadow:0 1px 3px rgba(16,36,63,.25)}
 /* 19.0.1.129.33 (#3): «Ordenar el Inicio» under the tiles (ui_v2 only) */
 .tab-ordenar{align-self:flex-start;font-weight:700}
+/* 19.0.1.129.42 (ui_v2: body.tab--v2): subtitles at 13 px; administración's
+   tiles in labelled groups */
+.tab--v2 .tab-sub{font-size:13px}
+.tab-grupos{max-width:760px;margin:0 auto;padding-top:4px}
+.tab-grupo .tab-tiles{padding-top:4px}
+.tab-grupo__t{padding:12px 16px 0;margin:0}

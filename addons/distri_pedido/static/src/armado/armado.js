@@ -16,10 +16,33 @@
  * made here: on reload, offline or with a lost answer nothing is lost or
  * applied twice (the server keeps the UUIDs, models/armado_offline.py).
  * Same approach as the driver app's outbox (static/src/reparto/app.js).
+ *
+ * 19.0.1.129.42 (ui_v2): a finished order stays on its own page («Imprimir
+ * etiquetas», «Siguiente pedido»: location.replace, irDespues), and the list
+ * has state chips («Para armar · En armado · Armados hoy») that filter the
+ * cards together with the search.
  */
 (function () {
   'use strict';
   var REFRESH = 60000;
+
+  // 19.0.1.129.42 (ui_v2): pure helpers, also used by the Node harness
+  // (tests/data/armado_v129_42.js).
+  // - destino: a finished order answers its own page (/armado/pedido/<id>
+  //   ?recien=1): it replaces this one (back still goes to the list); any
+  //   other answer goes up to the list as before.
+  // - mostrar: a list card is shown when it matches every typed word and
+  //   the chosen state chip ('' = all).
+  var Armado = window.DNArmado = {
+    destino: function (url) { return /^\/armado\/pedido\/\d+/.test(url || '') ? 'replace' : 'up'; },
+    mostrar: function (text, words, estado, estadoCard) {
+      return words.every(function (w) { return text.indexOf(w) !== -1; }) &&
+        (!estado || estado === estadoCard);
+    }
+  };
+  function irDespues(DN, url) {
+    if (Armado.destino(url) === 'replace') { location.replace(url); } else { DN.up(url); }
+  }
 
   function start() {
     var DN = window.DN;
@@ -207,7 +230,7 @@
           t.onTap = function () { location.reload(); };
           return;
         }
-        if (j.url) { finished = true; DN.up(j.url); return; }
+        if (j.url) { finished = true; irDespues(DN, j.url); return; }
         if (queue.length) { return flush(); }
       }, function (e) {
         sending = false;
@@ -440,6 +463,19 @@
   function buscar(DN, box) {
     var input = DN.$('[data-arm-buscar]');
     var nada = DN.$('[data-arm-nada]');
+    // 19.0.1.129.42 (ui_v2): the state chips; one at a time, tap again = all
+    var chips = DN.$$('[data-arm-estado]');
+    var estado = '';
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var key = chip.getAttribute('data-arm-estado');
+        estado = estado === key ? '' : key;
+        chips.forEach(function (c) {
+          c.setAttribute('aria-pressed', c.getAttribute('data-arm-estado') === estado ? 'true' : 'false');
+        });
+        apply();
+      });
+    });
     function apply() {
       if (!input) { return; }
       var words = fold(input.value).split(/\s+/).filter(Boolean);
@@ -449,14 +485,17 @@
         DN.$$('.arm-ped', zona).forEach(function (card) {
           var nom = card.querySelector('.arm-ped__nom');
           var text = fold((nom ? nom.textContent : '') + ' ' + (card.getAttribute('data-pedido') || ''));
-          var ok = words.every(function (w) { return text.indexOf(w) !== -1; });
+          var ok = Armado.mostrar(text, words, estado, card.getAttribute('data-estado') || '');
           card.hidden = !ok;
+          // the «Imprimir etiquetas» link under an «Armado» card goes with it
+          var next = card.nextElementSibling;
+          if (next && next.classList.contains('arm-ped__print')) { next.hidden = !ok; }
           if (ok) { visible += 1; }
         });
         zona.hidden = visible === 0;
         shown += visible;
       });
-      if (nada) { nada.hidden = !(words.length && shown === 0); }
+      if (nada) { nada.hidden = !((words.length || estado) && shown === 0); }
     }
     if (input) {
       input.addEventListener('input', apply);
@@ -483,6 +522,12 @@
         var doc = new DOMParser().parseFromString(html, 'text/html');
         var fresh = doc.getElementById('lista');
         if (fresh) { box.innerHTML = fresh.innerHTML; filtrar(); }
+        // 19.0.1.129.42: the chips' counts follow the list
+        DN.$$('[data-arm-estado]').forEach(function (chip) {
+          var twin = doc.querySelector('[data-arm-estado="' + chip.getAttribute('data-arm-estado') + '"] .arm-chip__n');
+          var n = chip.querySelector('.arm-chip__n');
+          if (twin && n) { n.textContent = twin.textContent; }
+        });
         last = Date.now();
       }, function () { /* keep what is shown; next round tries again */ }).then(function () { busy = false; });
     }
@@ -649,7 +694,7 @@
       terminar: function (form) {
         var n = parseInt(form.bultos.value, 10);
         if (!(n >= 1)) { DN.toast('Poné en cuántos bultos quedó el pedido.', 'err'); form.bultos.focus(); return; }
-        sending(form, DN.api(form.action, {body: new FormData(form)}).then(function (j) { DN.up(j.url); }));
+        sending(form, DN.api(form.action, {body: new FormData(form)}).then(function (j) { irDespues(DN, j.url); }));
       },
       'mas-tarde': function (form) {
         sending(form, DN.api(form.action, {body: new FormData(form)}).then(function (j) { DN.up(j.url); }));

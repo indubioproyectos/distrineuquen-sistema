@@ -33,7 +33,7 @@
 </head>
 <body t-att-class="('dn-legado' + (' dn-legado--nav' if nav else '')) if ui_v2 else None">
   <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
-  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/><t t-set="sin_inicio" t-value="bool(nav)"/></t>
   <div id="app" t-att-data-uid="uid"><div class="cargando">Cargando…</div></div>
   <div id="sheet-root"></div>
   <div id="toast" hidden="hidden"></div>

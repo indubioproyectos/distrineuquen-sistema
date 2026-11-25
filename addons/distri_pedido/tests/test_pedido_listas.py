@@ -200,8 +200,15 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
         self.assertEqual(login.status_code, 200)
         self.assertNotIn("Revendedores y distribuidoras", login.text)
         code = invite_code(self.env)
-        for url in ("/revendedor", "/revendedor?c=", "/revendedor?c=%s" % code[:-1] + "x",
-                    "/revendedor?c=%s" % code.upper()):
+        # 19.0.1.129.42: the wrong code always differs from the real one (it
+        # used to be «last char -> x», the real code when it already ended in
+        # x); the upper-case variant only when it is another text
+        wrong = code[:-1] + ("y" if code.endswith("x") else "x")
+        urls = ["/revendedor", "/revendedor?c=", "/revendedor?c=%s" % wrong]
+        if code.upper() != code:
+            urls.append("/revendedor?c=%s" % code.upper())
+        self.assertNotEqual(wrong, code)
+        for url in urls:
             res = self.url_open(url)
             self.assertEqual(res.status_code, 200, url)
             self.assertIn("¿Sos distribuidora?", res.text, url)

@@ -14,7 +14,7 @@ from odoo.http import request
 from ..models.armado import MAX_BULTOS
 from ..models.marca import marca_publica
 from ..models.res_users import ARMADO_ORDENES, ARMADO_VISTAS
-from .kit import kit_context, staff_nav
+from .kit import kit_context, staff_nav, ui_v2_on
 from .main import HORA_ARGENTINA, ficha
 from .tablero import wants_tablero
 
@@ -235,7 +235,18 @@ class Armado(http.Controller):
             # 19.0.1.129.35: «Ya lo armé» as a correction, the two apart
             correccion=self._correccion(),
             error_ya=(error_ya or "")[:300],
+            # 19.0.1.129.42 (ui_v2): the state chips over the list
+            estados=self._estados(pedidos) if ui_v2_on(request.env) else [],
         ))
+
+    def _estados(self, pedidos):
+        """19.0.1.129.42: the chips «Para armar N · En armado N · Armados hoy
+        N» that filter the list on the phone (armado.js)."""
+        cuenta = {"pendiente": 0, "en_armado": 0, "armado": 0}
+        for pedido in pedidos:
+            cuenta[pedido.distri_armado] = cuenta.get(pedido.distri_armado, 0) + 1
+        return [{"key": key, "label": label, "n": cuenta[key]} for key, label in (
+            ("pendiente", "Para armar"), ("en_armado", "En armado"), ("armado", "Armados hoy"))]
 
     def _correccion(self):
         from ..models.nueva_venta import nueva_venta_on
@@ -278,6 +289,26 @@ class Armado(http.Controller):
             # delivered already: no labels to print
             return self._ir("/armado#facturados")
         return self._ir("/armado?" + urlencode({"terminado": pedido.id}))
+
+    def _al_terminar(self, pedido):
+        """Where a finished order goes: /armado with the «Imprimir etiquetas»
+        banner, or (19.0.1.129.42, ui_v2) the order itself with «Imprimir
+        etiquetas» and «Siguiente pedido» (?recien=1): the banner of the list
+        was lost on reload, back or a double tap."""
+        if ui_v2_on(request.env):
+            return "/armado/pedido/%s?recien=1" % pedido.id
+        return "/armado?" + urlencode({"terminado": pedido.id})
+
+    def _siguiente(self, pedido):
+        """19.0.1.129.42: the next order to pack after `pedido`: the first
+        «Para armar» of the list (its order: zones of today first) in the
+        same zone, else the first one of any zone; None when there is none."""
+        pendientes = []
+        for grupo in self._grupos_por_zona(self._pedidos_del_dia()):
+            pendientes += [p for p in grupo["pedidos"]
+                           if p.distri_armado == "pendiente" and p.id != pedido.id]
+        misma = [p for p in pendientes if p.distri_zona_id == pedido.distri_zona_id]
+        return (misma or pendientes or [None])[0]
 
     def _terminado(self, pedido_id):
         """The order just finished, for «Imprimir etiquetas»."""
@@ -333,10 +364,14 @@ class Armado(http.Controller):
 
     @http.route("/armado/pedido/<int:pedido_id>", type="http", auth="user",
                 website=True, sitemap=False)
-    def pedido(self, pedido_id, q="", error="", **kw):
+    def pedido(self, pedido_id, q="", error="", recien="", **kw):
         self._exigir_armador()
         pedido = self._pedido(pedido_id)
         tomado = self._tomar_al_abrir(pedido)
+        # 19.0.1.129.42 (ui_v2): just finished: «Imprimir etiquetas» and
+        # «Siguiente pedido» on the order itself
+        recien = (recien == "1" and ui_v2_on(request.env) and pedido.distri_armado == "armado"
+                  and bool(pedido.distri_bultos))
         q = (q or "").strip()
         orden = request.env.user.distri_armado_orden or "alfabetico"
         secciones = pedido._distri_renglones_ordenados(orden)
@@ -363,6 +398,8 @@ class Armado(http.Controller):
             unidad_de=self._unidad_de_venta,
             nueva_clave=self._nueva_clave,
             error=error,
+            recien=recien,
+            siguiente=self._siguiente(pedido) if recien else None,
         ))
 
     def _tomar_al_abrir(self, pedido):
@@ -614,8 +651,9 @@ class Armado(http.Controller):
         if rechazo:
             return rechazo
         if pedido.distri_armado == "armado" and pedido.distri_armador_id == request.env.user:
-            # doble toque: el primero ya lo termino
-            return self._ir("/armado")
+            # doble toque: el primero ya lo termino (19.0.1.129.42, ui_v2: al
+            # pedido terminado, como el primero)
+            return self._ir(self._al_terminar(pedido) if ui_v2_on(request.env) else "/armado")
         if not self._puede_tocar(pedido):
             return self._rechazo(pedido, self._por_que_no(pedido))
         # «Tradicional» without JavaScript: the 1-5 buttons or the «+» field
@@ -631,7 +669,7 @@ class Armado(http.Controller):
         if error:
             return self._rechazo(pedido, error, ancla="#terminar")
         # «Imprimir etiquetas» right after finishing (19.0.1.33.0)
-        return self._ir("/armado?" + urlencode({"terminado": pedido.id}))
+        return self._ir(self._al_terminar(pedido))
 
     @http.route("/armado/pedido/<int:pedido_id>/mas-tarde", type="http", auth="user",
                 methods=["POST"], website=True, sitemap=False)
@@ -705,7 +743,7 @@ class Armado(http.Controller):
             "ok": True,
             "resultados": resultados,
             "armado": pedido.distri_armado,
-            "url": "/armado?" + urlencode({"terminado": pedido.id}) if terminado else "",
+            "url": self._al_terminar(pedido) if terminado else "",
         })
 
     @http.route("/armado/faltantes", type="http", auth="user", website=True, sitemap=False)

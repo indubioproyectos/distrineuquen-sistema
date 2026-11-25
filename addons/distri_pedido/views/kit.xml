@@ -79,7 +79,9 @@
          screen, for whoever has it as home (res.users._distri_has_inicio):
          a button next to the floating gear, and the first link of the sheet -->
     <t t-set="aj_inicio" t-value="aj.get('inicio') if request and request.httprequest.path.rstrip('/') != '/tablero' else ''"/>
-    <a t-if="aj_inicio and gear_float" t-att-href="aj_inicio" id="dn-home" class="dn-home dn-home--float"
+    <!-- 19.0.1.129.42: not on a page whose bottom bar already has «Inicio»
+         (sin_inicio: /cobro, /despacho, /cuentas with ui_v2 on) -->
+    <a t-if="aj_inicio and gear_float and not sin_inicio" t-att-href="aj_inicio" id="dn-home" class="dn-home dn-home--float"
        aria-label="Inicio" title="Inicio">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
       <span>Inicio</span>

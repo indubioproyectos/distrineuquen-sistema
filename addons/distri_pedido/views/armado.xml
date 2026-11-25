@@ -44,7 +44,7 @@
             <t t-set="res" t-value="resumen(p)"/>
             <t t-set="n" t-value="res['n']"/>
             <a t-att-class="'dn-card arm-ped arm-ped--%s' % p.distri_armado" t-att-href="'/armado/pedido/%s' % p.id" data-dn="down"
-               t-att-data-pedido="p.name">
+               t-att-data-pedido="p.name" t-att-data-estado="p.distri_armado if estados else None">
               <span class="arm-ped__txt">
                 <span class="arm-ped__nom"><t t-esc="p._distri_nombre_cliente()"/></span>
                 <span class="arm-ped__det">
@@ -72,6 +72,11 @@
               </span>
               <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
             </a>
+            <!-- 19.0.1.129.42 (ui_v2): reprint without opening the order -->
+            <a t-if="estados and p.distri_armado == 'armado' and p.distri_bultos"
+               class="dn-btn dn-btn--sm dn-btn--ghost arm-ped__print" target="_blank" rel="noopener"
+               t-att-href="'/armado/pedido/%s/etiquetas' % p.id">
+              <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Imprimir etiquetas · <t t-esc="p.name"/></a>
           </t>
         </div>
       </section>
@@ -199,6 +204,11 @@
       <input id="arm-q" class="dn-input" type="search" placeholder="Buscar cliente o pedido"
              autocomplete="off" enterkeyhint="search" data-arm-buscar=""/>
     </form>
+    <!-- 19.0.1.129.42 (ui_v2): filter by state, on the phone (armado.js) -->
+    <div t-if="estados" class="arm-chips arm-estados" role="group" aria-label="Filtrar por estado">
+      <button t-foreach="estados" t-as="e" type="button" class="arm-chip" aria-pressed="false"
+              t-att-data-arm-estado="e['key']"><t t-esc="e['label']"/> <b class="arm-chip__n dn-num" t-esc="e['n']"/></button>
+    </div>
     <p class="arm-search__nada" hidden="hidden" data-arm-nada="">Ningún pedido coincide con la búsqueda.</p>
     <div id="lista" class="arm-lista-box" aria-live="polite">
       <t t-call="distri_pedido.armado_lista_cuerpo"/>
@@ -345,6 +355,19 @@
     Lo está armando <t t-esc="pedido.distri_armador_id.name"/>
     desde las <t t-esc="hora(pedido.distri_armado_inicio)"/>.
   </div>
+  <!-- 19.0.1.129.42 (ui_v2): right after «Terminar»: stay here, print the
+       labels, go on with the next order -->
+  <section t-if="recien" class="dn-card dn-card--strong arm-recien" id="recien" role="status">
+    <h2 class="arm-recien__t">Quedó armado en <t t-esc="pedido.distri_bultos"/>
+      <t t-esc="'bulto' if pedido.distri_bultos == 1 else 'bultos'"/></h2>
+    <a class="dn-btn dn-btn--lg" target="_blank" rel="noopener" data-arm-recien="imprimir"
+       t-att-href="'/armado/pedido/%s/etiquetas' % pedido.id">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'print'"/></t> Imprimir etiquetas</a>
+    <a t-if="siguiente" class="dn-btn dn-btn--lg dn-btn--outline" data-dn="side" data-arm-recien="siguiente"
+       t-att-href="'/armado/pedido/%s' % siguiente.id">Siguiente pedido · <t t-esc="siguiente._distri_nombre_cliente()"/></a>
+    <p t-else="" class="arm-hint">No quedan pedidos para armar.</p>
+    <a class="dn-btn dn-btn--sm dn-btn--ghost" href="/armado" data-dn="up" data-arm-recien="lista">Volver a la lista</a>
+  </section>
   <div class="dn-banner dn-banner--ok" t-if="pedido.distri_armado == 'armado'" id="armado-ok">
     <span>Armado por <t t-esc="pedido.distri_armador_id.name"/>
     a las <t t-esc="hora(pedido.distri_armado_fin)"/><t t-if="pedido.distri_bultos">,

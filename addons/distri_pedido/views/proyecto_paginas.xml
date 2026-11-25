@@ -101,13 +101,15 @@
     <div class="fase"><b>Fase 1: el sistema interno.</b> Ahora nos concentramos en que todo el equipo use el sistema por dentro: armado, reparto, depósito, caja y administración. Los pedidos de los clientes <b>siguen entrando por AgilPedido</b> durante un tiempo. La página pública para clientes llega en la <b>fase 2</b>: recién ahí el cliente va a tener su enlace del pedido y su código de recibido.</div>
     <nav class="quien" aria-label="Elegí tu rol">
       <h2>¿Qué hacés vos?</h2>
-      <div class="roles">
-        <a class="rolbtn" href="#armado" data-rol="armado"><svg class="dn-i"><use href="#box"/></svg><span>Armado<small>Todos pueden armar</small></span></a>
-        <a class="rolbtn" href="#reparto" data-rol="reparto"><svg class="dn-i"><use href="#truck"/></svg><span>Reparto<small>Simón, Italo</small></span></a>
-        <a class="rolbtn" href="#deposito" data-rol="deposito"><svg class="dn-i"><use href="#store"/></svg><span>Depósito y Despacho<small>Denis, Gonza</small></span></a>
-        <a class="rolbtn" href="#caja" data-rol="caja"><svg class="dn-i"><use href="#register"/></svg><span>Caja<small>Denis, Gonza</small></span></a>
-        <a class="rolbtn" href="#administracion" data-rol="administracion"><svg class="dn-i"><use href="#target"/></svg><span>Administración<small>Denis</small></span></a>
-        <a class="rolbtn" href="#vendedores" data-rol="vendedores"><svg class="dn-i"><use href="#order"/></svg><span>Vendedores<small>Cada uno con su usuario</small></span></a>
+      <!-- 19.0.1.129.42 (ui_v2): only the user's own roles (controllers/
+           proyecto.py training_roles); with one, it opens directly -->
+      <div class="roles" t-att-data-unico="roles_visibles[0] if filtrar_roles and len(roles_visibles) == 1 else None">
+        <a t-if="'armado' in roles_visibles" class="rolbtn" href="#armado" data-rol="armado"><svg class="dn-i"><use href="#box"/></svg><span>Armado<small>Todos pueden armar</small></span></a>
+        <a t-if="'reparto' in roles_visibles" class="rolbtn" href="#reparto" data-rol="reparto"><svg class="dn-i"><use href="#truck"/></svg><span>Reparto<small>Simón, Italo</small></span></a>
+        <a t-if="'deposito' in roles_visibles" class="rolbtn" href="#deposito" data-rol="deposito"><svg class="dn-i"><use href="#store"/></svg><span>Depósito y Despacho<small>Denis, Gonza</small></span></a>
+        <a t-if="'caja' in roles_visibles" class="rolbtn" href="#caja" data-rol="caja"><svg class="dn-i"><use href="#register"/></svg><span>Caja<small>Denis, Gonza</small></span></a>
+        <a t-if="'administracion' in roles_visibles" class="rolbtn" href="#administracion" data-rol="administracion"><svg class="dn-i"><use href="#target"/></svg><span>Administración<small>Denis</small></span></a>
+        <a t-if="'vendedores' in roles_visibles" class="rolbtn" href="#vendedores" data-rol="vendedores"><svg class="dn-i"><use href="#order"/></svg><span>Vendedores<small>Cada uno con su usuario</small></span></a>
       </div>
     </nav>
     <div class="atajos"><a href="#circuito">El circuito del pedido</a><a href="#practica">Practicá sin miedo</a></div>
@@ -145,7 +147,7 @@
   </div>
 
   <!-- ============ ARMADO ============ -->
-  <article class="rol" id="rol-armado" hidden="hidden">
+  <article t-if="'armado' in roles_visibles" class="rol" id="rol-armado" hidden="hidden">
     <div class="rol-cab">
       <p class="eyebrow">Armado</p>
       <h2>Tu día en el depósito armando pedidos</h2>
@@ -219,7 +221,7 @@
   </article>
 
   <!-- ============ REPARTO ============ -->
-  <article class="rol" id="rol-reparto" hidden="hidden">
+  <article t-if="'reparto' in roles_visibles" class="rol" id="rol-reparto" hidden="hidden">
     <div class="rol-cab">
       <p class="eyebrow">Reparto</p>
       <h2>Tu día en la calle, entregando y cobrando</h2>
@@ -315,7 +317,7 @@
   </article>
 
   <!-- ============ DEPÓSITO Y DESPACHO ============ -->
-  <article class="rol" id="rol-deposito" hidden="hidden">
+  <article t-if="'deposito' in roles_visibles" class="rol" id="rol-deposito" hidden="hidden">
     <div class="rol-cab">
       <p class="eyebrow">Depósito y Despacho</p>
       <h2>La salida de las camionetas y lo que se entrega en el depósito</h2>
@@ -389,7 +391,7 @@
   </article>
 
   <!-- ============ CAJA ============ -->
-  <article class="rol" id="rol-caja" hidden="hidden">
+  <article t-if="'caja' in roles_visibles" class="rol" id="rol-caja" hidden="hidden">
     <div class="rol-cab">
       <p class="eyebrow">Caja</p>
       <h2>La plata del día: abrir, recibir, pagar y cerrar</h2>
@@ -465,7 +467,7 @@
   </article>
 
   <!-- ============ ADMINISTRACIÓN ============ -->
-  <article class="rol" id="rol-administracion" hidden="hidden">
+  <article t-if="'administracion' in roles_visibles" class="rol" id="rol-administracion" hidden="hidden">
     <div class="rol-cab">
       <p class="eyebrow">Administración</p>
       <h2>Que cada pedido llegue bien de la entrada a la ruta</h2>
@@ -558,7 +560,7 @@
   </article>
 
   <!-- ============ VENDEDORES ============ -->
-  <article class="rol" id="rol-vendedores" hidden="hidden">
+  <article t-if="'vendedores' in roles_visibles" class="rol" id="rol-vendedores" hidden="hidden">
     <div class="rol-cab">
       <p class="eyebrow">Vendedores</p>
       <h2>Tomar pedidos y cuidar la cartera</h2>

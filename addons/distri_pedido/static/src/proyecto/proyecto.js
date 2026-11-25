@@ -3,12 +3,18 @@
    saved per device in localStorage (every access in try/catch: private
    windows and blocked storage still work, they just do not remember). */
 (function(){
-  var ROLES=["armado","reparto","deposito","caja","administracion","vendedores"];
+  /* 19.0.1.129.42: the page may carry only the user's own roles (ui_v2):
+     the ones not rendered are skipped; with a single one (data-unico) it
+     opens without a hash */
+  var ROLES=["armado","reparto","deposito","caja","administracion","vendedores"].filter(function(r){
+    return !!document.getElementById("rol-"+r);});
+  var caja=document.querySelector(".roles");
+  var unico=caja&&caja.getAttribute("data-unico");
   var sinRol=document.getElementById("sin-rol");
   var botones=document.querySelectorAll(".rolbtn");
   function mostrar(scroll){
     var h=(location.hash||"").replace("#","");
-    var rol=ROLES.indexOf(h)>=0?h:"";
+    var rol=ROLES.indexOf(h)>=0?h:(unico&&ROLES.indexOf(unico)>=0?unico:"");
     ROLES.forEach(function(r){document.getElementById("rol-"+r).hidden=(r!==rol);});
     sinRol.hidden=!!rol;
     botones.forEach(function(b){b.setAttribute("aria-current",b.dataset.rol===rol?"true":"false");});

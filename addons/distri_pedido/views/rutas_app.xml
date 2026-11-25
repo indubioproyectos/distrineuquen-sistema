@@ -24,7 +24,7 @@
       <a href="/deposito">Depósito</a>
       <a href="/rutas" class="on" aria-current="page">Planificación</a>
       <!-- 19.0.1.127.0: the route settlement («Rendición de caja») -->
-      <a href="/odoo/action-distri_pedido.action_route_settle">Rendiciones</a>
+      <a t-att-href="rendiciones_url or '/odoo/action-distri_pedido.action_route_settle'">Rendiciones</a>
       <a t-att-href="backend_url">Rutas en el sistema</a>
     </nav>
     <t t-call="distri_pedido.dn_ajustes"/>

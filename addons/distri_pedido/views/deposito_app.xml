@@ -9,7 +9,7 @@
   <template id="deposito_top" name="Depósito: barra">
     <header class="dn-top dp-top">
       <div class="dn-top__row dp-top__row">
-        <a class="dp-back" t-att-href="volver" data-dn-back="">‹ Volver</a>
+        <a class="dn-back" t-att-href="volver" data-dn-back="">‹ Volver</a>
         <t t-call="distri_pedido.dn_ajustes"/>
       </div>
       <div class="dp-top__txt">
@@ -85,7 +85,7 @@
         <span t-if="r['chips']" class="dp-chips">
           <span t-foreach="r['chips']" t-as="c" t-att-class="'dn-chip' + (' dn-chip--%s' % c[1] if c[1] else '')" t-esc="c[0]"/>
         </span></span>
-      <a class="dn-btn dp-btn-sm" t-att-href="'/deposito/entrega/%s' % r['id']" data-dn="down">Entregar</a>
+      <a class="dn-btn dn-btn--sm dn-btn--auto" t-att-href="'/deposito/entrega/%s' % r['id']" data-dn="down">Entregar</a>
     </div>
     <div class="dn-empty" t-att-hidden="'hidden' if rows else None" data-dp-nada="">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'box'"/></t>
@@ -147,6 +147,7 @@
           t-att-data-deuda="v.get('previous_debt') or 0">
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <input t-if="mostrador" type="hidden" name="mostrador" value="1"/>
+      <input t-if="nv" type="hidden" name="nv" value="1"/>
       <div t-if="mostrador" class="dn-card dn-card--warn" role="status">El pedido ya quedó confirmado, armado
         completo, con remito y factura. Registrá lo que se lleva el cliente y cómo paga.</div>
 
@@ -363,12 +364,13 @@
       <span class="dp-row__txt"><b t-esc="r['cliente']"/><span class="dp-meta" t-esc="r['meta']"/>
         <span t-if="r['sin_wa']" class="dp-chips"><span class="dn-chip dn-chip--warn">Sin WhatsApp</span>
           <a class="dp-meta" t-att-href="r['odoo_url']">Cargarlo en el sistema</a></span></span>
-      <button type="submit" class="dn-btn dp-btn-sm" data-confirm-ok="Sí, vender">Vender</button>
+      <button type="submit" class="dn-btn dn-btn--sm dn-btn--auto" data-confirm-ok="Sí, vender">Vender</button>
     </form>
     <div class="dn-empty" t-att-hidden="'hidden' if rows else None" data-dp-nada="">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'bag'"/></t>
       <p>No hay presupuestos de clientes para vender en el mostrador.</p>
-      <a t-if="tomar" class="dn-link" href="/pedido">Cargar el pedido con «Tomar un pedido»</a>
+      <a t-if="tomar and nueva_venta" class="dn-link" href="/nueva-venta">Cargar el pedido con «Nueva venta»</a>
+      <a t-elif="tomar" class="dn-link" href="/pedido">Cargar el pedido con «Tomar un pedido»</a>
     </div>
   </main>
   <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>

@@ -95,6 +95,22 @@ a.dn-card:active{background:var(--dn-tint)}
 .dn-btn--danger:active{background:var(--dn-red-text)}
 .dn-btn--navy{background:var(--dn-navy)}
 .dn-btn--navy:active{background:var(--dn-navy-2)}
+/* 19.0.1.129.42: the kit's one small button (44 px, the minimum touch
+   target) and width modifier, replacing the screens' local variants
+   (.nv-btn-sm, .dp-btn-sm, .caja-btn-auto) */
+.dn-btn--sm{min-height:44px;padding:6px 14px;font-size:15px}
+.dn-btn--auto{width:auto;flex:none}
+/* 19.0.1.129.42: the one «‹ Volver» text link of the kit screens (44 px) */
+.dn-back{display:inline-flex;align-items:center;min-height:44px;color:var(--dn-mint);font-size:15px;
+  font-weight:700;text-decoration:none}
+.dn-back:active{opacity:.75}
+/* 19.0.1.129.42 (ui_v2: .dn-legado is set only then on /cobro, /despacho,
+   /cuentas): their plain navy «.btn» takes the kit's primary green; the
+   variants (outline, ghost, red, WhatsApp, teal) keep theirs */
+.dn-legado .btn:not(.outline):not(.ghost):not(.red):not(.wa):not(.teal):not(:disabled){
+  background:var(--dn-primary)}
+.dn-legado .btn:not(.outline):not(.ghost):not(.red):not(.wa):not(.teal):not(:disabled):active{
+  background:var(--dn-primary-press)}
 .dn-link{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;border:0;background:none;
   color:var(--dn-primary);font-weight:700;cursor:pointer;text-decoration:none}
 

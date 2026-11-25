@@ -134,3 +134,12 @@ from . import test_v129_39_correcciones
 from . import test_v129_39_verificacion
 from . import test_v129_40_venta_rapida
 from . import test_v129_41_contactos
+from . import test_v129_42_armado
+from . import test_v129_42_barra
+from . import test_v129_42_botones
+from . import test_v129_42_capacitacion
+from . import test_v129_42_enlaces
+from . import test_v129_42_inicio
+from . import test_v129_42_rendiciones
+from . import test_v129_42_venta_clientes
+from . import test_v129_42_venta_hecho

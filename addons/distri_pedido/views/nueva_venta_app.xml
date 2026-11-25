@@ -7,7 +7,7 @@
   <template id="nueva_venta_top" name="Nueva venta: barra">
     <header class="dn-top nv-top">
       <div class="dn-top__row nv-top__row">
-        <a class="nv-back" t-att-href="volver" data-dn-back="">‹ Volver</a>
+        <a class="dn-back" t-att-href="volver" data-dn-back="">‹ Volver</a>
         <t t-call="distri_pedido.dn_ajustes"/>
       </div>
       <div class="nv-top__txt">
@@ -37,8 +37,8 @@
   <div class="dn-banner dn-banner--warn nv-borrador" role="status" id="nv-borrador" hidden="hidden">
     <span id="nv-borrador-txt"></span>
     <span class="nv-borrador__btns">
-      <button type="button" class="dn-btn nv-btn-sm" id="nv-borrador-seguir">Seguir</button>
-      <button type="button" class="dn-btn dn-btn--ghost nv-btn-sm" id="nv-borrador-descartar">Descartar</button>
+      <button type="button" class="dn-btn dn-btn--sm" id="nv-borrador-seguir">Seguir</button>
+      <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm" id="nv-borrador-descartar">Descartar</button>
     </span>
   </div>
 
@@ -52,12 +52,12 @@
       <h2 class="nv-step__t" id="nv-t1"><span class="nv-n">1</span> Cliente</h2>
       <div class="nv-elegido" id="nv-elegido" hidden="hidden">
         <span class="nv-elegido__txt"><b id="nv-cliente-nombre"></b><span class="nv-meta" id="nv-cliente-meta"></span></span>
-        <button type="button" class="dn-btn dn-btn--ghost nv-btn-sm" id="nv-cambiar">Cambiar</button>
+        <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm" id="nv-cambiar">Cambiar</button>
       </div>
       <!-- 19.0.1.129.40: picking him is enough; his data are one tap away -->
       <div class="nv-cliente-acc" id="nv-cliente-acc" hidden="hidden">
-        <button type="button" class="dn-btn dn-btn--outline nv-btn-sm" id="nv-datos-abrir">Datos del cliente</button>
-        <a class="dn-btn dn-btn--ghost nv-btn-sm" id="nv-ficha" href="#" hidden="hidden" data-dn="down">Ver ficha</a>
+        <button type="button" class="dn-btn dn-btn--outline dn-btn--sm" id="nv-datos-abrir">Datos del cliente</button>
+        <a class="dn-btn dn-btn--ghost dn-btn--sm" id="nv-ficha" href="#" hidden="hidden" data-dn="down">Ver ficha</a>
       </div>
       <!-- 19.0.1.129.35: what the customer step adds once he is picked -->
       <div class="nv-cliente-extra" id="nv-cliente-extra" hidden="hidden">
@@ -74,7 +74,7 @@
                  enterkeyhint="done"/>
         </div>
         <div class="nv-gps">
-          <button type="button" class="dn-btn dn-btn--outline nv-btn-sm" id="nv-gps">
+          <button type="button" class="dn-btn dn-btn--outline dn-btn--sm" id="nv-gps">
             <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'pin'"/></t>Registrar la ubicación (GPS)</button>
           <small class="nv-meta" id="nv-gps-txt">Opcional: tocalo estando en el comercio.</small>
           <input type="hidden" name="lat" id="nv-lat" value=""/>
@@ -88,7 +88,7 @@
         <input id="nv-q-cliente" class="dn-input" type="search" maxlength="60" autocomplete="off"
                placeholder="Buscar cliente por nombre, CUIT o WhatsApp" enterkeyhint="search"/>
         <div id="nv-clientes" class="nv-list" aria-live="polite"></div>
-        <button type="button" class="dn-btn dn-btn--outline nv-btn-sm nv-nuevo-abrir" id="nv-nuevo-abrir">+ Nuevo cliente</button>
+        <button type="button" class="dn-btn dn-btn--outline dn-btn--sm nv-nuevo-abrir" id="nv-nuevo-abrir">+ Nuevo cliente</button>
       </div>
     </section>
 
@@ -101,7 +101,7 @@
         <label for="nv-q-prod" class="dn-sr">Buscar producto</label>
         <input id="nv-q-prod" class="dn-input" type="search" maxlength="60" autocomplete="off"
                placeholder="O buscá uno acá" enterkeyhint="search"/>
-        <button t-if="pegar" type="button" class="dn-btn dn-btn--outline nv-btn-sm" id="nv-pegar-abrir">
+        <button t-if="pegar" type="button" class="dn-btn dn-btn--outline dn-btn--sm" id="nv-pegar-abrir">
           Pegar mensaje de AgilPedido</button>
       </div>
       <p class="nv-meta" id="nv-carrito-vacio">Todavía no hay productos en la venta.</p>
@@ -292,7 +292,15 @@
       <a t-if="enviar" class="dn-btn dn-btn--outline" t-att-href="enviar" target="_blank" rel="noopener">
         Enviar al cliente por WhatsApp</a>
     </section>
-    <a class="dn-btn dn-btn--lg" href="/nueva-venta">Cargar otra venta</a>
+    <!-- 19.0.1.129.42 (ui_v2): a counter sale's next steps, where pending -->
+    <t t-if="pasos">
+      <a t-if="pasos.get('entregar')" class="dn-btn dn-btn--lg" t-att-href="pasos['entregar']"
+         data-dn="down" data-nv-paso="entregar">Entregar</a>
+      <a t-if="pasos.get('cobrar')" t-att-class="'dn-btn dn-btn--lg' + (' dn-btn--outline' if pasos.get('entregar') else '')"
+         t-att-href="pasos['cobrar']" data-nv-paso="cobrar">Cobrar ahora · <t t-esc="pasos['debe']"/></a>
+      <a class="dn-btn dn-btn--lg dn-btn--ghost" href="/nueva-venta" data-nv-paso="nueva">Nueva venta</a>
+    </t>
+    <a t-else="" class="dn-btn dn-btn--lg" href="/nueva-venta">Cargar otra venta</a>
     <a class="dn-link nv-link" t-att-href="mis_ventas">Ver en Mis ventas</a>
   </main>
   <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>

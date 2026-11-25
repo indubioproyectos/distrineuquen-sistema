@@ -255,7 +255,10 @@ class TestNavegacion(HttpCase):
         env = self.env(user=self.admin)
         items = role_nav(env, "faltantes")
         keys = [i["key"] for i in items]
-        self.assertEqual(keys[-2:], ["armado", "faltantes"], "/armado's tabs travel together")
+        # 19.0.1.129.42: the screen's role first (the packer's bar: /armado's
+        # tabs together), then the user's own screens that fit
+        self.assertEqual(keys[1:4], ["armado", "faltantes", "despacho"],
+                         "/armado's tabs travel together")
         self.assertEqual([i["key"] for i in items if i["on"]], ["faltantes"])
         self.assertLessEqual(len(keys), kit.NAV_MAX)
 
@@ -282,7 +285,11 @@ class TestNavegacion(HttpCase):
             else:
                 own = [i["url"] for i in role_nav(env, key)]
                 self.assertEqual(hrefs, own, path)
-                self.assertTrue(set(hrefs) - set(base) <= {path, "/armado"}, path)
+                # 19.0.1.129.42: there, the bar of the screen's role (nav_keys)
+                if key in NAV_ITEMS:
+                    self.assertIn(path, hrefs, path)
+                else:
+                    self.assertEqual(hrefs, base, path)
             seen += 1
         self.assertGreaterEqual(seen, 5)
         self.assertTrue(set(NAV_ITEMS) >= {k for _r, _g, keys in ROLES for k in keys})

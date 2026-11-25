@@ -29,7 +29,7 @@ from odoo.http import request
 
 from ..models.comprobante_pendiente import OPEN_STATES
 from ..models.reparto import _money
-from .caja import _dia
+from .caja import _dia, is_cashier
 from .kit import kit_context, page_nav
 from .tablero import _menu_url, wants_tablero
 
@@ -97,6 +97,11 @@ def rows(env):
         ("comprobantes", "Comprobantes pendientes", "Transferencias sin comprobante",
          "receipt", _backend(env, "distri_pedido.menu_reparto_promises"), ""),
     ]
+    # 19.0.1.129.42 (bug fix, any flag): «Recibir rendiciones» opens the
+    # cashier's /caja/rendicion, which refuses everyone else (403): only a
+    # cashier gets the row; the others settle from «Rutas para rendir»
+    if not is_cashier(env.user):
+        items = [item for item in items if item[0] != "recibir"]
     return [{"key": key, "title": title, "subtitle": subtitle, "icon": icon, "url": url,
              "how": how, "badge": n.get(key) or 0}
             for key, title, subtitle, icon, url, how in items if url]

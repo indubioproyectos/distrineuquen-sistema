@@ -4,8 +4,6 @@
    every rule hangs from body.dp or a dp-* class. */
 .dp-top{position:relative;padding-bottom:18px}
 .dp-top__row{justify-content:space-between;padding-left:8px;max-width:760px}
-.dp-back{display:inline-flex;align-items:center;min-height:44px;color:var(--dn-mint);font-size:15px;font-weight:700;
-  text-decoration:none}
 .dp-top__txt{max-width:760px;margin:0 auto;padding:0 8px;display:flex;flex-direction:column;gap:2px}
 .dp-title{margin:0;font-size:24px;font-weight:800;line-height:1.15}
 .dp-sub{margin:4px 0 0;font-size:14px;color:var(--dn-on-navy)}
@@ -34,7 +32,6 @@ a.dp-row:active{background:var(--dn-tint)}
 .dp-row__txt b{overflow-wrap:anywhere}
 .dp-meta{font-size:14px;color:var(--dn-muted);font-variant-numeric:tabular-nums}
 .dp-chips{display:flex;flex-wrap:wrap;gap:6px}
-.dp-btn-sm{width:auto;flex:none;min-height:44px;padding:6px 14px;font-size:15px}
 .dp-amt{flex:none;font-weight:800;white-space:nowrap}
 .dp-note{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--dn-info-bg);border-radius:var(--dn-r);
   color:var(--dn-navy);font-size:14px}

@@ -17,7 +17,10 @@
  * (/nueva-venta/productos, nueva_venta_productos.js), which writes the cart
  * into the draft and comes back here (?volver=1): the draft is then taken
  * up without asking, at the exit step. Tapping a product found in the
- * search adds it (or finds its line) and puts the cursor in its quantity. */
+ * search adds it (or finds its line) and puts the cursor in its quantity.
+ *
+ * 19.0.1.129.42: the customer list shows only from the 2nd letter typed
+ * (not on open, not on «Cambiar»); before that, a one-line hint. */
 (function () {
   'use strict';
   var DN = window.DN;
@@ -136,9 +139,23 @@
 
   // ------------------------------------------------------------ customer
 
+  // 19.0.1.129.42 (audit 1): no list until the 2nd letter is typed, on open
+  // and on «Cambiar»; only the answer to the newest search is drawn
+  var MIN_LETRAS = 2;
+  var AVISO_BUSCAR = 'Escribí el nombre, el CUIT o el WhatsApp.';
+  var ultimaBusqueda = 0;
+  function debeBuscar(q) { return String(q || '').trim().length >= MIN_LETRAS; }
+  window.DNNuevaVenta = {debeBuscar: debeBuscar, MIN_LETRAS: MIN_LETRAS};
+
   function buscarClientes() {
     var q = $('nv-q-cliente').value;
-    DN.api('/pedido/clientes?q=' + encodeURIComponent(q)).then(function (filas) {
+    var n = ++ultimaBusqueda;
+    if (!debeBuscar(q)) {
+      $('nv-clientes').innerHTML = '<p class="nv-meta">' + h(AVISO_BUSCAR) + '</p>';
+      return;
+    }
+    DN.api('/pedido/clientes?q=' + encodeURIComponent(q.trim())).then(function (filas) {
+      if (n !== ultimaBusqueda) { return; }
       var box = $('nv-clientes');
       if (!filas.length) { box.innerHTML = '<p class="nv-meta">Ningún cliente coincide.</p>'; return; }
       box.innerHTML = filas.map(function (f, i) {
@@ -214,7 +231,7 @@
       return '<div class="nv-item nv-anterior"><span><b>' + h(a.nombre) + '</b><small>' +
         h([a.fecha, a.total, a.renglones.length + (a.renglones.length === 1 ? ' producto' : ' productos')]
           .join(' · ')) + (a.fuera ? h(' · ' + a.fuera + ' ya no se pueden repetir') : '') +
-        '</small></span><button type="button" class="dn-btn dn-btn--outline nv-btn-sm" data-rep="' + i +
+        '</small></span><button type="button" class="dn-btn dn-btn--outline dn-btn--sm" data-rep="' + i +
         '">Repetir</button></div>';
     }).join('');
   }
@@ -543,10 +560,15 @@
     $('nv-cliente-extra').hidden = true;
     $('nv-cliente-acc').hidden = true;
     $('nv-buscar-cliente').hidden = false;
+    $('nv-q-cliente').value = '';
     $('nv-q-cliente').focus();
     listo();
     buscarClientes();
   });
+  // the cursor in the search when the sale starts empty (not when a draft
+  // is offered or taken up)
+  var sinBorrador = !leerBorrador();
   ofrecerBorrador();
   buscarClientes();
+  if (sinBorrador) { $('nv-q-cliente').focus(); }
 }());

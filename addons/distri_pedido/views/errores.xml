@@ -41,7 +41,13 @@
       <h1>No encontramos la página</h1>
       <p>El enlace puede estar mal escrito o la página ya no existe.</p>
     </t>
-    <a class="btn" t-att-href="home"><t t-if="logged">Ir a mi inicio</t><t t-else="">Ir al inicio</t></a>
+    <!-- 19.0.1.129.42: the right next step of a kit screen's refusal (models/ir_http.py) -->
+    <t t-if="hint">
+      <p t-esc="hint"/>
+      <a t-if="hint_url" class="btn" t-att-href="hint_url" t-esc="hint_label"/>
+      <a class="sec" t-att-href="home"><t t-if="logged">Ir a mi inicio</t><t t-else="">Ir al inicio</t></a>
+    </t>
+    <a t-else="" class="btn" t-att-href="home"><t t-if="logged">Ir a mi inicio</t><t t-else="">Ir al inicio</t></a>
     <a t-if="not logged and status == 403" class="sec" href="/web/login">Entrar</a>
     <!-- 19.0.1.104.0: the site's main call to action for visitors -->
     <a t-if="not logged and status != 403" class="sec" href="/pedido">Hacé tu pedido</a>

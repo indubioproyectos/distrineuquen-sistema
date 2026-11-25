@@ -36,8 +36,14 @@ No intercepted form uploads a file or answers with one. /armado uses the kit
 (static/src/kit/dn.js) and does not load this script; /reparto, /despacho and
 /cuentas are single-page apps without forms (hash routes) and do not either.
 """
+import logging
+
+from werkzeug.exceptions import HTTPException
+
 from odoo import api, models
 from odoo.http import request
+
+_logger = logging.getLogger(__name__)
 
 NAV_HEADER = "X-Distri-Nav"
 LOCATION_HEADER = "X-Distri-Location"
@@ -46,6 +52,42 @@ LOCATION_HEADER = "X-Distri-Location"
 # 19.0.1.99.0 (audit F14): our own 403/404 page instead of Odoo's (English
 # text, the shop's cart and the sample footer «Somos un equipo...»)
 ERROR_CODES = {403: 403, 404: 404, "page_404": 404, "protected_403": 403}
+
+# 19.0.1.129.42 (ui_v2): the kit screens without website=True (caja,
+# comprobantes, cuentas, depósito, despacho, cobro, revisar, rutas,
+# verificación, mis ventas, fichas, reparto...) answered a refusal with
+# werkzeug's bare English page («Forbidden. You don't have the permission»).
+# Their 403/404 now get the same branded page as the website routes
+# (_distri_kit_error). Paths below these prefixes, plus every declared
+# screen of controllers/kit.py SCREEN_PARENTS; never their JSON APIs.
+KIT_PREFIXES = (
+    "/caja", "/comprobantes", "/cuentas", "/deposito", "/despacho", "/cobro", "/revisar",
+    "/rutas", "/verificacion", "/mis-ventas", "/clientes", "/pedidos", "/facturas",
+    "/reparto", "/nueva-venta", "/contactos", "/rendiciones", "/equipo", "/armado",
+    "/agilpedido", "/asignar", "/tablero", "/proyecto",
+)
+
+
+def _kit_path(path):
+    from ..controllers.kit import screen_parents
+    if "/api/" in path or path.endswith("/api"):
+        return False
+    if screen_parents(path) is not None:
+        return True
+    return any(path == p or path.startswith(p + "/") for p in KIT_PREFIXES)
+
+
+def _kit_error_hint(env, path):
+    """A next step for a refusal: the cash screens are the cashier's; who
+    settles routes without being one goes to «Rutas para rendir»."""
+    if not path.startswith("/caja"):
+        return {}
+    from ..controllers.rendiciones import can_open
+    if can_open(env):
+        return {"hint": "La caja del día es del cajero. Las rutas cerradas por el repartidor "
+                        "se rinden desde «Rutas para rendir».",
+                "hint_url": "/rendiciones/rutas", "hint_label": "Ir a Rutas para rendir"}
+    return {}
 
 
 class IrHttp(models.AbstractModel):
@@ -64,6 +106,52 @@ class IrHttp(models.AbstractModel):
                 "user_name": user.name if logged else "",
             })
         return super()._get_error_html(env, code, values)
+
+    @classmethod
+    def _handle_error(cls, exception):
+        response = super()._handle_error(exception)
+        try:
+            branded = cls._distri_kit_error(response)
+        except Exception:  # noqa: BLE001 - never worse than the plain answer
+            _logger.exception("distri_pedido: kit error page failed")
+            branded = None
+        return branded or response
+
+    @classmethod
+    def _distri_kit_error(cls, response):
+        """19.0.1.129.42 (ui_v2 only): the branded Spanish 403/404 page for a
+        kit screen whose route is not website=True (the website ones already
+        get it from _get_error_html). Only for a page the browser opened:
+        never for fetch() calls (X-Distri-Fetch), JSON routes or APIs."""
+        from ..controllers.kit import ui_v2_on
+        if not isinstance(response, HTTPException) or response.code not in (403, 404):
+            return None
+        if not request or getattr(request, "is_frontend", False) or not request.db:
+            return None
+        http_req = request.httprequest
+        if (http_req.headers.get("X-Distri-Fetch") == "1"
+                or getattr(request.dispatcher, "routing_type", "") != "http"
+                or not _kit_path(http_req.path)):
+            return None
+        env = request.env
+        if env is None or not env.uid:
+            return None
+        env.cr.rollback()
+        if not ui_v2_on(env):
+            return None
+        user = env.user
+        logged = not user._is_public()
+        home = (user._distri_landing() or ("/tablero" if not user.share else "/pedido")) \
+            if logged else "/"
+        values = {"status": response.code, "logged": logged, "home": home,
+                  "user_name": user.name if logged else ""}
+        if response.code == 403 and logged:
+            values.update(_kit_error_hint(env, http_req.path))
+        html = env["ir.ui.view"]._render_template("distri_pedido.error_page", values)
+        branded = request.make_response(html, headers=[
+            ("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")])
+        branded.status_code = response.code
+        return branded
 
     @classmethod
     def _post_dispatch(cls, response):

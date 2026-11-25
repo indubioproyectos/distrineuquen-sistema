@@ -34,6 +34,11 @@ pattern test of screen_parents(), also used to accept a ?desde= parent.
 
 19.0.1.129.41, behind ui_v2: «Contactos» (/contactos, controllers/
 contactos.py) and the customer's edit and merge screens.
+
+19.0.1.129.42, behind ui_v2: the bottom bar of a user with several roles
+(nav_keys: the screen's role first, then the rest that fit), the depot bar
+shared by /deposito and /despacho (DEPOT_ROLE), and the kit's own 403/404
+page for the kit screens (models/ir_http.py _distri_kit_error).
 """
 import hashlib
 import os
@@ -325,6 +330,15 @@ ROLES = (
     ("vendedor", "distri_pedido.grupo_vendedor",
      ("nuevaventa", "pedido", "misventas", "cuentas", "comprobantes")),
 )
+# 19.0.1.129.42 (ui_v2): the depot «role» (deposito.is_depot: administración)
+# and its screens, /deposito's former bar. Never a user's first role (the
+# administración group comes first); its bar is taken on /deposito and
+# /despacho (and /cobro for a non-cashier), so /despacho has a way back to
+# «Entregas». Placed after «cajero» and «armador»: /cobro of a cashier keeps
+# the cashier's bar, /armado the packer's (nav_keys).
+DEPOT_ROLE = ("deposito", "distri_pedido.grupo_administracion",
+              ("armado", "despacho", "cobro", "entregas"))
+NAV_ROLES = ROLES[:4] + (DEPOT_ROLE,) + ROLES[4:]
 # (label, sprite icon) of a bar item; the URL is its Inicio tile's
 NAV_ITEMS = {
     "revisar": ("Revisar", "target"),
@@ -344,6 +358,8 @@ NAV_ITEMS = {
     # 19.0.1.129.41: in no role's list (the bars are full); shown, marked,
     # while on «Contactos» (role_nav adds the current screen)
     "contactos": ("Contactos", "user"),
+    # 19.0.1.129.42: /deposito («Entregas»), in the depot bar
+    "entregas": ("Entregas", "store"),
 }
 # screens that come in a group: /armado's two tabs travel together
 NAV_GROUPS = {"armado": ("armado", "faltantes"), "faltantes": ("armado", "faltantes")}
@@ -361,22 +377,58 @@ def user_role(user):
     return ""
 
 
+def user_roles(user):
+    """19.0.1.129.42: every bar role of the user (NAV_ROLES order, the first
+    one is user_role's), [] for customers and users of none."""
+    if not user or user.share or user._is_public():
+        return []
+    return [role for role, group, _keys in NAV_ROLES if user.has_group(group)]
+
+
+def nav_keys(roles, current):
+    """19.0.1.129.42: the bar keys of a user with these roles (user_roles) on
+    the screen `current`: first the role whose bar has that screen (his first
+    role when it has it, else the first other role that has it: an
+    administrator who is also cashier gets the cashier's bar on /caja, an
+    administrator the depot bar on /deposito and /despacho and the packer's
+    on /armado), then the screens
+    of all his other roles, in order and once. The caller keeps what fits."""
+    keys_of = {role: keys for role, _group, keys in NAV_ROLES}
+    if not roles:
+        return []
+    lead = roles[0]
+    if current not in keys_of[lead]:
+        # the role where the screen comes earliest in the bar, then the
+        # first role: /despacho is the depot's 2nd item (the packer's 3rd)
+        having = [(keys_of[r].index(current), i, r) for i, r in enumerate(roles)
+                  if current in keys_of[r]]
+        lead = min(having)[2] if having else lead
+    keys = []
+    for role in [lead] + [r for r in roles if r != lead]:
+        keys += [k for k in keys_of[role] if k not in keys]
+    return keys
+
+
 def role_nav(env, current):
     """19.0.1.129.29: Inicio plus the screens of the user's role (ROLES), in
     that order and only the ones he can open. On a screen of his that is
     not in his bar (an administrator on /armado) that screen is added,
     marked, so he sees where he is. «Inicio» goes UP; the rest are sibling
-    screens and replace the page (dn.js «side»)."""
+    screens and replace the page (dn.js «side»).
+    19.0.1.129.42: the screen's role first, then the screens of all the
+    user's roles that fit (nav_keys); the depot bar on the depot screens."""
     from .tablero import staff_tiles, wants_tablero
 
     user = env.user
-    role = user_role(user)
-    if not role:
+    roles = user_roles(user)
+    if not roles:
         return []
-    keys = list(dict(((r, k) for r, _g, k in ROLES))[role])
+    keys = nav_keys(roles, current)
     urls = {tile["key"]: tile["url"] for tile in staff_tiles(env) if tile["url"]}
     if "armado" in urls:
         urls["faltantes"] = "/armado/faltantes"
+    if "deposito" in urls:
+        urls["entregas"] = urls["deposito"]
     room = NAV_MAX - (1 if wants_tablero(user) else 0)
     keys = [k for k in keys if k in urls]
     if current in urls and current in NAV_ITEMS and current not in keys:
@@ -458,6 +510,9 @@ def depot_nav(env, current):
     user = env.user
     if not is_depot(user):
         return []
+    if ui_v2_on(env):
+        # 19.0.1.129.42: the same bar as /despacho (role_nav, depot role)
+        return role_nav(env, current)
     items = []
     if user.has_group("distri_pedido.grupo_armador"):
         badge = _badge_armado(env)

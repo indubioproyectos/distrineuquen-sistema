@@ -15,6 +15,10 @@ see its menu, so everything follows the same groups as the Odoo menus.
   under the tiles.
 - #74: the «Equipo» tile (/equipo) for administración, gerencia and Sistemas.
 With the flag off the tiles, their order and the page are as before.
+
+19.0.1.129.42, behind ui_v2 too: «Tablero de verificación» before
+«Capacitación», administración's tiles in groups (TILE_GROUPS), the
+subtitles at 13 px, and no Odoo apps for packers and drivers (hides_apps).
 """
 import json
 from datetime import timedelta
@@ -200,7 +204,12 @@ def staff_tiles(env):
         tiles.insert(0, nueva)
     verificacion = verificacion_tile(env)
     if verificacion:
-        tiles.append(verificacion)
+        keys = [t["key"] for t in tiles]
+        if ui_v2_on(env) and "capacitacion" in keys:
+            # 19.0.1.129.42: before «Capacitación», which always goes last
+            tiles.insert(keys.index("capacitacion"), verificacion)
+        else:
+            tiles.append(verificacion)
     contactos = contactos_tile(env)
     if contactos:
         # 19.0.1.129.41: right after «Cuentas» (or last before «Capacitación»)
@@ -545,6 +554,47 @@ def tile_roots(env, tiles):
     return ids
 
 
+# 19.0.1.129.42 (ui_v2): administración's Inicio in groups, each with its
+# label; inside a group the tiles keep their order (the user's own order
+# too). A tile of no group goes to «Sistema».
+TILE_GROUPS = (
+    ("Ventas", ("nuevaventa", "pedido", "misventas", "agilpedido", "revisar")),
+    ("Reparto", ("armado", "deposito", "rutas", "despacho", "mireparto", "reparto")),
+    ("Cobros y caja", ("cobro", "caja", "comprobantes", "historial", "cobros", "verificacion")),
+    ("Clientes", ("contactos", "cuentas")),
+    ("Sistema", ("equipo", "capacitacion")),
+)
+GROUPED_ROLES = ("distri_pedido.grupo_administracion", "base.group_system")
+
+
+def grouped_tiles(tiles):
+    """[{"label", "tiles"}] in TILE_GROUPS order, empty groups left out."""
+    where = {key: i for i, (_label, keys) in enumerate(TILE_GROUPS) for key in keys}
+    last = len(TILE_GROUPS) - 1
+    groups = [{"label": label, "tiles": []} for label, _keys in TILE_GROUPS]
+    for tile in tiles:
+        groups[where.get(tile["key"], last)]["tiles"].append(tile)
+    return [g for g in groups if g["tiles"]]
+
+
+def wants_groups(user):
+    """Administración (gerencia implies it) and Sistemas: many tiles."""
+    return any(user.has_group(g) for g in GROUPED_ROLES)
+
+
+def hides_apps(user):
+    """19.0.1.129.42 (ui_v2): Odoo's own apps («Todas las aplicaciones del
+    sistema») are nothing of a packer's or driver's work: hidden for a user
+    whose roles are only those (not administración, Sistemas, cajero or
+    vendedor, who may use some)."""
+    keep = ("distri_pedido.grupo_administracion", "base.group_system",
+            "distri_pedido.grupo_cajero", "distri_pedido.grupo_vendedor")
+    if any(user.has_group(g) for g in keep):
+        return False
+    return user.has_group("distri_pedido.grupo_armador") or user.has_group(
+        "distri_pedido.grupo_reparto")
+
+
 def wants_tablero(user):
     """Internal users without their own screen (see res.users._distri_landing)."""
     return not user.share and not user._distri_landing()
@@ -584,7 +634,10 @@ class Tablero(http.Controller):
             "mi_ruta": my_route_today(env),
             # 19.0.1.129.37 (nueva_venta): «Lo manda después» left at his name
             "reclamar": reclamar_row(env),
-            "apps": [] if locked else other_apps(env, taken),
+            "apps": [] if locked or (ordering and hides_apps(user)) else other_apps(env, taken),
+            # 19.0.1.129.42 (ui_v2): administración's tiles in groups
+            "grupos": grouped_tiles(tiles) if ordering and wants_groups(user) else [],
+            "v2": ordering,
             "user": user,
             "empresa": FICHA["nombre"],
             "dn": kit_context("tablero.css"),

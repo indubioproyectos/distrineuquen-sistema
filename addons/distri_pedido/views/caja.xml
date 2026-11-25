@@ -50,9 +50,9 @@
                 data-caja-form="" data-fetch="">
             <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
             <input type="hidden" name="volver" t-att-value="volver_provisorios or '/caja'"/>
-            <button type="submit" class="dn-btn caja-btn-auto">Confirmar</button>
+            <button type="submit" class="dn-btn dn-btn--auto">Confirmar</button>
           </form>
-          <a class="dn-btn dn-btn--outline caja-btn-auto" t-att-href="p['url']" target="_blank"
+          <a class="dn-btn dn-btn--outline dn-btn--auto" t-att-href="p['url']" target="_blank"
              rel="noopener">Unir o editar</a>
         </span>
       </div>
@@ -163,7 +163,7 @@
             <span><t t-esc="o.date.strftime('%d/%m') if o.date else ''"/> · <b class="dn-num" t-esc="money(o.amount)"/></span>
             <span><t t-esc="o.name or o.move_name"/><t t-if="o.memo"> · <t t-esc="o.memo"/></t></span>
           </span>
-          <button type="submit" class="dn-btn caja-btn-auto">Traer a mi caja</button>
+          <button type="submit" class="dn-btn dn-btn--auto">Traer a mi caja</button>
         </form>
       </section>
       <h2 class="dn-label">Movimientos</h2>
@@ -288,7 +288,7 @@
           <b t-esc="s.who"/>
           <span><t t-esc="s.route_id.name"/> · faltan <b class="dn-num" t-esc="money(-s.route_difference)"/></span>
         </span>
-        <button type="submit" class="dn-btn caja-btn-auto">Lo trajo</button>
+        <button type="submit" class="dn-btn dn-btn--auto">Lo trajo</button>
       </form>
     </t>
   </main>
@@ -675,14 +675,14 @@
           <form t-if="sacar_online and m.kind == 'online'" class="caja-mov__sacar" method="post"
                 t-att-action="'/caja/online/%s/sacar' % m.id" data-caja-form="" data-fetch="">
             <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
-            <button type="submit" class="dn-btn dn-btn--ghost caja-btn-auto">Sacar de mi caja</button>
+            <button type="submit" class="dn-btn dn-btn--ghost dn-btn--auto">Sacar de mi caja</button>
           </form>
           <!-- 19.0.1.129.27: «Quitar el adelanto» while the route was not received -->
           <form t-if="sacar_online and m.kind == 'adelanto' and m.advance_route_id.state != 'settled'"
                 class="caja-mov__sacar" method="post"
                 t-att-action="'/caja/adelanto/%s/quitar' % m.id" data-caja-form="" data-fetch="">
             <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
-            <button type="submit" class="dn-btn dn-btn--ghost caja-btn-auto">Quitar el adelanto</button>
+            <button type="submit" class="dn-btn dn-btn--ghost dn-btn--auto">Quitar el adelanto</button>
           </form></span>
         <b class="caja-mov__imp dn-num"><t t-esc="'+' if m.amount &gt;= 0 else '−'"/> <t t-esc="money(abs(m.amount))"/></b>
       </li>

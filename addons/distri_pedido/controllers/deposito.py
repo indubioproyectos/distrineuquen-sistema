@@ -304,7 +304,7 @@ class Deposito(http.Controller):
             order = order.with_context(distri_counter_sale=True)
         return order.action_distri_depot_delivery()
 
-    def _entrega(self, order, mostrador=False, error="", form=None, status=200):
+    def _entrega(self, order, mostrador=False, error="", form=None, status=200, nv=False):
         try:
             action = self._delivery_action(order, mostrador)
         except (UserError, AccessError) as exc:
@@ -342,15 +342,25 @@ class Deposito(http.Controller):
             "error": error, "form": form,
             # 19.0.1.129.37 (nueva_venta): «Subir comprobante» / «Lo manda después»
             "v137": v137,
+            # 19.0.1.129.42: a counter sale of «Nueva venta» goes back to its
+            # done page after the delivery
+            "nv": bool(nv and mostrador),
         }, status=status)
 
     @http.route("/deposito/entrega/<int:order_id>", type="http", auth="user", methods=["GET"],
                 sitemap=False)
-    def entrega_page(self, order_id, mostrador="", **kw):
+    def entrega_page(self, order_id, mostrador="", nv="", **kw):
         self._check()
         if not installed(request.env):
             return self._not_yet()
-        return self._entrega(self._order(order_id), mostrador=mostrador == "1")
+        return self._entrega(self._order(order_id), mostrador=mostrador == "1",
+                             nv=self._back_to_nv(nv))
+
+    def _back_to_nv(self, nv):
+        """19.0.1.129.42 (ui_v2 and nueva_venta): ?nv=1 from «Nueva venta»'s
+        «Mostrador»: after the delivery, its done page with the next steps."""
+        from .kit import ui_v2_on
+        return nv == "1" and self._v137() and ui_v2_on(request.env)
 
     def _wizard_values(self, order, form, mostrador):
         """The page's answers as the wizard's fields (models/deposito.py).
@@ -397,10 +407,11 @@ class Deposito(http.Controller):
 
     @http.route("/deposito/entrega/<int:order_id>", type="http", auth="user", methods=["POST"],
                 sitemap=False)
-    def entrega(self, order_id, mostrador="", **kw):
+    def entrega(self, order_id, mostrador="", nv="", **kw):
         self._check()
         order = self._order(order_id)
         mostrador = mostrador == "1"
+        nv = self._back_to_nv(nv) and mostrador
         form = self._form()
         answers, files, results = dict(form), [], []
         try:
@@ -428,12 +439,14 @@ class Deposito(http.Controller):
                         order, files, amount=wizard.transfer_amount)
         except (UserError, AccessError, ValidationError) as exc:
             return self._refuse(exc, lambda text: self._entrega(
-                order, mostrador=mostrador, error=text, form=form, status=400))
+                order, mostrador=mostrador, error=text, form=form, status=400, nv=nv))
         message = "%s entregado a %s." % (order.name, order.partner_id.name)
         if results:
             message += " Comprobante: %s." % upload_summary(results)
         elif answers.get("comprobante") == LATER_ANSWER and self._v137():
             message += " El comprobante queda a tu cargo hasta que llegue."
+        if nv:
+            return self._done("/nueva-venta/hecho/%s?mostrador=1" % order.id)
         return self._done("/deposito", message)
 
     # ---------------------------------------------------------------- counter sale
@@ -464,6 +477,9 @@ class Deposito(http.Controller):
                 "odoo_url": record_link(request.env, "pedido", o.id, "/deposito/mostrador"),
             } for o in orders],
             "tomar": is_staff(request.env.user),
+            # 19.0.1.129.42: «Tomar un pedido» is «Nueva venta» while its
+            # flag is on (the tile it named no longer exists then)
+            "nueva_venta": self._v137(),
             "nav": depot_nav(request.env, "entregas"),
         }, status=status)
 

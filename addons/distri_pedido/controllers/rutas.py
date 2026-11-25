@@ -64,6 +64,17 @@ def _day(text):
 
 class Rutas(http.Controller):
 
+    def _rendiciones_url(self):
+        """19.0.1.129.42: «Rendiciones» of the top bar opens the kit page
+        /rendiciones with ui_v2 on (for whoever opens it), the backend
+        action as before otherwise."""
+        from .kit import ui_v2_on
+        from .rendiciones import can_open
+        env = request.env
+        if ui_v2_on(env) and can_open(env):
+            return "/rendiciones"
+        return "/odoo/action-distri_pedido.action_route_settle"
+
     def _check(self):
         if not is_planner(request.env.user):
             raise Forbidden()
@@ -100,6 +111,7 @@ class Rutas(http.Controller):
             # 19.0.1.129.29: the role's bottom bar (ui_v2 only)
             "nav": page_nav(request.env, "rutas"),
             "backend_url": "/odoo/action-distri_pedido.action_route",
+            "rendiciones_url": self._rendiciones_url(),
         })
         html = request.env["ir.qweb"]._render(PAGE, values)
         return request.make_response(html, headers=[
