@@ -292,7 +292,7 @@ class Reparto(http.Controller):
             route._distri_reopen(user, via="app", by_driver=True)
         except UserError as exc:
             return self._json({"ok": False, "error": exc.args[0] if exc.args else str(exc),
-                               "locked": bool(route.cash_count_done)}, 409)
+                               "locked": True}, 409)
         return self._json({"ok": True, "state": route.state})
 
     @http.route("/reparto/api/sync", type="http", auth="user", methods=["POST"],

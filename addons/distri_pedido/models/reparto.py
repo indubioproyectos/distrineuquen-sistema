@@ -105,6 +105,9 @@ REOPEN_SETTLED = "La ruta %s ya se rindió: no se reabre."
 REOPEN_COUNTED = ("Ya se cargó el efectivo contado de %s: solo caja o gerencia reabren la "
                   "ruta. Pediles que la reabran.")
 REOPEN_NOT_YOURS = "Esa ruta no es tuya."
+# 25/11/2026 (owner, at Denis's request): drivers no longer reopen their route
+REOPEN_DRIVER_OFF = ("La ruta la reabre administración o caja: pediles que la reabran si "
+                     "tenés que corregir una visita.")
 REOPEN_NO_ROLE = "Solo administración, caja o gerencia reabren una ruta."
 REOPEN_VIA = {"backend": "desde Odoo", "app": "desde la app de reparto",
               "caja": "desde la caja", "rendiciones": "desde Rendiciones"}
@@ -427,8 +430,9 @@ class DistriRoute(models.Model):
             "left": self._left_payload(),
             # «Controlado»: the load ticks are locked
             "controlled": bool(self.departure_controlled_at),
-            # 19.0.1.129.25: «Reabrir la ruta» is refused once the cash was counted
-            "reopen_locked": bool(self.cash_count_done),
+            # 19.0.1.129.25 «Reabrir la ruta» on the phone; since 25/11/2026 only
+            # administración, caja or gerencia reopen a route: always locked
+            "reopen_locked": True,
             # the driver's own expenses, to restore a phone that lost them
             # (parcel shipping comes with its stop)
             "expenses": [{
@@ -468,8 +472,8 @@ class DistriRoute(models.Model):
         """19.0.1.129.25 (#105): why `user` may not reopen this route, or "".
 
         Only a route closed on the phone and not settled. Administración,
-        caja and gerencia reopen it, and its own driver from the app (no
-        reason asked: owner's decision). Once the cash count was entered
+        caja and gerencia reopen it (no reason asked: owner's decision).
+        Since 25/11/2026 the driver no longer reopens it from the app. Once the cash count was entered
         (`cash_count_done`) only caja or gerencia: the driver's app is
         refused. The superuser (scripts) always."""
         self.ensure_one()
@@ -482,9 +486,8 @@ class DistriRoute(models.Model):
         if by_driver:
             if self.driver_id != user or self.kind != "route":
                 return REOPEN_NOT_YOURS
-            if self.cash_count_done:
-                return REOPEN_COUNTED % self.name
-            return ""
+            # 25/11/2026: only administración, caja or gerencia reopen a route
+            return REOPEN_DRIVER_OFF
         if self.cash_count_done:
             if user.has_group(REOPEN_CASHIER) or user.has_group(REOPEN_MANAGER):
                 return ""

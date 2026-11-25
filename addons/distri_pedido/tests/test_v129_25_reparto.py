@@ -376,12 +376,13 @@ class TestV12925Reopen(V12925Mixin, HttpCase):
             self.assertEqual(res[0]["status"], "ok", res)
             self.assertEqual(route.state, "closed")
         self.assertEqual(route.reopen_count, 3)
-        # the driver, from the app, his own route only
+        # 25/11/2026: the driver no longer reopens it from the app
         with self.assertRaisesRegex(UserError, "Esa ruta no es tuya"):
             route._distri_reopen(self.other_driver, via="app", by_driver=True)
-        route._distri_reopen(self.driver, via="app", by_driver=True)
-        self.assertEqual(route.state, "on_route")
-        self.assertTrue(self._said(route, "desde la app de reparto"))
+        with self.assertRaisesRegex(UserError, "administración o caja"):
+            route._distri_reopen(self.driver, via="app", by_driver=True)
+        self.assertEqual(route.state, "closed")
+        self.assertTrue(route._app_payload()["reopen_locked"])
         self.assertEqual(self._ledger(), before, "reopening touches no balance")
 
     def test_cash_counted_locks_it_to_caja_and_gerencia(self):
@@ -391,7 +392,7 @@ class TestV12925Reopen(V12925Mixin, HttpCase):
         self.assertTrue(route._app_payload()["reopen_locked"])
         with self.assertRaisesRegex(UserError, "solo caja o gerencia"):
             route.with_user(self.admin_user).action_reopen()
-        with self.assertRaisesRegex(UserError, "solo caja o gerencia"):
+        with self.assertRaisesRegex(UserError, "administración o caja"):
             route._distri_reopen(self.driver, via="app", by_driver=True)
         route._distri_reopen(self.cashier, via="caja")
         self.assertEqual(route.state, "on_route")
@@ -423,25 +424,16 @@ class TestV12925Reopen(V12925Mixin, HttpCase):
     def test_driver_app_endpoint(self):
         route = self._closed()
         self.authenticate(self.driver.login, self.driver.login)
-        res = self.url_open("/reparto/api/reopen", data=json.dumps({"route_id": route.id}),
-                            headers={"Content-Type": "application/json"})
-        self.assertEqual(res.status_code, 200, res.text)
-        self.assertTrue(res.json()["ok"])
-        self.assertEqual(route.state, "on_route")
-        # the reopened route is the phone's again
-        data = self.url_open("/reparto/api/route?id=%s" % route.id).json()
-        self.assertEqual(data["route"]["id"], route.id)
-        self.assertEqual(data["route"]["state"], "on_route")
-        # locked once the cash was counted: a clear refusal
-        self._sync([self._event(route, "close", {}, captured="2026-09-26T18:00:00.000Z")])
-        route.sudo().cash_counted = 500
+        # 25/11/2026: the driver's own route is refused too, and stays closed
         res = self.url_open("/reparto/api/reopen", data=json.dumps({"route_id": route.id}),
                             headers={"Content-Type": "application/json"})
         self.assertEqual(res.status_code, 409)
         self.assertFalse(res.json()["ok"])
-        self.assertTrue(res.json()["locked"])
-        self.assertIn("solo caja o gerencia", res.json()["error"])
+        self.assertTrue(res.json()["locked"], "an old cached page hides its button")
+        self.assertIn("administración o caja", res.json()["error"])
         self.assertEqual(route.state, "closed")
+        data = self.url_open("/reparto/api/route?id=%s" % route.id).json()
+        self.assertTrue(data["route"]["reopen_locked"])
         # another driver's route
         self.authenticate(self.other_driver.login, self.other_driver.login)
         res = self.url_open("/reparto/api/reopen", data=json.dumps({"route_id": route.id}),
