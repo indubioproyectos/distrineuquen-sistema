@@ -123,7 +123,7 @@ class SaleOrderInvoiceUnpacked(models.Model):
         for order in self.filtered("distri_entregado_fuera"):
             order.distri_delivery_state = "delivered"
 
-    def distri_ya_armado(self, bultos, entregado=False):
+    def distri_ya_armado(self, bultos, entregado=False, motivo=None):
         """«Ya lo armé»: an invoiced order packed outside /armado. Marks it
         packed by the current user with `bultos`, validates its depot
         delivery with the ordered quantities (nothing was marked missing)
@@ -146,6 +146,13 @@ class SaleOrderInvoiceUnpacked(models.Model):
             return "Este pedido ya no está entre los facturados sin armar."
         if not bultos or bultos < 1 or bultos > MAX_BULTOS:
             return "Poné en cuántos bultos quedó el pedido."
+        # 19.0.1.129.35 (plan, Etapa 4): with «Nueva venta» on, «Ya lo armé»
+        # is a correction tool: it asks why
+        from .nueva_venta import nueva_venta_on
+        motivo = " ".join((motivo or "").split())[:250]
+        if nueva_venta_on(self.env) and len(motivo) < 3:
+            return "Poné el motivo de la corrección."
+        nota = (" Corrección. Motivo: %s." % motivo) if motivo else ""
         now = fields.Datetime.now()
         try:
             with self.env.cr.savepoint():
@@ -166,12 +173,12 @@ class SaleOrderInvoiceUnpacked(models.Model):
         packs = "%s %s" % (bultos, "bulto" if bultos == 1 else "bultos")
         if entregado:
             order.message_post(body="Marcado como armado y entregado fuera del sistema por %s, "
-                                    "en %s (ya estaba facturado: %s)." % (
-                user.name, packs, order._distri_factura_viva_texto()))
+                                    "en %s (ya estaba facturado: %s).%s" % (
+                user.name, packs, order._distri_factura_viva_texto(), nota))
         else:
             order.message_post(body="Marcado como armado sin pasar por el armado (ya estaba "
-                                    "facturado: %s) por %s, en %s." % (
-                order._distri_factura_viva_texto(), user.name, packs))
+                                    "facturado: %s) por %s, en %s.%s" % (
+                order._distri_factura_viva_texto(), user.name, packs, nota))
         order._distri_ensure_receipt_code()
         return ""
 

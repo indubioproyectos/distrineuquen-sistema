@@ -30,7 +30,7 @@ in the view. Refused when:
 """
 from markupsafe import Markup
 
-from odoo import models
+from odoo import fields, models
 from odoo.exceptions import UserError
 
 REARMAR_GROUP = "distri_pedido.grupo_administracion"
@@ -95,6 +95,20 @@ class SaleOrderRearmar(models.Model):
         # same lock as the packer and the customer's edits
         old._distri_bloquear()
         old._distri_rearmar_check()
+        # 19.0.1.129.35 (plan, Etapa 4): with «Nueva venta» on, «Rearmar» is
+        # a correction tool and asks its reason first (distri.rearmar.wizard)
+        from .nueva_venta import nueva_venta_on
+        motivo = " ".join((self.env.context.get("distri_rearmar_motivo") or "").split())[:250]
+        correccion = nueva_venta_on(self.env)
+        if correccion and not motivo:
+            return {
+                "type": "ir.actions.act_window",
+                "name": "Rearmar · corrección",
+                "res_model": "distri.rearmar.wizard",
+                "view_mode": "form",
+                "target": "new",
+                "context": {"default_order_id": old.id},
+            }
 
         # 19.0.1.129.26: the order is cancelled on purpose, no «factura
         # anulada» note (models/factura_anulada.py)
@@ -107,10 +121,12 @@ class SaleOrderRearmar(models.Model):
         new = old.copy({"note": old.note})
         new.action_confirm()
 
+        nota = (Markup(" Corrección de %s. Motivo: %s.") % (self.env.user.name, motivo)
+                if motivo else "")
         new.message_post(body=Markup("Pedido rearmado: reemplaza a %s, que se canceló con su "
-                                     "factura. Vuelve al armado.") % old._get_html_link())
+                                     "factura. Vuelve al armado.") % old._get_html_link() + nota)
         old.message_post(body=Markup("Rearmado: se canceló con su factura y se creó %s para "
-                                     "volver a armarlo.") % new._get_html_link())
+                                     "volver a armarlo.") % new._get_html_link() + nota)
         return {
             "type": "ir.actions.act_window",
             "res_model": "sale.order",
@@ -119,3 +135,26 @@ class SaleOrderRearmar(models.Model):
             "views": [(False, "form")],
             "target": "current",
         }
+
+
+class DistriRearmarWizard(models.TransientModel):
+    """19.0.1.129.35: «Rearmar» as a correction (with «Nueva venta» on): the
+    reason, then the same «Rearmar» as before."""
+    _name = "distri.rearmar.wizard"
+    _description = "Rearmar un pedido (corrección)"
+
+    order_id = fields.Many2one("sale.order", string="Pedido", required=True, readonly=True,
+                               ondelete="cascade")
+    motivo = fields.Char(string="Motivo de la corrección", required=True)
+
+    def action_rearmar(self):
+        self.ensure_one()
+        motivo = " ".join((self.motivo or "").split())
+        if len(motivo) < 3:
+            raise UserError("Escribí el motivo de la corrección.")
+        # without the wizard's default_* keys, which would leak into the
+        # records «Rearmar» creates (as distri.wa.confirm.wizard does)
+        context = {key: value for key, value in self.env.context.items()
+                   if not key.startswith("default_")}
+        context["distri_rearmar_motivo"] = motivo
+        return self.order_id.with_context(context).action_distri_rearmar()

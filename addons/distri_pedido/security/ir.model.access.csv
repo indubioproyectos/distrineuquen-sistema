@@ -243,3 +243,4 @@ access_owed_allocation_vendedor,distri.owed.allocation vendedor,model_distri_owe
 access_owed_allocation_admin,distri.owed.allocation administracion,model_distri_owed_allocation,distri_pedido.grupo_administracion,1,1,1,1
 access_owed_allocation_gerencia,distri.owed.allocation gerencia,model_distri_owed_allocation,distri_pedido.grupo_gerencia,1,1,1,1
 access_owed_allocation_sistema,distri.owed.allocation sistema,model_distri_owed_allocation,base.group_system,1,1,1,1
+access_rearmar_wizard_admin,distri.rearmar.wizard administracion,model_distri_rearmar_wizard,distri_pedido.grupo_administracion,1,1,1,1

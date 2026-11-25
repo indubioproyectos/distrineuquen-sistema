@@ -95,9 +95,55 @@
                 · <span class="dn-num" t-esc="plata(p.amount_total)"/></span>
               <span class="arm-ped__det">Factura <t t-esc="p._distri_factura_viva_texto()"/></span>
             </span>
-            <span class="dn-chip dn-chip--warn arm-fact__chip">Ya lo armé</span>
+            <span class="dn-chip dn-chip--warn arm-fact__chip"><t t-if="correccion">Corregir</t><t t-else="">Ya lo armé</t></span>
           </summary>
-          <form method="post" class="arm-form arm-fact__form"
+          <!-- 19.0.1.129.35 (with «Nueva venta» on): a correction, with the
+               reason; the two answers are two forms set apart, and each one
+               says on the phone which one it is before it goes
+               (static/src/armado/armado.js, data-arm-confirma) -->
+          <div t-if="correccion" class="arm-fact__corr">
+            <p class="arm-hint arm-fact__aviso">Es una corrección: solo para un pedido que se facturó antes de armarlo.</p>
+            <form method="post" class="arm-form arm-fact__form arm-fact__opcion" data-arm-confirma="armado"
+                  t-att-data-arm-texto="'%s queda ARMADO y sigue su camino: va a una ruta o a la entrega en depósito. NO queda entregado. ¿Es así?' % p.name"
+                  t-att-action="'/armado/facturado/%s/ya-armado' % p.id">
+              <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+              <input type="hidden" name="confirmo" value=""/>
+              <h3 class="arm-fact__t">1 · Solo armado</h3>
+              <p class="arm-hint">El pedido está armado y todavía no se lo llevaron. Se entrega todo lo pedido. No se hace otra factura.</p>
+              <div class="dn-field">
+                <label t-att-for="'fact-bultos-%s' % p.id">¿En cuántos bultos quedó?</label>
+                <input class="dn-input dn-input--big dn-num" type="number" t-att-id="'fact-bultos-%s' % p.id"
+                       name="bultos" min="1" max="999" step="1" inputmode="numeric" required="required" placeholder="0"/>
+              </div>
+              <div class="dn-field">
+                <label t-att-for="'fact-motivo-%s' % p.id">Motivo de la corrección</label>
+                <input class="dn-input" type="text" t-att-id="'fact-motivo-%s' % p.id" name="motivo"
+                       minlength="3" maxlength="250" required="required" autocomplete="off"/>
+              </div>
+              <button type="submit" class="dn-btn dn-btn--lg">Ya lo armé</button>
+            </form>
+            <form method="post" class="arm-form arm-fact__form arm-fact__opcion arm-fact__opcion--entregado" data-arm-confirma="entregado"
+                  t-att-data-arm-texto="'%s ya se ENTREGÓ al cliente: queda armado y entregado, no va a ninguna ruta ni a la entrega en depósito. ¿Es así?' % p.name"
+                  t-att-action="'/armado/facturado/%s/ya-armado' % p.id">
+              <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+              <input type="hidden" name="entregado" value="1"/>
+              <input type="hidden" name="confirmo" value=""/>
+              <h3 class="arm-fact__t">2 · Armado y ya entregado al cliente</h3>
+              <p class="arm-hint">Solo si el cliente ya se lo llevó. No va a una ruta ni a la entrega en depósito. No toca cobros ni saldos.</p>
+              <div class="dn-field">
+                <label t-att-for="'fact-bultos-e-%s' % p.id">¿En cuántos bultos quedó?</label>
+                <input class="dn-input dn-input--big dn-num" type="number" t-att-id="'fact-bultos-e-%s' % p.id"
+                       name="bultos" min="1" max="999" step="1" inputmode="numeric" required="required" placeholder="0"/>
+              </div>
+              <div class="dn-field">
+                <label t-att-for="'fact-motivo-e-%s' % p.id">Motivo de la corrección</label>
+                <input class="dn-input" type="text" t-att-id="'fact-motivo-e-%s' % p.id" name="motivo"
+                       minlength="3" maxlength="250" required="required" autocomplete="off"/>
+              </div>
+              <button type="submit" class="dn-btn dn-btn--lg dn-btn--warn">Ya lo armé y ya se entregó</button>
+            </form>
+          </div>
+          <form t-else="" method="post" class="arm-form arm-fact__form"
                 t-att-action="'/armado/facturado/%s/ya-armado' % p.id">
             <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
             <div class="dn-field">

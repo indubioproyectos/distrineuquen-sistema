@@ -232,15 +232,25 @@ class Armado(http.Controller):
             terminado=self._terminado(terminado),
             # 19.0.1.117.0: «Facturados sin armar» (models/factura_sin_armar.py)
             facturados=request.env["sale.order"]._distri_facturados_sin_armar(),
+            # 19.0.1.129.35: «Ya lo armé» as a correction, the two apart
+            correccion=self._correccion(),
             error_ya=(error_ya or "")[:300],
         ))
 
+    def _correccion(self):
+        from ..models.nueva_venta import nueva_venta_on
+        return nueva_venta_on(request.env)
+
     @http.route("/armado/facturado/<int:pedido_id>/ya-armado", type="http", auth="user",
                 methods=["POST"], website=True, sitemap=False)
-    def ya_armado(self, pedido_id, bultos="", entregado="", **post):
+    def ya_armado(self, pedido_id, bultos="", entregado="", motivo="", confirmo="", **post):
         """19.0.1.117.0: «Ya lo armé» on an order invoiced before packing.
         The armador group (administración implies it) only.
-        19.0.1.129.25: `entregado=1` is «Ya lo armé y ya se entregó»."""
+        19.0.1.129.25: `entregado=1` is «Ya lo armé y ya se entregó».
+        19.0.1.129.35: with «Nueva venta» on both are corrections: the
+        reason is mandatory and `confirmo` must name the one the user
+        confirmed on the phone («armado» or «entregado»), so a tap on the
+        wrong button is never taken (the owner's case of 25/11/2026)."""
         if not request.env.user.has_group(GRUPO_ARMADOR):
             if self._por_fetch():
                 return self._json({"ok": False, "error": "No tenés permiso de armador."}, 403)
@@ -249,12 +259,17 @@ class Armado(http.Controller):
         if not pedido or pedido.company_id != request.env.company:
             raise NotFound()
         cuantos = self._bultos(bultos)
+        from ..models.nueva_venta import nueva_venta_on
+        esperado = "entregado" if entregado == "1" else "armado"
         if not 1 <= cuantos <= MAX_BULTOS:
             error = "Poné en cuántos bultos quedó el pedido."
+        elif nueva_venta_on(request.env) and confirmo != esperado:
+            error = ("Confirmá si el pedido solo quedó armado o si además ya se entregó: no se "
+                     "cambió nada.")
         else:
             # the user's own environment: the model checks the group too
             error = pedido.with_env(request.env).distri_ya_armado(
-                cuantos, entregado=entregado == "1")
+                cuantos, entregado=entregado == "1", motivo=motivo)
         if error:
             if self._por_fetch():
                 return self._json({"ok": False, "error": error}, 422)

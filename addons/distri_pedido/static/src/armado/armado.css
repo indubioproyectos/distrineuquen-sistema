@@ -163,3 +163,10 @@ label.dn-btn{user-select:none}
 .arm-fact__chip{flex:none}
 .arm-fact__ped[open] .arm-fact__chip{visibility:hidden}
 .arm-fact__form{padding:0 16px 16px}
+
+/* 19.0.1.129.35: «Ya lo armé» as a correction, the two answers set apart */
+.arm-fact__corr{padding:0 16px 16px;display:grid;gap:14px}
+.arm-fact__aviso{margin:0;font-weight:600}
+.arm-fact__opcion{padding:12px;border:1px solid var(--dn-line);border-radius:12px}
+.arm-fact__opcion--entregado{border:2px solid var(--dn-amber-line);background:var(--dn-amber-bg)}
+.arm-fact__t{margin:0 0 6px;font-size:16px}

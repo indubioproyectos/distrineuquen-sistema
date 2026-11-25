@@ -28,6 +28,28 @@
     if (page === 'pedido') { pedido(DN); }
     if (page === 'trad') { trad(DN); }
     prefs(DN);
+    confirma(DN);
+  }
+
+  // 19.0.1.129.35: «Ya lo armé» / «Ya lo armé y ya se entregó» as a
+  // correction. Each form says which one it is before it goes; only then
+  // its `confirmo` is filled (the server refuses the post without it).
+  function confirma(DN) {
+    DN.$$('form[data-arm-confirma]').forEach(function (form) {
+      form.addEventListener('submit', function (ev) {
+        var campo = form.querySelector('input[name=confirmo]');
+        if (campo.value) { return; }
+        ev.preventDefault();
+        if (form.checkValidity && !form.checkValidity()) { form.reportValidity(); return; }
+        var cual = form.getAttribute('data-arm-confirma');
+        DN.confirm(form.getAttribute('data-arm-texto'),
+          cual === 'entregado' ? 'Sí, ya se entregó' : 'Sí, solo armado').then(function (ok) {
+          if (!ok) { return; }
+          campo.value = cual;
+          form.submit();
+        });
+      });
+    });
   }
 
   // the view/order toggles of an order (also in «Ajustes»)
