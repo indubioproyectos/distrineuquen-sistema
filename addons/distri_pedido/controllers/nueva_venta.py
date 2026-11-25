@@ -27,6 +27,7 @@ import re
 import uuid
 from urllib.parse import urlencode
 
+import psycopg2
 from werkzeug.exceptions import Forbidden, NotFound
 
 from odoo import http
@@ -54,6 +55,9 @@ def puede_pegar(user):
 def _error_text(exc):
     return exc.args[0] if exc.args else str(exc)
 
+
+# 19.0.1.129.32: the second of two simultaneous posts of the same sale
+DOBLE_TOQUE = "Esa venta ya se está cargando (se tocó dos veces). Fijate en «Mis ventas»."
 
 class NuevaVenta(http.Controller):
 
@@ -361,7 +365,16 @@ class NuevaVenta(http.Controller):
                 raise UserError("Poné el motivo de la entrega fuera del sistema.")
         order = Order._distri_nueva_venta_presupuesto(cliente, lineas)
         if clave:
-            order.sudo().distri_envio_clave = clave
+            # 19.0.1.129.32: written to the database at once, so a parallel
+            # second tap waits here for the first one and then hits the
+            # unique key: a clear message instead of a server error
+            try:
+                with request.env.cr.savepoint():
+                    order.sudo().distri_envio_clave = clave
+                    order.sudo().flush_recordset(["distri_envio_clave"])
+            except psycopg2.IntegrityError:
+                order.sudo().unlink()
+                raise UserError(DOBLE_TOQUE) from None
         if salida == nv.MOSTRADOR:
             order._distri_nueva_venta_mostrador()
         else:

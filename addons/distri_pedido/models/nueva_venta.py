@@ -166,6 +166,15 @@ class SaleOrderNuevaVenta(models.Model):
             raise UserError(error)
         if self.distri_factura_error:
             raise UserError("No salió la factura: %s" % self.distri_factura_error)
+        # 19.0.1.129.32: invoicing at the end of packing may do nothing
+        # without an error (held order, nothing to invoice): never marked
+        # delivered without its invoice and its remito (everything rolls back)
+        if not self.sudo().invoice_ids.filtered(lambda m: m.state != "cancel"):
+            raise UserError("No salió la factura de la venta: no se cargó como entregada. "
+                            "Revisala en Odoo.")
+        if not self.sudo().picking_ids.filtered(lambda p: p.state == "done"):
+            raise UserError("No quedó hecho el remito de la venta: no se cargó como entregada. "
+                            "Revisala en Odoo.")
         user = self.env.user
         self.sudo().write({
             "distri_entregado_fuera": True,
@@ -190,6 +199,13 @@ class SaleOrderNuevaVenta(models.Model):
         momento = AR_TZ.localize(datetime.combine(dia, MEDIODIA)).astimezone(
             pytz.utc).replace(tzinfo=None)
         pickings = self.sudo().picking_ids.filtered(lambda p: p.state == "done")
+        # 19.0.1.129.32: the remito keeps a trace of the date it really had
+        for picking in pickings:
+            picking.message_post(body="Fecha del remito cambiada del %s al %s por «Ya entregado» "
+                                      "(%s)." % (
+                fields.Datetime.context_timestamp(picking, picking.date_done).strftime(
+                    "%d/%m/%Y %H:%M") if picking.date_done else "-",
+                dia.strftime("%d/%m/%Y"), self.env.user.name))
         pickings.write({"date_done": momento})
         pickings.move_ids.filtered(lambda m: m.state == "done").write({"date": momento})
         pickings.move_line_ids.write({"date": momento})

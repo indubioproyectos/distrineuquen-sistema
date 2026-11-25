@@ -360,9 +360,10 @@ class TestV12931Verificacion(UploadMixin, RepartoMixin, AccountTestInvoicingComm
         self.assertEqual(self._balance(), balance, "no balance changes")
         self.assertIn(("distri.mp.collection", old.id), self._row_ids("historicos"))
         self.assertNotIn(("distri.mp.collection", old.id), self._row_ids("sin_comprobante"))
-        # hidden by the board's default filter
-        action = self.env.ref("distri_pedido.action_mp_board")
-        self.assertIn("search_default_not_historic", action.context)
+        # hidden by the board's default filter (19.0.1.129.32: added with
+        # the flag on only, models/verificacion.py _get_action_dict)
+        action = self.env["ir.actions.act_window"]._for_xml_id("distri_pedido.action_mp_board")
+        self.assertIn("search_default_not_historic", action["context"])
 
     def test_no_receipt_queue_uses_the_term(self):
         self._flag()

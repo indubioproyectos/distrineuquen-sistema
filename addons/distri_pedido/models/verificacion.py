@@ -67,6 +67,7 @@ import psycopg2
 
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
+from odoo.tools.safe_eval import safe_eval
 
 from .acreditar import can_approve
 from .cobros import AMOUNT_TOLERANCE, RECEIPT_TIME_CLOSE, digits, local_day, local_when, own_account
@@ -101,6 +102,9 @@ TWIN_NOTE = ("Posible duplicado: mismo importe, fecha y hora que el comprobante 
              "número de operación. Pueden ser dos pagos: decidí en «Posibles duplicados».")
 TWIN_CREDIT_WARNING = ("Puede ser el mismo pago que el comprobante del %s (mismo importe, fecha y "
                        "hora, sin número de operación). Acreditalo solo si son dos pagos.")
+TWIN_CREDITED_ERROR = ("Puede ser el mismo pago que el comprobante del %s, que ya se acreditó "
+                       "(mismo importe, fecha y hora, sin número de operación). Primero "
+                       "administración tiene que marcar «Son dos pagos».")
 
 # (key, number, title, what comes in, owner groups, who, term in hours)
 # owner groups: who handles it (gerencia implies administración); () = only
@@ -485,8 +489,19 @@ class DistriMpCollectionCreditVerificacion(models.Model):
         errors, warnings = super()._distri_credit_review(partner, amount, driver_auto=driver_auto)
         receipt = self.sudo().receipt_id
         if verificacion_on(self.env) and receipt.distri_twin_review and not receipt.distri_twin_ok:
+            twin = receipt.distri_twin_of_id
+            # 19.0.1.129.32: its twin was already credited by a person
+            # (its card confirmed or authorized, before the report tied it:
+            # the «matched»/«registered» twin is already an error in
+            # acreditar.py): only an approver may credit this one after the
+            # warning; anyone else waits for «Son dos pagos» in the queue
+            twin_paid = bool(twin) and bool(self.sudo().search_count([
+                ("kind", "=", "verify"), ("receipt_id", "=", twin.id),
+                ("state", "in", ("confirmed", "authorized"))], limit=1))
             if driver_auto:
                 errors.append(TWIN_CREDIT_WARNING % local_when(receipt.distri_twin_of_id.timestamp))
+            elif twin_paid and not can_approve(self.env.user):
+                errors.append(TWIN_CREDITED_ERROR % local_when(twin.timestamp))
             else:
                 warnings.append(TWIN_CREDIT_WARNING % local_when(
                     receipt.distri_twin_of_id.timestamp))
@@ -683,3 +698,22 @@ class DistriVerificacion(models.AbstractModel):
             "url": "/odoo/distri.whatsapp.message/%s" % msg.id,
             "check": False, "twin": True, "who": "",
         }
+
+
+class IrActionsActWindowVerificacion(models.Model):
+    _inherit = "ir.actions.act_window"
+
+    def _get_action_dict(self):
+        """19.0.1.129.32: the payments board («Tablero») keeps 129.26's action
+        with the flag off; with verificacion_v2 on, the historic incomes are
+        hidden by default and its filters show (views/verificacion.xml)."""
+        result = super()._get_action_dict()
+        if result.get("xml_id") == "distri_pedido.action_mp_board" and verificacion_on(self.env):
+            try:
+                ctx = safe_eval(result.get("context") or "{}")
+            except Exception:
+                return result
+            if isinstance(ctx, dict):
+                ctx.update({"search_default_not_historic": 1, "distri_verificacion_v2": True})
+                result["context"] = repr(ctx)
+        return result

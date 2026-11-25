@@ -6,7 +6,11 @@
   <!-- «Histórico»: hidden by default on the payments board. Nothing is
        marked until scripts/correcciones/v129_31_marcar_historicos.sh runs
        (refused with the flag off), so with the flag off the board shows
-       exactly the same cards. -->
+       exactly the same cards.
+       19.0.1.129.32: with the flag off the board is 129.26's: the three
+       filters are invisible and the action keeps its context; with the flag
+       on, ir.actions.act_window._get_action_dict (models/verificacion.py)
+       adds distri_verificacion_v2 and the default «Sin históricos». -->
   <record id="view_mp_collection_search_historic" model="ir.ui.view">
     <field name="name">distri.mp.collection.search.historic</field>
     <field name="model">distri.mp.collection</field>
@@ -14,17 +18,16 @@
     <field name="arch" type="xml">
       <filter name="apartados" position="after">
         <separator/>
-        <filter name="not_historic" string="Sin históricos" domain="[('historic', '=', False)]"/>
-        <filter name="historic" string="Históricos (antes del 15/09)"
+        <filter name="not_historic" invisible="not context.get('distri_verificacion_v2')"
+                string="Sin históricos" domain="[('historic', '=', False)]"/>
+        <filter name="historic" invisible="not context.get('distri_verificacion_v2')"
+                string="Históricos (antes del 15/09)"
                 domain="[('historic', '=', True)]"/>
-        <filter name="auto_credited_check" string="Acreditados solos sin revisar"
+        <filter name="auto_credited_check" invisible="not context.get('distri_verificacion_v2')"
+                string="Acreditados solos sin revisar"
                 domain="[('auto_credited', '=', True), ('human_check', '=', 'pendiente')]"/>
       </filter>
     </field>
-  </record>
-
-  <record id="distri_pedido.action_mp_board" model="ir.actions.act_window">
-    <field name="context">{'search_default_to_act': 1, 'search_default_last_60': 1, 'search_default_not_historic': 1}</field>
   </record>
 
   <record id="view_mp_collection_form_verificacion" model="ir.ui.view">

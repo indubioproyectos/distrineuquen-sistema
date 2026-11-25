@@ -253,6 +253,9 @@ class TestV12928RepartoV2(V12928Mixin, AccountTestInvoicingCommon):
         order, _invoice = self._invoiced_order()
         route = self._route(order)
         stop = route.stop_ids
+        # 19.0.1.129.32: the phone downloaded the route with the flag on
+        self._v2()
+        route.with_user(self.driver).sudo()._app_payload()
         self._v2(False)
         self._visit_ok(route, stop, cash=600)
         before = self._ledger()
@@ -350,6 +353,8 @@ class TestV12928RepartoV2(V12928Mixin, AccountTestInvoicingCommon):
                        receipt_answer="not_yet")
         order, _invoice = self._invoiced_order()
         route = self._route(order)
+        # 19.0.1.129.32: the phone downloaded the route («Le toca pagar»)
+        route.with_user(self.driver).sudo()._app_payload()
         self._visit_ok(route, route.stop_ids, cash=600)
         other = self._route(self._order(self.partner, self.product, qty=1, price=700),
                             driver=self.other_driver)

@@ -49,9 +49,10 @@
                  groups="distri_pedido.grupo_administracion,base.group_system"
                  invisible="parent_id and not is_company"/>
           <!-- 19.0.1.129.28: decision C of «Reparto v2» (models/reparto_v2.py) -->
+          <field name="distri_reparto_v2_on" invisible="1"/>
           <field name="distri_cuenta_corriente"
                  groups="distri_pedido.grupo_administracion,base.group_system"
-                 invisible="parent_id and not is_company"/>
+                 invisible="not distri_reparto_v2_on or (parent_id and not is_company)"/>
           <button name="action_crear_acceso_web" type="object" class="btn-primary"
                   string="Crear acceso web" invisible="distri_usuario_id"/>
           <button name="action_regenerar_clave_web" type="object"

@@ -357,6 +357,17 @@ class DistriRouteV2(models.Model):
         return partner
 
 
+    def _app_payload(self):
+        """19.0.1.129.32: the advance for the route, so «Efectivo para rendir»
+        on the phone is what the cashier expects (cash + advance − expenses).
+        Only when there is one: without it the payload is 129.26's."""
+        data = super()._app_payload()
+        advance = self.sudo().advance_total
+        if advance and advance > 0:
+            data["advance_total"] = round(advance, 2)
+        return data
+
+
 class ResPartnerEmployeeDebt(models.Model):
     _inherit = "res.partner"
 

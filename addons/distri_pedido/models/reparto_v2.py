@@ -70,6 +70,8 @@ REVIEW_SUMMARY = "«Ya estaba pagado» a revisar"
 PARTIAL_SUMMARY = "Pago parcial en el reparto"
 # the charges shown in «Mis comprobantes a reclamar» (controllers/rendiciones.py)
 CHARGE_KINDS = ("receipt", "short", "unpaid")
+SHORT_PAID_CASE = ("El pedido %s quedó pagado (%s): el cargo por el pago parcial se cerró "
+                   "solo.")
 LATE_MARK = "el cargo se cerró solo (decisión del dueño, 24/11/2026)"
 LATE_CLOSED_CASE = "Llegó el comprobante el %s (%s), después del vencimiento: " + LATE_MARK + "."
 ORDER_MAX = 300
@@ -113,6 +115,14 @@ def _todo(record, users, summary, note, key):
 
 class ResPartnerRepartoV2(models.Model):
     _inherit = "res.partner"
+
+    # 19.0.1.129.32: the box shows only with the flag on (views/partner.xml)
+    distri_reparto_v2_on = fields.Boolean(compute="_compute_distri_reparto_v2_on")
+
+    def _compute_distri_reparto_v2_on(self):
+        on = reparto_v2_on(self.env)
+        for partner in self:
+            partner.distri_reparto_v2_on = on
 
     distri_cuenta_corriente = fields.Boolean(
         string="Cuenta corriente (pago parcial a cuenta)", copy=False, tracking=True,
@@ -189,7 +199,28 @@ class DistriRouteStopRepartoV2(models.Model):
                     lambda a: a.summary == REVIEW_SUMMARY)
                 if todos:
                     todos.action_feedback(feedback=text)
+        if reparto_v2_on(self.env):
+            self._distri_v2_close_paid_shorts(now)
         return result
+
+    @api.model
+    def _distri_v2_close_paid_shorts(self, now=None):
+        """19.0.1.129.32: an open «short» charge (partial payment) closes
+        once its order has nothing left to pay (the rest was paid, a payment
+        registered by a person or the report), as the app tells the driver.
+        Only the internal case is written, never the customer's balance."""
+        now = now or fields.Datetime.now()
+        cases = self.env["distri.route.case"].sudo().search([
+            ("kind", "=", "short"), ("state", "=", "open"), ("replenished", "=", False),
+            ("stop_id", "!=", False)], order="id")
+        for case in cases:
+            stop = case.stop_id.sudo()
+            if not stop.order_id or not stop._app_payments()["paid"]:
+                continue
+            case.write({"state": "closed", "resolution": SHORT_PAID_CASE % (
+                stop.order_id.name, local_when(now))})
+            case.message_post(body=SHORT_PAID_CASE % (stop.order_id.name, local_when(now)))
+        return cases
 
     def _distri_v2_review_notice(self):
         """«Ya estaba pagado» with debt: administración reviews it."""
@@ -349,6 +380,11 @@ class DistriPromisedTransferRepartoV2(models.Model):
         of what was due is the driver's at once, unless decision C exempts
         the customer; the salesperson is told either way."""
         if not reparto_v2_on(self.env):
+            return super()._distri_charge_short(stop)
+        # 19.0.1.129.32: a route downloaded without the flag (or by an app
+        # that never showed «Le toca pagar») has no snapshot of what was due:
+        # the 129.27 rules, nothing charged for a partial cash payment
+        if not stop.sudo().v2_due_known:
             return super()._distri_charge_short(stop)
         Case = self.env["distri.route.case"].sudo()
         case = Case.search([("stop_id", "=", stop.id), ("kind", "=", "short"),

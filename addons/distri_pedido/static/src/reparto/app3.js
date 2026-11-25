@@ -2238,6 +2238,7 @@
 
   function cashCard(r) {
     return '<div class="card cashbox"><div class="money-row"><span>Efectivo cobrado</span><span>' + money(r.cash) + "</span></div>" +
+      (r.advance ? '<div class="money-row"><span>Adelanto para la ruta</span><span>+ ' + money(r.advance) + "</span></div>" : "") +
       '<div class="money-row"><span>Gastos</span><span>− ' + money(r.expenses) + "</span></div>" +
       '<div class="money-row total"><span>Efectivo a rendir</span><span>' + money(r.toSettle) + "</span></div></div>";
   }
@@ -2347,8 +2348,11 @@
     });
     var expenses = expensesTotal();
     unsynced += expenseItems().filter(function (e) { return e.own && e.error; }).length;
-    return { sum: sum, cash: round2(cash), transfers: transfers, noCode: noCode,
-             unsynced: unsynced, total: list.length, expenses: expenses, toSettle: round2(cash - expenses),
+    // 19.0.1.129.32: the advance for the route goes back with the cash
+    var advance = Number(S.route && S.route.advance_total) || 0;
+    return { sum: sum, cash: round2(cash), transfers: transfers, noCode: noCode, advance: advance,
+             unsynced: unsynced, total: list.length, expenses: expenses,
+             toSettle: round2(cash + advance - expenses),
              noGuide: noGuide, toConfirm: toConfirm };
   }
 
@@ -2442,6 +2446,7 @@
     });
     out += '<div class="card"><div class="muted">Efectivo para rendir en el depósito</div><div class="cash">' + money(r.toSettle) +
       "</div>" + '<div class="money-row"><span>Efectivo cobrado</span><span>' + money(r.cash) + "</span></div>" +
+      (r.advance ? '<div class="money-row"><span>Adelanto para la ruta</span><span>+ ' + money(r.advance) + "</span></div>" : "") +
       '<div class="money-row"><span>Gastos</span><span>− ' + money(r.expenses) + "</span></div>" +
       '<div class="small">Efectivo cobrado − gastos = efectivo a rendir. Los comprobantes en papel de los gastos ' +
       "se entregan con el efectivo.</div>" +
@@ -2482,7 +2487,8 @@
       '<div id="status">' + statusBanner() + "</div>" + routesBar() + (extHook("homeHtml") || "") +
       '<div class="body"><div class="card"><div class="muted">Efectivo para rendir en el depósito</div><div class="cash">' +
       money(r.toSettle) + "</div>" +
-      (r.expenses ? '<div class="small">Efectivo cobrado ' + money(r.cash) + " − gastos " + money(r.expenses) + "</div>" : "") +
+      (r.expenses || r.advance ? '<div class="small">Efectivo cobrado ' + money(r.cash) +
+        (r.advance ? " + adelanto " + money(r.advance) : "") + " − gastos " + money(r.expenses) + "</div>" : "") +
       '<div class="small muted">Al volver hoy o mañana a primera hora</div></div>' +
       (canReopen() ? '<div class="card"><div class="small muted">¿Te equivocaste en una visita? Reabrí la ruta, ' +
         "corregila y cerrala de nuevo. Se puede hasta que caja cuente el efectivo.</div>" +
