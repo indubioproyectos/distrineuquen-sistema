@@ -41,7 +41,8 @@ from ..models.asignar_cliente import puede_asignar
 from ..models.reparto import _money
 from ..models.revisar import MOTIVO_MAX, ORIGENES_REVISAR, puede_revisar
 from ..models.semaforo import AR_TZ, GREEN, GREY, RED, SIN_CONFIRMAR, UTC, YELLOW, chips
-from .kit import kit_context, page_nav
+from .fichas import record_link
+from .kit import kit_context, page_nav, ui_v2_on
 from .tablero import wants_tablero
 
 LIMIT = 300
@@ -149,7 +150,9 @@ def card(order):
         "asignar_url": "/revisar/%s/asignar" % o.id,
         # the green ones fold to one line, as in the mockup
         "compact": color == GREEN and not retenido and vivo,
-        "odoo_url": "/odoo/sale.order/%s" % o.id,
+        # 19.0.1.129.34: the order's kit screen with ui_v2 on (controllers/fichas.py)
+        "odoo_url": record_link(env, "pedido", o.id, "/revisar"),
+        "odoo_label": "Ver el pedido" if ui_v2_on(env) else "Abrir en el sistema",
     }
 
 

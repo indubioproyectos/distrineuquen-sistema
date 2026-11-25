@@ -1,0 +1,30 @@
+/* 19.0.1.129.34 («Etapa 3b», part 2; ui_v2 only): the order, invoice and
+   customer screens, controllers/fichas.py, views/fichas.xml. On top of
+   dn.css and deposito.css (the dp-* top bar, rows and notes). */
+.fi-main{display:flex;flex-direction:column;gap:12px}
+.fi-card{display:flex;flex-direction:column;gap:10px}
+.fi-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.fi-amount{margin-left:auto;font-size:22px;font-weight:800}
+.fi-who{display:flex;flex-direction:column;gap:2px}
+.fi-name{font-size:18px;font-weight:800;color:var(--dn-ink);overflow-wrap:anywhere}
+a.fi-name{color:var(--dn-primary);text-decoration:none}
+.fi-steps{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0}
+.fi-steps>div{display:flex;flex-direction:column;gap:2px}
+.fi-steps dt{font-size:12px;font-weight:700;color:var(--dn-muted);text-transform:uppercase;letter-spacing:.8px}
+.fi-steps dd{margin:0}
+.fi-acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.fi-acts form{margin:0}
+.fi-odoo{align-self:center;color:var(--dn-primary);font-weight:700;text-decoration:none;gap:6px}
+.fi-lines{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.fi-line{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:4px 10px;align-items:baseline;
+  padding:10px 0;border-bottom:1px solid var(--dn-line)}
+.fi-line:last-child{border-bottom:0}
+.fi-line--sec{display:block;font-weight:800;color:var(--dn-muted);padding-top:14px}
+.fi-line--pago{grid-template-columns:minmax(0,1fr) auto}
+.fi-line__q{font-weight:800}
+.fi-line__name{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}
+.fi-line__sub{white-space:nowrap}
+.fi-row{color:var(--dn-ink);text-decoration:none}
+.fi-kv dd{text-align:right;overflow-wrap:anywhere}
+.fi-saldo--err{color:var(--dn-red-text)}
+.fi-saldo--ok{color:var(--dn-green-text)}

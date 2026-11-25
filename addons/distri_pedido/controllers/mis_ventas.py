@@ -17,7 +17,8 @@ from odoo import http
 from odoo.http import request
 
 from ..models import mis_ventas
-from .kit import kit_context, page_nav
+from .fichas import ficha_url, may_use
+from .kit import kit_context, page_nav, ui_v2_on
 from .tablero import wants_tablero
 
 
@@ -39,6 +40,12 @@ class MisVentas(http.Controller):
             params = {k: v for k, v in dict(current, **changes).items() if v}
             return "/mis-ventas" + ("?" + urlencode(params) if params else "")
 
+        # 19.0.1.129.34 (#99, ui_v2 only): each order the user may open in
+        # the backend links to its kit screen (controllers/fichas.py)
+        ver = set()
+        if ui_v2_on(env) and may_use(user) and data["rows"]:
+            ver = set(env["sale.order"].browse([r["id"] for r in data["rows"]])
+                      ._filtered_access("read").ids)
         html = env["ir.qweb"]._render("distri_pedido.mis_ventas_page", dict(
             data,
             dn=kit_context("mis_ventas.css", "mis_ventas.js"),
@@ -50,6 +57,8 @@ class MisVentas(http.Controller):
             inicio="/tablero" if wants_tablero(user) else (user._distri_landing() or "/tablero"),
             # 19.0.1.129.29: the role's bottom bar (ui_v2 only)
             nav=page_nav(env, "misventas"),
+            ver=ver,
+            ver_url=lambda order_id: ficha_url("pedido", order_id, "/mis-ventas"),
         ))
         return request.make_response(html, headers=[
             ("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")])

@@ -606,9 +606,12 @@ class AgilPedido(http.Controller):
         except AccessError:
             raise NotFound() from None
         o = order.sudo()
+        from .fichas import record_link
         html = request.env["ir.qweb"]._render("distri_pedido.agil_creado", {
             "dn": self._dn(),
             "o": o,
+            # 19.0.1.129.34: the order's kit screen with ui_v2 on, else the form
+            "pedido_url": record_link(request.env, "pedido", o.id, "/agilpedido/creado/%s" % o.id),
             "total": _money(o.amount_total),
             "lineas": [{"q": cantidad_texto(l.product_uom_qty),
                         "unidad": l.product_uom_id.name if l.product_uom_id != l.product_id.uom_id else "",
@@ -727,9 +730,12 @@ class AgilPedido(http.Controller):
         info = [("Nombre en AgilPedido: %s" % o.distri_nombre) if o.distri_nombre else "",
                 _phone(o.distri_telefono) if o.distri_telefono else "",
                 ("Lista %s" % o.pricelist_id.name) if o.pricelist_id else ""]
+        from .fichas import record_link
         html = request.env["ir.qweb"]._render("distri_pedido.agil_pedido", {
             "dn": self._dn(),
             "o": o,
+            # 19.0.1.129.34: the order's kit screen with ui_v2 on, else the form
+            "pedido_url": record_link(request.env, "pedido", o.id, "/agilpedido/pedido/%s" % o.id),
             "cliente": (o.distri_nombre or "Sin cliente") if generic else o.partner_id.display_name,
             "generic": generic,
             "sugerido": o.distri_agil_cliente_sugerido_id.display_name if generic and

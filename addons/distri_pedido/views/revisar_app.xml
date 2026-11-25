@@ -76,7 +76,7 @@
             <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'play'"/></t>Liberar</button>
         </form>
         <a class="dn-link rv-odoo" t-att-href="c['odoo_url']">
-          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en el sistema</a>
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t><t t-esc="c.get('odoo_label') or 'Abrir en el sistema'"/></a>
       </t>
     </article>
   </template>

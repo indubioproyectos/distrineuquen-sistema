@@ -37,6 +37,7 @@
 .mv-card--off{opacity:.7}
 .mv-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .mv-name{font-size:15px;font-weight:700}
+.mv-name--link{color:var(--dn-primary);text-decoration:none}
 .mv-amount{margin-left:auto;font-size:20px;font-weight:800}
 .mv-who{display:flex;flex-direction:column;gap:2px;min-width:0}
 .mv-who>b{font-size:18px;overflow-wrap:anywhere}

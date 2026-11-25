@@ -375,6 +375,7 @@ class Deposito(http.Controller):
         orders = orders.filtered(lambda o: o.order_line.filtered(
             lambda l: not l.display_type and l.product_uom_qty))
         from ..models.pedido_whatsapp import is_staff
+        from .fichas import record_link
         return self._render("distri_pedido.deposito_mostrador", {
             "q": q, "error": error, "confirmar": COUNTER_CONFIRM,
             "rows": [{
@@ -385,7 +386,8 @@ class Deposito(http.Controller):
                     else "productos"), _money(o.amount_total))),
                 "texto": ("%s %s" % (o.name, o.partner_id.name or "")).lower(),
                 "sin_wa": o._distri_wa_needs_number(),
-                "odoo_url": "/odoo/sale.order/%s" % o.id,
+                # 19.0.1.129.34: the order's kit screen with ui_v2 on
+                "odoo_url": record_link(request.env, "pedido", o.id, "/deposito/mostrador"),
             } for o in orders],
             "tomar": is_staff(request.env.user),
             "nav": depot_nav(request.env, "entregas"),

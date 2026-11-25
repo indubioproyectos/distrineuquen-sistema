@@ -150,6 +150,7 @@ class AsignarCliente(http.Controller):
 
     def _fila(self, wizard, socio, elegido):
         """One candidate card (views/asignar_app.xml asignar_candidato)."""
+        from .fichas import record_link
         fila = wizard._fila_candidato(socio)
         socio = socio.sudo()
         telefonos = [t for t in (socio.phone, socio.distri_whatsapp) if t]
@@ -187,7 +188,8 @@ class AsignarCliente(http.Controller):
             "ciudad_chip": _chip(fila["m_ciudad"], "Ciudad"),
             "detalle": " · ".join(detalle),
             "saldo": "Saldo %s · %s" % (_money(fila["saldo"]), compras),
-            "ficha": "/odoo/res.partner/%s" % socio.id,
+            # 19.0.1.129.34: the customer's kit screen with ui_v2 on
+            "ficha": record_link(request.env, "cliente", socio.id),
         }
 
     def _filas(self, wizard, chosen):

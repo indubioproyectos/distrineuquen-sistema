@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.34 («Etapa 3b», part 2; distri_pedido.ui_v2 only),
+       controllers/fichas.py: the order, the invoice and the customer as kit
+       screens. Read-only: the buttons are links to the kit screens that
+       already do each thing (or /revisar's own «Liberar» post). On the kit
+       with /deposito's top bar (deposito_top) plus static/src/kit/fichas.css. -->
+
+  <!-- the action buttons and «Ver en Odoo», shared by the three screens -->
+  <template id="ficha_acciones" name="Ficha: acciones">
+    <div t-if="acts or liberar" class="fi-acts">
+      <t t-foreach="acts" t-as="a">
+        <a t-att-class="'dn-btn' + (' dn-btn--%s' % a['kind'] if a['kind'] else '')" t-att-href="a['url']"
+           t-att-target="'_blank' if a.get('blank') else None" t-att-rel="'noopener' if a.get('blank') else None"
+           t-att-data-fi-act="a['label']">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="a['icon']"/></t><t t-esc="a['label']"/></a>
+      </t>
+      <form t-if="liberar" method="post" t-att-action="liberar" data-fi-liberar="">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <button type="submit" class="dn-btn">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'play'"/></t>Liberar</button>
+      </form>
+    </div>
+    <a t-if="odoo_url" class="dn-link fi-odoo" t-att-href="odoo_url" data-fi-odoo="">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Ver en Odoo</a>
+  </template>
+
+  <!-- lines of an order or an invoice -->
+  <template id="ficha_lineas" name="Ficha: renglones">
+    <ul class="fi-lines">
+      <t t-foreach="lines" t-as="l">
+        <li t-if="l['section']" class="fi-line fi-line--sec" t-esc="l['section']"/>
+        <li t-else="" class="fi-line">
+          <span class="dn-num fi-line__q"><t t-esc="l['q']"/></span>
+          <span class="fi-line__name"><t t-esc="l['name']"/>
+            <span class="dp-meta"><t t-esc="l['unidad']"/> · <t t-esc="l['precio']"/></span>
+            <span t-if="l.get('falta')" class="dn-chip dn-chip--warn">Faltó <t t-esc="l['falta']"/></span></span>
+          <b class="dn-num fi-line__sub" t-esc="l['sub']"/>
+        </li>
+      </t>
+    </ul>
+  </template>
+
+  <!-- ================================================================ order -->
+  <template id="ficha_pedido" name="Ficha: pedido">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title><t t-esc="o.name"/> · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp fi" t-att-data-parent="parent" data-page="pedido" t-att-data-order="o.id">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="kicker" t-value="'Pedido · %s' % cuando"/>
+    <t t-set="titulo" t-value="o.name"/>
+    <t t-set="sub" t-value="('Código %s' % codigo) if codigo else ''"/>
+  </t>
+  <main class="dn-main fi-main">
+    <section class="dn-card fi-card">
+      <div class="fi-head">
+        <span t-att-class="'dn-chip dn-chip--%s' % row['estado_kind']" t-esc="row['estado']"/>
+        <span t-if="row['retenido']" class="dn-chip dn-chip--warn">Retenido</span>
+        <b class="fi-amount dn-num" t-esc="total"/>
+      </div>
+      <div class="fi-who">
+        <a t-if="cliente_url" class="fi-name" t-att-href="cliente_url" data-fi-cliente="" t-esc="cliente"/>
+        <b t-else="" class="fi-name" t-esc="cliente"/>
+        <span class="dp-meta"><t t-if="vendedor">Vendedor <t t-esc="vendedor"/></t><t t-if="vendedor and lista"> · </t><t t-if="lista">Lista <t t-esc="lista"/></t></span>
+      </div>
+      <dl t-if="row['armado'] or row['entrega'] or row['pago']" class="fi-steps">
+        <div t-if="row['armado']"><dt>Armado</dt><dd><span t-att-class="'dn-chip dn-chip--%s' % row['armado_kind']" t-esc="row['armado']"/></dd></div>
+        <div t-if="row['entrega']"><dt>Entrega</dt><dd><span t-att-class="'dn-chip dn-chip--%s' % row['entrega_kind']" t-esc="row['entrega']"/></dd></div>
+        <div t-if="row['pago']"><dt>Pago</dt><dd><span t-att-class="'dn-chip dn-chip--%s' % row['pago_kind']" t-esc="row['pago']"/></dd></div>
+      </dl>
+      <p t-if="nota" class="dp-warn">Retenido: <t t-esc="nota"/></p>
+      <p t-if="presupuesto" class="dp-hint">Es un presupuesto: todavía no se confirmó.<t t-if="odoo_url"> Para aprobarlo, abrilo en Odoo.</t></p>
+    </section>
+    <t t-call="distri_pedido.ficha_acciones"/>
+
+    <h2 class="dn-label">Productos</h2>
+    <section class="dn-card fi-card">
+      <t t-call="distri_pedido.ficha_lineas"/>
+      <div class="dp-total"><b>Total</b><b class="dn-num" t-esc="total"/></div>
+    </section>
+
+    <t t-if="facturas">
+      <h2 class="dn-label">Facturas</h2>
+      <a t-foreach="facturas" t-as="f" class="dp-row fi-row" t-att-href="f['url']" data-fi-factura="">
+        <span class="dp-row__txt"><b><t t-esc="f['type']"/> <t t-esc="f['name']"/></b>
+          <span class="dp-meta"><t t-esc="f['date']"/><t t-if="f['saldo']"> · saldo <t t-esc="f['saldo']"/></t></span></span>
+        <span t-if="f['state'][0]" t-att-class="'dn-chip dn-chip--%s' % f['state'][1]" t-esc="f['state'][0]"/>
+        <b class="dp-amt dn-num" t-esc="f['total']"/>
+      </a>
+    </t>
+
+    <t t-if="rutas">
+      <h2 class="dn-label">Reparto</h2>
+      <t t-foreach="rutas" t-as="r">
+        <a t-if="r['url']" class="dp-row fi-row" t-att-href="r['url']" data-fi-ruta="">
+          <span class="dp-row__txt"><b t-esc="r['name']"/>
+            <span class="dp-meta"><t t-esc="r['date']"/> · <t t-esc="r['driver']"/> · <t t-esc="r['route_state']"/></span></span>
+          <span class="dn-chip dn-chip--neutral" t-esc="r['state']"/>
+        </a>
+        <div t-else="" class="dp-row fi-row">
+          <span class="dp-row__txt"><b t-esc="r['name']"/>
+            <span class="dp-meta"><t t-esc="r['date']"/> · <t t-esc="r['driver']"/> · <t t-esc="r['route_state']"/></span></span>
+          <span class="dn-chip dn-chip--neutral" t-esc="r['state']"/>
+        </div>
+      </t>
+    </t>
+
+    <t t-if="entregas">
+      <h2 class="dn-label">Remitos</h2>
+      <div t-foreach="entregas" t-as="e" class="dp-row fi-row">
+        <span class="dp-row__txt"><b t-esc="e['name']"/><span class="dp-meta" t-esc="e['date']"/></span>
+        <span class="dn-chip dn-chip--neutral" t-esc="e['state']"/>
+      </div>
+    </t>
+    <div class="dp-note">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'doc'"/></t>
+      <span>Esta pantalla es para mirar: los cambios se hacen desde cada pantalla (Revisar, Depósito, Cobrar).</span>
+    </div>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- ================================================================ invoice -->
+  <template id="ficha_factura" name="Ficha: factura">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title><t t-esc="m.name or tipo"/> · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp fi" t-att-data-parent="parent" data-page="factura" t-att-data-move="m.id">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="kicker" t-value="tipo"/>
+    <t t-set="titulo" t-value="m.name or 'Borrador'"/>
+    <t t-set="sub" t-value="('Fecha %s' % fecha + (' · vence %s' % vence if vence else '')) if fecha else ''"/>
+  </t>
+  <main class="dn-main fi-main">
+    <section class="dn-card fi-card">
+      <div class="fi-head">
+        <span t-if="estado" t-att-class="'dn-chip dn-chip--%s' % estado_kind" t-esc="estado"/>
+        <b class="fi-amount dn-num" t-esc="total"/>
+      </div>
+      <div class="fi-who">
+        <a t-if="cliente_url" class="fi-name" t-att-href="cliente_url" data-fi-cliente="" t-esc="cliente"/>
+        <b t-else="" class="fi-name" t-esc="cliente"/>
+      </div>
+      <dl class="dp-kv">
+        <dt>Total</dt><dd class="dn-num" t-esc="total"/>
+        <t t-if="posted"><dt>Saldo</dt><dd class="dn-num fi-saldo" t-esc="saldo"/></t>
+      </dl>
+    </section>
+    <t t-set="liberar" t-value="False"/>
+    <t t-call="distri_pedido.ficha_acciones"/>
+
+    <h2 class="dn-label">Productos</h2>
+    <section class="dn-card fi-card">
+      <t t-call="distri_pedido.ficha_lineas"/>
+      <div class="dp-total"><b>Total</b><b class="dn-num" t-esc="total"/></div>
+    </section>
+
+    <h2 class="dn-label">Pagos</h2>
+    <section class="dn-card fi-card">
+      <ul t-if="pagos" class="fi-lines">
+        <li t-foreach="pagos" t-as="p" class="fi-line fi-line--pago">
+          <span class="fi-line__name"><b t-esc="p['date']"/>
+            <span class="dp-meta"><t t-esc="p['journal']"/><t t-if="p['name']"> · <t t-esc="p['name']"/></t></span></span>
+          <b class="dn-num fi-line__sub" t-esc="p['amount']"/>
+        </li>
+      </ul>
+      <p t-else="" class="dp-meta">Todavía no tiene pagos imputados.</p>
+    </section>
+
+    <t t-if="pedidos">
+      <h2 class="dn-label">Pedido</h2>
+      <a t-foreach="pedidos" t-as="o" class="dp-row fi-row" t-att-href="o['url']" data-fi-pedido="">
+        <span class="dp-row__txt"><b t-esc="o['name']"/></span>
+        <b class="dp-amt dn-num" t-esc="o['total']"/>
+      </a>
+    </t>
+    <div class="dp-note">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'doc'"/></t>
+      <span>Esta pantalla es para mirar: los cobros se registran en Cobrar y las anulaciones las hace administración.</span>
+    </div>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- ================================================================ customer -->
+  <template id="ficha_cliente" name="Ficha: cliente">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title><t t-esc="p.name"/> · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp fi" t-att-data-parent="parent" data-page="cliente" t-att-data-partner="p.id">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="kicker" t-value="'Cliente'"/>
+    <t t-set="titulo" t-value="p.name"/>
+    <t t-set="sub" t-value="''"/>
+  </t>
+  <main class="dn-main fi-main">
+    <section class="dn-card fi-card">
+      <div t-if="saldo" class="fi-head">
+        <span class="dn-label">Saldo</span>
+        <b t-att-class="'fi-amount dn-num fi-saldo fi-saldo--%s' % saldo_kind" t-esc="saldo"/>
+      </div>
+      <dl t-if="datos" class="dp-kv fi-kv">
+        <t t-foreach="datos" t-as="d"><dt t-esc="d[0]"/><dd t-esc="d[1]"/></t>
+      </dl>
+    </section>
+    <t t-set="liberar" t-value="False"/>
+    <t t-call="distri_pedido.ficha_acciones"/>
+
+    <h2 class="dn-label">Facturas a cobrar</h2>
+    <t t-if="facturas">
+      <a t-foreach="facturas" t-as="f" class="dp-row fi-row" t-att-href="f['url']" data-fi-factura="">
+        <span class="dp-row__txt"><b><t t-esc="f['type']"/> <t t-esc="f['name']"/></b>
+          <span class="dp-meta"><t t-esc="f['date']"/><t t-if="f['vence']"> · vence <t t-esc="f['vence']"/></t></span></span>
+        <b class="dp-amt dn-num" t-esc="f['saldo']"/>
+      </a>
+    </t>
+    <p t-else="" class="dp-meta">No tiene facturas a cobrar que puedas ver.</p>
+
+    <h2 class="dn-label">Últimos pedidos</h2>
+    <t t-if="pedidos">
+      <a t-foreach="pedidos" t-as="o" class="dp-row fi-row" t-att-href="o['url']" data-fi-pedido="">
+        <span class="dp-row__txt"><b t-esc="o['name']"/><span class="dp-meta" t-esc="o['cuando']"/>
+          <span class="dp-chips"><span t-att-class="'dn-chip dn-chip--%s' % o['estado_kind']" t-esc="o['estado']"/>
+            <span t-if="o['pago']" t-att-class="'dn-chip dn-chip--%s' % o['pago_kind']" t-esc="o['pago']"/></span></span>
+        <b class="dp-amt dn-num" t-esc="o['total']"/>
+      </a>
+    </t>
+    <p t-else="" class="dp-meta">No tiene pedidos que puedas ver.</p>
+    <div class="dp-note">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>
+      <span>Esta pantalla es para mirar: los datos del cliente los corrige administración.</span>
+    </div>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+</odoo>

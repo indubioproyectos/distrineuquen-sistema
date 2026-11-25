@@ -11,7 +11,8 @@
              t-att-data-importe="r['amount_raw']" t-att-data-facturado="r['facturado']"
              t-att-data-acobrar="r['a_cobrar']" t-att-data-cancelado="'1' if r['cancelado'] else None">
       <div class="mv-head">
-        <b class="mv-name" t-esc="r['name']"/>
+        <a t-if="ver and r['id'] in ver" class="mv-name mv-name--link" t-att-href="ver_url(r['id'])" t-esc="r['name']"/>
+        <b t-else="" class="mv-name" t-esc="r['name']"/>
         <span t-att-class="'dn-chip dn-chip--%s' % r['estado_kind']" t-esc="r['estado']"/>
         <span t-if="r['retenido']" class="dn-chip dn-chip--warn">Retenido</span>
         <b class="mv-amount dn-num" t-esc="r['amount']"/>

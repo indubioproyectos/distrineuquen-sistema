@@ -336,7 +336,7 @@
         </details>
       </div>
       <div data-ag-board=""><t t-call="distri_pedido.agil_board"/></div>
-      <a class="dn-link ag-center" t-att-href="'/odoo/sale.order/%s' % o.id">
+      <a class="dn-link ag-center" t-att-href="pedido_url or '/odoo/sale.order/%s' % o.id">
         <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en el sistema</a>
     </section>
     <t t-call="distri_pedido.agil_panel"/>
@@ -384,7 +384,7 @@
       </div>
       <div class="ag-line ag-line--tot"><span/><b>Total</b><b class="dn-num" t-esc="total"/></div>
     </div>
-    <a class="dn-btn" t-att-href="'/odoo/sale.order/%s' % o.id">
+    <a class="dn-btn" t-att-href="pedido_url or '/odoo/sale.order/%s' % o.id">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'external'"/></t>Abrir en el sistema para aprobarlo</a>
     <a class="dn-btn dn-btn--ghost" href="/agilpedido/cargar" data-dn="side">Cargar otro pedido</a>
     <a class="dn-link ag-center" href="/agilpedido" data-dn-back="">Volver a Pedidos de AgilPedido</a>

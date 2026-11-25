@@ -26,6 +26,11 @@ views/kit.xml (distri_pedido.dn_head and distri_pedido.dn_nav).
   bar, like /cobro in 129.29. Same data, buttons and permissions.
 - /equipo («Equipo», #74, read-only) and /tablero/ordenar («Ordenar el
   Inicio», #3) are declared screens (controllers/equipo.py).
+
+19.0.1.129.34 («Etapa 3b», part 2), behind ui_v2: the order, invoice and
+customer screens (/pedidos/<id>, /facturas/<id>, /clientes/<id>,
+controllers/fichas.py) with their parents here; route_matches() is the
+pattern test of screen_parents(), also used to accept a ?desde= parent.
 """
 import hashlib
 import os
@@ -92,6 +97,8 @@ FILES = {
     "despacho_v2.css": ("kit/despacho_v2.css", "text/css; charset=utf-8"),
     "cuentas_v2.css": ("kit/cuentas_v2.css", "text/css; charset=utf-8"),
     "equipo.css": ("kit/equipo.css", "text/css; charset=utf-8"),
+    # 19.0.1.129.34: the order, invoice and customer screens (ui_v2 only)
+    "fichas.css": ("kit/fichas.css", "text/css; charset=utf-8"),
 }
 # served without comments and indentation (budget: < 3 KB gzip); the file
 # on disk keeps its documentation
@@ -215,6 +222,16 @@ SCREEN_PARENTS = {
     # 19.0.1.129.33 (ui_v2 only): «Equipo» (#74) and «Ordenar el Inicio» (#3)
     "/equipo": (HOME,),
     "/tablero/ordenar": (HOME,),
+    # 19.0.1.129.34 (ui_v2 only): the customer, order and invoice screens
+    # (controllers/fichas.py). The customer is the top of the three: an
+    # order goes up to its customer when opened from it, an invoice to its
+    # order or its customer; ?desde= says which parent the screen was opened
+    # from, anything else goes up to Inicio.
+    "/clientes/<id>": ("/revisar", "/cuentas", HOME),
+    "/pedidos/<id>": ("/revisar", "/agilpedido", "/agilpedido/pedido/<id>",
+                      "/agilpedido/creado/<id>", "/deposito/mostrador", "/mis-ventas",
+                      "/clientes/<id>", HOME),
+    "/facturas/<id>": ("/pedidos/<id>", "/clientes/<id>", HOME),
 }
 # 19.0.1.129.31: one screen per queue of «Tablero de verificación»
 SCREEN_PARENTS.update({"/verificacion/%s" % key: ("/verificacion",) for key in (
@@ -241,16 +258,23 @@ def ui_v2_on(env):
     return str(value).strip().lower() in ON_VALUES
 
 
+def route_matches(pattern, path):
+    """Whether a route path ("/caja/cerradas/12") is the screen of a
+    SCREEN_PARENTS pattern ("/caja/cerradas/<id>")."""
+    if pattern == path:
+        return True
+    bits, parts = pattern.strip("/").split("/"), path.strip("/").split("/")
+    return len(bits) == len(parts) and all(
+        b == p or (b == "<id>" and p.isdigit()) for b, p in zip(bits, parts))
+
+
 def screen_parents(path):
     """The declared parents of a route path ("/caja/cerradas/12"), or None
     when it is not a staff screen of SCREEN_PARENTS."""
     if path in SCREEN_PARENTS:
         return SCREEN_PARENTS[path]
-    parts = path.strip("/").split("/")
     for pattern, parents in SCREEN_PARENTS.items():
-        bits = pattern.strip("/").split("/")
-        if len(bits) == len(parts) and all(
-                b == p or (b == "<id>" and p.isdigit()) for b, p in zip(bits, parts)):
+        if route_matches(pattern, path):
             return parents
     return None
 
