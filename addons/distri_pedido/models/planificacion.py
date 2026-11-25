@@ -683,6 +683,10 @@ class DistriRoutePlanning(models.Model):
                 text, kind = LOAD_CHIPS.get(stop.load_state or "none", ("", ""))
             else:
                 text, kind = STOP_CHIPS.get(stop.state, ("", ""))
+                if stop.state == "already_paid" and stop.paid_confirm_state in (
+                        "to_confirm", "escalated"):
+                    # 19.0.1.129.25
+                    text, kind = "Ya estaba pagado · a confirmar", "warn"
             stops.append({
                 "id": stop.id,
                 "n": index,

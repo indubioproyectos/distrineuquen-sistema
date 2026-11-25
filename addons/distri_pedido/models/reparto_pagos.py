@@ -138,6 +138,8 @@ class DistriRouteStopPayments(models.Model):
         invoiced_paid = bool(invoices) and sum(invoices.mapped("amount_total")) > PAID_TOLERANCE \
             and sum(invoices.mapped("amount_residual")) <= PAID_TOLERANCE
         paid = due <= PAID_TOLERANCE and (any_credited or invoiced_paid)
+        # 19.0.1.129.25: «Ya estaba pagado · a confirmar» (reparto_a_confirmar.py)
+        cover = self.browse() if paid else self._app_cover_card(cards, due, invoices)
         return {
             "payments": [self._app_payment_item(card) for card in cards],
             "due": due,
@@ -145,7 +147,41 @@ class DistriRouteStopPayments(models.Model):
             # a wholesale customer's payments stay with administración
             "paid_how": self._app_paid_how(invoices)
             if paid and invoices and self._app_account_visible() else "",
+            "to_confirm": bool(cover),
+            "to_confirm_amount": cover.amount if cover else 0.0,
+            "to_confirm_card_id": cover.id or False,
         }
+
+    def _app_cover_card(self, cards, due, invoices):
+        """19.0.1.129.25: the receipt that lets the driver save «Ya estaba
+        pagado · a confirmar», or an empty recordset.
+
+        «Covers» (owner's decision A, 24/11/2026): a receipt card the customer
+        uploaded (from the order page, by WhatsApp or loaded by the staff;
+        never a photo taken in the driver's app), not credited yet (state
+        «Pendiente» or «Autorizado para entregar»), tied to this order (its
+        order or one of its invoices; not just the customer's latest), whose
+        amount is at least the amount due within PAID_TOLERANCE, and not
+        already relied on by another visit «a confirmar». Reads only."""
+        Card = self.env["distri.mp.collection"].sudo()
+        if due <= PAID_TOLERANCE or not cards:
+            return Card
+        stop = self.sudo()
+        order = stop.order_id
+        taken = self.env["distri.route.stop"].sudo().search([
+            ("paid_confirm_card_id", "in", cards.ids), ("id", "!=", stop.id),
+            ("state", "=", "already_paid"),
+            ("paid_confirm_state", "in", ("to_confirm", "escalated"))]).paid_confirm_card_id
+        for card in cards - taken:
+            receipt = card.receipt_id
+            if card.state not in ("draft", "authorized") or not receipt \
+                    or self._app_payment_channel(receipt) == "app":
+                continue
+            tied = order in (receipt.distri_customer_order_id | receipt.distri_app_order_id
+                             | receipt.distri_order_id) or bool(card.pay_move_id & invoices)
+            if tied and card.amount + PAID_TOLERANCE >= due:
+                return card
+        return Card
 
     @staticmethod
     def _app_paid_how(invoices):
@@ -179,7 +215,10 @@ class DistriRouteStopPayments(models.Model):
         data = super()._app_payload()
         info = self._app_payments()
         data.update({"payments": info["payments"], "payments_due": info["due"],
-                     "payments_paid": info["paid"], "payments_paid_how": info["paid_how"]})
+                     "payments_paid": info["paid"], "payments_paid_how": info["paid_how"],
+                     # 19.0.1.129.25: «Ya estaba pagado · a confirmar»
+                     "payments_to_confirm": info["to_confirm"],
+                     "payments_to_confirm_amount": info["to_confirm_amount"]})
         return data
 
 
