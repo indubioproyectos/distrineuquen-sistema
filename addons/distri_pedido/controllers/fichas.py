@@ -70,6 +70,11 @@ PICKING_STATE = {"draft": "Borrador", "waiting": "Esperando", "confirmed": "Espe
                  "assigned": "Listo para salir", "done": "Hecho", "cancel": "Cancelado"}
 RECENT_ORDERS = 10
 OPEN_INVOICES = 20
+# 19.0.1.129.35: /pedidos/<id>?hecho=… after «Aprobar» or «Anular venta»
+HECHO = {
+    "aprobado": "Listo: el pedido quedó aprobado.",
+    "anulada": "Listo: la venta quedó anulada.",
+}
 
 
 def may_use(user):
@@ -200,7 +205,7 @@ class Fichas(http.Controller):
             return ""
         return "/cobro?cliente=%s" % commercial.id
 
-    def _render(self, template, kind, record, desde, values):
+    def _render(self, template, kind, record, desde, values, status=200):
         user = request.env.user
         home = _home(user)
         parent = _parent(kind, desde) or home
@@ -217,7 +222,7 @@ class Fichas(http.Controller):
         }
         base.update(values)
         html = request.env["ir.qweb"]._render(template, base)
-        return request.make_response(html, headers=[
+        return request.make_response(html, status=status, headers=[
             ("Content-Type", "text/html; charset=utf-8"), ("Cache-Control", "no-store")])
 
     # ------------------------------------------------------------ /pedidos/<id>
@@ -266,7 +271,12 @@ class Fichas(http.Controller):
 
     @http.route("/pedidos/<int:order_id>", type="http", auth="user", methods=["GET"],
                 sitemap=False)
-    def pedido(self, order_id, desde="", **kw):
+    def pedido(self, order_id, desde="", hecho="", **kw):
+        # 19.0.1.129.35: the result of «Aprobar» / «Anular venta» (a fixed
+        # text per key: nothing of the URL is shown)
+        return self._pedido_page(order_id, desde, ok=HECHO.get(hecho, ""))
+
+    def _pedido_page(self, order_id, desde="", ok="", error="", status=200):
         from ..models.mis_ventas import fila
         self._check()
         order = self._get("sale.order", order_id)
@@ -336,7 +346,48 @@ class Fichas(http.Controller):
             "acts": acts,
             "liberar": liberar,
             "presupuesto": o.state in ("draft", "sent"),
-        })
+            # 19.0.1.129.35 (distri_pedido.nueva_venta): «Aprobar» and
+            # «Anular venta» (controllers/anular_venta.py)
+            "aprobar": self._aprobar(order),
+            "anular_url": self._anular_url(order),
+            "anulada": (o.distri_anulada_motivo or "") if o.state == "cancel" else "",
+            "ok": ok,
+            "error": error,
+        }, status=status)
+
+    def _aprobar(self, order):
+        """«Aprobar» on a quotation, for whoever may confirm it in the
+        backend (write access on it: the same ACLs and record rules), with
+        the WhatsApp question when the confirmation would ask it."""
+        from ..models.nueva_venta import nueva_venta_on
+        o = order.sudo()
+        if not nueva_venta_on(request.env) or o.state not in ("draft", "sent"):
+            return None
+        try:
+            order.check_access("write")
+        except AccessError:
+            return None
+        pide = order._distri_kit_pide_whatsapp()
+        requerido = request.env["distri.pedido.whatsapp.settings"].requires_whatsapp()
+        area = numero = ""
+        if pide:
+            from ..models.ar_phone import ar_national, split_ar_national
+            for value in (o.partner_id.phone, o.partner_id.commercial_partner_id.phone):
+                national = ar_national(value)
+                if national:
+                    area, numero = split_ar_national(national)
+                    break
+        return {"url": "/pedidos/%s/aprobar" % o.id, "bloqueo": order._distri_kit_bloqueo_aprobar(),
+                "pide_wa": pide, "sin_wa": pide and not requerido, "area": area,
+                "numero": numero}
+
+    def _anular_url(self, order):
+        from ..models.anular_venta import puede_anular
+        from ..models.nueva_venta import nueva_venta_on
+        if (nueva_venta_on(request.env) and puede_anular(request.env.user)
+                and order.sudo().state != "cancel"):
+            return "/pedidos/%s/anular" % order.id
+        return ""
 
     # ------------------------------------------------------------ /facturas/<id>
 

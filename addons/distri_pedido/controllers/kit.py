@@ -232,6 +232,8 @@ SCREEN_PARENTS = {
                       "/agilpedido/creado/<id>", "/deposito/mostrador", "/mis-ventas",
                       "/clientes/<id>", HOME),
     "/facturas/<id>": ("/pedidos/<id>", "/clientes/<id>", HOME),
+    # 19.0.1.129.35 (nueva_venta and ui_v2): «Anular venta» of an order
+    "/pedidos/<id>/anular": ("/pedidos/<id>",),
 }
 # 19.0.1.129.31: one screen per queue of «Tablero de verificación»
 SCREEN_PARENTS.update({"/verificacion/%s" % key: ("/verificacion",) for key in (
@@ -294,8 +296,10 @@ ROLES = (
      ("armado", "faltantes", "despacho")),
     ("repartidor", "distri_pedido.grupo_reparto",
      ("mireparto", "cuentas", "cobro")),
+    # 19.0.1.129.35: «Nueva venta» while its flag is on (then «Pedido»,
+    # «Tomar un pedido», has no tile and drops out)
     ("vendedor", "distri_pedido.grupo_vendedor",
-     ("pedido", "misventas", "cuentas", "comprobantes")),
+     ("nuevaventa", "pedido", "misventas", "cuentas", "comprobantes")),
 )
 # (label, sprite icon) of a bar item; the URL is its Inicio tile's
 NAV_ITEMS = {
@@ -312,6 +316,7 @@ NAV_ITEMS = {
     "despacho": ("Despacho", "truck"),
     "mireparto": ("Mi reparto", "truck"),
     "pedido": ("Pedido", "order"),
+    "nuevaventa": ("Vender", "plus"),
 }
 # screens that come in a group: /armado's two tabs travel together
 NAV_GROUPS = {"armado": ("armado", "faltantes"), "faltantes": ("armado", "faltantes")}

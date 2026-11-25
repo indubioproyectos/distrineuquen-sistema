@@ -29,3 +29,4 @@ from . import nueva_venta
 from . import verificacion
 from . import equipo
 from . import fichas
+from . import anular_venta

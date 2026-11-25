@@ -73,9 +73,36 @@
         <div t-if="row['pago']"><dt>Pago</dt><dd><span t-att-class="'dn-chip dn-chip--%s' % row['pago_kind']" t-esc="row['pago']"/></dd></div>
       </dl>
       <p t-if="nota" class="dp-warn">Retenido: <t t-esc="nota"/></p>
-      <p t-if="presupuesto" class="dp-hint">Es un presupuesto: todavía no se confirmó.<t t-if="odoo_url"> Para aprobarlo, abrilo en el sistema.</t></p>
+      <p t-if="presupuesto and not aprobar" class="dp-hint">Es un presupuesto: todavía no se confirmó.<t t-if="odoo_url"> Para aprobarlo, abrilo en el sistema.</t></p>
+      <p t-if="anulada" class="dp-warn">Venta anulada. Motivo: <t t-esc="anulada"/></p>
+    </section>
+    <!-- 19.0.1.129.35 (distri_pedido.nueva_venta): «Aprobar» a quotation -->
+    <section t-if="aprobar" class="dn-card fi-card fi-aprobar" id="fi-aprobar">
+      <p class="dp-hint">Es un presupuesto: todavía no se confirmó.</p>
+      <p t-if="aprobar['bloqueo']" class="dp-warn" t-esc="aprobar['bloqueo']"/>
+      <form t-else="" method="post" t-att-action="aprobar['url']" data-fi-aprobar="">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <t t-if="aprobar['pide_wa']">
+          <p class="dp-meta">El cliente no tiene WhatsApp cargado. ¿Cuál es? Queda guardado en el cliente.</p>
+          <div class="fi-wa">
+            <div class="dn-field"><label for="fi-wa-area">Código de área</label>
+              <input id="fi-wa-area" class="dn-input dn-num" name="area" inputmode="numeric" maxlength="5"
+                     placeholder="299" autocomplete="off" t-att-value="aprobar['area']"/></div>
+            <div class="dn-field"><label for="fi-wa-numero">Número</label>
+              <input id="fi-wa-numero" class="dn-input dn-num" name="numero" inputmode="numeric" maxlength="12"
+                     placeholder="4222444" autocomplete="off" t-att-value="aprobar['numero']"/></div>
+          </div>
+          <p class="dp-meta">Sin el 0 del código de área ni el 15 del número.</p>
+        </t>
+        <button type="submit" class="dn-btn dn-btn--lg">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'check'"/></t>Aprobar</button>
+        <button t-if="aprobar['sin_wa']" type="submit" name="sin_whatsapp" value="1"
+                class="dn-btn dn-btn--ghost" formnovalidate="formnovalidate">Aprobar sin WhatsApp</button>
+      </form>
     </section>
     <t t-call="distri_pedido.ficha_acciones"/>
+    <a t-if="anular_url" class="dn-btn dn-btn--ghost fi-anular" t-att-href="anular_url" data-dn="down" data-fi-anular="">
+      <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'alert'"/></t>Anular venta</a>
 
     <h2 class="dn-label">Productos</h2>
     <section class="dn-card fi-card">
@@ -118,7 +145,8 @@
     </t>
     <div class="dp-note">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'doc'"/></t>
-      <span>Esta pantalla es para mirar: los cambios se hacen desde cada pantalla (Revisar, Depósito, Cobrar).</span>
+      <span t-if="aprobar or anular_url">Aprobar y anular la venta se hacen acá; el resto, desde cada pantalla (Revisar, Depósito, Cobrar).</span>
+      <span t-else="">Esta pantalla es para mirar: los cambios se hacen desde cada pantalla (Revisar, Depósito, Cobrar).</span>
     </div>
   </main>
   <t t-call="distri_pedido.dn_page_nav"/>
@@ -244,6 +272,54 @@
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'user'"/></t>
       <span>Esta pantalla es para mirar: los datos del cliente los corrige administración.</span>
     </div>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+  <!-- ================================================================ 19.0.1.129.35: «Anular venta» -->
+  <template id="ficha_anular" name="Ficha: anular venta">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Anular <t t-esc="o.name"/> · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp fi" t-att-data-parent="parent" data-page="anular-venta" t-att-data-order="o.id">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="kicker" t-value="'Anular venta'"/>
+    <t t-set="titulo" t-value="o.name"/>
+    <t t-set="sub" t-value="cliente + ' · ' + total"/>
+  </t>
+  <main class="dn-main fi-main">
+    <t t-if="refusals">
+      <section class="dn-card fi-card" data-fi-no="">
+        <h2 class="dn-label">No se puede anular desde acá</h2>
+        <ul class="fi-steps-list">
+          <li t-foreach="refusals" t-as="r" class="dp-warn" t-esc="r"/>
+        </ul>
+        <p class="dp-meta">No se cambió nada.</p>
+      </section>
+    </t>
+    <t t-else="">
+      <h2 class="dn-label">Esto es lo que va a pasar</h2>
+      <section class="dn-card fi-card">
+        <ol class="fi-steps-list" data-fi-pasos="">
+          <li t-foreach="steps" t-as="paso" t-esc="paso"/>
+        </ol>
+      </section>
+      <form method="post" t-att-action="action" class="dn-card fi-card" data-fi-anular-form="">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <input type="hidden" name="huella" t-att-value="huella"/>
+        <div class="dn-field">
+          <label for="fi-motivo">Motivo (queda en el historial del pedido y del cliente)</label>
+          <input id="fi-motivo" class="dn-input" name="motivo" type="text" minlength="3" maxlength="250"
+                 required="required" autocomplete="off" t-att-value="motivo"/>
+        </div>
+        <button type="submit" class="dn-btn dn-btn--lg dn-btn--danger">Anular la venta</button>
+      </form>
+    </t>
+    <a class="dn-link" t-att-href="volver" data-dn="up">Volver al pedido sin anular</a>
   </main>
   <t t-call="distri_pedido.dn_page_nav"/>
 </body>

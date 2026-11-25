@@ -58,6 +58,8 @@ SALIDAS = (
 SALIDAS_ADMIN = (MOSTRADOR, ENTREGADO)
 # 19.0.1.129.30 (owner): the reason is mandatory and starts with this text
 MOTIVO_ENTREGADO = "Ya entregado"
+# 19.0.1.129.35 (#59): how many of the customer's last orders «Repetir» offers
+REPETIR_ULTIMOS = 5
 # the remito of «Ya entregado» is dated at noon (Argentina) of the chosen day
 AR_TZ = pytz.timezone("America/Argentina/Buenos_Aires")
 MEDIODIA = time(12, 0)
@@ -209,3 +211,139 @@ class SaleOrderNuevaVenta(models.Model):
         pickings.write({"date_done": momento})
         pickings.move_ids.filtered(lambda m: m.state == "done").write({"date": momento})
         pickings.move_line_ids.write({"date": momento})
+
+    # ------------------------------------------------------------ 19.0.1.129.35
+
+    # #56: who placed the order at the shop («Nombre y apellido»), typed in
+    # «Nueva venta»; the customer stays the company
+    distri_contacto_nombre = fields.Char(
+        string="Pidió", readonly=True, copy=False,
+        help="Nombre y apellido de quien hizo el pedido en el comercio («Nueva venta»).")
+
+    def _distri_nueva_venta_extras(self, contacto, lat, lng, accuracy):
+        """#56: the name of who ordered and, when the seller tapped
+        «Registrar la ubicación», the shop's GPS. Returns the warnings (a
+        location that cannot be used is not an error: the sale stands)."""
+        self.ensure_one()
+        avisos = []
+        contacto = " ".join((contacto or "").split())[:120]
+        if contacto:
+            self.sudo().distri_contacto_nombre = contacto
+        if lat or lng:
+            aviso = self._distri_nueva_venta_ubicacion(lat, lng, accuracy)
+            if aviso:
+                avisos.append(aviso)
+        return avisos
+
+    def _distri_nueva_venta_ubicacion(self, lat, lng, accuracy):
+        """The phone's GPS at the shop, read by the seller. The customer's
+        location is set only when he has none (the driver's or the one the
+        customer sent are never replaced); otherwise it goes to the chatter
+        to compare. Returns "" or why it was not used."""
+        import math
+
+        from .datos_entrega import MAX_ACCURACY_M, maps_url
+        self.ensure_one()
+        try:
+            lat, lng, accuracy = float(lat), float(lng), float(accuracy or 0)
+        except (TypeError, ValueError):
+            return "No se pudo leer la ubicación: no se guardó."
+        if not all(math.isfinite(v) for v in (lat, lng, accuracy)) or \
+                not (-90 <= lat <= 90 and -180 <= lng <= 180) or (lat == 0 and lng == 0) \
+                or accuracy <= 0:
+            return "No se pudo leer la ubicación: no se guardó."
+        if accuracy > MAX_ACCURACY_M:
+            return "La ubicación no era precisa (±%d m): no se guardó." % round(accuracy)
+        order = self.sudo()
+        contact = order.partner_shipping_id or order.partner_id
+        if contact.distri_generic_partner:
+            return ""
+        url = maps_url(lat, lng)
+        main = not contact._distri_has_location()
+        if main:
+            contact.write({"partner_latitude": lat, "partner_longitude": lng,
+                           "distri_location_user_id": self.env.user.id,
+                           "distri_location_date": fields.Datetime.now()})
+        from markupsafe import Markup
+        contact.message_post(body=Markup(
+            '%s registró la ubicación del comercio en «Nueva venta» (%s, ±%d m): '
+            '<a href="%s" target="_blank" rel="noopener">ver en el mapa</a>. %s') % (
+            self.env.user.name, order.name, round(accuracy), url,
+            "No tenía ubicación: queda como la principal." if main else
+            "La ubicación que ya tenía no se cambió: revisala con esta."))
+        return ""
+
+    def _distri_kit_bloqueo_aprobar(self):
+        """Why this quotation cannot be approved from the kit now, or "".
+        The same rules as /agilpedido's «Aprobar el pedido» and the
+        backend's «Confirmar» (held, waiting for the WhatsApp, AgilPedido
+        lines to correct, generic customer)."""
+        self.ensure_one()
+        o = self.sudo()
+        if o.state not in ("draft", "sent"):
+            return "El pedido ya está %s." % ("aprobado" if o.state == "sale" else "cancelado")
+        if o.partner_id.distri_generic_partner:
+            return "Asigná el cliente para aprobarlo."
+        if o.distri_agil_por_corregir:
+            return ("Tiene %s renglones de AgilPedido para corregir: corregilos antes de "
+                    "aprobarlo." % o.distri_agil_por_corregir)
+        if o.distri_retenido:
+            return "Está retenido: liberalo antes de aprobarlo."
+        if o.distri_wa_state == "waiting":
+            return ("Espera el WhatsApp del cliente: confirmalo en «Pedidos sin WhatsApp» del "
+                    "sistema.")
+        return ""
+
+    def _distri_kit_pide_whatsapp(self):
+        """The approval asks the customer's WhatsApp (the backend wizard
+        would open): models/pedido_whatsapp.py _distri_wa_asks_on_confirm."""
+        self.ensure_one()
+        return self.sudo()._distri_wa_asks_on_confirm()
+
+    def distri_kit_aprobar(self, area="", numero="", sin_whatsapp=False):
+        """«Aprobar» on the order screen (/pedidos/<id>), as the current user
+        with his own rights: the backend's «Confirmar» (action_confirm with
+        distri_wa_ask). When that would ask the customer's WhatsApp, the
+        backend's own wizard (distri.wa.confirm.wizard) takes the number the
+        screen asked («Guardar y confirmar») or, while the WhatsApp is not
+        required, «Confirmar sin WhatsApp»."""
+        self.ensure_one()
+        self.check_access("write")
+        bloqueo = self._distri_kit_bloqueo_aprobar()
+        if bloqueo:
+            raise UserError(bloqueo)
+        if self._distri_kit_pide_whatsapp():
+            if not (area or numero) and not sin_whatsapp:
+                raise UserError("Falta el WhatsApp del cliente para aprobarlo.")
+            wizard = self.env["distri.wa.confirm.wizard"].create({
+                "order_id": self.id, "then": "confirm",
+                "area": area or False, "number": numero or False})
+            if area or numero:
+                wizard.action_save_confirm()
+            else:
+                wizard.action_skip()
+        else:
+            result = self.with_context(distri_wa_ask=True).action_confirm()
+            if isinstance(result, dict) and self.state != "sale":
+                raise UserError("Falta el WhatsApp del cliente para aprobarlo.")
+        if self.state != "sale":
+            raise UserError("No se pudo aprobar el pedido %s." % self.name)
+        self.message_post(body="Aprobado por %s desde la pantalla del pedido." % self.env.user.name)
+        return True
+
+
+def guardar_whatsapp_nueva_venta(env, cliente, area, numero, order):
+    """19.0.1.129.35: the answer to «¿Cuál es el WhatsApp del cliente?» of
+    «Nueva venta», stored as the backend wizard stores it («Guardar y
+    confirmar»: +549 + 10 digits on the customer, with the chatter note).
+    Raises UserError with the reason when it cannot be read."""
+    from .ar_phone import ar_mobile
+    try:
+        canonical = ar_mobile(area, numero)
+    except ValueError as error:
+        raise UserError(str(error)) from None
+    partner = cliente.sudo().commercial_partner_id
+    partner.write({"distri_whatsapp": canonical})
+    partner.message_post(body="WhatsApp cargado por %s en «Nueva venta» (%s): %s." % (
+        env.user.name, order.name if order else "-", canonical))
+    return canonical
