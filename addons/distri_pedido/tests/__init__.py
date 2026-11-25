@@ -124,3 +124,4 @@ from . import test_v129_31_verificacion
 from . import test_v129_32_correcciones
 from . import test_v129_33_diseno
 from . import test_v129_34_fichas
+from . import test_v129_35_venta

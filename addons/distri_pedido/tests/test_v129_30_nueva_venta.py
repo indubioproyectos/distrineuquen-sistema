@@ -186,7 +186,8 @@ class TestV12930NuevaVenta(PedidoAbiertoMixin, RepartoMixin, AccountTestInvoicin
         for user in (self.admin, self.gerente, self.vendedor):
             tiles = tablero.staff_tiles(self.env(user=user))
             self.assertEqual(tiles[0]["key"], "nuevaventa", user.login)
-            self.assertIn("pedido", [t["key"] for t in tiles], "«Tomar un pedido» stays")
+            # 19.0.1.129.35: «Nueva venta» takes the place of «Tomar un pedido»
+            self.assertNotIn("pedido", [t["key"] for t in tiles], "«Nueva venta» replaces it")
         self.assertNotIn("nuevaventa", [t["key"] for t in tablero.staff_tiles(
             self.env(user=self.armador))])
         self._login(self.vendedor)
