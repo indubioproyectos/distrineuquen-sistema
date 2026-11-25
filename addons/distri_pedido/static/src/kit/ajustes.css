@@ -2,6 +2,8 @@
    kit or legacy. Self-contained (own tokens): it must look the same on
    dn.css pages, distri_ui.css pages and the customer pages. Brand: navy
    #10243f, teal action #00806f, 48px targets, 16px+ text.
+   19.0.1.129.34: the green is dn.css's --dn-primary where the page has it
+   (one variable for the whole kit), the same value as the fallback.
    Letter size: --dn-scale (set before paint by the macro, from
    localStorage) zooms the whole page; the sheet itself is zoomed too. */
 body{zoom:var(--dn-scale,1)}
@@ -48,12 +50,12 @@ body.dn-home-float .dbar{padding-right:180px}
 .dn-aj__seg button[aria-pressed=true]{background:#10243f;color:#fff}
 .dn-aj__seg [data-letra="0.9"]{font-size:14px}.dn-aj__seg [data-letra="1.15"]{font-size:18px}.dn-aj__seg [data-letra="1.3"]{font-size:20px}
 .dn-aj__btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;padding:8px 16px;border:0;
-  border-radius:12px;background:#00806f;color:#fff;font:inherit;font-size:17px;font-weight:800;text-decoration:none;cursor:pointer}
-.dn-aj__btn:active{background:#0a6b5c}
+  border-radius:12px;background:var(--dn-primary,#00806f);color:#fff;font:inherit;font-size:17px;font-weight:800;text-decoration:none;cursor:pointer}
+.dn-aj__btn:active{background:var(--dn-primary-press,#0a6b5c)}
 .dn-aj__salir{background:#fff;color:#a1281e;border:2px solid #e3b7b2}
 .dn-aj__salir:active{background:#fdecea}
 .dn-aj__ios{margin:0;font-size:15px;padding:10px 12px;border-radius:10px;background:#e6ebf2;color:#10243f}
 .dn-aj__links{display:flex;flex-direction:column}
-.dn-aj__links a{display:flex;align-items:center;min-height:48px;padding:0 4px;border-bottom:1px solid #dde3ec;color:#00806f;
+.dn-aj__links a{display:flex;align-items:center;min-height:48px;padding:0 4px;border-bottom:1px solid #dde3ec;color:var(--dn-primary,#00806f);
   font-weight:700;text-decoration:none}
 .dn-aj__links:empty{display:none}

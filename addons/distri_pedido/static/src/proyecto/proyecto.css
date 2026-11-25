@@ -13,13 +13,14 @@
   unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
 :root{
   --navy:#10243f; --navy-2:#2b4262; --on-navy:#c9d4e3; --turq:#00d1b2;
-  --primary:#00806f; --primary-press:#0a6b5c;
+  /* 19.0.1.129.34: the kit's one green (dn.css --dn-primary), same fallback */
+  --primary:var(--dn-primary,#00806f); --primary-press:var(--dn-primary-press,#0a6b5c);
   --bg:#f4f6f8; --card:#fff; --ink:#14233a; --muted:#5b6b80; --line:#dde3ec; --tint:#eef2f6;
   --chip:#e6ebf2; --chip-ink:#19334f;
   --ok-bg:#e3f4ef; --ok:#00675a; --warn-bg:#fff4d1; --warn:#6b5200; --warn-line:#e8c56a;
   --bad-bg:#fdecea; --bad:#a1281e;
-  --key-bg:#00806f; --key-ink:#fff; --key-2-bg:#fff; --key-2-ink:#00675a; --key-2-line:#9fd3c8;
-  --r-armado:#b06a00; --r-reparto:#1d6fb8; --r-deposito:#6a4fb3; --r-caja:#00806f;
+  --key-bg:var(--primary); --key-ink:#fff; --key-2-bg:#fff; --key-2-ink:#00675a; --key-2-line:#9fd3c8;
+  --r-armado:#b06a00; --r-reparto:#1d6fb8; --r-deposito:#6a4fb3; --r-caja:var(--primary);
   --r-admin:#10243f; --r-gerencia:#a1281e; --r-vendedor:#7a5c00; --r-cliente:#5b6b80;
   --font:Figtree,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --radius:12px; --shadow:0 2px 8px rgba(16,36,63,.10);

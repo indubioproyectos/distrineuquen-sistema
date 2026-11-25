@@ -21,7 +21,8 @@
 .nv-tools .dn-input { flex: 1 1 200px; }
 .nv-prod { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px;
   border-radius: 10px; border: 1px solid var(--dn-line, #dfe3e8); background: var(--dn-surface, #fff); }
-.nv-prod.on { border-color: var(--dn-ok, #2b8a3e); }
+/* 19.0.1.129.34: the kit's one green (was --dn-ok, never defined: #2b8a3e) */
+.nv-prod.on { border-color: var(--dn-primary, #00806f); }
 .nv-prod__txt { display: grid; gap: 2px; min-width: 0; }
 .nv-prod__txt small { color: var(--dn-muted, #5b6573); }
 .nv-qty { display: flex; align-items: center; gap: 4px; flex: none; }

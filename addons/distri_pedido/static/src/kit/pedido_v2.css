@@ -15,7 +15,7 @@
 
 html.dn-pedido-v2{
   --fondo:#f4f6f8;--tarjeta:#fff;--texto:#14233a;--tenue:#5b6b80;--borde:#dde3ec;--linea:#b9c6d6;
-  --acento:#00806f;--alerta:#a1281e;
+  --acento:var(--dn-primary);--alerta:#a1281e;
   --dn-navy:#10243f;--dn-navy-2:#2b4262;--dn-turq:#00d1b2;--dn-mint:#5fe0c9;--dn-primary:#00806f;
   --dn-primary-press:#0a6b5c;--dn-green-bg:#e3f4ef;--dn-on-navy:#c9d4e3;--dn-line:#dde3ec;
   --dn-muted:#5b6b80;--dn-r:12px
