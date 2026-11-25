@@ -329,7 +329,7 @@ class TestDiseno3b(RepartoMixin, HttpCase):
                          "La ruta está cerrada: reabrila para corregir esta visita.")
         self.assertTrue(out["closed"]["reopen"], "«Reabrir la ruta» on the screen")
         self.assertTrue(out["closed"]["title"])
-        self.assertIn("hay que reabrirla", out["closedLocked"]["toast"])
+        self.assertIn("pedile a administración o caja que la reabra", out["closedLocked"]["toast"])
         self.assertFalse(out["closedLocked"]["reopen"])
         # the customer's WhatsApp on «Ubicación y horarios»
         self.assertTrue(all(out["waCard"].values()), out["waCard"])

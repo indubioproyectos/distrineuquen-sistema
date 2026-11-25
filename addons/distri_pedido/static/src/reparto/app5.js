@@ -96,8 +96,8 @@
   // can. The screen on display may be older than the route's state.
   function closedText(what) {
     return APP.canReopen && APP.canReopen() ? "La ruta está cerrada: reabrila para corregir " + what + "." :
-      "La ruta está cerrada. Para corregir " + what + " hay que reabrirla: se puede cuando el cierre ya se " +
-      "envió y hasta que caja cuente el efectivo. Si no, avisale a administración.";
+      // 25/11/2026: drivers no longer reopen; administración or caja does
+      "La ruta está cerrada. Para corregir " + what + ", pedile a administración o caja que la reabra.";
   }
   function blockedReason(stop) {
     var l = local();
