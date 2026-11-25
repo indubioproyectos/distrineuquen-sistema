@@ -120,3 +120,4 @@ from . import test_v129_27_caja
 from . import test_v129_28_reparto_v2
 from . import test_v129_29_navegacion
 from . import test_v129_30_nueva_venta
+from . import test_v129_31_verificacion

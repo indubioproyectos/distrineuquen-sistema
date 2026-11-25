@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.30",
+    "version": "19.0.1.129.31",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -747,6 +747,23 @@
     # the day and reason, remito dated that day). New columns sale.order
     # distri_entregado_fuera_fecha, distri_entregado_fuera_motivo. Script
     # scripts/correcciones/v129_30_activar_nueva_venta.sh. No migration.
+    # 19.0.1.129.31 («Tablero de verificación», first slice, plan Etapa 5;
+    # behind distri_pedido.verificacion_v2, OFF by default: with it off
+    # nothing changes). models/verificacion.py: the customer's receipt
+    # credits itself only on a sure match with the report already loaded
+    # (exact operation, or same amount within 2 minutes; never a round
+    # amount, never a WhatsApp chat import) and a person always checks it
+    # («Revisado»); a round amount tied by time waits in the staff's
+    # one-step crediting; a receipt without operation number equal to
+    # another one is held as «Posible duplicado» instead of closed; the
+    # «histórico» mark (script, dry run by default) hidden by the board's
+    # default filter. The queues on the kit (controllers/verificacion.py,
+    # views/verificacion.xml, /verificacion) with owner, term and an Inicio
+    # count. New columns distri.mp.collection auto_credited, human_check,
+    # human_checked_by_id, human_checked_at, historic; distri.whatsapp.
+    # message distri_twin_review, distri_twin_of_id, distri_twin_ok.
+    # Scripts scripts/correcciones/v129_31_activar_verificacion.sh and
+    # v129_31_marcar_historicos.sh. No migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth", "mail_bot", "digest"],
     "data": ["security/grupos.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",
@@ -762,7 +779,7 @@
              "views/enviar_empresa.xml", "views/transferencias_cargadas.xml",
              "views/mis_ventas_app.xml", "data/ventas_todas.xml",
              "views/factura_anulada.xml", "data/chat_import_cron.xml",
-             "views/nueva_venta_app.xml"],
+             "views/nueva_venta_app.xml", "views/verificacion.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare

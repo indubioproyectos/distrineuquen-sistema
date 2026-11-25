@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.31: «Tablero de verificación» (controllers/verificacion.py,
+       models/verificacion.py). Behind distri_pedido.verificacion_v2. -->
+
+  <!-- «Histórico»: hidden by default on the payments board. Nothing is
+       marked until scripts/correcciones/v129_31_marcar_historicos.sh runs
+       (refused with the flag off), so with the flag off the board shows
+       exactly the same cards. -->
+  <record id="view_mp_collection_search_historic" model="ir.ui.view">
+    <field name="name">distri.mp.collection.search.historic</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="inherit_id" ref="distri_pedido.view_mp_collection_search"/>
+    <field name="arch" type="xml">
+      <filter name="apartados" position="after">
+        <separator/>
+        <filter name="not_historic" string="Sin históricos" domain="[('historic', '=', False)]"/>
+        <filter name="historic" string="Históricos (antes del 15/09)"
+                domain="[('historic', '=', True)]"/>
+        <filter name="auto_credited_check" string="Acreditados solos sin revisar"
+                domain="[('auto_credited', '=', True), ('human_check', '=', 'pendiente')]"/>
+      </filter>
+    </field>
+  </record>
+
+  <record id="distri_pedido.action_mp_board" model="ir.actions.act_window">
+    <field name="context">{'search_default_to_act': 1, 'search_default_last_60': 1, 'search_default_not_historic': 1}</field>
+  </record>
+
+  <record id="view_mp_collection_form_verificacion" model="ir.ui.view">
+    <field name="name">distri.mp.collection.form.verificacion</field>
+    <field name="model">distri.mp.collection</field>
+    <field name="inherit_id" ref="distri_pedido.view_mp_collection_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-warning mb-0" role="alert"
+             invisible="not auto_credited or human_check != 'pendiente'">
+          <b>Acreditado solo:</b> el reporte de Mercado Pago ya traía la transferencia. Falta que
+          lo revise una persona (Denis, Gonzalo o Ale).
+          <button name="action_distri_human_check" type="object" string="Revisado"
+                  class="btn btn-sm btn-primary ms-2"/>
+        </div>
+        <div class="alert alert-secondary mb-0" role="status" invisible="not historic">
+          <b>Histórico:</b> ingreso pendiente anterior al 15/09/2026. No se borró: queda oculto por
+          defecto.
+        </div>
+        <field name="auto_credited" invisible="1"/>
+        <field name="human_check" invisible="1"/>
+        <field name="historic" invisible="1"/>
+      </xpath>
+    </field>
+  </record>
+
+  <template id="verificacion_top" name="Verificación: barra">
+    <header class="dn-top">
+      <div class="dn-top__row">
+        <a class="dn-link" t-att-href="volver" data-dn-back="">‹ Volver</a>
+        <t t-call="distri_pedido.dn_ajustes"/>
+      </div>
+      <div class="dn-top__txt">
+        <span class="dn-top__kicker">Distri Neuquén · <t t-esc="user.name"/></span>
+        <h1 class="dn-top__title" t-esc="titulo"/>
+        <p t-if="sub" class="dn-top__sub" t-esc="sub"/>
+      </div>
+    </header>
+  </template>
+
+  <template id="verificacion_page" name="Tablero de verificación">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Tablero de verificación · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dn-has-nav" t-att-data-parent="inicio" data-page="verificacion">
+  <t t-call="distri_pedido.verificacion_top">
+    <t t-set="volver" t-value="inicio"/>
+    <t t-set="titulo" t-value="'Tablero de verificación'"/>
+    <t t-set="sub" t-value="'Solo lo que necesita a una persona. Cada cola tiene un responsable y un plazo.'"/>
+  </t>
+  <main class="dn-main">
+    <a t-foreach="colas" t-as="c" class="dn-card dn-row" t-att-href="'/verificacion/%s' % c['key']"
+       t-att-data-cola="c['key']">
+      <div>
+        <b><t t-esc="c['number']"/>. <t t-esc="c['title']"/></b>
+        <p class="dn-label" t-esc="c['what']"/>
+        <p class="dn-label">
+          <t t-esc="c['who']"/><t t-if="c['term_label']"> · plazo <t t-esc="c['term_label']"/></t>
+          <t t-if="c['oldest']"> · el más viejo <t t-esc="c['oldest']"/></t>
+        </p>
+      </div>
+      <span t-att-class="'dn-chip dn-num ' + ('dn-chip--err' if c['overdue'] else 'dn-chip--warn' if c['count'] and c['term'] else 'dn-chip--neutral')">
+        <t t-esc="c['count']"/><t t-if="c['overdue']"> · <t t-esc="c['overdue']"/> vencidos</t>
+      </span>
+    </a>
+  </main>
+  <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
+</body>
+</html>
+  </template>
+
+  <template id="verificacion_cola" name="Tablero de verificación: cola">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title><t t-esc="cola['title']"/> · Distri Neuquén</title>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dn-has-nav" data-parent="/verificacion" t-att-data-page="'verificacion-' + cola['key']">
+  <t t-call="distri_pedido.verificacion_top">
+    <t t-set="volver" t-value="'/verificacion'"/>
+    <t t-set="titulo" t-value="'%s. %s' % (cola['number'], cola['title'])"/>
+    <t t-set="sub" t-value="cola['what']"/>
+  </t>
+  <div t-if="ok" class="dn-banner dn-banner--ok" role="status"><span t-esc="ok"/></div>
+  <div t-if="error" class="dn-banner dn-banner--err" role="alert"><span t-esc="error"/></div>
+  <main class="dn-main">
+    <p class="dn-label">
+      <t t-esc="cola['who']"/><t t-if="cola['term_label']"> · plazo <t t-esc="cola['term_label']"/></t>
+      · <t t-esc="cola['count']"/> en la cola<t t-if="cola['overdue']">, <t t-esc="cola['overdue']"/> vencidos</t>
+    </p>
+    <p t-if="not filas" class="dn-empty">No hay nada en esta cola.</p>
+    <section t-foreach="filas" t-as="f" t-att-class="'dn-card' + (' dn-card--warn' if f['overdue'] else '')"
+             t-att-data-fila="'%s-%s' % (f['model'], f['id'])">
+      <p><b t-esc="f['partner']"/> · <span class="dn-num" t-esc="f['amount']"/></p>
+      <p class="dn-label"><t t-esc="f['name']"/> · <t t-esc="f['age']"/><t t-if="f['who']"> · acreditó <t t-esc="f['who']"/></t></p>
+      <p t-if="f['reason']" class="dn-label" t-esc="f['reason']"/>
+      <div class="dn-row">
+        <a t-if="f['url']" class="dn-btn dn-btn--outline" t-att-href="f['url']">Abrir</a>
+        <form t-if="f['check']" method="post" action="/verificacion/revisado">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="card_id" t-att-value="f['id']"/>
+          <button type="submit" class="dn-btn">Revisado</button>
+        </form>
+        <t t-if="f['twin']">
+          <form method="post" action="/verificacion/duplicado">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <input type="hidden" name="msg_id" t-att-value="f['id']"/>
+            <input type="hidden" name="decision" value="mismo"/>
+            <button type="submit" class="dn-btn dn-btn--warn">Es el mismo pago</button>
+          </form>
+          <form method="post" action="/verificacion/duplicado">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <input type="hidden" name="msg_id" t-att-value="f['id']"/>
+            <input type="hidden" name="decision" value="dos"/>
+            <button type="submit" class="dn-btn dn-btn--ghost">Son dos pagos</button>
+          </form>
+        </t>
+      </div>
+    </section>
+  </main>
+  <div class="dn-bottom"><t t-call="distri_pedido.dn_nav"/></div>
+</body>
+</html>
+  </template>
+</odoo>

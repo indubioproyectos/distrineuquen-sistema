@@ -187,6 +187,9 @@ def staff_tiles(env):
     nueva = nueva_venta_tile(env)
     if nueva:
         tiles.insert(0, nueva)
+    verificacion = verificacion_tile(env)
+    if verificacion:
+        tiles.append(verificacion)
     return tiles
 
 
@@ -205,6 +208,28 @@ def nueva_venta_tile(env):
     key, title, subtitle, icon, glyph, url = NUEVA_VENTA_TILE
     return {"key": key, "title": title, "subtitle": subtitle, "icon": icon, "glyph": glyph,
             "menu_id": False, "url": url, "badge": None}
+
+
+# 19.0.1.129.31: «Tablero de verificación» (controllers/verificacion.py).
+# Not in TILES: it exists only while distri_pedido.verificacion_v2 is on and
+# for a member of one of its queues; its badge is the count of the queues
+# with a term (models/verificacion.py DistriVerificacion._badge).
+VERIFICACION_TILE = ("verificacion", "Tablero de verificación",
+                     "Lo que necesita a una persona, por cola", IMG + "cobros.png", "check",
+                     "/verificacion")
+
+
+def verificacion_tile(env):
+    from ..models.verificacion import user_queues, verificacion_on
+    if not (verificacion_on(env) and user_queues(env.user)):
+        return None
+    key, title, subtitle, icon, glyph, url = VERIFICACION_TILE
+    return {"key": key, "title": title, "subtitle": subtitle, "icon": icon, "glyph": glyph,
+            "menu_id": False, "url": url, "badge": None}
+
+
+def _badge_verificacion(env):
+    return env["distri.verificacion"]._badge(env.user)
 
 
 # ------------------------------------------------------------ badges
@@ -334,6 +359,8 @@ TILE_BADGES = {
     "historial": _badge_historial,
     "comprobantes": _badge_comprobantes,
     "cobros": _badge_cobros,
+    # 19.0.1.129.31 (verificacion_v2 only: the tile exists only then)
+    "verificacion": _badge_verificacion,
 }
 
 

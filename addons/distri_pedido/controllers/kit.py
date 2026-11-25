@@ -196,9 +196,15 @@ SCREEN_PARENTS = {
     "/nueva-venta": (HOME,),
     "/nueva-venta/hecho/<id>": ("/nueva-venta",),
     "/mis-ventas": (HOME,),
+    # 19.0.1.129.31: «Tablero de verificación» (distri_pedido.verificacion_v2 only)
+    "/verificacion": (HOME,),
     "/reparto": (HOME,),
     "/proyecto": (HOME,),
 }
+# 19.0.1.129.31: one screen per queue of «Tablero de verificación»
+SCREEN_PARENTS.update({"/verificacion/%s" % key: ("/verificacion",) for key in (
+    "para_acreditar", "revision_humana", "esperando_reporte", "sin_transferencia",
+    "diferencias", "duplicados", "sin_comprobante", "historicos")})
 
 # The in-page levels (URL hash) of the hash apps and their parent level;
 # «‹ Atrás» there goes up with history.back() when the level was opened
