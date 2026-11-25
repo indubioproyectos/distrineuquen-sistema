@@ -43,8 +43,8 @@
         <input id="ct-q" class="dn-input dn-input--big" type="search" name="q" t-att-value="params['q']"
                placeholder="Nombre, teléfono, CUIT, calle…" autocomplete="off" enterkeyhint="search"
                aria-label="Buscar contactos" maxlength="80"/>
-        <button type="submit" class="dn-btn ct-go">
-          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>Buscar</button>
+        <button type="submit" class="dn-btn ct-go" aria-label="Buscar">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t><span class="ct-go__txt">Buscar</span></button>
       </div>
       <div class="ct-chips" role="group" aria-label="Filtros">
         <label t-foreach="filtros" t-as="fl" class="ct-chip">
@@ -224,7 +224,7 @@
                      t-att-value="form.get('lng')"/></div>
           </div>
           <div class="ct-gps">
-            <button type="button" class="dn-btn dn-btn--ghost" data-ct-gps="" hidden="hidden">
+            <button type="button" class="dn-btn dn-btn--ghost dn-btn--auto" data-ct-gps="" hidden="hidden">
               <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'pin'"/></t>Usar mi ubicación (estoy en el comercio)</button>
             <a t-if="mapa" class="dn-link" t-att-href="mapa" target="_blank" rel="noopener">Ver en el mapa</a>
             <span class="dp-meta" data-ct-gps-msg="" aria-live="polite"/>
@@ -317,7 +317,8 @@
     <form method="get" t-att-action="action" class="dn-card fi-card ct-search" role="search">
       <input class="dn-input" type="search" name="q" t-att-value="q" placeholder="Buscar el cliente que ya existía"
              autocomplete="off" enterkeyhint="search" aria-label="Buscar el cliente"/>
-      <button type="submit" class="dn-btn">Buscar</button>
+      <button type="submit" class="dn-btn ct-go" aria-label="Buscar">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t><span class="ct-go__txt">Buscar</span></button>
     </form>
     <t t-foreach="(('Parecidos', parecidos), ('Encontrados', encontrados))" t-as="grupo">
       <t t-if="grupo[1]">

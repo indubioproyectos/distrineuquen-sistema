@@ -61,3 +61,23 @@ class TestV12942Botones(HttpCase):
         page = self.url_open("/cobro").text
         self.assertIn('id="dn-home"', page, "flag off: the pill as before")
         self.assertIn('class="dn-back"', self.url_open("/deposito/mostrador").text)
+
+    def test_buttons_in_flex_rows_do_not_squash_the_input(self):
+        """Owner report (129.41): on /contactos the kit's .dn-btn (width:100%)
+        ate the search row and left the input as a tiny bubble. The button
+        is auto-width there, the input keeps at least 12 characters, and on
+        narrow phones only the icon shows; the same for the other flex rows
+        with a kit button (Unir con…, Nueva venta's customer row and tools)."""
+        css = self._read("static/src/kit/contactos.css")
+        self.assertIn(".ct-search .ct-go{width:auto;flex:none}", css)
+        self.assertIn(".ct-search .dn-input{flex:1 1 auto;min-width:12ch}", css)
+        self.assertRegex(css, r"@media \(max-width:379px\)\{[^}]*\}\.ct-go__txt\{display:none\}")
+        xml = self._read("views/contactos.xml")
+        for button in re.findall(r'<form[^>]*class="[^"]*ct-search[^"]*"[^>]*>.*?</form>|'
+                                 r'<div class="ct-search">.*?</div>', xml, re.S):
+            self.assertIn('class="dn-btn ct-go"', button)
+        nv = self._read("views/nueva_venta_app.xml")
+        for bid in ("nv-cambiar", "nv-borrador-seguir", "nv-borrador-descartar",
+                    "nv-datos-abrir", "nv-ficha", "nv-pegar-abrir"):
+            tag = re.search(r'<[^>]*id="%s"[^>]*>' % bid, nv).group(0)
+            self.assertIn("dn-btn--auto", tag, bid)

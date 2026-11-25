@@ -37,8 +37,8 @@
   <div class="dn-banner dn-banner--warn nv-borrador" role="status" id="nv-borrador" hidden="hidden">
     <span id="nv-borrador-txt"></span>
     <span class="nv-borrador__btns">
-      <button type="button" class="dn-btn dn-btn--sm" id="nv-borrador-seguir">Seguir</button>
-      <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm" id="nv-borrador-descartar">Descartar</button>
+      <button type="button" class="dn-btn dn-btn--sm dn-btn--auto" id="nv-borrador-seguir">Seguir</button>
+      <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" id="nv-borrador-descartar">Descartar</button>
     </span>
   </div>
 
@@ -52,12 +52,12 @@
       <h2 class="nv-step__t" id="nv-t1"><span class="nv-n">1</span> Cliente</h2>
       <div class="nv-elegido" id="nv-elegido" hidden="hidden">
         <span class="nv-elegido__txt"><b id="nv-cliente-nombre"></b><span class="nv-meta" id="nv-cliente-meta"></span></span>
-        <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm" id="nv-cambiar">Cambiar</button>
+        <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" id="nv-cambiar">Cambiar</button>
       </div>
       <!-- 19.0.1.129.40: picking him is enough; his data are one tap away -->
       <div class="nv-cliente-acc" id="nv-cliente-acc" hidden="hidden">
-        <button type="button" class="dn-btn dn-btn--outline dn-btn--sm" id="nv-datos-abrir">Datos del cliente</button>
-        <a class="dn-btn dn-btn--ghost dn-btn--sm" id="nv-ficha" href="#" hidden="hidden" data-dn="down">Ver ficha</a>
+        <button type="button" class="dn-btn dn-btn--outline dn-btn--sm dn-btn--auto" id="nv-datos-abrir">Datos del cliente</button>
+        <a class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" id="nv-ficha" href="#" hidden="hidden" data-dn="down">Ver ficha</a>
       </div>
       <!-- 19.0.1.129.35: what the customer step adds once he is picked -->
       <div class="nv-cliente-extra" id="nv-cliente-extra" hidden="hidden">
@@ -101,7 +101,7 @@
         <label for="nv-q-prod" class="dn-sr">Buscar producto</label>
         <input id="nv-q-prod" class="dn-input" type="search" maxlength="60" autocomplete="off"
                placeholder="O buscá uno acá" enterkeyhint="search"/>
-        <button t-if="pegar" type="button" class="dn-btn dn-btn--outline dn-btn--sm" id="nv-pegar-abrir">
+        <button t-if="pegar" type="button" class="dn-btn dn-btn--outline dn-btn--sm dn-btn--auto" id="nv-pegar-abrir">
           Pegar mensaje de AgilPedido</button>
       </div>
       <p class="nv-meta" id="nv-carrito-vacio">Todavía no hay productos en la venta.</p>

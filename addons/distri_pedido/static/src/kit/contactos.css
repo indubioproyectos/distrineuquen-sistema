@@ -2,7 +2,11 @@
    views/contactos.xml. On top of dn.css, deposito.css (dp-*) and fichas.css. */
 .ct-form{gap:12px}
 .ct-search{display:flex;gap:8px;align-items:stretch}
-.ct-search .dn-input{flex:1;min-width:0}
+/* 19.0.1.129.42 (owner): the kit's .dn-btn is width:100%, so inside this
+   flex row the button ate the row and squashed the input to a bubble */
+.ct-search .dn-input{flex:1 1 auto;min-width:12ch}
+.ct-search .ct-go{width:auto;flex:none}
+@media (max-width:379px){.ct-search .ct-go{padding:8px 12px}.ct-go__txt{display:none}}
 .ct-chips{display:flex;flex-wrap:wrap;gap:8px}
 .ct-chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border:1px solid var(--dn-line);
   border-radius:999px;background:var(--dn-card);font-weight:700;font-size:14px;cursor:pointer;user-select:none}
