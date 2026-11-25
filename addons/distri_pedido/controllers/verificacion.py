@@ -16,6 +16,11 @@ it off every route answers 404 and Inicio has no tile.
         /verificacion/subidos          GET   19.0.1.129.38: «Comprobantes
                                              subidos» by who sent them and
                                              state (administración, Ale)
+        /verificacion/cruzar           POST  19.0.1.129.39: «Cruzar» a
+                                             proposed tie of a credited
+                                             receipt and a report income
+                                             (queue 5; the standard tie,
+                                             models/verificacion_cruces.py)
 
 Each item opens its card (or, for an income the board hides from the user,
 the customer) in the backend, where today's buttons do the work.
@@ -102,9 +107,14 @@ class Verificacion(http.Controller):
         Board = request.env["distri.verificacion"]
         filtro = filtro if cola == "sin_comprobante" and filtro in (
             FILTER_OTHER, FILTER_UNIDENTIFIED) else ""
+        # 19.0.1.129.39: proposed ties of credited receipts, in queue 5
+        from ..models.verificacion_cruces import PROPOSAL_QUEUE
+        cruces = request.env["distri.mp.collection"]._distri_v2_proposal_rows(user) \
+            if cola == PROPOSAL_QUEUE else []
         return self._render(QUEUE_PAGE, {
             "cola": Board._summary(cola, user),
             "filas": Board._rows(cola, user, filtro=filtro),
+            "cruces": cruces,
             "filtro": filtro,
             "sin_cliente": Board._distri_v2_unidentified_count()
             if cola == "sin_comprobante" else 0,
@@ -164,3 +174,20 @@ class Verificacion(http.Controller):
         if not url:
             return self._back("sin_comprobante", error="El cliente no tiene WhatsApp cargado.")
         return request.redirect(url, 303, local=False)
+
+    @http.route("/verificacion/cruzar", type="http", auth="user", methods=["POST"],
+                sitemap=False)
+    def cruzar(self, card_id="", income_id="", **kw):
+        """19.0.1.129.39: «Cruzar» a proposed tie (queue 5): the standard
+        tie of a credited receipt, no new payment."""
+        from ..models.verificacion_cruces import PROPOSAL_QUEUE
+        self._check(PROPOSAL_QUEUE)
+        ids = [int(x) if str(x).isdigit() else 0 for x in (card_id, income_id)]
+        try:
+            with request.env.cr.savepoint():
+                income = request.env["distri.mp.collection"]._distri_v2_cruzar(*ids)
+        except (AccessError, UserError) as exc:
+            return self._back(PROPOSAL_QUEUE, error=exc.args[0] if exc.args else str(exc))
+        return self._back(PROPOSAL_QUEUE, ok="Listo: %s quedó cruzado con el comprobante "
+                                             "acreditado, sin registrar otro pago." % (
+                                                 income.sudo().name))

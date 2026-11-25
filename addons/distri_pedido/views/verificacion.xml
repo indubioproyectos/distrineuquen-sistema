@@ -146,6 +146,31 @@
     <p t-if="filtro == 'otro_cliente'" class="dn-label">Ingresos sin comprobante para los que hay
       un comprobante pendiente de otro cliente con el mismo número de operación, o el mismo importe
       con el mismo CUIT o a la misma hora.</p>
+    <!-- 19.0.1.129.39: proposed ties of credited receipts (queue 5) -->
+    <t t-if="cruces">
+      <h2 class="dn-label" data-cruces="">Cruces propuestos · <t t-esc="len(cruces)"/></h2>
+      <p class="dn-label">Comprobantes acreditados y transferencias del reporte con el mismo importe,
+        del mismo día o del día anterior, donde cada uno es el único candidato del otro. No se cruzan
+        solos: revisalos y tocá «Cruzar». No se registra otro pago.</p>
+      <section t-foreach="cruces" t-as="c" class="dn-card" t-att-data-cruce="'%s-%s' % (c['card_id'], c['income_id'])">
+        <p><b t-esc="c['partner']"/> · <span class="dn-num" t-esc="c['amount']"/></p>
+        <p class="dn-label">Comprobante: <t t-esc="c['card']"/></p>
+        <p class="dn-label">Reporte: <t t-esc="c['income']"/></p>
+        <p t-if="c['gap']" class="dn-label">Diferencia de hora: <t t-esc="c['gap']"/></p>
+        <p t-if="c['warning']" data-mayorista=""><span class="dn-chip dn-chip--err" t-esc="c['warning']"/></p>
+        <div class="dn-row">
+          <a class="dn-btn dn-btn--outline" t-att-href="c['card_url']">Abrir comprobante</a>
+          <a t-if="c['income_url']" class="dn-btn dn-btn--outline" t-att-href="c['income_url']">Abrir ingreso</a>
+          <form t-if="c['can_tie']" method="post" action="/verificacion/cruzar">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <input type="hidden" name="card_id" t-att-value="c['card_id']"/>
+            <input type="hidden" name="income_id" t-att-value="c['income_id']"/>
+            <button type="submit" class="dn-btn">Cruzar</button>
+          </form>
+        </div>
+      </section>
+      <h2 class="dn-label">En la cola</h2>
+    </t>
     <p t-if="not filas" class="dn-empty">No hay nada en esta cola.</p>
     <section t-foreach="filas" t-as="f" t-att-class="'dn-card' + (' dn-card--warn' if f['overdue'] else '')"
              t-att-data-fila="'%s-%s' % (f['model'], f['id'])">
