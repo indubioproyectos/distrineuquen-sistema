@@ -163,3 +163,7 @@ body.nv--v2{background:var(--dn-bg)}
 .nv--v2 .nv-hecho__name{font-size:17px}
 .nv--v2 .nv-hecho__name b{color:var(--dn-navy);font-weight:800}
 .nv--v2 .nv-link{display:flex;align-items:center;justify-content:center;min-height:44px;font-weight:700}
+
+/* 19.0.1.129.53: «Ver versión planilla» only where the PC layout makes sense */
+.nv-a-planilla { display: none; justify-self: center; padding: 8px; }
+@media (min-width: 1024px) { .nv-a-planilla { display: inline-block; } }

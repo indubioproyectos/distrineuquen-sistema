@@ -168,7 +168,9 @@ class Deposito(http.Controller):
         if message:
             url += ("&" if "?" in url else "?") + urlencode({"ok": message})
         if self._by_fetch():
-            return self._json({"ok": True, "url": url})
+            # 19.0.1.129.53: the message also as text, for «Nueva venta»'s PC
+            # layout, which shows it on its own screen instead of going on
+            return self._json({"ok": True, "url": url, "message": message})
         return request.redirect(url, 303)
 
     def _refuse(self, exc, page):

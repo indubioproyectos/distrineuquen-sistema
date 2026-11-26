@@ -177,9 +177,14 @@ class NuevaVenta(http.Controller):
             return self._json({"ok": False, "error": text}, status=status)
         return self._page(error=text, status=status)
 
-    def _done(self, url):
+    def _done(self, url, order_id=None):
         if self._by_fetch():
-            return self._json({"ok": True, "url": url})
+            data = {"ok": True, "url": url}
+            if order_id:
+                # 19.0.1.129.53: the PC layout stays on its screen and goes
+                # on with this order (delivery, payment, summary)
+                data["order_id"] = order_id
+            return self._json(data)
         return request.redirect(url, 303)
 
     def _cliente(self, valor):
@@ -657,15 +662,16 @@ class NuevaVenta(http.Controller):
                         if isinstance(result, dict):
                             raise UserError("Falta el WhatsApp del cliente para confirmar.")
                     url = "/nueva-venta/hecho/%s" % order.id
+                    order_id = order.id
                 else:
-                    url, order = self._crear_admin(form, cliente, renglones, salida)
+                    url, order, order_id = self._crear_admin(form, cliente, renglones, salida)
                 if (respuesta == "sin" and order and order.state == "sale"
                         and self._sin_whatsapp(cliente)):
                     order.message_post(body="Confirmado sin WhatsApp del cliente por %s "
                                             "(«Nueva venta»)." % user.name)
         except (UserError, AccessError, ValidationError) as exc:
             return self._refuse(_error_text(exc))
-        return self._done(url)
+        return self._done(url, order_id)
 
     def _respuesta_whatsapp(self, form, cliente, salida):
         """19.0.1.129.35: the answer to «¿Cuál es el WhatsApp del cliente?»
@@ -702,7 +708,8 @@ class NuevaVenta(http.Controller):
 
     def _crear_admin(self, form, cliente, renglones, salida):
         """«Mostrador» and «Ya entregado»: a backend quotation and the
-        existing step. Returns (the URL to go to, the order made now)."""
+        existing step. Returns (the URL to go to, the order made now, the id
+        of the sale: the one made now or, on a double tap, the first one)."""
         lineas, error = self._renglones_admin(renglones)
         if error:
             raise UserError(error)
@@ -715,7 +722,7 @@ class NuevaVenta(http.Controller):
             if clave else Order
         if previo:
             # a double tap: the first post already did it
-            return self._url_de(Order.browse(previo.id), salida), Order.browse()
+            return self._url_de(Order.browse(previo.id), salida), Order.browse(), previo.id
         if salida == nv.ENTREGADO:
             # checked before anything is created
             Order._distri_fecha_entregado(form.get("fecha"))
@@ -738,7 +745,7 @@ class NuevaVenta(http.Controller):
             order._distri_nueva_venta_mostrador()
         else:
             order._distri_nueva_venta_ya_entregado(form.get("fecha"), form.get("motivo"))
-        return self._url_de(order, salida), order
+        return self._url_de(order, salida), order, order.id
 
     def _url_de(self, order, salida):
         # 19.0.1.129.42 (ui_v2): a counter sale comes back to its done page
@@ -769,18 +776,7 @@ class NuevaVenta(http.Controller):
         if not request.env.user._distri_may_reach_record(order):
             raise NotFound()
         o = order.sudo()
-        if o.distri_entregado_fuera:
-            titulo, texto = "Venta cargada como entregada", (
-                "Quedó entregada el %s (%s), con remito y factura. No entra a ninguna ruta." % (
-                    o.distri_entregado_fuera_fecha.strftime("%d/%m/%Y")
-                    if o.distri_entregado_fuera_fecha else "", o.distri_entregado_fuera_motivo
-                    or ""))
-        elif o.state == "sale":
-            titulo, texto = "Pedido confirmado", "Va a Armado. La factura sale al terminar el armado."
-        elif o.state in ("draft", "sent"):
-            titulo, texto = "Presupuesto guardado", "Queda sin confirmar, como un presupuesto."
-        else:
-            titulo, texto = "Venta", ""
+        titulo, texto = self._titulo_texto(o)
         enviar = ""
         if o.distri_wa_state == "staff" and o._distri_wa_customer_number():
             enviar = self._pedido()._url_enviar_al_cliente(
@@ -796,6 +792,22 @@ class NuevaVenta(http.Controller):
             # 19.0.1.129.42 (ui_v2): the next steps of a counter sale
             "pasos": pasos,
         })
+
+    @staticmethod
+    def _titulo_texto(o):
+        """What was done with the sale (title, text), for the done page and
+        the PC layout's summary (19.0.1.129.53)."""
+        if o.distri_entregado_fuera:
+            return "Venta cargada como entregada", (
+                "Quedó entregada el %s (%s), con remito y factura. No entra a ninguna ruta." % (
+                    o.distri_entregado_fuera_fecha.strftime("%d/%m/%Y")
+                    if o.distri_entregado_fuera_fecha else "", o.distri_entregado_fuera_motivo
+                    or ""))
+        if o.state == "sale":
+            return "Pedido confirmado", "Va a Armado. La factura sale al terminar el armado."
+        if o.state in ("draft", "sent"):
+            return "Presupuesto guardado", "Queda sin confirmar, como un presupuesto."
+        return "Venta", ""
 
     def _pasos_mostrador(self, o):
         """19.0.1.129.42 (ui_v2): «Mostrador»'s done page. «Entregar» while

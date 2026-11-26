@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.53: «Nueva venta» on the PC, «estilo planilla»
+       (controllers/nueva_venta_pc.py, static/src/nueva_venta/planilla.js).
+       One screen closes the whole sale: customer, lines, exit, and after
+       «Cargar la venta» the delivery with the payment (Mostrador), «Cobrar»
+       and the summary with the documents. Everything posts to the
+       endpoints the phone and the depot already use. -->
+
+  <template id="nueva_venta_planilla" name="Nueva venta: planilla (PC)">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Nueva venta · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="nv nv--v2 pl" t-att-data-parent="inicio" data-page="nueva-venta-planilla" t-att-data-uid="uid"
+      t-att-data-wa-requerido="'1' if wa_requerido else '0'" t-att-data-max-transf="max_transf">
+  <t t-call="distri_pedido.nueva_venta_top">
+    <t t-set="volver" t-value="inicio"/>
+    <t t-set="titulo" t-value="'Nueva venta'"/>
+    <t t-set="sub" t-value="''"/>
+  </t>
+  <div class="pl-barra">
+    <span class="pl-barra__txt">Todo con el teclado: escribí, <kbd>Enter</kbd> para elegir, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> para cargar.</span>
+    <details class="pl-atajos" id="pl-atajos">
+      <summary>Atajos de teclado</summary>
+      <dl class="pl-atajos__lista">
+        <dt><kbd>Alt</kbd>+<kbd>C</kbd></dt><dd>Cliente: buscar o cambiar</dd>
+        <dt><kbd>Alt</kbd>+<kbd>P</kbd></dt><dd>Productos: renglón nuevo</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd></dt><dd>Elegir de la lista</dd>
+        <dt><kbd>Enter</kbd> en la cantidad</dt><dd>Renglón nuevo</dd>
+        <dt><kbd>Supr</kbd> / <kbd>⌫</kbd> en un renglón vacío</dt><dd>Lo borra</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Cierra la lista</dd>
+        <dt><kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>4</kbd></dt><dd>¿Cómo sigue? (A armar, Mostrador, Ya entregado, Presupuesto)</dd>
+        <dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd></dt><dd>Cargar la venta · Entregar y cobrar · Cobrar</dd>
+        <dt><kbd>Alt</kbd>+<kbd>N</kbd></dt><dd>Nueva venta (al terminar)</dd>
+      </dl>
+    </details>
+    <a class="dn-link pl-barra__cel" href="/nueva-venta?celular=1" id="pl-celular">Ver versión celular</a>
+  </div>
+  <div class="dn-banner dn-banner--warn pl-borrador" role="status" id="pl-borrador" hidden="hidden">
+    <span id="pl-borrador-txt"></span>
+    <span class="pl-borrador__btns">
+      <button type="button" class="dn-btn dn-btn--sm dn-btn--auto" id="pl-borrador-seguir">Seguir</button>
+      <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" id="pl-borrador-descartar">Descartar</button>
+    </span>
+  </div>
+
+  <main class="pl-main">
+    <div class="pl-col">
+      <!-- 1. customer -->
+      <section class="dn-card pl-card" aria-labelledby="pl-t-cliente" id="pl-card-cliente">
+        <h2 class="pl-t" id="pl-t-cliente"><span class="nv-n">1</span> Cliente <small class="pl-key">Alt+C</small></h2>
+        <div class="pl-buscar" id="pl-buscar-cliente">
+          <label for="pl-q-cliente" class="dn-sr">Buscar cliente</label>
+          <input id="pl-q-cliente" class="dn-input pl-input" type="search" maxlength="60" autocomplete="off"
+                 placeholder="Nombre, CUIT o WhatsApp del cliente" role="combobox" aria-autocomplete="list"
+                 aria-expanded="false" aria-controls="pl-clientes"/>
+          <ul class="pl-drop" id="pl-clientes" role="listbox" aria-label="Clientes" hidden="hidden"></ul>
+          <p class="pl-err" id="pl-err-cliente" role="alert" hidden="hidden"></p>
+        </div>
+        <div class="pl-elegido" id="pl-elegido" hidden="hidden">
+          <div class="pl-elegido__txt">
+            <b id="pl-cliente-nombre"></b>
+            <span class="nv-meta" id="pl-cliente-meta"></span>
+          </div>
+          <span class="dn-chip" id="pl-lista" hidden="hidden"></span>
+          <a class="dn-link" id="pl-cuenta" href="#" target="_blank" rel="noopener" hidden="hidden">Estado de cuenta</a>
+          <a class="dn-link" id="pl-ficha" href="#" target="_blank" rel="noopener" hidden="hidden">Ver ficha</a>
+          <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" id="pl-cambiar">Cambiar</button>
+        </div>
+        <div class="pl-anteriores" id="pl-anteriores" hidden="hidden"></div>
+        <!-- «Nuevo cliente»: /nueva-venta/cliente, as the phone's sheet -->
+        <div class="pl-nuevo" id="pl-nuevo" hidden="hidden">
+          <h3 class="pl-sub">Nuevo cliente</h3>
+          <div class="pl-grid">
+            <div class="dn-field pl-span2"><label for="pl-n-nombre">Nombre del comercio o de la persona</label>
+              <input id="pl-n-nombre" class="dn-input" type="text" maxlength="120" autocomplete="off"/></div>
+            <div class="dn-field"><label for="pl-n-area">WhatsApp: código de área <small class="nv-meta">(opcional)</small></label>
+              <input id="pl-n-area" class="dn-input dn-num" inputmode="numeric" maxlength="5" placeholder="299" autocomplete="off"/></div>
+            <div class="dn-field"><label for="pl-n-numero">Número</label>
+              <input id="pl-n-numero" class="dn-input dn-num" inputmode="numeric" maxlength="12" placeholder="4222444" autocomplete="off"/></div>
+            <div class="dn-field"><label for="pl-n-calle">Domicilio <small class="nv-meta">(opcional)</small></label>
+              <input id="pl-n-calle" class="dn-input" type="text" maxlength="120" autocomplete="off"/></div>
+            <div class="dn-field"><label for="pl-n-ciudad">Localidad <small class="nv-meta">(opcional)</small></label>
+              <input id="pl-n-ciudad" class="dn-input" type="text" maxlength="60" autocomplete="off"/></div>
+          </div>
+          <div class="nv-list" id="pl-parecidos" hidden="hidden"></div>
+          <p class="pl-err" id="pl-err-nuevo" role="alert" hidden="hidden"></p>
+          <div class="pl-acts">
+            <button type="button" class="dn-btn dn-btn--sm dn-btn--auto" id="pl-nuevo-crear">Crear y elegir</button>
+            <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" id="pl-nuevo-cancelar">Cancelar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. lines -->
+      <section class="dn-card pl-card" aria-labelledby="pl-t-lineas" id="pl-card-lineas">
+        <h2 class="pl-t" id="pl-t-lineas"><span class="nv-n">2</span> Productos <small class="pl-key">Alt+P</small>
+          <small class="nv-meta" id="pl-precios-de"></small></h2>
+        <p class="nv-meta" id="pl-sin-cliente">Primero elegí el cliente: los precios salen de su lista.</p>
+        <div class="pl-tabla-box">
+          <table class="pl-tabla" id="pl-tabla" hidden="hidden">
+            <thead>
+              <tr><th class="pl-c-n">#</th><th class="pl-c-prod">Producto</th><th class="pl-c-cant">Cantidad</th>
+                <th class="pl-c-uni">Unidad</th><th class="pl-c-pre">Precio</th><th class="pl-c-sub">Subtotal</th>
+                <th class="pl-c-x"><span class="dn-sr">Quitar</span></th></tr>
+            </thead>
+            <tbody id="pl-filas"></tbody>
+            <tfoot>
+              <tr><td colspan="5" class="pl-total-l">Total <small class="nv-meta" id="pl-conteo"></small></td>
+                <td class="pl-c-sub"><b class="dn-num pl-total" id="pl-total">$ 0</b></td><td></td></tr>
+            </tfoot>
+          </table>
+          <ul class="pl-drop pl-drop--prod" id="pl-productos" role="listbox" aria-label="Productos" hidden="hidden"></ul>
+        </div>
+        <p class="pl-err" id="pl-err-lineas" role="alert" hidden="hidden"></p>
+      </section>
+    </div>
+
+    <aside class="pl-lado">
+      <!-- 3. exit (before the sale is loaded) -->
+      <section class="dn-card pl-card" aria-labelledby="pl-t-salida" id="pl-card-salida">
+        <h2 class="pl-t" id="pl-t-salida"><span class="nv-n">3</span> ¿Cómo sigue?</h2>
+        <div class="pl-seg" role="radiogroup" aria-labelledby="pl-t-salida" id="pl-salidas">
+          <t t-foreach="salidas" t-as="s">
+            <button type="button" role="radio" aria-checked="false" class="pl-seg__op" t-att-data-salida="s[0]"
+                    t-att-title="s[2]" t-att-data-atajo="s_index + 1">
+              <span class="pl-seg__t" t-esc="s[1]"/><small class="pl-key">Alt+<t t-esc="s_index + 1"/></small></button>
+          </t>
+        </div>
+        <p class="nv-meta" id="pl-salida-ayuda"></p>
+        <form id="pl-form" class="pl-form" method="post" action="/nueva-venta/crear" novalidate="novalidate">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="envio" id="pl-envio" value=""/>
+          <input type="hidden" name="cliente_id" id="pl-cliente-id" value=""/>
+          <input type="hidden" name="renglones" id="pl-renglones" value="[]"/>
+          <input type="hidden" name="salida" id="pl-salida" value=""/>
+          <!-- «¿Cuál es el WhatsApp?», only at an exit that confirms -->
+          <div class="pl-extra" id="pl-wa" hidden="hidden">
+            <p class="nv-meta"><b t-if="wa_requerido">El cliente no tiene WhatsApp y hace falta para confirmar.</b>
+              <b t-else="">El cliente no tiene WhatsApp. Si lo sabés, ponelo (opcional).</b> Queda guardado en el cliente.</p>
+            <div class="pl-grid">
+              <div class="dn-field"><label for="pl-wa-area">Código de área</label>
+                <input id="pl-wa-area" name="wa_area" class="dn-input dn-num" inputmode="numeric" maxlength="5" placeholder="299" autocomplete="off"/></div>
+              <div class="dn-field"><label for="pl-wa-numero">Número</label>
+                <input id="pl-wa-numero" name="wa_numero" class="dn-input dn-num" inputmode="numeric" maxlength="12" placeholder="4222444" autocomplete="off"/></div>
+            </div>
+            <p class="pl-err" data-pl-err="wa" role="alert" hidden="hidden"></p>
+          </div>
+          <div class="pl-extra" data-pl-para="armar presupuesto" hidden="hidden">
+            <div class="dn-field">
+              <label for="pl-entrega">Entrega</label>
+              <select id="pl-entrega" name="entrega" class="dn-input">
+                <option value="domicilio">Envío a domicilio</option>
+                <option value="retira">Lo retira en el depósito</option>
+              </select>
+            </div>
+            <details class="nv-mas">
+              <summary>Datos de entrega y notas <small class="nv-meta" id="pl-entrega-resumen">(de su ficha)</small></summary>
+              <div class="dn-field"><label for="pl-telefono">Teléfono de contacto</label>
+                <input id="pl-telefono" name="telefono" class="dn-input" type="tel" maxlength="40" autocomplete="off"/></div>
+              <div class="dn-field"><label for="pl-domicilio">Domicilio de entrega</label>
+                <input id="pl-domicilio" name="domicilio" class="dn-input" type="text" maxlength="200" autocomplete="off"/></div>
+              <div class="dn-field"><label for="pl-comentario">Comentario del pedido</label>
+                <input id="pl-comentario" name="comentario" class="dn-input" type="text" maxlength="500" autocomplete="off"/></div>
+              <div class="dn-field"><label for="pl-nota">Nota para el depósito</label>
+                <input id="pl-nota" name="nota_deposito" class="dn-input" type="text" maxlength="500" autocomplete="off"/></div>
+              <div class="dn-field"><label for="pl-contacto">Nombre y apellido de quien pide</label>
+                <input id="pl-contacto" name="contacto" class="dn-input" type="text" maxlength="120" autocomplete="off"/></div>
+            </details>
+            <label class="nv-check"><input type="checkbox" name="encomienda" value="1" id="pl-encomienda"/>
+              Va por encomienda a la terminal</label>
+            <div class="pl-grid" id="pl-enc" hidden="hidden">
+              <div class="dn-field pl-span2"><label for="pl-enc-nombre">Nombre y apellido de quien retira</label>
+                <input id="pl-enc-nombre" name="enc_nombre" class="dn-input" type="text" maxlength="120" autocomplete="off"/></div>
+              <div class="dn-field"><label for="pl-enc-dni">DNI de quien retira</label>
+                <input id="pl-enc-dni" name="enc_dni" class="dn-input dn-num" inputmode="numeric" maxlength="12" autocomplete="off"/></div>
+              <div class="dn-field"><label for="pl-enc-localidad">Localidad de la terminal</label>
+                <input id="pl-enc-localidad" name="enc_localidad" class="dn-input" type="text" maxlength="80"
+                       list="pl-localidades" autocomplete="off"/>
+                <datalist id="pl-localidades"><option t-foreach="localidades" t-as="l" t-att-value="l"/></datalist></div>
+            </div>
+          </div>
+          <div class="pl-extra" data-pl-para="entregado" hidden="hidden">
+            <div class="pl-grid">
+              <div class="dn-field"><label for="pl-fecha">Día en que se entregó</label>
+                <input id="pl-fecha" name="fecha" class="dn-input" type="date"/></div>
+              <div class="dn-field"><label for="pl-motivo">Motivo</label>
+                <input id="pl-motivo" name="motivo" class="dn-input" type="text" maxlength="250"
+                       t-att-value="motivo" autocomplete="off"/></div>
+            </div>
+            <p class="pl-err" data-pl-err="motivo" role="alert" hidden="hidden"></p>
+            <p class="nv-meta">Se arma, se factura y queda entregada ese día. Si te pagó, lo cobrás acá mismo al terminar.</p>
+          </div>
+          <div class="pl-extra" data-pl-para="mostrador" hidden="hidden">
+            <p class="nv-meta">Se confirma, se arma completo y sale la factura. Después, en esta misma pantalla, la
+              entrega y el cobro.</p>
+          </div>
+          <div class="pl-resumen-total"><span>Total</span><b class="dn-num" id="pl-total-lado">$ 0</b></div>
+          <p class="pl-err" id="pl-err-cargar" role="alert" hidden="hidden"></p>
+          <button type="submit" class="dn-btn dn-btn--lg" id="pl-cargar" disabled="disabled">Cargar la venta <small class="pl-key pl-key--btn">Ctrl+Enter</small></button>
+        </form>
+      </section>
+
+      <!-- 4. Mostrador: the depot delivery with its payment (POST /deposito/entrega/<id>) -->
+      <section class="dn-card pl-card" aria-labelledby="pl-t-entrega" id="pl-card-entrega" hidden="hidden">
+        <h2 class="pl-t" id="pl-t-entrega"><span class="nv-n">4</span> Entrega y cobro <small class="nv-meta" id="pl-entrega-venta"></small></h2>
+        <form id="pl-entrega-form" class="pl-form" method="post" enctype="multipart/form-data" novalidate="novalidate">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="mostrador" value="1"/>
+          <input type="hidden" name="presente" value="1"/>
+          <input type="hidden" name="codigo_op" value="code"/>
+          <input type="hidden" name="transferencia" id="pl-transferencia" value="no"/>
+          <input type="hidden" name="no_pago" id="pl-no-pago" value=""/>
+          <dl class="pl-kv">
+            <dt>Esta venta</dt><dd class="dn-num" id="pl-e-pedido"></dd>
+            <dt>Deuda anterior</dt><dd class="dn-num" id="pl-e-deuda"></dd>
+            <dt>Devolución</dt><dd class="dn-num" id="pl-e-devolucion">$ 0</dd>
+            <dt class="pl-kv__total">Saldo</dt><dd class="dn-num pl-kv__total" id="pl-e-saldo"></dd>
+          </dl>
+          <span class="pl-fl" id="pl-dev-l">¿Devolvió algo?</span>
+          <div class="pl-seg pl-seg--2" role="radiogroup" aria-labelledby="pl-dev-l">
+            <label class="pl-seg__op"><input type="radio" name="devolvio" value="none" checked="checked"/><span>No</span></label>
+            <label class="pl-seg__op"><input type="radio" name="devolvio" value="yes"/><span>Sí</span></label>
+          </div>
+          <div class="pl-dev" id="pl-dev" hidden="hidden">
+            <p class="nv-meta">Cuánto devolvió de cada producto y por qué.</p>
+            <div id="pl-dev-filas"></div>
+            <label class="nv-check"><input type="checkbox" name="recibido" value="1"/> Recibido en el depósito</label>
+            <p class="pl-err" data-pl-err="devolucion" role="alert" hidden="hidden"></p>
+          </div>
+          <div class="dn-field pl-bultos"><label for="pl-bultos">Bultos</label>
+            <input id="pl-bultos" name="bultos" class="dn-input dn-num" inputmode="numeric" autocomplete="off"/></div>
+
+          <span class="pl-fl" id="pl-pago-l">¿Cómo paga?</span>
+          <div class="pl-seg pl-seg--4" role="radiogroup" aria-labelledby="pl-pago-l" id="pl-pago">
+            <button type="button" role="radio" aria-checked="true" class="pl-seg__op" data-pago="efectivo">Efectivo</button>
+            <button type="button" role="radio" aria-checked="false" class="pl-seg__op" data-pago="transferencia">Transferencia</button>
+            <button type="button" role="radio" aria-checked="false" class="pl-seg__op" data-pago="mixto">Mixto</button>
+            <button type="button" role="radio" aria-checked="false" class="pl-seg__op" data-pago="nada">No pagó</button>
+          </div>
+          <div class="pl-grid" id="pl-efectivo-box">
+            <div class="dn-field"><label for="pl-efectivo">Efectivo que queda</label>
+              <input id="pl-efectivo" name="efectivo" class="dn-input dn-num" inputmode="decimal" autocomplete="off" placeholder="$ 0"/></div>
+            <div class="dn-field"><label for="pl-paga-con">Paga con <small class="nv-meta">(para el vuelto)</small></label>
+              <input id="pl-paga-con" class="dn-input dn-num" inputmode="decimal" autocomplete="off" placeholder="$ 0"/></div>
+            <p class="pl-vuelto pl-span2" id="pl-vuelto" aria-live="polite"></p>
+          </div>
+          <div id="pl-transf-box" hidden="hidden">
+            <div class="dn-field"><label for="pl-importe-transf">Importe transferido</label>
+              <input id="pl-importe-transf" name="importe_transf" class="dn-input dn-num" inputmode="decimal" autocomplete="off" placeholder="$ 0"/></div>
+            <div class="pl-seg pl-seg--2" role="radiogroup" aria-label="Comprobante">
+              <label class="pl-seg__op"><input type="radio" name="comprobante" value="subir" checked="checked"/><span>Subir comprobante</span></label>
+              <label class="pl-seg__op"><input type="radio" name="comprobante" value="despues"/><span>Lo manda después</span></label>
+            </div>
+            <div class="pl-drop-zone" id="pl-zona" tabindex="0" role="button"
+                 aria-label="Comprobantes: arrastrá los archivos acá o tocá Enter para elegirlos">
+              <b>Arrastrá acá los comprobantes</b><span>o <u>elegí fotos o PDF</u> (uno o varios, hasta 10 MB cada uno)</span>
+              <input type="file" id="pl-archivos" accept="image/*,application/pdf,.pdf" multiple="multiple" hidden="hidden"/>
+            </div>
+            <ul class="pl-archivos" id="pl-archivos-lista" aria-live="polite"></ul>
+            <p class="dp-warn nv-meta" id="pl-despues-aviso" hidden="hidden">El comprobante queda a tu cargo hasta que llegue:
+              lo ves en «Mis comprobantes a reclamar».</p>
+            <p class="pl-err" data-pl-err="comprobante" role="alert" hidden="hidden"></p>
+          </div>
+          <div class="dn-field"><label for="pl-e-comentario">Comentario <small class="nv-meta">(opcional)</small></label>
+            <input id="pl-e-comentario" name="comentario" class="dn-input" type="text" maxlength="250" autocomplete="off"/></div>
+          <div class="pl-debe" id="pl-debe"><span>Queda debiendo</span><b class="dn-num" id="pl-debe-monto">$ 0</b></div>
+          <p class="nv-meta">El efectivo entra en «Caja depósito» y se aplica a sus facturas, la más vieja primero. Una
+            transferencia queda como comprobante pendiente: nunca crea un pago.</p>
+          <p class="pl-err" id="pl-err-entrega" role="alert" hidden="hidden"></p>
+          <button type="submit" class="dn-btn dn-btn--lg" id="pl-entregar">Entregar y cobrar <small class="pl-key pl-key--btn">Ctrl+Enter</small></button>
+        </form>
+      </section>
+
+      <!-- 5. the summary, and «Cobrar» (/cobro's engine) while it owes -->
+      <section class="dn-card pl-card pl-hecho" aria-labelledby="pl-t-hecho" id="pl-card-hecho" hidden="hidden">
+        <h2 class="pl-t" id="pl-t-hecho"></h2>
+        <p class="nv-meta" id="pl-h-texto"></p>
+        <p class="pl-h-venta"><b id="pl-h-nombre"></b> · <span id="pl-h-cliente"></span> · <b class="dn-num" id="pl-h-total"></b></p>
+        <ul class="pl-docs" id="pl-h-docs"></ul>
+        <ul class="pl-pagos" id="pl-h-pagos"></ul>
+        <p class="pl-ok" id="pl-h-ok" role="status" hidden="hidden"></p>
+        <a class="dn-btn dn-btn--outline dn-btn--sm" id="pl-h-enviar" href="#" target="_blank" rel="noopener" hidden="hidden">Enviar al cliente por WhatsApp</a>
+        <div class="pl-acts pl-acts--fin">
+          <button type="button" class="dn-btn dn-btn--lg" id="pl-nueva">Nueva venta <small class="pl-key pl-key--btn">Alt+N</small></button>
+          <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm" id="pl-otra">Otra venta a este cliente</button>
+        </div>
+      </section>
+      <section class="dn-card pl-card" aria-labelledby="pl-t-cobrar" id="pl-card-cobrar" hidden="hidden">
+        <h2 class="pl-t" id="pl-t-cobrar">Cobrar <small class="nv-meta" id="pl-c-debe"></small></h2>
+        <form id="pl-cobro-form" class="pl-form" method="post" enctype="multipart/form-data" novalidate="novalidate">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <div class="pl-grid">
+            <div class="dn-field"><label for="pl-c-efectivo">Efectivo</label>
+              <input id="pl-c-efectivo" name="efectivo" class="dn-input dn-num" inputmode="decimal" autocomplete="off" placeholder="$ 0"/></div>
+            <div class="dn-field"><label for="pl-c-destino">Se aplica a</label>
+              <select id="pl-c-destino" name="destino" class="dn-input">
+                <option value="factura">La factura de esta venta</option>
+                <option value="cuenta">A cuenta (la factura más vieja primero)</option>
+              </select></div>
+          </div>
+          <div class="pl-drop-zone" id="pl-c-zona" tabindex="0" role="button"
+               aria-label="Transferencias: arrastrá los comprobantes acá o tocá Enter para elegirlos">
+            <b>Transferencias: arrastrá acá los comprobantes</b><span>o <u>elegí fotos o PDF</u>; cada uno con su importe</span>
+            <input type="file" id="pl-c-archivos" accept="image/*,application/pdf,.pdf" multiple="multiple" hidden="hidden"/>
+          </div>
+          <div id="pl-c-transf"></div>
+          <div class="dn-field"><label for="pl-c-nota">Nota <small class="nv-meta">(opcional)</small></label>
+            <input id="pl-c-nota" name="nota" class="dn-input" type="text" maxlength="200" autocomplete="off"/></div>
+          <div class="dn-card dn-card--warn pl-pregunta" id="pl-c-pregunta" hidden="hidden" role="alert">
+            <p id="pl-c-pregunta-txt"></p>
+            <div class="pl-acts">
+              <button type="button" class="dn-btn dn-btn--sm dn-btn--auto" id="pl-c-si">Sí, cobrar igual</button>
+              <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" id="pl-c-no">Revisar</button>
+            </div>
+          </div>
+          <p class="nv-meta">Cada transferencia necesita su comprobante y se acredita con los mismos controles de «Cobrar».
+            El efectivo va a tu caja como en «Cobrar».</p>
+          <p class="pl-err" id="pl-err-cobro" role="alert" hidden="hidden"></p>
+          <button type="submit" class="dn-btn dn-btn--lg" id="pl-cobrar">Cobrar <small class="pl-key pl-key--btn">Ctrl+Enter</small></button>
+        </form>
+      </section>
+
+    </aside>
+  </main>
+</body>
+</html>
+  </template>
+</odoo>

@@ -131,6 +131,10 @@ FILES = {
     "rendiciones_v2.js": ("kit/rendiciones_v2.js", "text/javascript; charset=utf-8"),
     # 19.0.1.129.52: «Listas y accesos» (controllers/listas.py)
     "listas.css": ("kit/listas.css", "text/css; charset=utf-8"),
+    # 19.0.1.129.53: «Nueva venta» on the PC, «estilo planilla»
+    # (controllers/nueva_venta_pc.py, nueva_venta and ui_v2 only)
+    "planilla.css": ("nueva_venta/planilla.css", "text/css; charset=utf-8"),
+    "planilla.js": ("nueva_venta/planilla.js", "text/javascript; charset=utf-8"),
 }
 # served without comments and indentation (budget: < 3 KB gzip); the file
 # on disk keeps its documentation
@@ -262,6 +266,8 @@ SCREEN_PARENTS = {
     "/nueva-venta/hecho/<id>": ("/nueva-venta",),
     # 19.0.1.129.40: the full-screen product picker of «Nueva venta»
     "/nueva-venta/productos": ("/nueva-venta",),
+    # 19.0.1.129.53: the PC layout is a sibling of /nueva-venta
+    "/nueva-venta/planilla": (HOME,),
     "/mis-ventas": (HOME,),
     # 19.0.1.129.31: «Tablero de verificación» (distri_pedido.verificacion_v2 only)
     "/verificacion": (HOME,),

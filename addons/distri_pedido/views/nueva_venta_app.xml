@@ -41,6 +41,12 @@
 <html lang="es">
 <head>
   <title>Nueva venta · Distri Neuquén</title>
+  <!-- 19.0.1.129.53 (ui_v2): a PC (>= 1024 px, fine pointer) opens the
+       «planilla» layout unless this device chose the phone one («Ver
+       versión celular», ?celular=1, remembered in localStorage); the
+       choice «Ver versión planilla» is remembered by planilla.js. Before
+       any CSS, so the phone layout never flashes. -->
+  <script t-if="v2" id="nv-vista">(function(){try{var K='dn:nv:vista',q=location.search;if(q.indexOf('celular=1')!==-1){localStorage.setItem(K,'celular');return}if(q.indexOf('volver=')!==-1){return}var p=localStorage.getItem(K);if(p==='planilla'||(!p&amp;&amp;window.matchMedia&amp;&amp;matchMedia('(min-width: 1024px) and (pointer: fine)').matches)){location.replace('/nueva-venta/planilla')}}catch(e){}})();</script>
   <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
   <t t-call="distri_pedido.dn_head"/>
 </head>
@@ -234,6 +240,8 @@
       </div>
       <button type="submit" class="dn-btn dn-btn--lg nv-ok" id="nv-ok" disabled="disabled">Cargar la venta</button>
     </section>
+    <!-- 19.0.1.129.53: on a wide screen only (nueva_venta.css) -->
+    <a t-if="v2" class="dn-link nv-a-planilla" href="/nueva-venta/planilla?vista=planilla">Ver versión planilla (PC)</a>
   </form>
 
   <div t-if="pegar" class="dn-sheet nv-pegar" id="nv-pegar" role="dialog" aria-labelledby="nv-pegar-t">
