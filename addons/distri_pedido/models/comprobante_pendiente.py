@@ -68,6 +68,9 @@ CASE_KIND = {"done": "receipt", "unpaid": "unpaid"}
 MP_CLOSED_CASE = "Pago verificado en Mercado Pago (%s): no se carga al repartidor."
 PAID_CLOSED_CASE = "El pago del pedido %s quedó registrado: no se carga al repartidor."
 RECEIPT_CLOSED_CASE = "Llegó el comprobante el %s (%s): no se carga al repartidor."
+# 19.0.1.129.52 (owner, 26/11/2026): a pending receipt whose order is already
+# paid (e.g. the Mercado Pago transfer was confirmed before the visit synced)
+DONE_PAID_CLOSED_CASE = "Factura %s ya pagada: no es un faltante del repartidor."
 
 
 def red_rule_on(env):
@@ -350,6 +353,7 @@ class DistriPromisedTransferComprobante(models.Model):
                 # a receipt that arrived before the visit was synced
                 promise._distri_resolve_from_waiting_receipts()
                 promise._distri_check_paid_items()
+                promise._distri_resolve_done_paid()
         elif promise and promise.state == "open" and not promise.charge_case_id:
             promise.unlink()
         self._distri_charge_short(stop)
@@ -504,7 +508,7 @@ class DistriPromisedTransferComprobante(models.Model):
             ("driver_id", "=", driver.id), ("route_kind", "=", "route"),
             ("state", "=", "open"), ("delivered_day", "<", today_ar()),
         ])
-        expired = expired - expired._distri_check_paid_items()
+        expired = expired - expired._distri_check_paid_items() - expired._distri_resolve_done_paid()
         expired._distri_expire()
         return expired
 
@@ -515,6 +519,9 @@ class DistriPromisedTransferComprobante(models.Model):
         # an unpaid order paid in the meantime closes first
         self.sudo().search([("kind", "=", "unpaid"),
                             ("state", "in", OPEN_STATES)])._distri_check_paid_items()
+        # 19.0.1.129.52: a pending receipt whose order is already paid in full
+        self.sudo().search([("kind", "in", ("done", False)),
+                            ("state", "in", OPEN_STATES)])._distri_resolve_done_paid()
         expired = self.sudo().search([
             ("route_kind", "=", "route"), ("state", "=", "open"),
             ("delivered_day", "<", today_ar() - timedelta(days=1)),
@@ -756,6 +763,32 @@ class DistriPromisedTransferComprobante(models.Model):
                 if case and case.state == "closed":
                     case.write({"state": "open", "resolution": False, "amount": -unpaid})
         return paid
+
+    def _distri_resolve_done_paid(self):
+        """19.0.1.129.52 (owner, 26/11/2026): a pending receipt of a delivery
+        paid by transfer («done») whose order's issued invoices are already
+        paid in full (residual 0 on every one; e.g. the customer's Mercado
+        Pago transfer was confirmed before the driver's visit synced, so the
+        income never met the promise) is resolved as «Pago registrado», and
+        its open charge to the driver is closed. A partial payment or an
+        order without an issued invoice is left alone, and so is a charge
+        the driver already replenished. Nothing touches the ledger. Returns
+        the items resolved now."""
+        resolved = self.browse()
+        for promise in self.sudo().filtered(
+                lambda p: (p.kind or "done") == "done" and p.state in OPEN_STATES
+                and p.order_id):
+            invoices = promise.order_id._distri_facturas_emitidas()
+            if not invoices or not all(inv.currency_id.is_zero(inv.amount_residual)
+                                       for inv in invoices):
+                continue
+            case = promise.charge_case_id
+            promise._distri_resolve("payment")
+            if case and case.state == "open" and not case.replenished:
+                case.write({"state": "closed", "resolution": DONE_PAID_CLOSED_CASE
+                            % ", ".join(invoices.mapped("name"))})
+            resolved |= promise
+        return resolved
 
     def _distri_case_is_automatic(self, case):
         """An open charge nobody marked as replenished, or one this module
