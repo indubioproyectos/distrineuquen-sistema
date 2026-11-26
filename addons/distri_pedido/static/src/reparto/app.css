@@ -244,8 +244,16 @@ button.visit.route-pick{width:100%;text-align:left;font:inherit;color:inherit;cu
 .v2rec-item .photo-btn{cursor:pointer}
 .v2rec-all{display:block;text-align:center;min-height:44px;line-height:44px;text-decoration:none}
 .banner.v2remind{flex-wrap:wrap;gap:6px}
-.v2move{display:flex;gap:6px}
-.v2move .opt{min-height:40px;width:48px;padding:6px 0;font-size:18px}
+/* 19.0.1.129.48: the block after the visits on the visits list (inside .body) */
+.card.v2rec.end{margin:6px 0 0}
+/* 19.0.1.129.48: visits already acted on, below the pending ones, muted */
+.visit.acted{background:#eef1f4;border-color:#dde2e8;opacity:.8}
+.visit.acted .t{font-weight:600;color:var(--muted)}
+/* 19.0.1.129.48: reorder by long press and drag (app5.js) */
+.visit[data-drag]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.visit.v2lift{position:relative;z-index:5;box-shadow:0 12px 28px rgba(16,32,56,.28);border-color:var(--navy);
+  background:#fff}
+body.v2dragging{touch-action:none;-webkit-user-select:none;user-select:none}
 .v2short{font-weight:700}
 
 /* 26/11/2026: visits list without a fixed footer; extra actions folded at

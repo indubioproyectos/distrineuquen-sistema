@@ -23,8 +23,12 @@
  *   arrives.
  * - The reminder of a route of an earlier day still open: a gentle notice,
  *   «Ahora no» hides it for the day. Never a block.
- * - #4 «Cambiar el orden» (#orden): the driver's own order, kept on the
- *   phone (local.order) and sent to /reparto/api/order when there is signal.
+ * - #4 the driver's own order, kept on the phone (local.order) and sent to
+ *   /reparto/api/order when there is signal. 19.0.1.129.48 (owner): no more
+ *   «Cambiar el orden» screen with arrows; on the visits list a long press
+ *   (LIFT_MS) lifts a pending visit, the finger drags it and releasing drops
+ *   it. The visits already acted on go below the pending ones, muted, and
+ *   are not dragged.
  *
  * 19.0.1.129.33 («Etapa 3b»), still only with the flag on:
  * - A tap the visit screen cannot take (the screen on display is older than
@@ -492,10 +496,22 @@
         '<div class="grid2">' + photoButton(r) + waButton(r) + "</div>") + "</div>";
   }
 
-  function homeHtml() {
+  // where: "visitas" on the visits list, which draws only the reminder at
+  // the top; its block comes after the visits (visitsEndHtml)
+  function homeHtml(where) {
     if (!homeOn() || !home) return "";
+    if (where === "visitas") return reminderHtml();
+    return reminderHtml() + blockHtml("");
+  }
+  // 19.0.1.129.48 (owner, 26/11): on the visits list the block goes at the
+  // end, before «Más opciones»: at the top it got in the way of the route
+  function visitsEndHtml() {
+    return homeOn() && home ? blockHtml(" end") : "";
+  }
+
+  function blockHtml(cls) {
     var owed = owedItems(), extra = charges().length;
-    var out = reminderHtml() + '<section class="card v2rec" aria-label="Mis comprobantes a reclamar">' +
+    var out = '<section class="card v2rec' + cls + '" aria-label="Mis comprobantes a reclamar">' +
       '<div class="split"><b class="v2rec-t">Mis comprobantes a reclamar</b>' +
       (owed.length ? '<span class="pill pendpill">' + owed.length + "</span>" : "") + "</div>";
     if (!owed.length) {
@@ -648,37 +664,147 @@
       }).catch(function () {});
   }
 
-  function move(id, delta) {
+  // the pending visits in their new order fill the places pending visits
+  // had in the route; the visits already acted on keep theirs
+  function commitOrder(pendingIds) {
     var r = route(), l = local();
     if (!r || !l) return;
-    var i = r.stops.map(function (s) { return s.id; }).indexOf(id), j = i + delta;
-    if (i < 0 || j < 0 || j >= r.stops.length) return;
-    var s = r.stops[i];
-    r.stops[i] = r.stops[j]; r.stops[j] = s;
-    l.order = r.stops.map(function (x) { return x.id; });
-    l.orderPending = true;
-    APP.saveRoute();
-    APP.saveLocal();
-    clearTimeout(orderTimer);
-    orderTimer = setTimeout(postOrder, 1500);
+    var byId = {};
+    r.stops.forEach(function (s) { byId[s.id] = s; });
+    var queue = pendingIds.map(function (id) { return byId[id]; }).filter(Boolean);
+    var before = r.stops.map(function (s) { return s.id; }).join(",");
+    var taken = {};
+    queue.forEach(function (s) { taken[s.id] = true; });
+    r.stops = r.stops.map(function (s) { return taken[s.id] ? queue.shift() : s; });
+    var ids = r.stops.map(function (s) { return s.id; });
+    if (ids.join(",") !== before) {
+      l.order = ids;
+      l.orderPending = true;
+      APP.saveRoute();
+      APP.saveLocal();
+      clearTimeout(orderTimer);
+      orderTimer = setTimeout(postOrder, 1500);
+    }
     APP.rerender();
   }
 
-  function orderHtml() {
-    var list = APP.stops();
-    var rows = list.map(function (s, i) {
-      var st = APP.stopState(s);
-      return '<div class="visit' + (st !== "pending" ? " done" : "") + '"><div class="split"><span class="t">' + (i + 1) +
-        " · " + h(s.name) + '</span><span class="v2move">' +
-        '<button class="opt" data-a5="up" data-id="' + s.id + '"' + (i === 0 ? " disabled" : "") + ' aria-label="Subir">↑</button>' +
-        '<button class="opt" data-a5="down" data-id="' + s.id + '"' + (i === list.length - 1 ? " disabled" : "") +
-        ' aria-label="Bajar">↓</button></span></div><div class="d">' + h(s.address || "") + "</div></div>";
-    }).join("");
-    return '<div class="head"><a class="back" href="#visitas">‹ Visitas</a><h1>Cambiar el orden</h1>' +
-      '<div class="sub">Subí o bajá cada cliente. La sugerida es la primera sin visitar.</div></div>' +
-      '<div id="status">' + APP.statusBanner() + "</div>" + '<div class="body">' + rows + "</div>" +
-      '<div class="foot"><a class="btn" href="#visitas">Listo</a></div>';
+  // --- reorder by long press and drag (Pointer Events, touch and mouse).
+  // A short tap is still a tap (it opens the visit) and a swipe still
+  // scrolls the page: only a finger held still for LIFT_MS lifts the card.
+  // From then on touchmove is cancelled so the page does not scroll, and
+  // near the top or bottom edge the page scrolls by itself.
+  var LIFT_MS = 350, SLOP = 10, EDGE = 72;
+  var drag = null;          // {el, pointerId, x, y, lastY, grab, lifted}
+  var swallowClick = false; // the click that may follow a drop
+
+  function canDrag() { var l = local(); return on() && !!l && l.departed && !l.closed; }
+  function visitAttrs(s, st) {
+    return canDrag() && st === "pending" ? ' data-drag="' + s.id + '" draggable="false"' : "";
   }
+  function cardOf(t) { return t && t.closest ? t.closest("[data-drag]") : null; }
+  // the next / previous draggable card (the pending cards are contiguous)
+  function sib(el, dir) {
+    var n = el[dir];
+    return n && n.getAttribute && n.getAttribute("data-drag") ? n : null;
+  }
+  function midOf(n) { var r = n.getBoundingClientRect(); return r.top + r.height / 2; }
+  function bodyClass(add) {
+    var b = document.body;
+    if (b && b.classList) b.classList[add ? "add" : "remove"]("v2dragging");
+  }
+
+  function lift(d) {
+    if (drag !== d || d.lifted) return;
+    d.lifted = true;
+    d.grab = d.y - d.el.getBoundingClientRect().top;
+    d.el.classList.add("v2lift");
+    bodyClass(true);
+    if (typeof navigator.vibrate === "function") { try { navigator.vibrate(15); } catch (e) { /* no vibration */ } }
+    follow();
+    edgeLoop(d);
+  }
+
+  // the neighbours step around the lifted card; the card itself never
+  // leaves the DOM, so its pointer stream goes on
+  function follow() {
+    var el = drag.el, n;
+    el.style.transform = "";
+    var r = el.getBoundingClientRect(), center = drag.lastY - drag.grab + r.height / 2;
+    while ((n = sib(el, "nextElementSibling")) && center > midOf(n)) el.parentNode.insertBefore(n, el);
+    while ((n = sib(el, "previousElementSibling")) && center < midOf(n)) el.parentNode.insertBefore(n, el.nextSibling);
+    var top = el.getBoundingClientRect().top;
+    el.style.transform = "translateY(" + Math.round(drag.lastY - drag.grab - top) + "px) scale(1.02)";
+  }
+
+  function edgeLoop(d) {
+    if (drag !== d || !d.lifted) return;
+    var hgt = window.innerHeight || 0, y = d.lastY, step = 0;
+    if (y < EDGE) step = -Math.ceil((EDGE - y) / 6);
+    else if (hgt && y > hgt - EDGE) step = Math.ceil((y - (hgt - EDGE)) / 6);
+    if (step && window.scrollBy) { window.scrollBy(0, step); follow(); }
+    var next = function () { edgeLoop(d); };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(next);
+    else setTimeout(next, 16);
+  }
+
+  function endDrag(commit) {
+    var d = drag;
+    drag = null;
+    if (!d) return;
+    clearTimeout(d.timer);
+    if (!d.lifted) return;
+    swallowClick = true;
+    setTimeout(function () { swallowClick = false; }, 400);
+    d.el.classList.remove("v2lift");
+    d.el.style.transform = "";
+    bodyClass(false);
+    if (!commit) return APP.rerender();
+    var first = d.el, n, ids = [];
+    while ((n = sib(first, "previousElementSibling"))) first = n;
+    for (n = first; n; n = sib(n, "nextElementSibling")) ids.push(+n.getAttribute("data-drag"));
+    commitOrder(ids);
+  }
+
+  document.addEventListener("pointerdown", function (ev) {
+    if (drag) return endDrag(false); // a second finger: no drag
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    var el = cardOf(ev.target);
+    if (!el || !canDrag()) return;
+    var d = { el: el, pointerId: ev.pointerId, x: ev.clientX, y: ev.clientY, lastY: ev.clientY, lifted: false };
+    drag = d;
+    d.timer = setTimeout(function () { lift(d); }, LIFT_MS);
+  });
+  document.addEventListener("pointermove", function (ev) {
+    if (!drag || ev.pointerId !== drag.pointerId) return;
+    if (!drag.lifted) {
+      // moved before the long press: a scroll or a swipe, not a drag
+      if (Math.abs(ev.clientX - drag.x) > SLOP || Math.abs(ev.clientY - drag.y) > SLOP) endDrag(false);
+      return;
+    }
+    if (ev.preventDefault) ev.preventDefault();
+    drag.lastY = ev.clientY;
+    follow();
+  });
+  document.addEventListener("pointerup", function (ev) {
+    if (drag && ev.pointerId === drag.pointerId) endDrag(true);
+  });
+  document.addEventListener("pointercancel", function () { endDrag(false); });
+  // touch-action is decided when the finger lands, so the page would scroll:
+  // a cancelled touchmove keeps it still while a card is lifted
+  document.addEventListener("touchmove", function (ev) {
+    if (drag && drag.lifted && ev.cancelable) ev.preventDefault();
+  }, { passive: false });
+  // no link menu on the long press, no native link drag with the mouse
+  document.addEventListener("contextmenu", function (ev) { if (drag) ev.preventDefault(); });
+  document.addEventListener("dragstart", function (ev) { if (cardOf(ev.target)) ev.preventDefault(); });
+  // the click a mouse release may fire after a drop does not open the visit
+  document.addEventListener("click", function (ev) {
+    if (!swallowClick) return;
+    swallowClick = false;
+    ev.preventDefault();
+    if (ev.stopPropagation) ev.stopPropagation();
+  }, true);
+  window.addEventListener("scroll", function () { if (drag && !drag.lifted) endDrag(false); }, { passive: true });
 
   // ------------------------------------------------------------ hooks
 
@@ -686,7 +812,6 @@
     if (part === "reclamar" && homeOn()) return claimsHtml();
     var r = route(), l = local();
     if (!r || !l || l.closed) return null;
-    if (part === "orden" && on() && l.departed) return orderHtml();
     if (part === "visita") {
       var stop = APP.stopById(id);
       if (usable(stop)) return visitHtml(stop);
@@ -696,7 +821,8 @@
 
   function visitsTools() {
     var l = local();
-    return on() && l && l.departed && !l.closed ? ' · <a class="link" href="#orden">Cambiar el orden</a>' : "";
+    return on() && l && l.departed && !l.closed ?
+      " Para cambiar el orden, mantené apretado un cliente y arrastralo." : "";
   }
 
   function routeApplied() {
@@ -721,7 +847,6 @@
       if (APP.uid() !== null) APP.kvSet(APP.userKey("remindOff"), remindOff);
       return APP.rerender();
     }
-    if (a === "up" || a === "down") return move(+el.getAttribute("data-id"), a === "up" ? -1 : 1);
     if (a.indexOf("cwa-") === 0) return customerWa(a, stop);
     // 19.0.1.129.33: say why instead of doing nothing, and show the real state
     if (!stop || !usable(stop)) {
@@ -787,6 +912,10 @@
   ext.customerHtml = customerHtml;
   ext.homeHtml = homeHtml;
   ext.visitsTools = visitsTools;
+  ext.visitsEndHtml = visitsEndHtml;
+  ext.visitsGrouped = function () { return on(); };
+  ext.visitAttrs = visitAttrs;
+  ext.dragging = function () { return !!(drag && drag.lifted); };
   ext.routeApplied = routeApplied;
   window.RepartoExt = ext;
   // for tests (tests/data/reparto_v129_28.js)

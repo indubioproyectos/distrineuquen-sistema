@@ -60,7 +60,10 @@
  *   reparto_v2): guarded hooks for app5.js (extHook "view" in render, a
  *   "homeHtml" card on the home screens, "visitsTools" on the visits list,
  *   "routeApplied" after each download) and more of this file in
- *   window.RepartoApp. Without app5.js, or with the flag off, nothing
+ *   window.RepartoApp. 19.0.1.129.48: "homeHtml" gets "visitas" on the
+ *   visits list, whose block comes at the end ("visitsEndHtml"), plus
+ *   "visitsGrouped", "visitAttrs" and "dragging" (reorder by long press).
+ *   Without app5.js, or with the flag off, nothing
  *   changes: every hook returns nothing and the screens are the same.
  *   app3.js and app4.js are edited in place: asset_version()
  *   (controllers/reparto.py) hashes their size and mtime, so the page and
@@ -1078,6 +1081,9 @@
     var hash = location.hash.replace(/^#/, "");
     var parts = hash.split("/");
     // 19.0.1.129.28: app5.js draws its own screens («Reparto v2» only)
+    // 19.0.1.129.48: no redraw under the finger while a visit is being
+    // dragged (app5.js); the drop redraws
+    if (extHook("dragging")) return;
     var html = extHook("view", parts[0], parts[1]);
     if (typeof html === "string" && html) { /* app5.js */ }
     else if (parts[0] === "rutas" && (S.otherRoutes || []).length) html = viewRoutes();
@@ -1416,6 +1422,14 @@
 
   function viewVisits() {
     var list = stops();
+    // 19.0.1.129.48 (owner, reparto_v2 only): the visits already acted on
+    // (anything recorded on the phone, sent or still queued) go below the
+    // pending ones, muted; each group keeps the route's order
+    var grouped = !!extHook("visitsGrouped");
+    if (grouped) {
+      list = list.filter(function (s) { return stopState(s) === "pending"; })
+        .concat(list.filter(function (s) { return stopState(s) !== "pending"; }));
+    }
     var done = list.filter(function (s) { return stopState(s) !== "pending"; });
     var next = list.filter(function (s) { return stopState(s) === "pending"; })[0];
     var pct = list.length ? Math.round(done.length * 100 / list.length) : 0;
@@ -1475,8 +1489,10 @@
       var pill = s === next ? "SUGERIDA" : (s.parcel && st === "pending" ? "ENCOMIENDA" : PILL[st]);
       if (st === "already_paid" && v && v.to_confirm) pill = "A CONFIRMAR";
       if (st === "pending" && redOf(s)) pill = "EN ROJO";
-      var cls = "visit" + (st !== "pending" ? " done" : "") + (s === next ? " next" : "");
-      return '<a class="' + cls + '" href="#visita/' + s.id + '"><div class="split"><span class="t">' + n +
+      var cls = "visit" + (st !== "pending" ? " done" : "") + (grouped && st !== "pending" ? " acted" : "") +
+        (s === next ? " next" : "");
+      // 19.0.1.129.48: app5.js marks the pending cards it lets the driver drag
+      return '<a class="' + cls + '" href="#visita/' + s.id + '"' + (extHook("visitAttrs", s, st) || "") + '><div class="split"><span class="t">' + n +
         '</span><span class="pill ' + (st === "pending" && redOf(s) ? "red" : st) + '">' + pill + "</span></div>" +
         detail + "</a>";
     }).join("");
@@ -1485,8 +1501,10 @@
       '<div class="bar"><span style="width:' + pct + '%"></span></div>' +
       '<div class="sub small">Orden sugerido. Tocá el cliente que vas a visitar.' + (extHook("visitsTools") || "") +
       "</div></div>" +
-      '<div id="status">' + statusBanner() + "</div>" + routesBar() + (extHook("homeHtml") || "") + rejected +
-      '<div class="body">' + cards + visitsMore(done.length === list.length) + "</div>";
+      '<div id="status">' + statusBanner() + "</div>" + routesBar() + (extHook("homeHtml", "visitas") || "") + rejected +
+      // 19.0.1.129.48 (owner): on this screen «Mis comprobantes a reclamar»
+      // goes after the visits (at the top it got in the way of the route)
+      '<div class="body">' + cards + (extHook("visitsEndHtml") || "") + visitsMore(done.length === list.length) + "</div>";
   }
 
   // 26/11/2026 (drivers, via the owner): the visits list is the screen they

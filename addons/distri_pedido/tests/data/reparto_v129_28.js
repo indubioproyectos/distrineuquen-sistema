@@ -8,7 +8,8 @@
 // - flag on: the new visit (four taps for a delivery in cash), transfer «lo
 //   manda después», partial (charged / exempt), mixed, «Ya estaba pagado»
 //   with debt, the optional code, «Mis comprobantes a reclamar», the
-//   reminder and «Cambiar el orden»;
+//   reminder and the driver's own order (19.0.1.129.48: long press and drag
+//   on the visits list, simulated with pointer events; acted visits below);
 // - an outbox left by the older app survives the update and is sent.
 // Optional third argument: an older app3.js (e.g. 19.0.1.129.27's) whose
 // screens must equal the flag-off ones.
@@ -175,6 +176,56 @@ const homeV2 = () => ({ ok: true, v2: true, user_id: 7,
               order: "S503", date: "24/11", text: "pagó $ 600" }],
   stale_routes: [{ id: 55, name: "Ruta 55", date: "20/11" }] });
 
+// a stand-in for the visits list's pending cards (the draggable ones), in
+// the order of T.S.route.stops, each 100 px high, with the pointer events
+// app5.js listens to; setTimeout is recorded so the long press is fired by
+// hand
+function dragKit(T) {
+  let parent = null, timers = [];
+  const realSet = ctx.setTimeout;
+  ctx.setTimeout = (fn, ms) => { timers.push({ fn: fn, ms: ms }); return timers.length; };
+  const ev = (type, target, y) => {
+    const e = { type: type, target: target, pointerId: 1, pointerType: "touch", button: 0, clientX: 50, clientY: y,
+                prevented: false, cancelable: true, preventDefault() { this.prevented = true; }, stopPropagation() {} };
+    (listeners[type] || []).forEach((fn) => fn(e));
+    return e;
+  };
+  const kit = {
+    list() {
+      timers = [];
+      parent = { kids: [], insertBefore(n, ref) {
+        this.kids.splice(this.kids.indexOf(n), 1);
+        const i = ref ? this.kids.indexOf(ref) : -1;
+        if (i < 0) this.kids.push(n); else this.kids.splice(i, 0, n);
+      } };
+      const html = screen(T, "#visitas");
+      const ids = (html.match(/data-drag="\d+"/g) || []).map((m) => +m.replace(/\D/g, ""));
+      ids.forEach((id) => {
+        const set = new Set();
+        const c = { id: id, style: {}, parentNode: parent,
+          classList: { add: (x) => set.add(x), remove: (x) => set.delete(x), has: (x) => set.has(x) },
+          getAttribute: (n) => (n === "data-drag" ? String(id) : null),
+          closest: (sel) => (sel === "[data-drag]" ? c : null),
+          getBoundingClientRect: () => ({ top: parent.kids.indexOf(c) * 100, height: 90 }) };
+        Object.defineProperty(c, "nextElementSibling", { get: () => parent.kids[parent.kids.indexOf(c) + 1] || null });
+        Object.defineProperty(c, "nextSibling", { get: () => parent.kids[parent.kids.indexOf(c) + 1] || null });
+        Object.defineProperty(c, "previousElementSibling", { get: () => parent.kids[parent.kids.indexOf(c) - 1] || null });
+        parent.kids.push(c);
+      });
+    },
+    card: (id) => parent.kids.filter((c) => c.id === id)[0],
+    ids: () => parent.kids.map((c) => c.id),
+    down: (id, y) => ev("pointerdown", kit.card(id), y),
+    move: (id, y) => ev("pointermove", kit.card(id), y),
+    up: (id, y) => ev("pointerup", kit.card(id), y),
+    click: (id) => ev("click", kit.card(id) || { closest: () => null, getAttribute: () => null }, 0),
+    timers: () => timers.filter((t) => t.ms === 350),
+    fireLift() { const t = kit.timers(); if (t.length) t[t.length - 1].fn(); },
+    restore() { ctx.setTimeout = realSet; },
+  };
+  return kit;
+}
+
 (async () => {
   const out = {};
   const V2 = { on: false };
@@ -196,6 +247,7 @@ const homeV2 = () => ({ ok: true, v2: true, user_id: 7,
   out.flagOffOldVisit = withApp5.visit.indexOf("¿Devolvió algo?") >= 0 && withApp5.visit.indexOf("Le toca pagar") < 0;
   out.flagOffNoOrderLink = withApp5.visits.indexOf("Cambiar el orden") < 0;
   out.flagOffNoHome = withApp5.visits.indexOf("Mis comprobantes a reclamar") < 0;
+  out.flagOffNoDrag = withApp5.visits.indexOf("data-drag") < 0 && withApp5.visits.indexOf(" acted") < 0;
   out.flagOffHomeAsked = server.calls.some((c) => c.url.indexOf("/reparto/api/home") === 0);
   // the old visit, saved as before
   screen(T, "#visita/801");
@@ -326,7 +378,32 @@ const homeV2 = () => ({ ok: true, v2: true, user_id: 7,
   out.homeCard = visits.indexOf("Mis comprobantes a reclamar") >= 0 && visits.indexOf("ALMACÉN SUR") >= 0 &&
     visits.indexOf("$ 25.000") >= 0 && visits.indexOf("$ 25.400") < 0 && visits.indexOf("A tu cargo") < 0;
   out.reminder = visits.indexOf("Tenés la ruta del 20/11 sin cerrar") >= 0 && visits.indexOf('data-a="open-route" data-id="55"') >= 0;
-  out.orderLink = visits.indexOf('href="#orden"') >= 0;
+  // 19.0.1.129.48 (owner): on the visits list the block comes after the
+  // visits, before «Más opciones»; the reminder stays at the top
+  const firstVisit = visits.indexOf('class="visit'), lastVisit_ = visits.lastIndexOf('class="visit');
+  const blockAt = visits.indexOf("Mis comprobantes a reclamar");
+  out.blockAtEnd = blockAt > lastVisit_ && blockAt < visits.indexOf("Más opciones") &&
+    visits.indexOf("Más opciones") > visits.lastIndexOf("ALMACÉN SUR");
+  out.reminderOnTop = visits.indexOf("sin cerrar") >= 0 && visits.indexOf("sin cerrar") < firstVisit;
+  // ... and stays on top of «Control de carga»
+  const loadScreen = screen(T, "#carga");
+  out.loadBlockOnTop = loadScreen.indexOf("Mis comprobantes a reclamar") >= 0 &&
+    loadScreen.indexOf("Mis comprobantes a reclamar") < loadScreen.indexOf("KIOSCO 801");
+  // the visits acted on above (801, 802, 804, 805) go below the pending
+  // one (803), muted and not draggable
+  const cardOf_ = (html, id) => (html.match(new RegExp('<a class="[^"]*" href="#visita/' + id + '"[^>]*>')) || [""])[0];
+  out.grouped = { pendingFirst: [801, 802, 804, 805].every((id) => visits.indexOf("KIOSCO 803") < visits.indexOf("KIOSCO " + id)),
+                  actedOrder: visits.indexOf("KIOSCO 801") < visits.indexOf("KIOSCO 802") &&
+                    visits.indexOf("KIOSCO 802") < visits.indexOf("KIOSCO 804"),
+                  muted: [801, 802, 804, 805].every((id) => / acted/.test(cardOf_(visits, id))),
+                  pendingNotMuted: !/ acted/.test(cardOf_(visits, 803)),
+                  dragOnlyPending: /data-drag="803"/.test(cardOf_(visits, 803)) && visits.indexOf('data-drag="801"') < 0,
+                  stillOpens: cardOf_(visits, 801).indexOf('href="#visita/801"') >= 0 };
+  // no «Cambiar el orden» screen, no arrows: a hint for the long press
+  out.dragUi = { noLink: visits.indexOf('href="#orden"') < 0 && visits.indexOf("Cambiar el orden") < 0,
+                 noArrows: visits.indexOf("↑") < 0 && visits.indexOf("↓") < 0,
+                 hint: visits.indexOf("mantené apretado un cliente y arrastralo") >= 0,
+                 orderScreenGone: screen(T, "#orden").indexOf("Cambiar el orden") < 0 };
   const claims = screen(T, "#reclamar");
   out.claims = { photo: claims.indexOf("Sacar foto") >= 0, whatsapp: claims.indexOf("Pedir por WhatsApp") >= 0,
                  charge: claims.indexOf("Transferencia menor al total") >= 0, resolved: claims.indexOf("Resueltas hoy") >= 0,
@@ -377,14 +454,60 @@ const homeV2 = () => ({ ok: true, v2: true, user_id: 7,
   const claimsNow = (ctx.window.RepartoV2.setHome(homeV2()), screen(T, "#reclamar"));
   out.blockWording = !words.test(blockOf(homeV2())) && !words.test(blockOf(many)) && !words.test(claimsNow);
   ctx.window.RepartoV2.setHome(homeV2());
-  // #4 the driver's own order
+  // #4 the driver's own order: long press and drag on the visits list
   let posted = null;
   server.order = (b) => { posted = b; return { data: { ok: true } }; };
-  screen(T, "#orden");
-  tap5("down", "", { "data-id": 801 });
-  out.orderAfterMove = T.S.route.stops.map((s) => s.id);
+  T = freshApp({ app5: true });
+  T.boot(); await flush();
+  await ctx.window.RepartoV2.fetchHome(true); await flush();
+  const D = dragKit(T);
+  D.list();
+  // a quick tap: no lift, the click goes through (the link opens the visit)
+  D.down(804, 45); D.up(804, 45);
+  let click = D.click(804);
+  out.tap = { opens: !click.prevented, order: T.S.route.stops.map((s) => s.id).join(",") === "801,802,803,804,805" };
+  // a swipe before the long press: the page scrolls, nothing is lifted
+  D.list();
+  D.down(802, 150); D.move(802, 190); D.fireLift();
+  out.scrollNoLift = !D.card(802).classList.has("v2lift") && !ctx.window.RepartoExt.dragging();
+  D.up(802, 190);
+  // long press, drag 801 two places down, release
+  D.list();
+  D.down(801, 45);
+  D.fireLift();
+  out.lifted = D.card(801).classList.has("v2lift") && ctx.window.RepartoExt.dragging();
+  // no redraw under the finger while it is lifted
+  element("app").innerHTML = "KEEP";
+  T.render();
+  out.noRedrawWhileDragging = element("app").innerHTML === "KEEP";
+  D.move(801, 150); D.move(801, 260);
+  out.domWhileDragging = D.ids().join(",");
+  D.up(801, 260);
+  out.orderAfterDrag = T.S.route.stops.map((s) => s.id);
+  click = D.click(801);
+  out.clickAfterDropSwallowed = click.prevented;
+  out.tapAfterDropOpens = !D.click(801).prevented;
   ctx.window.RepartoV2.postOrder(); await flush();
   out.orderPosted = posted && posted.stop_ids;
+  const redrawn = screen(T, "#visitas");
+  out.orderRerendered = redrawn.indexOf("KIOSCO 802") < redrawn.indexOf("KIOSCO 803") &&
+    redrawn.indexOf("KIOSCO 803") < redrawn.indexOf("KIOSCO 801");
+  // a visit recorded on the phone (803) goes below the pending ones, muted
+  screen(T, "#visita/803");
+  tap5("deliv", "all"); tap5("pay", "already"); tap5("save"); tap3("confirm-yes");
+  await flush();
+  const after = screen(T, "#visitas");
+  out.recordedMovesDown = [802, 801, 804, 805].every((id) => after.indexOf("KIOSCO " + id) < after.indexOf("KIOSCO 803")) &&
+    / acted/.test((after.match(/<a class="[^"]*" href="#visita\/803"/) || [""])[0]) &&
+    after.indexOf('data-drag="803"') < 0;
+  // dragging the pending ones leaves the acted visit in its place
+  D.list();
+  D.down(805, 345); D.fireLift(); D.move(805, 20); D.up(805, 20);
+  out.actedKeepsPlace = T.S.route.stops.map((s) => s.id);
+  posted = null;
+  ctx.window.RepartoV2.postOrder(); await flush();
+  out.orderPosted2 = posted && posted.stop_ids;
+  D.restore();
   await T.download(false); await flush();
   out.orderAfterDownload = T.S.route.stops.map((s) => s.id);
 
