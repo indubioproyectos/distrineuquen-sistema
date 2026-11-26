@@ -20,7 +20,9 @@ from odoo.tests import HttpCase, new_test_user, tagged
 
 from odoo.addons.distri_pedido.controllers.revisar import card
 from odoo.addons.distri_pedido.models.sale_order import nombre_web
-from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin, post_pedido
+from odoo.addons.distri_pedido.tests.common_pedido import (
+    PedidoAbiertoMixin, page_tokens, post_pedido,
+)
 
 PERSONA = "Ana Pérez Vcc"
 COMERCIO = "Almacén Girasol Vcc"
@@ -202,6 +204,94 @@ class TestNombreYComercio(PedidoAbiertoMixin, HttpCase):
         self.assertEqual(nombre_web("", "Kiosco"), "Kiosco")
         self.assertEqual(nombre_web(" Ana  B ", " Kiosco "), "Ana B · Kiosco")
         self.assertEqual(nombre_web("Ana", "Kiosco", sep=" - "), "Ana - Kiosco")
+
+    # ------------------------------------------------------------ resend of a draft
+
+    def _envio(self, page="/pedido"):
+        return page_tokens(self, page)[1]
+
+    def test_same_form_twice_is_one_order(self):
+        """The existing C8 key: the same page, session and cart → one order."""
+        envio = self._envio()
+        data = self._data(nombre="Doble V149", envio=envio)
+        first = post_pedido(self, data)
+        second = post_pedido(self, data)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        orders = self.env["sale.order"].sudo().search([("distri_nombre", "=", "Doble V149")])
+        self.assertEqual(len(orders), 1)
+        self.assertIn(orders.name, second.text)
+
+    def test_restored_draft_resends_to_the_first_order(self):
+        before = self._ledger()
+        envio = self._envio()
+        res = post_pedido(self, self._data(nombre="Borrador V149", envio=envio))
+        self.assertEqual(res.status_code, 200)
+        first = self._order("Borrador V149")
+        self.assertTrue(first.distri_envio_token)
+        self.assertNotIn(envio, first.distri_envio_token, "only the hash is stored")
+        # another session (the confirmation never loaded, the phone came back
+        # later) and the cart typed again with one more unit: the draft sends
+        # the old token with envio_borrador=1 → the first order, not a second
+        self.authenticate(None, None)
+        again = post_pedido(self, self._data(
+            nombre="Borrador V149", envio=envio, envio_borrador="1",
+            renglones=json.dumps([{"id": self.plantilla.id, "cantidad": 2}])))
+        self.assertEqual(again.status_code, 200, again.text[:300])
+        orders = self.env["sale.order"].sudo().search([("distri_nombre", "=", "Borrador V149")])
+        self.assertEqual(orders, first)
+        self.assertIn(first.name, again.text)
+        # without the draft's flag a different cart on the same page is a new
+        # order, as before 129.49
+        other = post_pedido(self, self._data(
+            nombre="Borrador V149", envio=envio,
+            renglones=json.dumps([{"id": self.plantilla.id, "cantidad": 3}])))
+        self.assertEqual(other.status_code, 200)
+        self.assertEqual(len(self.env["sale.order"].sudo().search(
+            [("distri_nombre", "=", "Borrador V149")])), 2)
+        self.assertEqual(self._ledger(), before)
+
+    def test_old_token_after_the_window_is_a_new_order(self):
+        envio = self._envio()
+        post_pedido(self, self._data(nombre="Viejo Token V149", envio=envio))
+        first = self._order("Viejo Token V149")
+        self.env.cr.execute("UPDATE sale_order SET create_date = now() - interval '5 days' "
+                            "WHERE id = %s", [first.id])
+        self.env.invalidate_all()
+        self.authenticate(None, None)
+        post_pedido(self, self._data(nombre="Viejo Token V149", envio=envio, envio_borrador="1",
+                                     renglones=json.dumps([{"id": self.plantilla.id, "cantidad": 2}])))
+        self.assertEqual(len(self.env["sale.order"].sudo().search(
+            [("distri_nombre", "=", "Viejo Token V149")])), 2)
+
+    def test_staff_draft_resend_is_one_order(self):
+        self.authenticate(self.vendedor.login, self.vendedor.login)
+        envio = self._envio()
+        post_pedido(self, self._data(nombre="Staff Token V149", envio=envio))
+        self.authenticate(self.vendedor.login, self.vendedor.login)  # a new session
+        res = post_pedido(self, self._data(nombre="Staff Token V149", envio=envio, envio_borrador="1",
+                                           renglones=json.dumps([{"id": self.plantilla.id, "cantidad": 2}])))
+        orders = self.env["sale.order"].sudo().search([("distri_nombre", "=", "Staff Token V149")])
+        self.assertEqual(len(orders), 1)
+        self.assertIn(orders.name, res.text)
+
+    def test_arrival_check_answers_only_the_token_holder(self):
+        envio = self._envio()
+        post_pedido(self, self._data(nombre="Estado V149", envio=envio))
+        order = self._order("Estado V149")
+        self.authenticate(None, None)
+        res = self.url_open("/pedido/envio-estado?e=%s" % envio)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers.get("Cache-Control"), "no-store")
+        self.assertEqual(res.json(), {"ok": True, "pedido": order.name,
+                                      "url": "/pedido/%s" % order.access_token})
+        for wrong in ("0" * 24, "", "xyz", envio[:-1] + ("0" if envio[-1] != "0" else "1")):
+            self.assertEqual(self.url_open("/pedido/envio-estado?e=%s" % wrong).json(),
+                             {"ok": True, "pedido": False}, wrong)
+        # another user with the same token: nothing
+        self.authenticate(self.vendedor.login, self.vendedor.login)
+        self.assertEqual(self.url_open("/pedido/envio-estado?e=%s" % envio).json(),
+                         {"ok": True, "pedido": False})
 
     # ------------------------------------------------------------ the JS (node)
 

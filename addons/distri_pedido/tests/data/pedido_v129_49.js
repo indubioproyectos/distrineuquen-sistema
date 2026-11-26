@@ -114,7 +114,8 @@ function borrador() {
   const local = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); },
     removeItem: (k) => { delete store[k]; } };
   const fila = (id, n) => ({ getAttribute: (a) => (a === "data-id" ? String(id) : null), querySelector: () => ({ value: n ? String(n) : "" }) });
-  const form = { elements: { nombre: { value: "Ana Pérez" }, comercio: { value: "Kiosco Ana" } },
+  const form = { elements: { nombre: { value: "Ana Pérez" }, comercio: { value: "Kiosco Ana" },
+                             envio: { value: "0123456789abcdef01234567", type: "hidden" } },
     querySelectorAll: () => [fila(11, 2)], getAttribute: () => "visitante:1" };
   const key = B.clave(form);
   B.guardar(local, key, form, Date.now());
@@ -123,11 +124,28 @@ function borrador() {
   const inp = { value: "" };
   B.restaurar({ elements: els2, querySelectorAll: () => [{ getAttribute: (a) => (a === "data-id" ? "11" : null), querySelector: () => inp }] }, saved);
   const src = read("static/src/js/pedido_borrador.js");
+  // 19.0.1.129.49: the page token travels with the draft
+  const appended = [];
+  const newForm = { elements: { envio: { value: "ffffffffffffffffffffffff" } },
+    appendChild(el) { appended.push(el); this.elements[el.name] = el; } };
+  const doc = { createElement: () => ({}) };
+  const put = B.reenvio(newForm, saved, doc);
+  B.reenvio(newForm, saved, doc);  // twice: one flag only
   return {
     savesShop: saved.campos.comercio === "Kiosco Ana" && saved.campos.nombre === "Ana Pérez",
     restoresShop: els2.comercio.value === "Kiosco Ana" && els2.nombre.value === "Ana Pérez" && inp.value === "2",
     visitorKey: key === "dn:pedido:borrador:visitante:1",
     submitKeepsDraft: src.indexOf("addEventListener('submit'") < 0,
+    savesToken: saved.envio === "0123456789abcdef01234567",
+    resendsSameToken: put === true && newForm.elements.envio.value === "0123456789abcdef01234567" &&
+      appended.length === 1 && appended[0].name === "envio_borrador" && appended[0].type === "hidden" &&
+      appended[0].value === "1",
+    noTokenNoResendFlag: B.reenvio(newForm, { cantidades: {} }, doc) === false,
+    statusUrl: B.estadoUrl(saved) === "/pedido/envio-estado?e=0123456789abcdef01234567" &&
+      B.estadoUrl({}) === "" && B.estadoUrl({ envio: "abc" }) === "" &&
+      B.estadoUrl({ envio: "0123456789abcdef<!?>" }) === "/pedido/envio-estado?e=0123456789abcdef",
+    arrivedShowsOrderNotResend: src.indexOf("Tu pedido anterior ya nos llegó") >= 0 &&
+      src.indexOf("r.url.charAt(0) === '/'") >= 0,
   };
 }
 

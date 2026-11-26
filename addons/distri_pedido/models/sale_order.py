@@ -67,6 +67,12 @@ class SaleOrder(models.Model):
 
     _distri_envio_clave_unique = models.Constraint(
         "unique(distri_envio_clave)", "Ese pedido ya se recibió.")
+    # 19.0.1.129.49: the page token (`envio`) of the form, hashed with the
+    # user id (controllers/main.py _token_envio). The device draft keeps the
+    # token: resending a restored draft, or asking whether it arrived, finds
+    # this order even with another session or cart (no duplicate order).
+    distri_envio_token = fields.Char(string="Token del envío (web)", copy=False, readonly=True,
+                                     index="btree_not_null")
     # The order is still under a generic "Pedidos web" contact.
     distri_partner_generic = fields.Boolean(
         string="Sin cliente asignado", related="partner_id.distri_generic_partner",

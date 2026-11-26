@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from psycopg2 import IntegrityError
 
-from odoo import http
+from odoo import fields, http
 from odoo.exceptions import ConcurrencyError
 from odoo.http import request
 
@@ -109,6 +109,9 @@ MAX_RENGLONES = 2000
 MAX_CANTIDAD = 10000
 MAX_RENGLONES_TEXTO = MAX_RENGLONES * 125
 MAX_CUERPO = 1024 * 1024
+# 19.0.1.129.49: how long a page token finds its order (the device draft
+# of /pedido lasts 3 days, pedido_borrador.js DIAS)
+ENVIO_DIAS = 4
 # 19.0.1.96.0 (audit F1): tighter caps for the public page (visitors and
 # logged-in customers; staff keep MAX_CANTIDAD and no total cap). Real data
 # (distri_lab, 2026-11): the biggest invoiced line is 200 units and the
@@ -1995,10 +1998,15 @@ class TomaDePedidos(http.Controller):
             clave = self._clave_envio(post, renglones)
             previo = request.env["sale.order"].sudo().search(
                 [("distri_envio_clave", "=", clave)], limit=1) if clave else None
+            if not previo and post.get("envio_borrador"):
+                # 19.0.1.129.49: a draft restored on the device resends the
+                # token it was first sent with: its order, if it arrived
+                previo = self._pedido_por_envio(post.get("envio"))
             if previo:
                 return self._pagina_gracias(previo, nombre, telefono_visto, domicilio, entrega,
                                             hay_mayorista, descartados)
             valores_pedido["distri_envio_clave"] = clave or False
+            valores_pedido["distri_envio_token"] = self._token_envio(post.get("envio")) or False
             try:
                 with request.env.cr.savepoint():
                     pedido = request.env["sale.order"].sudo().create(valores_pedido)
@@ -2096,6 +2104,47 @@ class TomaDePedidos(http.Controller):
                   post.get("entrega") or "", post.get("cliente_id") or "",
                   str(request.env.uid or "")]
         return hashlib.sha256("|".join(partes).encode()).hexdigest()
+
+    @staticmethod
+    def _envio_limpio(valor):
+        envio = re.sub(r"[^0-9a-f]", "", (valor or "").lower())[:64]
+        return envio if len(envio) >= 16 else ""
+
+    def _token_envio(self, valor):
+        """19.0.1.129.49: the page token hashed with the user id (the public
+        user for every visitor, the seller for staff): only whoever holds
+        the page's token, as the same user, finds the order by it."""
+        envio = self._envio_limpio(valor)
+        if not envio:
+            return ""
+        return hashlib.sha256(("envio|%s|%s" % (request.env.uid or "", envio)).encode()).hexdigest()
+
+    def _pedido_por_envio(self, valor):
+        """The order created from that page token in the last ENVIO_DIAS days
+        (the device draft lasts 3), or an empty recordset."""
+        token = self._token_envio(valor)
+        Order = request.env["sale.order"].sudo()
+        if not token:
+            return Order
+        desde = fields.Datetime.subtract(fields.Datetime.now(), days=ENVIO_DIAS)
+        return Order.search([("distri_envio_token", "=", token), ("create_date", ">=", desde)],
+                            order="id desc", limit=1)
+
+    @http.route("/pedido/envio-estado", type="http", auth="public", methods=["GET"],
+                sitemap=False)
+    def envio_estado(self, e="", **kw):
+        """19.0.1.129.49: did the order of this page token arrive? Asked by
+        the device draft (pedido_borrador.js) before offering to resend it.
+        Answers only to the holder of the token, as the same user: the
+        order's name and its «Tu pedido» page, nothing else."""
+        pedido = self._pedido_por_envio(e)
+        if not pedido:
+            return request.make_json_response({"ok": True, "pedido": False},
+                                              headers=[("Cache-Control", "no-store")])
+        pedido._portal_ensure_token()
+        return request.make_json_response(
+            {"ok": True, "pedido": pedido.name, "url": "/pedido/%s" % pedido.access_token},
+            headers=[("Cache-Control", "no-store")])
 
     def _nombres_descartados(self, ids):
         """C11: «Alcohol x 500 ml, 1 producto más» for the lines left out."""
