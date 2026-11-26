@@ -1194,9 +1194,9 @@
       '<div id="status">' + statusBanner() + "</div>" + (extHook("homeHtml") || "") +
       '<div class="body"><div class="card"><div>No tenés una ruta asignada. Cuando administración ' +
       "te asigne una, descargala antes de salir, con conexión.</div></div></div>" +
+      // 26/11/2026 (owner): only «Rutas anteriores» here; accounts and cash
+      // collection are no longer offered from the no-route screen
       '<div class="foot"><button class="btn" data-a="download">Descargar la ruta</button>' +
-      '<a class="link cashlink" href="' + ACCOUNTS_APP + '">Cuentas de clientes ›</a>' +
-      '<a class="link cashlink" href="' + CASH_PAGE + '">Cobro en efectivo ›</a>' +
       '<a class="link cashlink" href="' + PAST_ROUTES + '">Rutas anteriores ›</a></div>';
   }
 
