@@ -389,6 +389,28 @@ class TestV12931Verificacion(UploadMixin, RepartoMixin, AccountTestInvoicingComm
         self.assertEqual(keys(self.seller), set())
         self.assertEqual(keys(self.cashier), set())
 
+    def test_owner_only_hides_the_board_from_administracion_and_gerencia(self):
+        keys = lambda user: {q[0] for q in vf.user_queues(user)}  # noqa: E731
+        self._flag()
+        self.env["ir.config_parameter"].sudo().set_param(vf.PARAM_OWNER_ONLY, "1")
+        self.assertEqual(keys(self.denis), set())
+        self.assertEqual(keys(self.gonzalo), set())
+        self.assertEqual(keys(self.sistemas), set(vf.QUEUE_KEYS), "Ale keeps every queue")
+        for user in (self.denis, self.gonzalo):
+            self.assertNotIn("verificacion",
+                             [t["key"] for t in tablero.staff_tiles(self.env(user=user))])
+        self.assertTrue(vf.verificacion_on(self.env), "the crediting rules stay on")
+        self.env["ir.config_parameter"].sudo().set_param(vf.PARAM_OWNER_ONLY, "0")
+        self.assertIn("verificacion",
+                      [t["key"] for t in tablero.staff_tiles(self.env(user=self.denis))])
+
+    def test_sistemas_direct_tiles_only_for_ale(self):
+        extra = {"tablerocobros", "reportemp"}
+        keys = lambda user: {t["key"] for t in tablero.staff_tiles(self.env(user=user))}  # noqa: E731
+        self.assertLessEqual(extra, keys(self.sistemas))
+        for user in (self.denis, self.gonzalo, self.seller, self.cashier):
+            self.assertFalse(extra & keys(user), user.login)
+
     def test_inicio_tile_only_with_the_flag(self):
         denis_env = self.env(user=self.denis)
         self.assertNotIn("verificacion", [t["key"] for t in tablero.staff_tiles(denis_env)])

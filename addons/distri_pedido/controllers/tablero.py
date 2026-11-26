@@ -217,12 +217,45 @@ def staff_tiles(env):
         where = keys.index("cuentas") + 1 if "cuentas" in keys else (
             keys.index("capacitacion") if "capacitacion" in keys else len(tiles))
         tiles.insert(where, contactos)
+    # Owner, 26/11/2026: Ale's direct links to the old payments board and the
+    # manual Mercado Pago report import (both under «Cobros»), before
+    # «Capacitación»
+    for extra in sistemas_tiles(env):
+        last = [t["key"] for t in tiles].index("capacitacion") if any(
+            t["key"] == "capacitacion" for t in tiles) else len(tiles)
+        tiles.insert(last, extra)
     equipo = equipo_tile(env)
     if equipo:
         # before «Capacitación», which always goes last
         last = [t["key"] for t in tiles].index("capacitacion") if any(
             t["key"] == "capacitacion" for t in tiles) else len(tiles)
         tiles.insert(last, equipo)
+    return tiles
+
+
+# Owner, 26/11/2026: only for Ale (verificacion.is_owner: admin or Sistemas),
+# with or without ui_v2. Not in TILES: «Cobros» already shows these menus to
+# administración and gerencia.
+SISTEMAS_TILES = (
+    ("tablerocobros", "distri_pedido.menu_cobros_board", "Tablero de cobros",
+     "El tablero de Mercado Pago de siempre", IMG + "cobros.png", "card"),
+    ("reportemp", "distri_pedido.menu_puesta_mp", "Importar reporte MP",
+     "Subir a mano un reporte de Mercado Pago", IMG + "cobros.png", "receipt"),
+)
+
+
+def sistemas_tiles(env):
+    from ..models.verificacion import is_owner
+    if not is_owner(env.user):
+        return []
+    tiles = []
+    for key, xmlid, title, subtitle, icon, glyph in SISTEMAS_TILES:
+        menu = env.ref(xmlid, raise_if_not_found=False)
+        if not menu:
+            continue
+        tiles.append({"key": key, "title": title, "subtitle": subtitle, "icon": icon,
+                      "glyph": glyph, "menu_id": menu.id, "url": "/odoo?menu_id=%s" % menu.id,
+                      "badge": None})
     return tiles
 
 
@@ -560,7 +593,8 @@ def tile_roots(env, tiles):
 TILE_GROUPS = (
     ("Ventas", ("nuevaventa", "pedido", "misventas", "agilpedido", "revisar")),
     ("Reparto", ("armado", "deposito", "rutas", "despacho", "mireparto", "reparto")),
-    ("Cobros y caja", ("cobro", "caja", "comprobantes", "historial", "cobros", "verificacion")),
+    ("Cobros y caja", ("cobro", "caja", "comprobantes", "historial", "cobros", "verificacion",
+                       "tablerocobros", "reportemp")),
     ("Clientes", ("contactos", "cuentas")),
     ("Sistema", ("equipo", "capacitacion")),
 )

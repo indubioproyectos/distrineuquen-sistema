@@ -91,6 +91,10 @@ DEFAULT_NO_RECEIPT_DAYS = 2
 PARAM_HISTORIC_BEFORE = "distri_pedido.verificacion_historico_antes"
 DEFAULT_HISTORIC_BEFORE = "2026-09-15"
 ON_VALUES = ("1", "true", "yes", "si", "sí", "on")
+# Owner, 26/11/2026: until the accounts audit closes the board is Ale's only
+# (Sistemas / admin). With it on, administración and gerencia lose the tile,
+# the queues and the board's actions; the crediting rules above keep running.
+PARAM_OWNER_ONLY = "distri_pedido.verificacion_solo_sistemas"
 
 ADMIN = "distri_pedido.grupo_administracion"
 GERENCIA = "distri_pedido.grupo_gerencia"
@@ -219,10 +223,16 @@ def is_owner(user):
         user._is_superuser() or user.login == "admin" or user.has_group(INCOME_GROUP))
 
 
+def owner_only(env):
+    return str(_param(env, PARAM_OWNER_ONLY, "0")).strip().lower() in ON_VALUES
+
+
 def queue_member(user, key):
     """`user` handles (or may see) the queue `key`."""
     if is_owner(user):
         return True
+    if user and owner_only(user.env):
+        return False
     groups = dict((q[0], q[4]) for q in QUEUES).get(key, ())
     return bool(user) and not user.share and any(user.has_group(g) for g in groups)
 
