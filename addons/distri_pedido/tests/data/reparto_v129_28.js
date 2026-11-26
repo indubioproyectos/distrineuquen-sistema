@@ -317,13 +317,15 @@ const homeV2 = () => ({ ok: true, v2: true, user_id: 7,
   await T.download(false); await flush();
   await ctx.window.RepartoV2.fetchHome(true); await flush();
   const visits = screen(T, "#visitas");
-  out.homeCard = visits.indexOf("Mis comprobantes a reclamar") >= 0 && visits.indexOf("$ 25.400") >= 0;
+  // 26/11/2026 (owner): the card shows no total and no «A tu cargo»
+  out.homeCard = visits.indexOf("Mis comprobantes a reclamar") >= 0 && visits.indexOf("$ 25.400") < 0 &&
+    visits.indexOf("A tu cargo") < 0;
   out.reminder = visits.indexOf("Tenés la ruta del 20/11 sin cerrar") >= 0 && visits.indexOf('data-a="open-route" data-id="55"') >= 0;
   out.orderLink = visits.indexOf('href="#orden"') >= 0;
   const claims = screen(T, "#reclamar");
   out.claims = { photo: claims.indexOf("Sacar foto") >= 0, whatsapp: claims.indexOf("Pedir por WhatsApp") >= 0,
                  charge: claims.indexOf("Transferencia menor al total") >= 0, resolved: claims.indexOf("Resueltas hoy") >= 0,
-                 duty: claims.indexOf("Reclamar los comprobantes es tu responsabilidad") >= 0,
+                 duty: claims.indexOf("Te pedimos que nos ayudes a reclamarle") >= 0 && claims.indexOf("A tu cargo") < 0,
                  days: claims.indexOf("hace ") >= 0 };
   // a receipt photo from the list: a «receipt» event of that route
   ctx.window.RepartoApp.readReceipt = () => Promise.resolve({ photo: "aGVsbG8=", thumb: "" });
