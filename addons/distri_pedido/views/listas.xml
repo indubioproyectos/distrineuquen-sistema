@@ -145,7 +145,7 @@
     <t t-set="volver" t-value="'/listas'"/>
     <t t-set="kicker" t-value="'Listas y accesos'"/>
     <t t-set="titulo" t-value="'Precios de cigarrillos'"/>
-    <t t-set="sub" t-value="'Lista 2, Lista 3 y Lista 4. Vacío = a presupuestar.'"/>
+    <t t-set="sub" t-value="'Lista 2, Lista 3 y Lista 4. Vacío: a presupuestar si el precio por lista es obligatorio; si no, precio General.'"/>
   </t>
   <main class="dn-main">
     <t t-call="distri_pedido.listas_tabs"/>
@@ -165,12 +165,19 @@
           </tr></thead>
           <tbody>
             <tr t-foreach="filas" t-as="f" t-att-data-cig="f['id']">
-              <th scope="row"><t t-esc="f['nombre']"/><br/><small class="ls-meta">General: a presupuestar</small></th>
+              <th scope="row"><t t-esc="f['nombre']"/>
+                <label class="ls-oblig">
+                  <input type="hidden" t-att-name="'fo_%s' % f['id']" t-att-value="'1' if f['obligatorio'] else '0'"/>
+                  <input type="checkbox" t-att-name="'f_%s' % f['id']" value="1" t-att-checked="'checked' if f['obligatorio'] else None"/>
+                  <span>Precio por lista obligatorio</span>
+                </label>
+                <small class="ls-meta"><t t-if="f['obligatorio']">Sin precio en la lista: a presupuestar</t><t t-else="">Sin precio en la lista: precio General</t></small>
+              </th>
               <td t-foreach="claves" t-as="clave">
                 <t t-set="valor" t-value="f[clave]"/>
                 <input type="hidden" t-att-name="'o_%s_%s' % (clave, f['id'])" t-att-value="num(valor)"/>
                 <input class="dn-input ls-precio" inputmode="decimal" t-att-name="'p_%s_%s' % (clave, f['id'])"
-                       t-att-value="num(valor)" placeholder="a presupuestar"
+                       t-att-value="num(valor)" t-att-placeholder="'a presupuestar' if f['obligatorio'] else 'precio General'"
                        t-att-aria-label="'%s, %s' % (f['nombre'], nombre_lista[clave])"/>
                 <t t-if="clave in con_may">
                   <t t-set="may" t-value="f['may_' + clave]"/>

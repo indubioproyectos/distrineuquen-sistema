@@ -8,11 +8,17 @@ nothing):
    category (a cigarette without a price in the customer's list stays «a
    presupuestar»); «Lista 2 + May farmacia» is created; «Lista 3» and «Lista
    4» are reactivated, all three based on the May list.
-2. Each «May X - lista 3/4» product is linked to its cigarette when the match
+2. distri_precio_por_lista («Precio por lista obligatorio») on the products of
+   the cigarette categories: True for cigarette packs (the old CIGARRILLOS /
+   Tabaco VAN KIFF categories, linked from a «May X - lista N» product, or in
+   «CIGARRILLOS y relacionados» and not named like papers, filters or
+   tobacco), False for the rest; never a value already fixed. Set after the links
+   below, so a linked product counts.
+3. Each «May X - lista 3/4» product is linked to its cigarette when the match
    is clear (_sugerir_vinculos); the rest are linked by hand on /listas.
-3. The group «Listas y accesos de distribuidores» gets the users with login
+4. The group «Listas y accesos de distribuidores» gets the users with login
    gonzalo and admin (by login, never by id), if they exist.
-4. Internal users get Odoo's notifications in the inbox, not by e-mail.
+5. Internal users get Odoo's notifications in the inbox, not by e-mail.
 
 No invoice, payment, entry or partner price list is written here.
 """
@@ -33,7 +39,13 @@ def migrate(cr, version):
     _listas, hecho = env["distri.listas"]._asegurar_estructura()
     for linea in hecho:
         _logger.info("19.0.1.129.52: %s", linea)
-    for producto, cigarrillo in env["distri.listas"]._sugerir_vinculos():
+    vinculos = env["distri.listas"]._sugerir_vinculos()
+    marcados = env["distri.listas"]._marcar_precio_por_lista()
+    for valor, plantillas in ((True, marcados[True]), (False, marcados[False])):
+        _logger.info("19.0.1.129.52: %s products «precio por lista obligatorio» = %s: %s",
+                     len(plantillas), valor, ", ".join("%s (%s)" % (p.name, p.id)
+                                                       for p in plantillas.sorted("name")))
+    for producto, cigarrillo in vinculos:
         _logger.info("19.0.1.129.52: «%s» (id %s) linked to «%s» (id %s)",
                      producto.name, producto.id, cigarrillo.name, cigarrillo.id)
     grupo = env.ref(GRUPO_LISTAS, raise_if_not_found=False)

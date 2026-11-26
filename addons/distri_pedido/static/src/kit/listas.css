@@ -34,3 +34,5 @@ a.ls-row:active{background:var(--dn-tint)}
 .ls-aviso{color:var(--dn-amber-text)}
 .ls-tabla--carga tr[data-estado="error"] td{background:var(--dn-red-bg)}
 .ls-clave .dn-btn{align-self:flex-start}
+.ls-oblig{display:flex;align-items:center;gap:6px;margin:4px 0 2px;font-size:13px;font-weight:600;cursor:pointer}
+.ls-oblig input[type=checkbox]{width:20px;height:20px}

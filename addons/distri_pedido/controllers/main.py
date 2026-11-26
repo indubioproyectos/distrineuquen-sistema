@@ -395,9 +395,11 @@ class TomaDePedidos(http.Controller):
         return producto.categ_id.name in CATEGORIAS_A_PRESUPUESTAR
 
     def _cigarrillo_sin_precio_propio(self, producto, precio):
-        """19.0.1.129.52: a cigarette priced 0 by the visitor's own list."""
+        """19.0.1.129.52: a product that needs a list price
+        (distri_precio_por_lista, the cigarettes) priced 0 by the visitor's
+        own list: no price in it, «a presupuestar»."""
         return (bool(self._lista_propia()) and not producto.distri_lista_personal
-                and producto.categ_id.name in CATEGORIAS_CIGARRILLOS_LISTAS
+                and producto.distri_precio_por_lista
                 and (precio or 0.0) <= 0.0)
 
     def _unidad_de_venta(self, producto):

@@ -142,11 +142,20 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         self.assertEqual(lista_oculta(self.env), may)
         self.assertEqual(lista_general(self.env), self.general)
         self.assertEqual(self.general.distri_clave, "general")
+        # May -> «Cigarrillos a presupuestar» -> General; one 0 rule per
+        # product with «precio por lista obligatorio», no category rules
+        presupuestar = self.listas["presupuestar"]
         globales = may.item_ids.filtered(lambda i: i.applied_on == "3_global")
-        self.assertEqual(globales.base_pricelist_id, self.general)
-        cig_rule = may.item_ids.filtered(lambda i: i.applied_on == "2_product_category")
-        self.assertEqual(cig_rule.categ_id, self.categ_cig | self.categ_agil)
-        self.assertEqual(set(cig_rule.mapped("fixed_price")), {0.0})
+        self.assertEqual(globales.base_pricelist_id, presupuestar)
+        self.assertEqual(presupuestar.item_ids.filtered(
+            lambda i: i.applied_on == "3_global").base_pricelist_id, self.general)
+        self.assertFalse(may.item_ids.filtered(lambda i: i.applied_on == "2_product_category"))
+        ceros = presupuestar.item_ids.filtered(lambda i: i.applied_on == "1_product")
+        self.assertEqual(set(ceros.mapped("fixed_price")), {0.0})
+        self.assertIn(self.cig, ceros.product_tmpl_id)
+        self.assertIn(self.cig_sin, ceros.product_tmpl_id)
+        self.assertNotIn(self.farmacia, ceros.product_tmpl_id)
+        self.assertTrue(presupuestar.distri_mayorista and presupuestar._distri_es_oculta())
         for clave, lista in (("lista2", self.lista2), ("lista3", self.lista3),
                              ("lista4", self.lista4)):
             self.assertEqual(self.listas[clave], lista)
@@ -278,6 +287,94 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         with self.assertRaises(UserError):
             Listas._usar_precio_may("lista2")
 
+    def test_related_items_take_general_cigarettes_stay_a_presupuestar(self):
+        """Owner, 26/11/2026: papers, filters and rolling tobacco share the
+        AgilPedido category with the cigarettes. In a hidden list they take
+        the General price unless the list prices them; only the products with
+        «Precio por lista obligatorio» stay «a presupuestar». The toggle of
+        the grid decides it."""
+        base = {"type": "consu", "sale_ok": True, "is_published": True,
+                "categ_id": self.categ_agil.id}
+        Tmpl = self.env["product.template"]
+        ocb = Tmpl.create(dict(base, name="OCB Premium Prueba152", list_price=1500.0))
+        pack = Tmpl.create(dict(base, name="Golden blue Prueba152 20", list_price=9000.0))
+        self.assertFalse(ocb.distri_precio_por_lista, "papers: by name")
+        self.assertTrue(pack.distri_precio_por_lista, "a pack in the cigarette category")
+        self.assertEqual(self._precio(self.lista3, ocb), 1500.0, "General price")
+        self.assertEqual(self._precio(self.may, ocb), 1500.0)
+        self.assertEqual(self._precio(self.lista3, pack), 0.0, "a presupuestar")
+        Listas = self._listas()
+        Listas._guardar_precios({("lista3", ocb.id): 1200.0, ("lista3", pack.id): 8100.0})
+        self.assertEqual(self._precio(self.lista3, ocb), 1200.0, "its list price")
+        self.assertEqual(self._precio(self.lista3, pack), 8100.0)
+        self.assertEqual(self._precio(self.lista4, ocb), 1500.0)
+        self.assertEqual(self._precio(self.lista4, pack), 0.0)
+        # the toggle
+        self.assertEqual(Listas._guardar_obligatorio({ocb.id: True, pack.id: False}), 2)
+        self.assertEqual(self._precio(self.lista4, ocb), 0.0)
+        self.assertEqual(self._precio(self.lista4, pack), 9000.0)
+        self.assertTrue(ocb.distri_precio_por_lista_fijado and pack.distri_precio_por_lista_fijado)
+        self.assertIn("OCB Premium Prueba152", self.listas["presupuestar"].message_ids[:1].body)
+        with self.assertRaises(AccessError):
+            self.env["distri.listas"].with_user(self.gerente)._guardar_obligatorio({ocb.id: False})
+        fila = [f for f in Listas._grilla()["filas"] if f["id"] == ocb.id][0]
+        self.assertTrue(fila["obligatorio"])
+
+    def test_grid_toggle_over_http(self):
+        base = {"type": "consu", "sale_ok": True, "is_published": True,
+                "categ_id": self.categ_agil.id}
+        filtro = self.env["product.template"].create(dict(base, name="Filtro Prueba152 x 150",
+                                                          list_price=700.0))
+        self.assertFalse(filtro.distri_precio_por_lista)
+        self.authenticate("gonzalo_152", "gonzalo_152")
+        html = self.url_open("/listas/cigarrillos").text
+        self.assertIn('name="f_%s"' % filtro.id, html)
+        self.assertIn("Sin precio en la lista: precio General", html)
+        token = re.search(r'name="csrf_token"[^>]*? value="([^"]+)"', html).group(1)
+        res = self.url_open("/listas/cigarrillos", data={
+            "csrf_token": token, "fo_%s" % filtro.id: "0", "f_%s" % filtro.id: "1"})
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(filtro.distri_precio_por_lista)
+        self.assertEqual(self._precio(self.lista2, filtro), 0.0)
+        res = self.url_open("/listas/cigarrillos", data={
+            "csrf_token": token, "fo_%s" % filtro.id: "1"})
+        self.assertFalse(filtro.distri_precio_por_lista)
+        self.assertEqual(self._precio(self.lista2, filtro), 700.0)
+
+    def test_migration_marks_precio_por_lista_without_overwriting(self):
+        base = {"type": "consu", "sale_ok": True}
+        Tmpl = self.env["product.template"]
+        viejo = Tmpl.create(dict(base, name="Viejo Prueba152 20", categ_id=self.categ_cig.id))
+        papel = Tmpl.create(dict(base, name="Celulosa Prueba152 x 20", categ_id=self.categ_cig.id))
+        ocb = Tmpl.create(dict(base, name="OCB X PERT Prueba152", categ_id=self.categ_agil.id))
+        tabaco = Tmpl.create(dict(base, name="Tabaco Cuatro Leguas Prueba152 x 10 x 50g.",
+                                  categ_id=self.categ_agil.id))
+        pack = Tmpl.create(dict(base, name="Red Point Prueba152 Box 20",
+                                categ_id=self.categ_agil.id))
+        manual = Tmpl.create(dict(base, name="Golden Prueba152 manual 20",
+                                  categ_id=self.categ_agil.id))
+        otro = Tmpl.create(dict(base, name="Ibuprofeno otro Prueba152"))
+        todos = viejo | papel | ocb | tabaco | pack | manual | otro
+        todos.write({"distri_precio_por_lista": False})
+        manual.write({"distri_precio_por_lista_fijado": True})
+        marcados = self.env["distri.listas"]._marcar_precio_por_lista()
+        self.assertTrue(viejo.distri_precio_por_lista, "the old CIGARRILLOS category")
+        self.assertFalse(papel.distri_precio_por_lista, "papers by name, whatever the category")
+        self.assertFalse(ocb.distri_precio_por_lista)
+        self.assertFalse(tabaco.distri_precio_por_lista)
+        self.assertTrue(pack.distri_precio_por_lista)
+        self.assertFalse(manual.distri_precio_por_lista, "set by hand: untouched")
+        self.assertFalse(otro.distri_precio_por_lista, "not a cigarette category")
+        self.assertIn(ocb, marcados[False])
+        self.assertIn(tabaco, marcados[False])
+        self.assertIn(pack, marcados[True])
+        self.assertNotIn(manual, marcados[True] | marcados[False])
+        self.assertNotIn(otro, marcados[True] | marcados[False])
+        segunda = self.env["distri.listas"]._marcar_precio_por_lista()
+        self.assertFalse(segunda[True] | segunda[False], "idempotent")
+        self.assertEqual(self._precio(self.lista3, pack), 0.0)
+        self.assertEqual(self._precio(self.lista3, ocb), ocb.list_price, "General price")
+
     def test_migration_links_may_products_by_price(self):
         self.may_l3.list_price = P_LISTA3_CIG
         hechos = self.env["distri.listas"]._sugerir_vinculos()
@@ -292,8 +389,6 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         idempotent. The new AgilPedido section category counts as cigarettes."""
         base = {"type": "consu", "sale_ok": True, "is_published": True,
                 "categ_id": self.categ_agil.id}
-        self.assertEqual(self.may.item_ids.filtered(
-            lambda i: i.categ_id == self.categ_agil).fixed_price, 0.0)
         Tmpl = self.env["product.template"]
         # production names: the GREEN one is called «Milenio Mint» (owner)
         red = Tmpl.create(dict(base, name="MILENIO RED Box X 20", list_price=16900.0))
@@ -303,6 +398,7 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         may_rg = Tmpl.create(dict(base, name="May Milenio RED / GREEN 20 - lista 3",
                                   list_price=16000.0, is_published=False))
         self.assertEqual(may_rg.distri_lista_personal, "lista_3")
+        self.assertTrue(red.distri_precio_por_lista and green.distri_precio_por_lista)
         self.assertEqual(self.env["distri.listas"]._variantes_nombre(may_rg.name),
                          ["milenio red 20", "milenio green 20"])
         hechos = self.env["distri.listas"]._sugerir_vinculos()

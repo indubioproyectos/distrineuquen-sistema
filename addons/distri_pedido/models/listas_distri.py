@@ -7,15 +7,17 @@ Price lists, chained so a «May» or General price is loaded once:
 
 - General (distri_clave «general»): public; cigarettes «a presupuestar».
 - May farmacia y varios («may», it was «Distribuidoras», same record): the
-  hidden «May» prices. A global rule based on General gives everything
-  without a «May» price the General price, and a rule per cigarette category
-  (CATEGORIAS_CIGARRILLOS_LISTAS) gives 0: a cigarette never takes a price from
-  this list or from General.
-- Lista 2 + May farmacia / Lista 3 / Lista 4 («lista2/3/4»): cigarette
-  prices only (one fixed rule per cigarette), and a global rule based on
-  «May farmacia y varios». A cigarette without its own rule falls to the 0
-  of the May list: «a presupuestar», never a wrong price. The «Revendedor
-  NN» lists are already based on the May list, so the same holds for them.
+  hidden «May» prices, with a global rule based on «Cigarrillos a
+  presupuestar» («presupuestar»), which has a 0 rule per product with
+  distri_precio_por_lista («Precio por lista obligatorio», the cigarette
+  packs) and a global rule based on General. So anything without a «May»
+  price takes the General price, except those products: 0 = «a presupuestar».
+  Papers, filters and rolling tobacco (same AgilPedido category as the
+  cigarettes, owner 26/11/2026) take General unless a list prices them.
+- Lista 2 + May farmacia / Lista 3 / Lista 4 («lista2/3/4»): one fixed rule
+  per product the gerente prices, and a global rule based on «May farmacia y
+  varios». The «Revendedor NN» lists are already based on the May list, so
+  the same fallback holds for them.
 
 Customer categories (one per customer, derived from its price list and
 res.partner.distri_lista_oculta, never stored apart): 1 General (not hidden),
@@ -56,6 +58,9 @@ CLAVES_LISTA = [
     ("lista2", "Lista 2 + May farmacia"),
     ("lista3", "Lista 3 + May farmacia"),
     ("lista4", "Lista 4 + May farmacia"),
+    # between May and General: the 0 («a presupuestar») of the products with
+    # distri_precio_por_lista, one rule per product
+    ("presupuestar", "Cigarrillos a presupuestar"),
 ]
 # names used to find (and create) each list on a database without the key
 NOMBRES_POR_CLAVE = {
@@ -64,6 +69,7 @@ NOMBRES_POR_CLAVE = {
     "lista2": (LISTA_2,),
     "lista3": ("Lista 3",),
     "lista4": ("Lista 4",),
+    "presupuestar": ("Cigarrillos a presupuestar",),
 }
 LISTAS_CIGARRILLOS = ("lista2", "lista3", "lista4")
 # the «May X - lista N» products (models/lista_personal.py) of each list
@@ -133,6 +139,29 @@ def _normalizar(nombre):
     return " ".join(palabras)
 
 
+# 19.0.1.129.52 (owner): papers, filters and rolling tobacco share the
+# AgilPedido category with the cigarettes but are not cigarette packs
+NO_ES_CIGARRILLO = re.compile(
+    r"\b(ocb|filtros?|papel(es|illos?)?|celulosas?|tips|sedas?|tabacos?|boquillas?|"
+    r"encendedor(es)?|picadoras?|armadoras?|tubos?)\b", re.IGNORECASE)
+# the categories that were «a presupuestar» before the AgilPedido sync moved
+# the cigarettes (CIGARRILLOS, Tabaco VAN KIFF)
+CATEGORIAS_ANTERIORES = ("CIGARRILLOS", "Tabaco VAN KIFF")
+
+
+def precio_por_lista_sugerido(nombre, categoria, vinculado=False):
+    """Whether a product needs a list price (True: «a presupuestar» without
+    one) or takes the General price (False). Papers, filters and rolling
+    tobacco by name («OCB», «Papel», «Filtro», «Celulosa», «Tabaco»...), no,
+    whatever the category; the old cigarette categories (CIGARRILLOS, Tabaco
+    VAN KIFF), a product linked from a «May X - lista N» one or anything else
+    in the AgilPedido cigarette category, yes."""
+    if NO_ES_CIGARRILLO.search(nombre or ""):
+        return False
+    return bool(categoria in CATEGORIAS_ANTERIORES or vinculado
+                or categoria in CATEGORIAS_CIGARRILLOS_LISTAS)
+
+
 class ProductPricelistClave(models.Model):
     _inherit = "product.pricelist"
 
@@ -152,6 +181,32 @@ class ProductPricelistClave(models.Model):
 
 class ProductTemplateCigarrilloMay(models.Model):
     _inherit = "product.template"
+
+    distri_precio_por_lista = fields.Boolean(
+        string="Precio por lista obligatorio", copy=False, index=True,
+        help="Con la marca, en las listas ocultas el producto sin precio propio en la lista "
+             "del cliente queda «a presupuestar» (los cigarrillos). Sin la marca toma el precio "
+             "de la lista General (papel, filtros, tabaco para armar...).")
+    # set by hand (grid) or by the migration: the migration never changes it again
+    distri_precio_por_lista_fijado = fields.Boolean(copy=False, readonly=True)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if "distri_precio_por_lista" not in vals and vals.get("categ_id"):
+                categoria = self.env["product.category"].sudo().browse(vals["categ_id"])
+                vals["distri_precio_por_lista"] = precio_por_lista_sugerido(
+                    vals.get("name"), categoria.name)
+        plantillas = super().create(vals_list)
+        self.env["distri.listas"]._sincronizar_presupuestar(
+            plantillas.filtered("distri_precio_por_lista"))
+        return plantillas
+
+    def write(self, vals):
+        resultado = super().write(vals)
+        if "distri_precio_por_lista" in vals:
+            self.env["distri.listas"]._sincronizar_presupuestar(self)
+        return resultado
 
     distri_cigarrillo_ids = fields.Many2many(
         "product.template", "distri_cigarrillo_may_rel", "producto_may_id", "cigarrillo_id",
@@ -209,7 +264,7 @@ class DistriListas(models.AbstractModel):
         moneda = env.company.currency_id
         hecho = []
         listas = {}
-        for clave in ("general", "may", "lista2", "lista3", "lista4"):
+        for clave in ("general", "may", "lista2", "lista3", "lista4", "presupuestar"):
             lista = self.sudo()._buscar_para_clave(clave)
             valores = {}
             if not lista:
@@ -230,22 +285,99 @@ class DistriListas(models.AbstractModel):
             if valores:
                 lista.write(valores)
             listas[clave] = lista
-        general, may = listas["general"], listas["may"]
-        if self._asegurar_regla_base(may, general):
-            hecho.append("«%s»: lo que no tiene precio May toma el de General" % may.name)
-        categorias = env["product.category"].search(
-            [("name", "in", list(CATEGORIAS_CIGARRILLOS_LISTAS))])
-        for categoria in categorias:
-            if not may.item_ids.filtered(lambda i: i.applied_on == "2_product_category"
-                                         and i.categ_id == categoria):
-                Item.create({"pricelist_id": may.id, "applied_on": "2_product_category",
-                             "categ_id": categoria.id, "compute_price": "fixed",
-                             "fixed_price": 0.0, "min_quantity": 0.0})
-                hecho.append("«%s»: %s a presupuestar (precio 0)" % (may.name, categoria.name))
+        general, may, presupuestar = listas["general"], listas["may"], listas["presupuestar"]
+        # May -> «Cigarrillos a presupuestar» -> General
+        if self._asegurar_regla_base(presupuestar, general):
+            hecho.append("«%s» basada en «%s»" % (presupuestar.name, general.name))
+        if self._asegurar_regla_base(may, presupuestar):
+            hecho.append("«%s»: lo que no tiene precio May toma el de General (los cigarrillos "
+                         "sin precio, a presupuestar)" % may.name)
+        # the per-category 0 rules of the first 129.52 builds give way to the
+        # per-product ones
+        viejas = may.item_ids.filtered(lambda i: i.applied_on == "2_product_category"
+                                       and i.compute_price == "fixed" and not i.fixed_price)
+        if viejas:
+            hecho.append("«%s»: reglas por categoría quitadas (%s)" % (
+                may.name, ", ".join(viejas.mapped("categ_id.name"))))
+            viejas.unlink()
+        n = self._sincronizar_presupuestar(
+            env["product.template"].with_context(active_test=False).search(
+                [("distri_precio_por_lista", "=", True)]))
+        if n:
+            hecho.append("«%s»: %s producto(s) a presupuestar" % (presupuestar.name, n))
         for clave in LISTAS_CIGARRILLOS:
             if self._asegurar_regla_base(listas[clave], may):
                 hecho.append("«%s» basada en «%s»" % (listas[clave].name, may.name))
         return listas, hecho
+
+    @api.model
+    def _sincronizar_presupuestar(self, plantillas):
+        """One 0 rule in «Cigarrillos a presupuestar» per product with
+        distri_precio_por_lista, none for the rest of `plantillas`. Returns
+        how many rules it created or removed."""
+        lista = self._lista("presupuestar")
+        if not lista or not plantillas:
+            return 0
+        Item = self.env["product.pricelist.item"].sudo()
+        plantillas = plantillas.sudo().with_context(active_test=False)
+        actuales = Item.search([("pricelist_id", "=", lista.id), ("applied_on", "=", "1_product"),
+                                ("product_tmpl_id", "in", plantillas.ids)])
+        con_regla = set(actuales.mapped("product_tmpl_id").ids)
+        crear = [p for p in plantillas if p.distri_precio_por_lista and p.id not in con_regla]
+        sobran = actuales.filtered(lambda i: not i.product_tmpl_id.distri_precio_por_lista)
+        if crear:
+            Item.create([{"pricelist_id": lista.id, "applied_on": "1_product",
+                          "product_tmpl_id": p.id, "compute_price": "fixed",
+                          "fixed_price": 0.0, "min_quantity": 0.0} for p in crear])
+        sobran.unlink()
+        return len(crear) + len(sobran)
+
+    @api.model
+    def _marcar_precio_por_lista(self):
+        """For the migration: sets distri_precio_por_lista on the products of
+        the cigarette categories (and those linked from a «May X - lista N»
+        product) that nobody fixed yet (precio_por_lista_sugerido), and marks
+        them fixed. Idempotent; never touches a value set by hand. Returns
+        {True: templates, False: templates} changed."""
+        Tmpl = self.env["product.template"].sudo().with_context(active_test=False)
+        vinculados = Tmpl.search([("distri_lista_personal", "!=", False)]).mapped(
+            "distri_cigarrillo_ids")
+        candidatos = Tmpl.search([
+            ("distri_lista_personal", "=", False), ("distri_precio_por_lista_fijado", "=", False),
+            "|", ("categ_id.name", "in", list(CATEGORIAS_CIGARRILLOS_LISTAS)),
+            ("id", "in", vinculados.ids)])
+        cambios = {True: Tmpl.browse(), False: Tmpl.browse()}
+        for plantilla in candidatos:
+            valor = precio_por_lista_sugerido(plantilla.name, plantilla.categ_id.name,
+                                              plantilla in vinculados)
+            cambios[valor] |= plantilla
+        for valor, plantillas in cambios.items():
+            if plantillas:
+                plantillas.write({"distri_precio_por_lista": valor,
+                                  "distri_precio_por_lista_fijado": True})
+        return cambios
+
+    @api.model
+    def _guardar_obligatorio(self, cambios):
+        """The grid's toggle: {template id: bool}. Fixed by hand from then on."""
+        check_listas(self.env)
+        validos = set(self._cigarrillos().ids)
+        Tmpl = self.env["product.template"].sudo()
+        hechos = []
+        for tmpl_id, valor in cambios.items():
+            if tmpl_id not in validos:
+                raise UserError("Ese producto no es de la grilla de cigarrillos.")
+            plantilla = Tmpl.browse(tmpl_id)
+            if plantilla.distri_precio_por_lista != bool(valor):
+                hechos.append("%s: sin precio de lista → %s" % (
+                    plantilla.name, "a presupuestar" if valor else "precio General"))
+            plantilla.write({"distri_precio_por_lista": bool(valor),
+                             "distri_precio_por_lista_fijado": True})
+        lista = self._lista("presupuestar")
+        if hechos and lista:
+            lista.message_post(body=Markup("Cambiado por %s:<br/>%s") % (
+                self.env.user.name, Markup("<br/>").join(hechos)))
+        return len(hechos)
 
     @api.model
     def _listas_otra(self):
@@ -476,7 +608,8 @@ class DistriListas(models.AbstractModel):
         may = self._productos_may()
         filas = []
         for cig in cigarrillos:
-            fila = {"id": cig.id, "nombre": cig.name, "precio_lista": cig.list_price}
+            fila = {"id": cig.id, "nombre": cig.name, "precio_lista": cig.list_price,
+                    "obligatorio": cig.distri_precio_por_lista}
             for clave in LISTAS_CIGARRILLOS:
                 regla = reglas[clave].get(cig.id)
                 fila[clave] = regla.fixed_price if regla else None
@@ -491,7 +624,8 @@ class DistriListas(models.AbstractModel):
     @api.model
     def _guardar_precios(self, cambios):
         """cambios: {(clave, template id): price or None}. None (or 0) takes
-        the rule away: the cigarette goes back to «a presupuestar». Returns
+        the rule away: the product goes back to its fallback («a presupuestar»
+        with «Precio por lista obligatorio», else the General price). Returns
         how many rules changed. Logged in each list's chatter."""
         check_listas(self.env)
         validos = set(self._cigarrillos().ids)

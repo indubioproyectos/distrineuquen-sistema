@@ -179,6 +179,16 @@ class ListasAccesos(http.Controller):
                 if nuevo != antes:
                     cambios[(clave, int(tmpl))] = nuevo
             n = Listas._guardar_precios(cambios) if cambios else 0
+            # «Precio por lista obligatorio»: «fo_<id>» is what the page showed,
+            # the checkbox «f_<id>» is only posted when ticked
+            obligatorio = {}
+            for nombre in form:
+                if nombre.startswith("fo_") and nombre[3:].isdigit():
+                    nuevo = bool(form.get("f_" + nombre[3:]))
+                    if nuevo != (form.get(nombre) == "1"):
+                        obligatorio[int(nombre[3:])] = nuevo
+            if obligatorio:
+                n += Listas._guardar_obligatorio(obligatorio)
             if usar:
                 clave, _sep, tmpl = usar.partition(":")
                 if tmpl.isdigit():
