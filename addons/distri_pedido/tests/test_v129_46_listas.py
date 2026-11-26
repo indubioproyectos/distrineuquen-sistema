@@ -13,7 +13,7 @@ import json
 import os
 import re
 
-from odoo import Command
+from odoo import Command, http
 from odoo.tests import HttpCase, new_test_user, tagged
 
 from odoo.addons.distri_pedido.controllers.main import (
@@ -394,3 +394,30 @@ class TestV12946Listas(PedidoAbiertoMixin, HttpCase):
         nuevo.name = "May Nuevo46 RED 20"
         self.assertEqual(nuevo.distri_lista_personal, "lista_3")
 
+    # ------------------------------------------------------------ Armado (hotfix 26/11/2026)
+
+    def test_armado_search_and_add_hide_the_lists_from_packers(self):
+        order = self.env["sale.order"].create({
+            "partner_id": self.cliente.id,
+            "order_line": [Command.create({"product_id": self.comun.product_variant_id.id,
+                                           "product_uom_qty": 1})]})
+        order.action_confirm()
+        order.write({"distri_armado": "en_armado", "distri_armador_id": self.armador.id})
+        url = "/armado/pedido/%s" % order.id
+
+        self.authenticate(self.armador.login, self.armador.login)
+        found = self.url_open(url + "/buscar?q=Pruebal46")
+        self.assertEqual(found.status_code, 200, found.text[:300])
+        self.assertIn("Gaseosa Pruebal46", found.text)
+        for plantilla in self.personales:
+            self.assertNotIn(plantilla.name, found.text)
+        added = self.url_open(url + "/agregar", data={
+            "producto_id": self.l3.id, "cantidad": "1", "clave": "l46-armado",
+            "csrf_token": http.Request.csrf_token(self)}, headers=FETCH)
+        self.assertEqual(added.status_code, 422, added.text[:300])
+        self.assertNotIn(self.l3.product_variant_id, order.order_line.product_id)
+
+        self.authenticate(self.admin.login, self.admin.login)
+        found = self.url_open(url + "/buscar?q=Pruebal46")
+        self.assertEqual(found.status_code, 200, found.text[:300])
+        self.assertIn(self.l3.name, found.text)

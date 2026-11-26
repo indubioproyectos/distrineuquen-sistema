@@ -424,9 +424,17 @@ class Armado(http.Controller):
     def _buscar(self, pedido, q):
         if not q or pedido.distri_armado != "en_armado":
             return request.env["product.template"]
-        return request.env["product.template"].sudo().search([
-            ("sale_ok", "=", True), ("name", "ilike", q),
-        ], order="name", limit=TOPE_BUSQUEDA)
+        domain = [("sale_ok", "=", True), ("name", "ilike", q)]
+        if not self._ve_listas_personales():
+            # 26/11/2026 (owner): «lista 3» / «lista 4» only for Denis,
+            # Gonzalo and Ale (models/lista_personal.py)
+            domain.append(("distri_lista_personal", "=", False))
+        return request.env["product.template"].sudo().search(
+            domain, order="name", limit=TOPE_BUSQUEDA)
+
+    def _ve_listas_personales(self):
+        from ..models.lista_personal import ve_listas_personales
+        return ve_listas_personales(request.env.user)
 
     def _puede_tocar(self, pedido):
         """El que lo tomo lo arma; administracion puede ayudar."""
@@ -626,7 +634,8 @@ class Armado(http.Controller):
         except ValueError:
             plantilla = None
         if (not plantilla or not plantilla.active or not plantilla.sale_ok
-                or not plantilla.product_variant_id):
+                or not plantilla.product_variant_id
+                or (plantilla.distri_lista_personal and not self._ve_listas_personales())):
             return self._rechazo(pedido, "Ese producto no se puede vender.", 422)
         try:
             cantidad = float(str(cantidad).replace(",", "."))
