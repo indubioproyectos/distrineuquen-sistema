@@ -249,7 +249,7 @@ class SaleOrder(models.Model):
         self.ensure_one()
         if not self._distri_sin_cliente():
             return self.partner_id.name
-        return self.distri_nombre or "Sin nombre"
+        return self._distri_nombre_web("Sin nombre")
 
     def _distri_sin_entregar(self):
         """Ni entregado ni facturado: lo de antes del armado se puede tocar."""

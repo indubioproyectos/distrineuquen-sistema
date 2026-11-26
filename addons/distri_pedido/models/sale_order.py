@@ -19,6 +19,16 @@ STOCK_NOTICE = ("Pedido sujeto a disponibilidad de stock. Con este link podés a
 STOCK_NOTICE_SHORT = STOCK_NOTICE.split(". ")[0] + "."
 
 
+def nombre_web(nombre, comercio, sep=" · "):
+    """«Nombre Apellido · Comercio» (19.0.1.129.49); the shop is left out
+    when empty or the same as the name."""
+    nombre = " ".join((nombre or "").split())
+    comercio = " ".join((comercio or "").split())
+    if comercio and comercio.casefold() != nombre.casefold():
+        return sep.join(v for v in (nombre, comercio) if v)
+    return nombre
+
+
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
@@ -35,7 +45,12 @@ class SaleOrder(models.Model):
     # Los datos que cargo el cliente en la pagina. Antes vivian solo adentro
     # de la nota, en texto libre, asi que al editar el pedido habia que
     # volver a escribirlos todos.
-    distri_nombre = fields.Char(string="Comercio (web)", copy=False)
+    # 19.0.1.129.49 (owner): the form asks first for the person's name and
+    # surname (distri_nombre) and then, optional, the shop's name
+    # (distri_comercio). Older orders hold whatever was typed under the old
+    # «Nombre del comercio» label in distri_nombre.
+    distri_nombre = fields.Char(string="Nombre y apellido (web)", copy=False)
+    distri_comercio = fields.Char(string="Comercio (web)", copy=False)
     distri_telefono = fields.Char(string="Teléfono (web)", copy=False)
     distri_domicilio = fields.Char(string="Domicilio (web)", copy=False)
     distri_entrega = fields.Selection(
@@ -56,6 +71,13 @@ class SaleOrder(models.Model):
     distri_partner_generic = fields.Boolean(
         string="Sin cliente asignado", related="partner_id.distri_generic_partner",
     )
+
+    def _distri_nombre_web(self, fallback=""):
+        """19.0.1.129.49: what the buyer typed as who he is, for staff
+        screens and texts: «Nombre Apellido · Comercio» when both exist,
+        either one alone otherwise (a shop equal to the name shows once)."""
+        self.ensure_one()
+        return nombre_web(self.distri_nombre, self.distri_comercio) or fallback
 
     def _es_pedido_web_sin_asignar(self):
         """Un pedido que entro por la pagina y todavia no tiene cliente real."""

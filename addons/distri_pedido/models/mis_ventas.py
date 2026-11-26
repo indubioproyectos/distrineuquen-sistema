@@ -96,7 +96,7 @@ def _cuando(moment):
 
 def _cliente(order):
     if not order.partner_id or order.partner_id.distri_generic_partner:
-        return order.distri_nombre or "Sin cliente asignado"
+        return order._distri_nombre_web("Sin cliente asignado")
     return order.partner_id.name or ""
 
 
@@ -195,7 +195,8 @@ def buscar(env, q="", periodo=DEFAULT_PERIODO, estado=DEFAULT_ESTADO, vendedor=N
     q = (q or "").strip()[:80]
     if q:
         domain &= (Domain("name", "ilike", q) | Domain("partner_id.name", "ilike", q)
-                   | Domain("distri_nombre", "ilike", q) | Domain("client_order_ref", "ilike", q))
+                   | Domain("distri_nombre", "ilike", q) | Domain("distri_comercio", "ilike", q)
+                   | Domain("client_order_ref", "ilike", q))
     # sudo: the domain above is the access (own orders, or Gerencia)
     orders = env["sale.order"].sudo().search(domain, order="date_order desc, id desc",
                                              limit=LIMIT + 1)

@@ -510,11 +510,17 @@
           <p class="ayuda">Primero aparecen tus clientes. Si no está, dejalo vacío y
             completá los datos: el administrador lo asigna.</p>
         </div>
-        <label class="campo">Nombre del comercio
-          <input type="text" name="nombre" id="f_nombre" class="dato"
-                 autocomplete="organization" t-att-value="datos['nombre']"/>
+        <!-- 19.0.1.129.49 (owner): the person first, the shop (optional)
+             under it: many customers are on file by name and surname -->
+        <label class="campo">Nombre y apellido
+          <input type="text" name="nombre" id="f_nombre" class="dato" maxlength="120"
+                 autocomplete="name" t-att-value="datos['nombre']"/>
         </label>
-        <div class="err" id="e_nombre">Poné el nombre del comercio</div>
+        <div class="err" id="e_nombre">Poné tu nombre y apellido</div>
+        <label class="campo">Nombre del comercio <span class="opcional">(si tenés)</span>
+          <input type="text" name="comercio" id="f_comercio" class="dato" maxlength="120"
+                 autocomplete="organization" t-att-value="datos.get('comercio') or ''"/>
+        </label>
 
         <label class="campo">Teléfono
           <input type="tel" name="telefono" id="f_tel" class="dato" inputmode="tel"
@@ -593,6 +599,8 @@
     </div>
   </form>
 
+  <!-- 19.0.1.129.49: the steps in the browser history (back = previous step) -->
+  <script t-if="pasos_js" t-att-src="pasos_js"/>
   <script type="text/javascript">
     (function () {
       // 19.0.1.91.0: the minimum purchase is for EVERY order of this page,
@@ -838,23 +846,33 @@
         document.getElementById('nota_dom').textContent = nota;
       }
 
+      // 19.0.1.129.49: one function draws a step; going to one goes
+      // through the browser history (pedido_pasos.js), so the phone's back
+      // button returns to the previous step instead of leaving the page
+      function mostrar(paso) {
+        p3.classList.toggle('ver', paso === 3);
+        if (paso === 2) { pintarDetalle(); ajustarEntrega(); }
+        p2.classList.toggle('ver', paso === 2);
+      }
+      var pasos = window.DNPedidoPasos ? window.DNPedidoPasos.crear(window, mostrar)
+        : {ir: mostrar};
       document.getElementById('ver').addEventListener('click', function () {
-        pintarDetalle(); ajustarEntrega(); p2.classList.add('ver');
+        pasos.ir(2);
       });
       document.getElementById('volver1').addEventListener('click', function () {
-        p2.classList.remove('ver');
+        pasos.ir(1);
       });
       document.getElementById('ir3').addEventListener('click', function () {
-        p2.classList.remove('ver'); p3.classList.add('ver');
+        pasos.ir(3);
       });
       document.getElementById('volver2').addEventListener('click', function () {
-        p3.classList.remove('ver'); pintarDetalle(); p2.classList.add('ver');
+        pasos.ir(2);
       });
 
       document.getElementById('frm').addEventListener('submit', function (ev) {
         if (!alcanzaMinimo()) {
           ev.preventDefault();
-          p3.classList.remove('ver'); pintarDetalle(); ajustarEntrega(); p2.classList.add('ver');
+          pasos.ir(2);
           return;
         }
         var falla = false;
@@ -1681,6 +1699,10 @@
     <a class="volver" href="/pedido" data-side="">Volver al catálogo</a>
   </div>
   <t t-call="distri_pedido.enviado_empresa_js"/>
+  <!-- 19.0.1.129.49: the order arrived, so the device draft of /pedido
+       (pedido_borrador.js) goes now, not when the form was sent: a send
+       that failed (minimum, expired page, no signal) keeps the cart -->
+  <script t-if="borrador_clave" t-att-data-borrador="borrador_clave">try{localStorage.removeItem('dn:pedido:borrador:'+document.currentScript.getAttribute('data-borrador'))}catch(e){}</script>
 </body>
 </html>
   </template>

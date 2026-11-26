@@ -78,12 +78,12 @@ class TestPedidoAnonimo(PedidoAbiertoMixin, HttpCase):
         res = post_pedido(self, self._data(nombre="", telefono="", domicilio=""))
         self.assertEqual(res.status_code, 400)
         self.assertIn("Faltan tus datos", res.text)
-        self.assertIn("el nombre del comercio, un teléfono de contacto y el domicilio de entrega",
+        self.assertIn("tu nombre y apellido, un teléfono de contacto y el domicilio de entrega",
                       res.text)
         # a one-line error without a form: sin_historial.js shows it in place
         self.assertNotIn("<form", res.text)
         self.assertEqual(self.env["sale.order"].sudo().search_count([]), antes)
-        for falta, data in (("el nombre del comercio", {"nombre": "   "}),
+        for falta, data in (("tu nombre y apellido", {"nombre": "   "}),
                             ("un teléfono de contacto", {"telefono": " "}),
                             ("el domicilio de entrega", {"domicilio": ""})):
             res = post_pedido(self, self._data(**data))

@@ -180,7 +180,7 @@ class WhatsappMessageCustomerUpload(models.Model):
         body = "Comprobante del pedido %s, subido por el cliente desde la página del pedido" % (
             order.name)
         if not customer:
-            typed_data = [v for v in (order.distri_nombre, order.distri_telefono) if v]
+            typed_data = [v for v in (order._distri_nombre_web(), order.distri_telefono) if v]
             if typed_data:
                 body += " · escribió: %s" % " · ".join(typed_data)
         extra = {

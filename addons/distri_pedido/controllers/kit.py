@@ -113,6 +113,8 @@ FILES = {
                                  "text/javascript; charset=utf-8"),
     "teclado.js": ("kit/teclado.js", "text/javascript; charset=utf-8"),
     "pedido_borrador.js": ("js/pedido_borrador.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.129.49: /pedido's steps in the browser history
+    "pedido_pasos.js": ("js/pedido_pasos.js", "text/javascript; charset=utf-8"),
     # 19.0.1.129.33: /despacho and /cuentas with the kit's look, «Equipo» and
     # «Ordenar el Inicio» (ui_v2 only)
     "despacho_v2.css": ("kit/despacho_v2.css", "text/css; charset=utf-8"),

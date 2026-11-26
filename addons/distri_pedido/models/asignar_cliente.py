@@ -12,6 +12,7 @@ from odoo.exceptions import UserError
 
 from .ar_phone import only_digits, phone_match_key, read_pasted_phone
 from .res_partner import GENERIC_WHOLESALE
+from .sale_order import nombre_web
 
 MAX_CANDIDATOS = 8
 # Argentine numbers are written with and without +54, 9 and the area code:
@@ -72,6 +73,14 @@ def comparar_nombre(web, nombre):
     if len(comunes) >= 2 or (comunes and len(web_p) == 1 and len(cand_p) == 1):
         return "si"
     return "parcial" if comunes else "no"
+
+
+def comparar_nombres(webs, nombre):
+    """19.0.1.129.49: the best mark of several typed names (the person's
+    and the shop's) against one customer's name."""
+    orden = ["si", "parcial", "no", "falta"]
+    marcas = [comparar_nombre(web, nombre) for web in webs if (web or "").strip()]
+    return min(marcas, key=orden.index) if marcas else "falta"
 
 
 def coincide_sin_caracteristica(valor, nacional):
@@ -151,6 +160,8 @@ class DistriAsignarCliente(models.TransientModel):
                                ondelete="cascade")
     order_state = fields.Selection(related="order_id.state")
     web_nombre = fields.Char(related="order_id.distri_nombre", string="Nombre en la web")
+    # 19.0.1.129.49: the shop's name, typed under the person's name
+    web_comercio = fields.Char(related="order_id.distri_comercio", string="Comercio en la web")
     web_telefono = fields.Char(related="order_id.distri_telefono", string="Teléfono en la web")
     web_domicilio = fields.Char(related="order_id.distri_domicilio", string="Domicilio en la web")
     mayorista = fields.Boolean(compute="_compute_mayorista")
@@ -206,7 +217,9 @@ class DistriAsignarCliente(models.TransientModel):
         pedido = self.env["sale.order"].browse(valores.get("order_id"))
         if pedido.exists():
             valores.setdefault("busqueda", pedido.distri_nombre or pedido.distri_telefono or "")
-            valores.setdefault("nuevo_nombre", pedido.distri_nombre or "")
+            # 19.0.1.129.49: «NOMBRE APELLIDO - COMERCIO», as customers are on file
+            valores.setdefault("nuevo_nombre", nombre_web(
+                pedido.distri_nombre, pedido.distri_comercio, sep=" - "))
             valores.setdefault("nuevo_telefono", pedido.distri_telefono or "")
             valores.setdefault("nuevo_domicilio", pedido.distri_domicilio or "")
             # the town the buyer wrote in the address, else the order's zone
@@ -237,7 +250,8 @@ class DistriAsignarCliente(models.TransientModel):
         Partner = self.env["res.partner"]
         for asistente in self:
             asistente.candidato_ids = Partner._distri_candidatos_pedido(
-                asistente.busqueda, asistente.web_nombre, asistente.web_telefono)
+                asistente.busqueda, asistente.web_nombre, asistente.web_telefono,
+                comercio_web=asistente.web_comercio)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -275,7 +289,9 @@ class DistriAsignarCliente(models.TransientModel):
         ciudad = socio.city or town_from_name(socio.name)
         marcas = {
             "telefono": comparar_telefono(self.web_telefono, telefonos),
-            "nombre": comparar_nombre(self.web_nombre, socio.name),
+            # 19.0.1.129.49: the customer may be on file by the person's
+            # name or by the shop's: the better of both counts
+            "nombre": comparar_nombres((self.web_nombre, self.web_comercio), socio.name),
             "domicilio": comparar_domicilio(self.web_domicilio, socio.street),
             "ciudad": comparar_ciudad(self.web_ciudad, ciudad),
         }
@@ -447,12 +463,15 @@ class ResPartner(models.Model):
     _inherit = "res.partner"
 
     @api.model
-    def _distri_candidatos_pedido(self, busqueda, nombre_web, telefono_web):
+    def _distri_candidatos_pedido(self, busqueda, nombre_web, telefono_web, comercio_web=None):
         """Customers that may be the buyer of a web order.
 
         What the search box finds, plus the customers with the phone the
         buyer typed and the ones whose name shares a word with the name the
         buyer typed: a shop name spelled differently still shows up.
+        19.0.1.129.49: the buyer types his name and surname and, optional,
+        the shop's name; customers are on file under either, so both are
+        searched (whole and by words).
         """
         base = [("distri_generic_partner", "=", False), ("type", "=", "contact")]
         encontrados = self._distri_buscar_clientes(busqueda)
@@ -465,7 +484,14 @@ class ResPartner(models.Model):
                 if "phone_mobile_search" in self._fields else ("phone_sanitized", "=like", "%" + clave)
             encontrados |= self.search(base + ["|", telefono, ("distri_whatsapp", "like", clave)],
                                        limit=MAX_CANDIDATOS)
-        palabras = sorted(set(_palabras(strip_town_prefix(nombre_web))), key=len, reverse=True)[:3]
+        comercio_web = (comercio_web or "").strip()
+        if comercio_web and comercio_web.casefold() != (busqueda or "").strip().casefold():
+            encontrados |= self._distri_buscar_clientes(comercio_web)
+        palabras = []
+        for texto in (nombre_web, comercio_web):
+            for palabra in sorted(set(_palabras(strip_town_prefix(texto))), key=len, reverse=True)[:3]:
+                if palabra not in palabras:
+                    palabras.append(palabra)
         for palabra in palabras:
             if len(palabra) >= 4 and len(encontrados) < MAX_CANDIDATOS * 2:
                 encontrados |= self.search(base + [("name", "ilike", palabra)],

@@ -160,7 +160,7 @@ class DistriPackage(models.Model):
         order = self.order_id.sudo()
         partner = order.partner_id
         generic = partner.distri_generic_partner
-        name = (order.distri_nombre or partner.name) if generic else partner._distri_app_name()
+        name = order._distri_nombre_web(partner.name) if generic else partner._distri_app_name()
         town, prefix = label_town(partner, generic, order.distri_zona_id.name or "")
         total = order.distri_bultos or len(order.distri_package_ids) or 1
         # 19.0.1.101.0: the packer prints the labels and the route is often

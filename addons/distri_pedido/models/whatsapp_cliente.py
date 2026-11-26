@@ -88,7 +88,7 @@ class DistriWaConfirmWizard(models.TransientModel):
         for wizard in self:
             order = wizard.order_id.sudo()
             wizard.generic = bool(order.partner_id.distri_generic_partner)
-            wizard.customer_name = ((order.distri_nombre or order.partner_id.name)
+            wizard.customer_name = (order._distri_nombre_web(order.partner_id.name)
                                     if wizard.generic else order.partner_id.name) or ""
             wizard.allow_skip = allow
 

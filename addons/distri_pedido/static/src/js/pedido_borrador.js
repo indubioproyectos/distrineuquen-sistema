@@ -12,7 +12,9 @@
  * Restoring only types quantities into the rows the server drew now: a
  * product that is no longer in the catalog is dropped, and every price is
  * the one on the page (nothing stored is trusted). It is cleared when the
- * order is sent or the draft discarded, and expires after 3 days. Not used
+ * order arrives (19.0.1.129.49: the confirmation page «gracias» removes it;
+ * before, the tap on «Enviar» did, so a send refused by the server lost the
+ * cart) or the draft is discarded, and expires after 3 days. Not used
  * while changing an order that exists (the server has it) nor in «Nueva
  * venta»'s picker. Pure client side: the server receives exactly what it
  * received before, so it has no switch.
@@ -21,7 +23,7 @@
   'use strict';
   var DIAS = 3;
   var PREFIJO = 'dn:pedido:borrador:';
-  var CAMPOS = ['nombre', 'telefono', 'domicilio', 'comentario', 'nota_deposito', 'enc_nombre', 'enc_dni',
+  var CAMPOS = ['nombre', 'comercio', 'telefono', 'domicilio', 'comentario', 'nota_deposito', 'enc_nombre', 'enc_dni',
     'enc_localidad', 'vendedor_web_id', 'entrega'];
 
   function filaClave(f) { return String(f.getAttribute('data-id')) + (f.getAttribute('data-may') ? 'm' : ''); }
@@ -148,12 +150,8 @@
     doc.addEventListener('click', function (ev) {
       if (ev.target.closest && ev.target.closest('.opt')) { setTimeout(function () { guardar(store, key, form, Date.now()); }, 0); }
     });
-    // sent: the page's own checks passed (not prevented)
-    doc.addEventListener('submit', function (ev) {
-      if (ev.target === form && !ev.defaultPrevented) {
-        try { store.removeItem(key); } catch (e) { /* private mode */ }
-      }
-    });
+    // 19.0.1.129.49: sending keeps the draft; the confirmation page
+    // (templates.xml «gracias») removes it once the order exists
   }
   if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', start); } else { start(); }
 }());

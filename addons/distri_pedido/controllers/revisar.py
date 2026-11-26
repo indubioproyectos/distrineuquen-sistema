@@ -124,7 +124,7 @@ def card(order):
         "color": color,
         "color_label": COLOR_LABEL.get(color, ""),
         "amount": _money(o.amount_total),
-        "cliente": ((o.distri_nombre or "Sin nombre") if generic else o.partner_id.name) or "",
+        "cliente": (o._distri_nombre_web("Sin nombre") if generic else o.partner_id.name) or "",
         "generic": generic,
         "typed": " · ".join(typed),
         "meta": " · ".join(m for m in meta if m),

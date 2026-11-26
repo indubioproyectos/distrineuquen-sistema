@@ -68,6 +68,7 @@
             <div>
               <span invisible="distri_origen">Entró por la página</span><span invisible="not distri_origen">Entró por WhatsApp (AgilPedido)</span> a nombre del contacto genérico. Lo que escribió el comprador:
               <strong><field name="distri_nombre" readonly="1" class="d-inline"/></strong>
+              <span invisible="not distri_comercio"> · comercio <strong><field name="distri_comercio" readonly="1" class="d-inline"/></strong></span>
               <span invisible="not distri_telefono"> · tel. <field name="distri_telefono" readonly="1" class="d-inline"/></span>
             </div>
             <div class="small">No edites el contacto genérico: asigná el cliente al pedido.</div>
@@ -98,6 +99,7 @@
             <div class="border rounded p-3 h-100 bg-light">
               <div class="fw-bold mb-2">Lo que escribió el comprador en la web</div>
               <div class="fs-5"><field name="web_nombre" readonly="1" class="d-inline"/></div>
+              <div invisible="not web_comercio">Comercio: <field name="web_comercio" readonly="1" class="d-inline"/></div>
               <div>Teléfono: <field name="web_telefono" readonly="1" class="d-inline"/></div>
               <div>Domicilio: <field name="web_domicilio" readonly="1" class="d-inline"/></div>
               <div invisible="not web_ciudad">Ciudad: <field name="web_ciudad" class="d-inline"/></div>

@@ -17,7 +17,8 @@
         <field name="name" string="Pedido"/>
         <field name="create_date" string="Entró" optional="hide"/>
         <field name="distri_wa_age" string="Espera"/>
-        <field name="distri_nombre" string="Comercio"/>
+        <field name="distri_nombre" string="Nombre y apellido"/>
+        <field name="distri_comercio" string="Comercio"/>
         <field name="distri_telefono" string="Teléfono"/>
         <field name="distri_wa_code" string="Código"/>
         <field name="amount_total" string="Total" sum="Total" optional="show"/>

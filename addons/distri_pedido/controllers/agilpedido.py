@@ -109,7 +109,7 @@ def tarjeta(order):
     """One order of the list (views/agilpedido_app.xml agil_tarjeta)."""
     o = order.sudo()
     generic = bool(o.partner_id.distri_generic_partner)
-    nombre = o.distri_nombre or ""
+    nombre = o._distri_nombre_web()
     telefono = _phone(o.distri_telefono) if o.distri_telefono else ""
     if generic:
         cliente = nombre or "Sin nombre"
@@ -736,7 +736,7 @@ class AgilPedido(http.Controller):
             "o": o,
             # 19.0.1.129.34: the order's kit screen with ui_v2 on, else the form
             "pedido_url": record_link(request.env, "pedido", o.id, "/agilpedido/pedido/%s" % o.id),
-            "cliente": (o.distri_nombre or "Sin cliente") if generic else o.partner_id.display_name,
+            "cliente": o._distri_nombre_web("Sin cliente") if generic else o.partner_id.display_name,
             "generic": generic,
             "sugerido": o.distri_agil_cliente_sugerido_id.display_name if generic and
             o.distri_agil_cliente_sugerido_id else "",

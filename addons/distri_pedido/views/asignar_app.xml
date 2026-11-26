@@ -128,7 +128,7 @@
     <!-- ============================================ new customer -->
     <div class="as-pane" data-as-pane="nuevo" t-att-hidden="None if modo == 'nuevo' else 'hidden'">
       <p class="as-mut as-small">Se crea con lo que escribió el comprador: corregí lo que haga falta.</p>
-      <div class="dn-field"><label for="as-nn">Nombre del comercio</label>
+      <div class="dn-field"><label for="as-nn">Nombre del cliente</label>
         <input id="as-nn" name="nuevo_nombre" class="dn-input" maxlength="200" autocomplete="off" t-att-value="nuevo['nuevo_nombre']"/></div>
       <div class="dn-field"><label for="as-nt">Teléfono</label>
         <input id="as-nt" name="nuevo_telefono" class="dn-input dn-num" inputmode="tel" maxlength="200" autocomplete="off"

@@ -834,6 +834,8 @@ class TomaDePedidos(http.Controller):
             # volver a escribirlo
             "datos": {
                 "nombre": pedido.distri_nombre or "" if pedido else "",
+                # 19.0.1.129.49: the shop's name, optional, under the name
+                "comercio": pedido.distri_comercio or "" if pedido else "",
                 "telefono": pedido.distri_telefono or "" if pedido else "",
                 "domicilio": pedido.distri_domicilio or "" if pedido else "",
                 "entrega": pedido.distri_entrega or "domicilio" if pedido else "domicilio",
@@ -883,8 +885,14 @@ class TomaDePedidos(http.Controller):
             # 19.0.1.129.40: the cart kept on the device for a new order
             # (static/src/js/pedido_borrador.js), per user and price list
             **self._contexto_borrador(pedido),
+            # 19.0.1.129.49: the steps in the browser history, for everyone
+            "pasos_js": self._pasos_js(),
             **self._contexto_ui_v2(),
         }
+
+    def _pasos_js(self):
+        from .kit import kit_url
+        return kit_url("pedido_pasos.js")
 
     def _contexto_borrador(self, pedido):
         """19.0.1.129.40: the key of the device draft of a new order (who
@@ -1005,7 +1013,7 @@ class TomaDePedidos(http.Controller):
         if not pedido or pedido.state == "cancel" or pedido.distri_wa_state != "waiting":
             return False
         texto = self._mensaje_whatsapp(
-            pedido, pedido.distri_nombre, pedido.distri_telefono, pedido.distri_domicilio,
+            pedido, pedido._distri_nombre_web(), pedido.distri_telefono, pedido.distri_domicilio,
             pedido.distri_entrega or "domicilio",
             mayorista=bool(pedido.partner_id.distri_generic_kind == "wholesale"))
         return {"url": self._url_whatsapp_empresa(texto), "codigo": pedido.distri_wa_code}
@@ -1411,7 +1419,7 @@ class TomaDePedidos(http.Controller):
         except ValueError:
             original = []
         texto = self._mensaje_whatsapp(
-            pedido, pedido.distri_nombre, pedido.distri_telefono, pedido.distri_domicilio,
+            pedido, pedido._distri_nombre_web(), pedido.distri_telefono, pedido.distri_domicilio,
             pedido.distri_entrega or "domicilio",
             # same rule as when saving: one DISTRIBUIDORAS-section line makes it wholesale
             mayorista=any(r.get("may") for r in original))
@@ -1633,7 +1641,7 @@ class TomaDePedidos(http.Controller):
         the contact, so neither the phone nor the address is required."""
         faltan = []
         if not nombre:
-            faltan.append("el nombre del comercio")
+            faltan.append("tu nombre y apellido")
         if not telefono and not ficha:
             faltan.append("un teléfono de contacto")
         if (entrega == "domicilio" and not encomienda.get("distri_encomienda_pedida")
@@ -1697,7 +1705,7 @@ class TomaDePedidos(http.Controller):
         cantidades_may = {r["id"]: numero(r["cantidad"]) for r in renglones if r.get("may")}
         datos = self._contexto_pantalla(cantidades=cantidades, cantidades_may=cantidades_may,
                                         token=(post.get("token") or "").strip())
-        for campo in ("nombre", "telefono", "domicilio"):
+        for campo in ("nombre", "comercio", "telefono", "domicilio"):
             datos["datos"][campo] = (post.get(campo) or "").strip()[:200]
         datos["recarga"] = True
         return request.render("distri_pedido.pantalla", datos, status=403)
@@ -1732,6 +1740,9 @@ class TomaDePedidos(http.Controller):
             return self._recargar_pedido(renglones, post)
 
         nombre = (post.get("nombre") or "").strip()
+        # 19.0.1.129.49 (owner): the person's name first (required), then the
+        # shop's name, optional (a customer may have no shop)
+        comercio = " ".join((post.get("comercio") or "").split())[:120]
         telefono = (post.get("telefono") or "").strip()
         domicilio = (post.get("domicilio") or "").strip()
         entrega = (post.get("entrega") or "domicilio").strip()
@@ -1897,6 +1908,7 @@ class TomaDePedidos(http.Controller):
             "PEDIDO DESDE LA PAGINA - ASIGNAR CLIENTE\n"
             f"{como_llega}\n"
             f"Nombre: {nombre or '(sin dato)'}\n"
+            + (f"Comercio: {comercio}\n" if comercio else "") +
             f"Telefono: {telefono_visto or '(sin dato)'}\n"
             f"Domicilio: {domicilio or '(sin dato)'}"
         )
@@ -1930,7 +1942,7 @@ class TomaDePedidos(http.Controller):
         if pedido and self._editable(pedido):
             cambios = {
                 "order_line": lineas, "note": nota, "distri_original": original,
-                "distri_nombre": nombre, "distri_telefono": telefono,
+                "distri_nombre": nombre, "distri_comercio": comercio, "distri_telefono": telefono,
                 "distri_domicilio": domicilio, "distri_entrega": entrega,
                 "distri_modificado": True,
             }
@@ -1962,6 +1974,7 @@ class TomaDePedidos(http.Controller):
                 "note": nota,
                 "distri_original": original,
                 "distri_nombre": nombre,
+                "distri_comercio": comercio,
                 "distri_telefono": telefono,
                 "distri_domicilio": domicilio,
                 "distri_entrega": entrega,
@@ -2111,11 +2124,13 @@ class TomaDePedidos(http.Controller):
             "personal": False,
             "enviado_url": self._url_enviado_empresa(pedido),
             "codigo_recibido": self._codigo_recibido(pedido),
+            # 19.0.1.129.49: the device draft is cleared on arrival
+            "borrador_clave": self._contexto_borrador(False)["borrador_clave"],
         }
         if pedido.distri_wa_state == "staff":
             # the seller's order is already identified: it goes to the customer
             nombre_cliente = pedido.partner_id.name if not pedido.partner_id.distri_generic_partner \
-                else nombre
+                else pedido._distri_nombre_web(nombre)
             datos.update({
                 "personal": True,
                 "cliente_nombre": nombre_cliente,
@@ -2130,8 +2145,8 @@ class TomaDePedidos(http.Controller):
                 "enviado_empresa": pedido.distri_enviado_empresa,
             })
         else:
-            texto = self._mensaje_whatsapp(pedido, nombre, telefono, domicilio,
-                                           entrega, mayorista=hay_mayorista)
+            texto = self._mensaje_whatsapp(pedido, pedido._distri_nombre_web(nombre), telefono,
+                                           domicilio, entrega, mayorista=hay_mayorista)
             datos["whatsapp"] = self._url_whatsapp_empresa(texto)
             datos["espera"] = pedido.distri_wa_state == "waiting"
         return request.render("distri_pedido.gracias", datos)

@@ -215,7 +215,7 @@ class AsignarCliente(http.Controller):
         """«Lo que escribió el comprador»."""
         o = order.sudo()
         return {
-            "nombre": o.distri_nombre or "Sin nombre",
+            "nombre": o._distri_nombre_web("Sin nombre"),
             "telefono": _phone(o.distri_telefono) if o.distri_telefono else "",
             "domicilio": " · ".join(v for v in (o.distri_domicilio or "",) if v),
             "agil": o.distri_origen == "agilpedido_wa",

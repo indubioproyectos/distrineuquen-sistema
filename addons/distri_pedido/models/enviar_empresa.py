@@ -152,9 +152,10 @@ class SaleOrderEnviarEmpresa(models.Model):
         self.ensure_one()
         order = self.sudo()
         socio = order.partner_id
-        nombre = order.distri_nombre if socio.distri_generic_partner else socio.name
+        web = order._distri_nombre_web()
+        nombre = web if socio.distri_generic_partner else socio.name
         return order._distri_company_message(
-            nombre or order.distri_nombre or socio.name,
+            nombre or web or socio.name,
             order._distri_company_phone(), order._distri_company_address(),
             order.distri_entrega or "domicilio", mayorista=order._distri_company_wholesale(),
             link_label=link_label)
