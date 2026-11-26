@@ -9,7 +9,7 @@ Price lists, chained so a «May» or General price is loaded once:
 - May farmacia y varios («may», it was «Distribuidoras», same record): the
   hidden «May» prices. A global rule based on General gives everything
   without a «May» price the General price, and a rule per cigarette category
-  (CATEGORIAS_A_PRESUPUESTAR) gives 0: a cigarette never takes a price from
+  (CATEGORIAS_CIGARRILLOS_LISTAS) gives 0: a cigarette never takes a price from
   this list or from General.
 - Lista 2 + May farmacia / Lista 3 / Lista 4 («lista2/3/4»): cigarette
   prices only (one fixed rule per cigarette), and a global rule based on
@@ -40,7 +40,7 @@ from odoo import SUPERUSER_ID, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
 from ..controllers.main import (
-    CATEGORIAS_A_PRESUPUESTAR, LISTA_GENERAL, LISTA_OCULTA, LISTA_OCULTA_ANTERIOR,
+    CATEGORIAS_CIGARRILLOS_LISTAS, LISTA_GENERAL, LISTA_OCULTA, LISTA_OCULTA_ANTERIOR,
 )
 
 GRUPO_LISTAS = "distri_pedido.grupo_listas_accesos"
@@ -115,6 +115,11 @@ def cuit_digitos(vat):
     return digitos if len(digitos) == 11 else ""
 
 
+# Words that mean the same cigarette within a brand (owner, 26/11/2026:
+# «Milenio Mint» is the GREEN of «May Milenio RED / GREEN 20»)
+ALIAS_POR_MARCA = {"milenio": {"mint": "green"}}
+
+
 def _normalizar(nombre):
     texto = unicodedata.normalize("NFKD", (nombre or "").lower())
     texto = "".join(c for c in texto if not unicodedata.combining(c))
@@ -122,6 +127,9 @@ def _normalizar(nombre):
     texto = re.sub(r"^\s*may\s+", " ", texto)
     palabras = [p for p in re.split(r"[^a-z0-9]+", texto)
                 if p and p not in ("x", "cigarrillo", "cigarrillos", "de", "u", "un")]
+    for marca, alias in ALIAS_POR_MARCA.items():
+        if marca in palabras:
+            palabras = [alias.get(p, p) for p in palabras]
     return " ".join(palabras)
 
 
@@ -226,7 +234,7 @@ class DistriListas(models.AbstractModel):
         if self._asegurar_regla_base(may, general):
             hecho.append("«%s»: lo que no tiene precio May toma el de General" % may.name)
         categorias = env["product.category"].search(
-            [("name", "in", list(CATEGORIAS_A_PRESUPUESTAR))])
+            [("name", "in", list(CATEGORIAS_CIGARRILLOS_LISTAS))])
         for categoria in categorias:
             if not may.item_ids.filtered(lambda i: i.applied_on == "2_product_category"
                                          and i.categ_id == categoria):
@@ -429,7 +437,7 @@ class DistriListas(models.AbstractModel):
         N» product. The temporary AgilPedido copies count: while that catalog
         is on (production, 26/11/2026) they are the only cigarettes for sale."""
         return self.env["product.template"].sudo().search([
-            ("categ_id.name", "in", list(CATEGORIAS_A_PRESUPUESTAR)), ("sale_ok", "=", True),
+            ("categ_id.name", "in", list(CATEGORIAS_CIGARRILLOS_LISTAS)), ("sale_ok", "=", True),
             ("distri_lista_personal", "=", False)], order="name, id")
 
     @api.model

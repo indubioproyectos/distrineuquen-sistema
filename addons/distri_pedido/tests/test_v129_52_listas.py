@@ -57,6 +57,9 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         Categ = env["product.category"]
         cls.categ_cig = Categ.search([("name", "=", CATEGORIAS_A_PRESUPUESTAR[0])], limit=1) or \
             Categ.create({"name": CATEGORIAS_A_PRESUPUESTAR[0]})
+        # production's AgilPedido section category (26/11/2026)
+        cls.categ_agil = Categ.search([("name", "=", "CIGARRILLOS y relacionados")], limit=1) or \
+            Categ.create({"name": "CIGARRILLOS y relacionados"})
         base = {"type": "consu", "sale_ok": True, "is_published": True,
                 "taxes_id": [Command.clear()], "invoice_policy": "order"}
         Tmpl = env["product.template"]
@@ -142,8 +145,8 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         globales = may.item_ids.filtered(lambda i: i.applied_on == "3_global")
         self.assertEqual(globales.base_pricelist_id, self.general)
         cig_rule = may.item_ids.filtered(lambda i: i.applied_on == "2_product_category")
-        self.assertEqual(cig_rule.categ_id, self.categ_cig)
-        self.assertEqual(cig_rule.fixed_price, 0.0)
+        self.assertEqual(cig_rule.categ_id, self.categ_cig | self.categ_agil)
+        self.assertEqual(set(cig_rule.mapped("fixed_price")), {0.0})
         for clave, lista in (("lista2", self.lista2), ("lista3", self.lista3),
                              ("lista4", self.lista4)):
             self.assertEqual(self.listas[clave], lista)
@@ -284,19 +287,24 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
 
     def test_one_may_product_for_two_cigarettes_red_and_green(self):
         """Owner, 26/11/2026: «May Milenio RED / GREEN 20 - lista 3» is the
-        price of two cigarettes, RED and GREEN. The migration links both and
-        «usar precio del producto May» fills both rows; idempotent."""
+        price of two cigarettes, RED and GREEN («Milenio Mint»). The migration
+        links both and «usar precio del producto May» fills both rows;
+        idempotent. The new AgilPedido section category counts as cigarettes."""
         base = {"type": "consu", "sale_ok": True, "is_published": True,
-                "categ_id": self.categ_cig.id}
+                "categ_id": self.categ_agil.id}
+        self.assertEqual(self.may.item_ids.filtered(
+            lambda i: i.categ_id == self.categ_agil).fixed_price, 0.0)
         Tmpl = self.env["product.template"]
-        red = Tmpl.create(dict(base, name="Milenito Prueba152 RED Box X 20", list_price=16900.0))
-        green = Tmpl.create(dict(base, name="Milenito Prueba152 GREEN Box X 20",
-                                 list_price=16900.0))
-        may_rg = Tmpl.create(dict(base, name="May Milenito Prueba152 RED / GREEN 20 - lista 3",
+        # production names: the GREEN one is called «Milenio Mint» (owner)
+        red = Tmpl.create(dict(base, name="MILENIO RED Box X 20", list_price=16900.0))
+        green = Tmpl.create(dict(base, name="Milenio Mint", list_price=16900.0))
+        Tmpl.create(dict(base, name="Milenio Gold", list_price=16900.0))
+        Tmpl.create(dict(base, name="MILENIO ICERGY x 20", list_price=19400.0))
+        may_rg = Tmpl.create(dict(base, name="May Milenio RED / GREEN 20 - lista 3",
                                   list_price=16000.0, is_published=False))
         self.assertEqual(may_rg.distri_lista_personal, "lista_3")
         self.assertEqual(self.env["distri.listas"]._variantes_nombre(may_rg.name),
-                         ["milenito prueba152 red 20", "milenito prueba152 green 20"])
+                         ["milenio red 20", "milenio green 20"])
         hechos = self.env["distri.listas"]._sugerir_vinculos()
         self.assertIn((may_rg, red), hechos)
         self.assertIn((may_rg, green), hechos)

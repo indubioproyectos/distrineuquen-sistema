@@ -201,6 +201,13 @@ NOMBRES_LISTA_OCULTA = (LISTA_OCULTA, LISTA_OCULTA_ANTERIOR)
 # negociado. En la lista General el renglon entra sin precio y el vendedor lo
 # valoriza al asignarle el cliente.
 CATEGORIAS_A_PRESUPUESTAR = ("CIGARRILLOS", "Tabaco VAN KIFF")
+# 19.0.1.129.52: the cigarettes of the price lists (Lista 2/3/4 grid, the 0 rule
+# of «May farmacia y varios», «a presupuestar» for a customer's own list).
+# Production's AgilPedido catalog sync moved its cigarettes, papers, filters
+# and rolling tobacco to the section category «CIGARRILLOS y relacionados»
+# (26/11/2026), so it counts too. The carton category («Cigarrillos por bulto
+# cerrado 25cartones») does not: owner, priced from General.
+CATEGORIAS_CIGARRILLOS_LISTAS = CATEGORIAS_A_PRESUPUESTAR + ("CIGARRILLOS y relacionados",)
 
 
 def lista_por_clave(env, clave):
@@ -390,7 +397,7 @@ class TomaDePedidos(http.Controller):
     def _cigarrillo_sin_precio_propio(self, producto, precio):
         """19.0.1.129.52: a cigarette priced 0 by the visitor's own list."""
         return (bool(self._lista_propia()) and not producto.distri_lista_personal
-                and producto.categ_id.name in CATEGORIAS_A_PRESUPUESTAR
+                and producto.categ_id.name in CATEGORIAS_CIGARRILLOS_LISTAS
                 and (precio or 0.0) <= 0.0)
 
     def _unidad_de_venta(self, producto):
