@@ -43,7 +43,10 @@ def _when(value):
 
 def team_rows(env):
     """Every internal user (active or not), active first, by name: name,
-    role(s) as the «Ajustes» sheet names them, active and the last login."""
+    role(s) as the «Ajustes» sheet names them, active and the last login.
+    19.0.1.129.51: whether the user confirmed an e-mail («Mi correo») and
+    the address, masked (m***@gmail.com) for everybody but Sistemas."""
+    from .correo import masked_or_full
     skip = set()
     for xmlid in NOT_PEOPLE:
         rec = env.ref(xmlid, raise_if_not_found=False)
@@ -61,6 +64,7 @@ def team_rows(env):
             "roles": user._distri_rol_texto(),
             "active": user.active,
             "last_login": _when(user.login_date),
+            "email": masked_or_full(env.user, user._distri_verified_email()),
         })
     return rows
 

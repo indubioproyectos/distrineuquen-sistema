@@ -29,6 +29,11 @@
           <span t-else="" class="dn-chip dn-chip--neutral">Suspendido</span>
         </div>
         <span class="eq-roles" t-esc="r['roles']"/>
+        <!-- 19.0.1.129.51: e-mail confirmed or not; masked but for Sistemas -->
+        <span class="eq-mail" t-att-data-correo="'si' if r.get('email') else 'no'">
+          <t t-if="r.get('email')">✓ Correo: <t t-esc="r['email']"/></t>
+          <t t-else="">Sin correo</t>
+        </span>
         <span class="eq-login">
           <t t-if="r['last_login']">Último ingreso: <t t-esc="r['last_login']"/></t>
           <t t-else="">Nunca entró</t>

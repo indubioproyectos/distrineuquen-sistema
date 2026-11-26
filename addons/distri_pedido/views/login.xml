@@ -1,22 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-  <!-- The login page (controllers/tienda.py, web_login): only user and
-       password, in the look of the depot screens and /tablero. Same form
-       fields Odoo expects (csrf_token, login, password, redirect, type). -->
-  <template id="login_page" name="Ingreso del equipo">&lt;!DOCTYPE html&gt;
-<html lang="es">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <meta name="theme-color" content="#10243f"/>
-  <meta name="robots" content="noindex"/>
-  <title>Ingresar · Distri Neuquén</title>
-  <link rel="manifest" href="/tablero/manifest.webmanifest"/>
-  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
-  <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/marca/dn-icono-180.png?v=129.12"/>
-  <link rel="stylesheet" href="/distri_pedido/static/src/css/distri_ui.css"/>
-  <t t-call="distri_pedido.sin_historial"/>
+  <!-- 19.0.1.129.51: the login page's look, shared with /clave/olvide and
+       /clave/nueva (views/correo.xml) -->
+  <template id="login_estilo" name="Ingreso: estilo">
   <style>
     html,body{height:100%}
     /* 19.0.1.95.0: the navy of the DN mark, lighter at the top */
@@ -42,9 +29,34 @@
     .go:active{opacity:.9}
     .err{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);border-radius:10px;
          padding:9px 11px;font-size:13px;font-weight:600}
-    /* distri_ui.css also has a .foot (white bottom bar): not here */
+    /* the legacy stylesheet also has a .foot (white bottom bar): not here */
     .foot{font-size:11px;color:#8ea3bb;background:none;border:0;padding:0}
+    /* 19.0.1.129.51: the «¿Olvidaste la contraseña?» pages (views/correo.xml) */
+    .foot a{color:#cfe0f2;font-weight:700}
+    .ok{background:var(--green-bg,#e6f6ef);color:var(--green,#0b6b48);border:1px solid var(--green-border,#b7e3cf);
+        border-radius:10px;padding:9px 11px;font-size:13px;font-weight:600}
+    .hint{font-size:13px;color:var(--soft);margin:0}
+    .back{color:#cfe0f2;font-size:13px;font-weight:700}
   </style>
+  </template>
+
+  <!-- The login page (controllers/tienda.py, web_login): only user and
+       password, in the look of the depot screens and /tablero. Same form
+       fields Odoo expects (csrf_token, login, password, redirect, type). -->
+  <template id="login_page" name="Ingreso del equipo">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#10243f"/>
+  <meta name="robots" content="noindex"/>
+  <title>Ingresar · Distri Neuquén</title>
+  <link rel="manifest" href="/tablero/manifest.webmanifest"/>
+  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
+  <link rel="apple-touch-icon" href="/distri_pedido/static/src/img/marca/dn-icono-180.png?v=129.12"/>
+  <link rel="stylesheet" href="/distri_pedido/static/src/css/distri_ui.css"/>
+  <t t-call="distri_pedido.sin_historial"/>
+  <t t-call="distri_pedido.login_estilo"/>
 </head>
 <body>
   <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir) -->
@@ -77,7 +89,8 @@
       </label>
       <button type="submit" class="go">Entrar</button>
     </form>
-    <div class="foot">¿Olvidaste la contraseña? Pedila a administración.</div>
+    <!-- 19.0.1.129.51: by e-mail for whoever confirmed one (controllers/correo.py) -->
+    <div class="foot"><a href="/clave/olvide">¿Olvidaste la contraseña?</a></div>
   </div>
 </body>
 </html>

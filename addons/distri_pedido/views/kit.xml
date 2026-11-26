@@ -140,6 +140,8 @@
           <a t-if="aj.get('perfil')" href="/mi-perfil">Mi perfil</a>
           <a t-if="aj.get('cuenta')" href="/mi-cuenta">Mi cuenta corriente</a>
           <a t-if="aj.get('clave')" href="/mi-clave">Cambiar clave</a>
+          <!-- 19.0.1.129.51: staff confirm their e-mail (controllers/correo.py) -->
+          <a t-if="aj.get('correo')" href="/mi-correo">Mi correo</a>
         </nav>
         <a t-if="not aj['publico']" class="dn-aj__btn dn-aj__salir" href="/web/session/logout">Salir</a>
       </div>

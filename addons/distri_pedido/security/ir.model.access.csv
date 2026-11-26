@@ -244,3 +244,6 @@ access_owed_allocation_admin,distri.owed.allocation administracion,model_distri_
 access_owed_allocation_gerencia,distri.owed.allocation gerencia,model_distri_owed_allocation,distri_pedido.grupo_gerencia,1,1,1,1
 access_owed_allocation_sistema,distri.owed.allocation sistema,model_distri_owed_allocation,base.group_system,1,1,1,1
 access_rearmar_wizard_admin,distri.rearmar.wizard administracion,model_distri_rearmar_wizard,distri_pedido.grupo_administracion,1,1,1,1
+access_distri_correo_codigo_sistema,distri.correo.codigo sistema,model_distri_correo_codigo,base.group_system,1,0,0,0
+access_distri_clave_token_sistema,distri.clave.token sistema,model_distri_clave_token,base.group_system,1,0,0,0
+access_distri_clave_pedido_sistema,distri.clave.pedido sistema,model_distri_clave_pedido,base.group_system,1,0,0,0

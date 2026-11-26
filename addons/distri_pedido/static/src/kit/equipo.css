@@ -9,6 +9,9 @@
 .eq-name{font-size:17px;font-weight:800;min-width:0;overflow-wrap:anywhere}
 .eq-roles{font-size:15px;font-weight:600}
 .eq-login{font-size:14px;color:var(--dn-muted)}
+/* 19.0.1.129.51: e-mail confirmed (Mi correo) or not */
+.eq-mail{font-size:14px;color:var(--dn-muted)}
+.eq-mail[data-correo="si"]{color:var(--dn-green-text);font-weight:600}
 .eq-row--ord{flex-direction:row;align-items:center;gap:12px}
 .eq-row--ord .eq-name{flex:1}
 .eq-move{display:flex;gap:6px;margin:0}

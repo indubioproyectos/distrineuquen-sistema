@@ -186,6 +186,8 @@ class ResUsers(models.Model):
             "perfil": bool(user.share and socio.distri_alta_estado),
             "cuenta": bool(user.share),
             "clave": True,
+            # 19.0.1.129.51: «Mi correo» (controllers/correo.py), staff only
+            "correo": not user.share,
             # 19.0.1.119.0: /proyecto from every screen
             "capacitacion": not user.share,
             # 19.0.1.129.18: «Mis ventas» from every screen

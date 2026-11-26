@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.51 (controllers/correo.py, models/correo_verificado.py) -->
+
+  <!-- «Mi correo» (staff, from «Ajustes»): same look as /mi-clave -->
+  <template id="mi_correo" name="Mi correo">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>Mi correo · Distri Neuquén</title>
+  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
+  <style>
+    :root{--fondo:#f5f5f5;--tarjeta:#fff;--texto:#4a4a4a;--tenue:#7a7a7a;
+          --borde:#eee;--linea:#dbdbdb;--acento:#10243f;--alerta:#c92a2a;--bien:#1f6b45}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--fondo);color:var(--texto);
+         font:16px/1.5 BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    .marco{max-width:26rem;margin:0 auto;padding:1.5rem 1rem 3rem}
+    .logo{width:72px;height:72px;object-fit:contain;display:block;margin:0 auto}
+    h1{font-size:1.2rem;text-align:center;margin:.8rem 0 .3rem}
+    .sub{font-size:.85rem;color:var(--tenue);text-align:center;margin:0 0 1.2rem}
+    .caja{background:var(--tarjeta);border:1px solid var(--borde);border-radius:8px;padding:1rem;margin-bottom:1rem}
+    .actual{font-size:1.05rem;font-weight:700;word-break:break-all;margin:.2rem 0}
+    .tilde{color:var(--bien);font-weight:700}
+    label{display:block;font-size:.85rem;font-weight:600;margin:.8rem 0 .2rem}
+    label:first-child{margin-top:0}
+    input{width:100%;border:1px solid var(--linea);border-radius:6px;padding:.65rem;font-size:1rem;color:var(--texto)}
+    input.codigo{font-size:1.5rem;letter-spacing:.4em;text-align:center}
+    input:focus{outline:0;border-color:var(--acento)}
+    .btn{width:100%;border:0;background:var(--acento);color:#fff;border-radius:6px;
+         padding:.8rem;font-size:1rem;font-weight:600;margin-top:1rem;cursor:pointer}
+    .btn2{width:100%;border:1px solid var(--linea);background:#fff;color:var(--texto);border-radius:6px;
+          padding:.65rem;font-size:.95rem;margin-top:.6rem;cursor:pointer}
+    .err{background:#fff5f5;color:var(--alerta);border:1px solid #ffc9c9;border-radius:6px;
+         padding:.6rem .8rem;font-size:.85rem;margin-bottom:1rem}
+    .ok{background:#e3f3ea;color:var(--bien);border:1px solid #b7e3cf;border-radius:6px;
+        padding:.6rem .8rem;font-size:.85rem;margin-bottom:1rem}
+    .pista{font-size:.8rem;color:var(--tenue);margin:.4rem 0 0}
+    summary{cursor:pointer;font-weight:700;color:var(--acento)}
+    details[open] summary{margin-bottom:.4rem}
+  </style>
+  <t t-call="distri_pedido.sin_historial"/>
+</head>
+<body>
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/></t>
+  <div class="marco">
+    <img class="logo" src="/distri_pedido/static/src/img/marca/dn-icono-192.png?v=129.12" alt=""/>
+    <h1>Mi correo</h1>
+    <p class="sub">Usuario: <t t-esc="login"/></p>
+    <div class="ok" t-if="ok" role="status"><t t-esc="ok"/></div>
+    <div class="err" t-if="error" role="alert"><t t-esc="error"/></div>
+
+    <!-- the confirmed address (or none yet) -->
+    <div class="caja" data-correo="actual">
+      <t t-if="verificado">
+        <span class="tilde">✓ Correo confirmado</span>
+        <p class="actual" t-esc="verificado"/>
+        <p class="pista">Si te olvidás la contraseña, te mandamos a este correo un enlace para elegir otra.</p>
+      </t>
+      <t t-else="">
+        <b>Todavía no confirmaste un correo.</b>
+        <p class="pista">Con tu correo confirmado, si te olvidás la contraseña la podés cambiar vos solo.</p>
+      </t>
+    </div>
+
+    <!-- the code step -->
+    <form t-if="pendiente" method="post" class="caja" data-correo="codigo">
+      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+      <p style="margin:0">Te mandamos un código de 6 números a <b t-esc="pendiente"/>.
+        Vence en <t t-esc="minutos"/> minutos.</p>
+      <label>Código
+        <input class="codigo" type="text" name="codigo" inputmode="numeric" pattern="[0-9 ]*"
+               maxlength="7" autocomplete="one-time-code" required="required" autofocus="autofocus"/>
+      </label>
+      <button type="submit" name="accion" value="confirmar" class="btn">Confirmar el correo</button>
+      <button type="submit" name="accion" value="reenviar" class="btn2" formnovalidate="formnovalidate">Mandar otro código</button>
+      <button type="submit" name="accion" value="cancelar" class="btn2" formnovalidate="formnovalidate">Cancelar</button>
+    </form>
+
+    <!-- a new address: open when there is none yet -->
+    <div t-if="not pendiente" class="caja" data-correo="cambiar">
+      <details t-att-open="'open' if (cambiar or not verificado) else None">
+        <summary t-if="verificado">Cambiar</summary>
+        <summary t-else="">Cargar mi correo</summary>
+        <form method="post">
+          <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+          <label>Tu correo
+            <input type="email" name="email" autocomplete="email" autocapitalize="none" spellcheck="false"
+                   maxlength="254" required="required" t-att-value="escrito or None"/>
+          </label>
+          <p class="pista">Te mandamos un código para confirmar que es tuyo. Hasta que lo confirmes,
+            queda el correo de antes.</p>
+          <button type="submit" name="accion" value="enviar" class="btn">Mandarme el código</button>
+        </form>
+      </details>
+    </div>
+  </div>
+</body>
+</html>
+  </template>
+
+  <!-- «¿Olvidaste la contraseña?»: the login page's look -->
+  <template id="clave_olvide" name="Olvidé la contraseña">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#10243f"/>
+  <meta name="robots" content="noindex"/>
+  <title>Olvidé la contraseña · Distri Neuquén</title>
+  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
+  <link rel="stylesheet" href="/distri_pedido/static/src/css/distri_ui.css"/>
+  <t t-call="distri_pedido.sin_historial"/>
+  <t t-call="distri_pedido.login_estilo"/>
+</head>
+<body>
+  <div class="box">
+    <div class="brand">
+      <img src="/distri_pedido/static/src/img/marca/dn-icono-192.png?v=129.12" alt="" width="76" height="76"/>
+      <b>Distri Neuquén</b>
+      <span>¿Olvidaste la contraseña?</span>
+    </div>
+    <form method="post" action="/clave/olvide">
+      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+      <div t-if="error" class="err" role="alert"><t t-esc="error"/></div>
+      <div t-if="ok" class="ok" role="status" data-clave="enviado"><t t-esc="ok"/></div>
+      <p t-if="aviso" class="hint"><t t-esc="aviso"/></p>
+      <t t-if="not ok">
+        <label>Usuario o correo
+          <input class="f" type="text" name="login" t-att-value="escrito or None" autocomplete="username"
+                 autocapitalize="none" autocorrect="off" spellcheck="false" required="required"
+                 autofocus="autofocus" maxlength="254"/>
+        </label>
+        <p class="hint">Si confirmaste tu correo en «Ajustes › Mi correo», te mandamos un enlace para elegir una contraseña nueva.</p>
+        <button type="submit" class="go">Mandarme el enlace</button>
+      </t>
+    </form>
+    <a class="back" href="/web/login">Volver a ingresar</a>
+  </div>
+</body>
+</html>
+  </template>
+
+  <!-- the link of the e-mail: a new password, rules of /mi-clave -->
+  <template id="clave_nueva" name="Contraseña nueva">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#10243f"/>
+  <meta name="robots" content="noindex"/>
+  <!-- the link's token never leaves in a Referer header -->
+  <meta name="referrer" content="no-referrer"/>
+  <title>Contraseña nueva · Distri Neuquén</title>
+  <link rel="icon" type="image/png" href="/distri_pedido/static/src/img/marca/favicon-32.png?v=129.12"/>
+  <link rel="stylesheet" href="/distri_pedido/static/src/css/distri_ui.css"/>
+  <t t-call="distri_pedido.sin_historial"/>
+  <t t-call="distri_pedido.login_estilo"/>
+</head>
+<body>
+  <div class="box">
+    <div class="brand">
+      <img src="/distri_pedido/static/src/img/marca/dn-icono-192.png?v=129.12" alt="" width="76" height="76"/>
+      <b>Distri Neuquén</b>
+      <span>Contraseña nueva</span>
+    </div>
+    <form t-if="muerto" method="get" action="/clave/olvide">
+      <div class="err" role="alert" data-clave="muerto"><t t-esc="muerto"/></div>
+      <button type="submit" class="go">Pedir otro enlace</button>
+    </form>
+    <form t-elif="hecho" method="get" action="/web/login">
+      <div class="ok" role="status" data-clave="hecho"><t t-esc="ok"/></div>
+      <input type="hidden" name="login" t-att-value="login"/>
+      <button type="submit" class="go">Ingresar</button>
+    </form>
+    <form t-else="" method="post" action="/clave/nueva" onsubmit="this.querySelector('.go').disabled=true">
+      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+      <input type="hidden" name="t" t-att-value="t"/>
+      <div t-if="error" class="err" role="alert"><t t-esc="error"/></div>
+      <p class="hint">Usuario: <b t-esc="login"/></p>
+      <input type="text" name="username" t-att-value="login" autocomplete="username" hidden="hidden"/>
+      <label>Contraseña nueva
+        <input class="f" type="password" name="nueva" autocomplete="new-password" required="required"
+               minlength="8" autofocus="autofocus"/>
+      </label>
+      <p class="hint">Ocho caracteres o más.</p>
+      <label>Repetila
+        <input class="f" type="password" name="repetida" autocomplete="new-password" required="required"/>
+      </label>
+      <button type="submit" class="go">Guardar la contraseña</button>
+    </form>
+  </div>
+</body>
+</html>
+  </template>
+</odoo>
