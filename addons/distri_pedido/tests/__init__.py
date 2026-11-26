@@ -152,3 +152,4 @@ from . import test_v129_45_rendiciones
 from . import test_v129_46_listas
 from . import test_v129_47_diseno
 from . import test_v129_48_reclamar
+from . import test_v129_48_login
