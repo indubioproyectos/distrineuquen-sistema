@@ -103,7 +103,7 @@
               <div>Teléfono: <field name="web_telefono" readonly="1" class="d-inline"/></div>
               <div>Domicilio: <field name="web_domicilio" readonly="1" class="d-inline"/></div>
               <div invisible="not web_ciudad">Ciudad: <field name="web_ciudad" class="d-inline"/></div>
-              <div invisible="not mayorista" class="mt-1"><strong>Pedido de la lista Distribuidoras.</strong></div>
+              <div invisible="not mayorista" class="mt-1"><strong>Pedido de la lista May farmacia y varios.</strong></div>
             </div>
           </div>
           <div class="col-md-6" invisible="modo != 'existente'">

@@ -238,6 +238,14 @@ def staff_tiles(env):
         last = [t["key"] for t in tiles].index("capacitacion") if any(
             t["key"] == "capacitacion" for t in tiles) else len(tiles)
         tiles.insert(last, extra)
+    listas = listas_tile(env)
+    if listas:
+        # 19.0.1.129.52: after «Contactos»/«Cuentas» (or before «Capacitación»)
+        keys = [t["key"] for t in tiles]
+        where = (keys.index("contactos") + 1 if "contactos" in keys else
+                 keys.index("cuentas") + 1 if "cuentas" in keys else
+                 keys.index("capacitacion") if "capacitacion" in keys else len(tiles))
+        tiles.insert(where, listas)
     equipo = equipo_tile(env)
     if equipo:
         # before «Capacitación», which always goes last
@@ -312,6 +320,22 @@ def equipo_tile(env):
     if not (ui_v2_on(env) and can_see_team(env.user)):
         return None
     key, title, subtitle, icon, glyph, url = EQUIPO_TILE
+    return {"key": key, "title": title, "subtitle": subtitle, "icon": icon, "glyph": glyph,
+            "menu_id": False, "url": url, "badge": None}
+
+
+# 19.0.1.129.52: «Listas y accesos» (controllers/listas.py), only for the
+# group «Listas y accesos de distribuidores» (Gonzalo and Ale), with or
+# without ui_v2.
+LISTAS_TILE = ("listas", "Listas y accesos", "Categoría y precios de clientes, accesos web",
+               IMG + "app.png", "list", "/listas")
+
+
+def listas_tile(env):
+    from ..models.listas_distri import puede_listas
+    if not puede_listas(env.user):
+        return None
+    key, title, subtitle, icon, glyph, url = LISTAS_TILE
     return {"key": key, "title": title, "subtitle": subtitle, "icon": icon, "glyph": glyph,
             "menu_id": False, "url": url, "badge": None}
 
@@ -660,7 +684,7 @@ TILE_GROUPS = (
     ("Reparto", ("armado", "deposito", "rutas", "despacho", "mireparto", "reparto")),
     ("Cobros y caja", ("cobro", "caja", "comprobantes", "historial", "cobros", "verificacion",
                        "tablerocobros", "reportemp")),
-    ("Clientes", ("contactos", "cuentas")),
+    ("Clientes", ("contactos", "cuentas", "listas")),
     ("Sistema", ("equipo", "capacitacion")),
 )
 GROUPED_ROLES = ("distri_pedido.grupo_administracion", "base.group_system")

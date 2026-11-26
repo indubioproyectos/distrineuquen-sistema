@@ -129,6 +129,8 @@ FILES = {
     # ui_v2 only); the list, table and KPI pieces come from cuentas_v2.css
     "rendiciones_v2.css": ("kit/rendiciones_v2.css", "text/css; charset=utf-8"),
     "rendiciones_v2.js": ("kit/rendiciones_v2.js", "text/javascript; charset=utf-8"),
+    # 19.0.1.129.52: «Listas y accesos» (controllers/listas.py)
+    "listas.css": ("kit/listas.css", "text/css; charset=utf-8"),
 }
 # served without comments and indentation (budget: < 3 KB gzip); the file
 # on disk keeps its documentation
@@ -285,6 +287,13 @@ SCREEN_PARENTS = {
     "/contactos/nuevo": ("/contactos",),
     "/clientes/<id>/editar": ("/clientes/<id>",),
     "/clientes/<id>/unir": ("/clientes/<id>",),
+    # 19.0.1.129.52: «Listas y accesos» (controllers/listas.py), Gonzalo and Ale
+    "/listas": (HOME,),
+    "/listas/cliente/<id>": ("/listas",),
+    "/listas/cigarrillos": ("/listas",),
+    "/listas/cigarrillos/vincular": ("/listas/cigarrillos",),
+    "/listas/accesos": ("/listas",),
+    "/listas/carga": ("/listas",),
 }
 # 19.0.1.129.31: one screen per queue of «Tablero de verificación»
 SCREEN_PARENTS.update({"/verificacion/%s" % key: ("/verificacion",) for key in (

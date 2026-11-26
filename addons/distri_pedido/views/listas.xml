@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.52 «Listas y accesos» (controllers/listas.py), only for the
+       group «Listas y accesos de distribuidores». Kit pages with /deposito's
+       top bar (deposito_top, deposito.css) plus static/src/kit/listas.css. -->
+
+  <template id="listas_tabs" name="Listas y accesos: pestañas">
+    <nav class="dp-tabs ls-tabs" aria-label="Secciones">
+      <t t-foreach="pestanas" t-as="p">
+        <a t-att-href="p[2]" t-att-class="'dp-tab' + (' on' if p[0] == pestana else '')"
+           t-att-aria-current="'page' if p[0] == pestana else None" t-esc="p[1]"/>
+      </t>
+    </nav>
+  </template>
+
+  <!-- a) the customers -->
+  <template id="listas_clientes_page" name="Listas y accesos: clientes">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Listas y accesos · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp ls" data-parent="/tablero" data-page="listas">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="inicio"/>
+    <t t-set="kicker" t-value="'Distri Neuquén · %s' % user.name"/>
+    <t t-set="titulo" t-value="'Listas y accesos'"/>
+    <t t-set="sub" t-value="'Categoría y lista de precios de cada cliente'"/>
+  </t>
+  <main class="dn-main">
+    <t t-call="distri_pedido.listas_tabs"/>
+    <form method="get" action="/listas" class="ls-filtros">
+      <div class="dp-search">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>
+        <input class="dn-input" type="search" name="q" t-att-value="q" placeholder="Nombre, código o CUIT" aria-label="Buscar cliente"/>
+      </div>
+      <select class="dn-input" name="cat" aria-label="Categoría">
+        <option value="">Todas las categorías</option>
+        <t t-foreach="categorias" t-as="c">
+          <option t-att-value="c[0]" t-att-selected="'selected' if cat == c[0] else None"><t t-esc="c[0]"/> · <t t-esc="c[1]"/></option>
+        </t>
+        <option value="0" t-att-selected="'selected' if cat == '0' else None">A revisar</option>
+      </select>
+      <button type="submit" class="dn-btn dn-btn--secondary">Buscar</button>
+    </form>
+    <p class="ls-count"><t t-esc="total"/> cliente(s)<t t-if="total &gt; len(filas)"> · se muestran los primeros <t t-esc="len(filas)"/>: buscá para ver otros</t></p>
+    <ul class="ls-list">
+      <li t-foreach="filas" t-as="f">
+        <a class="ls-row" t-att-href="'/listas/cliente/%s' % f['socio'].id" t-att-data-cat="f['categoria']">
+          <span class="ls-row__txt">
+            <b t-esc="f['socio'].name"/>
+            <span class="ls-meta"><t t-if="f['socio'].ref"><t t-esc="f['socio'].ref"/> · </t><t t-esc="f['lista']"/></span>
+          </span>
+          <span t-att-class="'dn-chip ' + ('dn-chip--warn' if f['categoria'] == '0' else ('dn-chip--neutral' if f['categoria'] == '1' else 'dn-chip--ok'))">
+            <t t-if="f['categoria'] != '0'"><t t-esc="f['categoria']"/> · </t><t t-esc="f['categoria_nombre']"/>
+          </span>
+        </a>
+      </li>
+    </ul>
+    <p t-if="not filas" class="dn-empty">No hay clientes con ese filtro.</p>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- a) one customer: choose, preview, apply -->
+  <template id="listas_cliente_page" name="Listas y accesos: cliente">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Categoría del cliente · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp ls" data-parent="/listas" data-page="listas-cliente">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/listas'"/>
+    <t t-set="kicker" t-value="'Listas y accesos'"/>
+    <t t-set="titulo" t-value="socio.name"/>
+    <t t-set="sub" t-value="'Ahora: %s · %s' % (nombre_categoria[cat_actual], lista_actual.name or 'General')"/>
+  </t>
+  <main class="dn-main">
+    <div t-if="cat_actual == '0'" class="dn-banner dn-banner--warn">La lista y la marca de lista oculta de este cliente no coinciden con ninguna categoría. Elegí la que corresponde.</div>
+    <form method="get" t-att-action="'/listas/cliente/%s' % socio.id" class="dn-card ls-form">
+      <span class="dp-fl">Categoría</span>
+      <t t-foreach="categorias" t-as="c">
+        <label class="dp-chk">
+          <input type="radio" name="categoria" t-att-value="c[0]" required="required"
+                 t-att-checked="'checked' if (categoria or cat_actual) == c[0] else None"/>
+          <span><b t-esc="c[0]"/> · <t t-esc="c[1]"/><t t-if="c[0] != '1'"> <small class="ls-oculta">(oculta)</small></t></span>
+        </label>
+      </t>
+      <label class="dp-fl" for="ls-lista">Lista para «Otra lista»</label>
+      <select class="dn-input" id="ls-lista" name="lista">
+        <option value="">—</option>
+        <t t-foreach="otras" t-as="o">
+          <option t-att-value="o.id" t-att-selected="'selected' if str(o.id) == str(lista_elegida or (lista_actual.id if cat_actual == '6' else '')) else None" t-esc="o.name"/>
+        </t>
+      </select>
+      <button type="submit" class="dn-btn dn-btn--secondary">Ver el cambio</button>
+    </form>
+
+    <form t-if="previa" method="post" t-att-action="'/listas/cliente/%s' % socio.id" class="dn-card dn-card--strong ls-form">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input type="hidden" name="categoria" t-att-value="previa['categoria']"/>
+      <input type="hidden" name="lista" t-att-value="previa['lista_id']"/>
+      <span class="dp-fl">Cambio</span>
+      <dl class="ls-kv">
+        <dt>Categoría</dt><dd><t t-esc="previa['categoria_antes_nombre']"/> → <b t-esc="previa['categoria_nombre']"/></dd>
+        <dt>Lista de precios</dt><dd><t t-esc="previa['lista_antes']"/> → <b t-esc="previa['lista']"/></dd>
+        <dt>Lista oculta</dt><dd><t t-esc="'sí' if previa['oculta_antes'] else 'no'"/> → <b t-esc="'sí' if previa['oculta'] else 'no'"/></dd>
+      </dl>
+      <p t-if="not previa['cambia']" class="dp-hint">La categoría ya es esa: solo se actualizan los pedidos que marques.</p>
+      <p t-if="previa['oculta']" class="dp-hint">Los precios los ve el cliente solo entrando con su usuario. Los vendedores no le pueden vender: lo gestionan Gonzalo, Denis o Ale.</p>
+      <t t-if="previa['pedidos']">
+        <span class="dp-fl">Pedidos abiertos (sin armar ni facturar)</span>
+        <label t-foreach="previa['pedidos']" t-as="p" class="dp-chk ls-pedido">
+          <input type="checkbox" name="pedido" t-att-value="p['id']"/>
+          <span><b t-esc="p['nombre']"/> · <t t-esc="p['fecha']"/> · <t t-esc="p['estado']"/><br/>
+            <small>Actualizar precios: <t t-esc="p['total']"/> → aprox. <t t-esc="p['total_nuevo']"/> (sin IVA, lista <t t-esc="p['lista']"/>)</small></span>
+        </label>
+        <p class="dp-hint">Los pedidos armados o facturados nunca se tocan.</p>
+      </t>
+      <p t-else="" class="dp-hint">No tiene pedidos abiertos.</p>
+      <button type="submit" class="dn-btn">Aplicar</button>
+    </form>
+    <a class="dn-link" t-att-href="'/clientes/%s' % socio.id">Ver la ficha del cliente</a>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- b) cigarette prices per list -->
+  <template id="listas_cigarrillos_page" name="Listas y accesos: cigarrillos">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Precios de cigarrillos · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp ls" data-parent="/listas" data-page="listas-cigarrillos">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/listas'"/>
+    <t t-set="kicker" t-value="'Listas y accesos'"/>
+    <t t-set="titulo" t-value="'Precios de cigarrillos'"/>
+    <t t-set="sub" t-value="'Lista 2, Lista 3 y Lista 4. Vacío = a presupuestar.'"/>
+  </t>
+  <main class="dn-main">
+    <t t-call="distri_pedido.listas_tabs"/>
+    <form method="post" action="/listas/cigarrillos" class="ls-grilla-form">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <div class="ls-acciones">
+        <button type="submit" class="dn-btn">Guardar cambios</button>
+        <button type="submit" name="usar_todos" value="lista3" class="dn-btn dn-btn--outline">Lista 3: usar precio May en todos</button>
+        <button type="submit" name="usar_todos" value="lista4" class="dn-btn dn-btn--outline">Lista 4: usar precio May en todos</button>
+        <a class="dn-link" href="/listas/cigarrillos/vincular">Vincular productos May</a>
+      </div>
+      <div class="ls-tabla-wrap">
+        <table class="ls-tabla">
+          <thead><tr>
+            <th scope="col">Cigarrillo</th>
+            <t t-foreach="claves" t-as="clave"><th scope="col" t-esc="nombre_lista[clave]"/></t>
+          </tr></thead>
+          <tbody>
+            <tr t-foreach="filas" t-as="f" t-att-data-cig="f['id']">
+              <th scope="row"><t t-esc="f['nombre']"/><br/><small class="ls-meta">General: a presupuestar</small></th>
+              <td t-foreach="claves" t-as="clave">
+                <t t-set="valor" t-value="f[clave]"/>
+                <input type="hidden" t-att-name="'o_%s_%s' % (clave, f['id'])" t-att-value="num(valor)"/>
+                <input class="dn-input ls-precio" inputmode="decimal" t-att-name="'p_%s_%s' % (clave, f['id'])"
+                       t-att-value="num(valor)" placeholder="a presupuestar"
+                       t-att-aria-label="'%s, %s' % (f['nombre'], nombre_lista[clave])"/>
+                <t t-if="clave in con_may">
+                  <t t-set="may" t-value="f['may_' + clave]"/>
+                  <small t-if="may" class="ls-may">May: <t t-esc="plata(may['precio'])"/>
+                    <button type="submit" name="usar" t-att-value="'%s:%s' % (clave, f['id'])" class="ls-usar"
+                            t-att-title="may['nombre']">usar precio del producto May</button></small>
+                  <small t-else="" class="ls-meta">sin producto May</small>
+                </t>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <button type="submit" class="dn-btn">Guardar cambios</button>
+    </form>
+    <p t-if="not filas" class="dn-empty">No hay cigarrillos activos.</p>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- b) which «May X - lista N» product is which cigarette -->
+  <template id="listas_vincular_page" name="Listas y accesos: vincular productos May">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Vincular productos May · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp ls" data-parent="/listas/cigarrillos" data-page="listas-vincular">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/listas/cigarrillos'"/>
+    <t t-set="kicker" t-value="'Listas y accesos'"/>
+    <t t-set="titulo" t-value="'Vincular productos May'"/>
+    <t t-set="sub" t-value="'A qué cigarrillo corresponde cada «May … - lista 3/4»'"/>
+  </t>
+  <main class="dn-main">
+    <datalist id="ls-cigarrillos">
+      <option t-foreach="cigarrillos" t-as="c" t-att-value="'#%s %s' % (c.id, c.name)"/>
+    </datalist>
+    <form method="post" action="/listas/cigarrillos/vincular">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <ul class="ls-list">
+        <li t-foreach="productos" t-as="p" class="ls-vinc">
+          <label t-att-for="'v-%s' % p.id"><b t-esc="p.name"/> <span class="ls-meta"><t t-esc="plata(p.list_price)"/></span></label>
+          <input class="dn-input" list="ls-cigarrillos" t-att-id="'v-%s' % p.id" t-att-name="'v_%s' % p.id"
+                 t-att-value="'#%s %s' % (p.distri_cigarrillo_id.id, p.distri_cigarrillo_id.name) if p.distri_cigarrillo_id else ''"
+                 placeholder="Sin vincular"/>
+        </li>
+      </ul>
+      <p t-if="not productos" class="dn-empty">No hay productos «May … - lista 3/4».</p>
+      <button t-if="productos" type="submit" class="dn-btn">Guardar</button>
+    </form>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- c) web access -->
+  <template id="listas_accesos_page" name="Listas y accesos: accesos web">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Accesos web · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp ls" data-parent="/listas" data-page="listas-accesos">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/listas'"/>
+    <t t-set="kicker" t-value="'Listas y accesos'"/>
+    <t t-set="titulo" t-value="'Accesos web'"/>
+    <t t-set="sub" t-value="'Clientes con lista oculta: quién puede entrar a ver sus precios'"/>
+  </t>
+  <main class="dn-main">
+    <t t-call="distri_pedido.listas_tabs"/>
+    <div t-if="clave" class="dn-card dn-card--strong ls-clave" role="status">
+      <span class="dp-fl">Acceso de <t t-esc="clave['socio'].name"/></span>
+      <dl class="ls-kv">
+        <dt>Usuario</dt><dd><b class="ls-mono" t-esc="clave['login']"/></dd>
+        <dt>Contraseña</dt><dd><b class="ls-mono" t-esc="clave['clave']"/></dd>
+      </dl>
+      <p class="dp-hint">Mandásela por WhatsApp. No queda guardada en ningún lado: si se pierde, regenerala. La primera vez que entre le va a pedir una contraseña nueva.</p>
+      <a t-if="clave['whatsapp']" class="dn-btn" t-att-href="clave['whatsapp']" target="_blank" rel="noopener">Mandar por WhatsApp</a>
+      <p t-else="" class="dp-hint">El cliente no tiene un WhatsApp cargado: copiá el usuario y la contraseña.</p>
+    </div>
+    <ul class="ls-list">
+      <li t-foreach="filas" t-as="f" class="ls-acceso" t-att-data-socio="f['socio'].id">
+        <div class="ls-row__txt">
+          <b t-esc="f['socio'].name"/>
+          <span class="ls-meta"><t t-esc="f['categoria_nombre']"/> · <t t-esc="f['lista']"/><t t-if="f['cuit']"> · CUIT <t t-esc="f['cuit']"/></t></span>
+          <span t-if="f['tiene_usuario']" class="ls-meta">Usuario <b class="ls-mono" t-esc="f['login']"/> ·
+            <t t-if="f['ultimo']">último ingreso <t t-esc="f['ultimo']"/></t><t t-else="">nunca entró</t>
+            <t t-if="f['debe_cambiar']"> · tiene que cambiar la contraseña</t></span>
+          <span t-else="" class="ls-meta">Sin acceso web<t t-if="not f['cuit']"> · sin CUIT: el usuario se arma con el código</t></span>
+        </div>
+        <span t-if="f['tiene_usuario'] and f['activo']" class="dn-chip dn-chip--ok">Activo</span>
+        <span t-elif="f['tiene_usuario']" class="dn-chip dn-chip--neutral">Desactivado</span>
+        <form method="post" t-att-action="'/listas/accesos/%s' % f['socio'].id" class="ls-acciones">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <button t-if="not f['tiene_usuario']" type="submit" name="accion" value="crear" class="dn-btn dn-btn--sm">Crear acceso</button>
+          <button t-if="f['tiene_usuario']" type="submit" name="accion" value="clave" class="dn-btn dn-btn--sm dn-btn--outline">
+            <t t-if="f['activo']">Regenerar contraseña</t><t t-else="">Reactivar con contraseña nueva</t></button>
+          <button t-if="f['tiene_usuario'] and f['activo']" type="submit" name="accion" value="desactivar" class="dn-btn dn-btn--sm dn-btn--danger"
+                  onclick="return confirm('El cliente ya no va a poder entrar con su usuario. ¿Desactivar?');">Desactivar</button>
+        </form>
+      </li>
+    </ul>
+    <p t-if="not filas" class="dn-empty">Ningún cliente tiene lista oculta ni acceso web.</p>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- d) initial load -->
+  <template id="listas_carga_page" name="Listas y accesos: carga inicial">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Carga inicial · Distri Neuquén</title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp ls" data-parent="/listas" data-page="listas-carga">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/listas'"/>
+    <t t-set="kicker" t-value="'Listas y accesos'"/>
+    <t t-set="titulo" t-value="'Carga inicial'"/>
+    <t t-set="sub" t-value="'Un CSV con la categoría de muchos clientes a la vez'"/>
+  </t>
+  <main class="dn-main">
+    <t t-call="distri_pedido.listas_tabs"/>
+    <form t-if="filas is None or aplicado" method="post" action="/listas/carga" enctype="multipart/form-data" class="dn-card ls-form">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <label class="dp-fl" for="ls-archivo">Archivo CSV</label>
+      <input id="ls-archivo" class="dn-input" type="file" name="archivo" accept=".csv,text/csv,text/plain" required="required"/>
+      <p class="dp-hint">Columnas: <b>id del cliente</b>, <b>categoría</b> (1 a 6) y, solo para la 6, el <b>nombre de la lista</b> (por ejemplo «Revendedor 01»). Separado por coma o punto y coma; la primera fila puede ser el encabezado. Primero se muestra qué cambiaría: no se guarda nada hasta confirmar.</p>
+      <button type="submit" class="dn-btn dn-btn--secondary">Ver qué cambiaría</button>
+    </form>
+    <t t-if="filas is not None">
+      <p t-if="not aplicado" class="ls-count"><t t-esc="a_aplicar"/> para cambiar · <t t-esc="errores"/> con error · el resto sin cambios</p>
+      <div class="ls-tabla-wrap">
+        <table class="ls-tabla ls-tabla--carga">
+          <thead><tr><th scope="col">Línea</th><th scope="col">Cliente</th><th scope="col">Antes</th><th scope="col">Después</th><th scope="col">Estado</th></tr></thead>
+          <tbody>
+            <tr t-foreach="filas" t-as="f" t-att-data-estado="f['estado']">
+              <td t-esc="f['linea']"/>
+              <td><t t-if="f['socio']"><t t-esc="f['socio'].name"/> <small class="ls-meta">#<t t-esc="f['socio'].id"/></small></t><t t-else="" t-esc="f['id']"/></td>
+              <td t-esc="f['antes']"/>
+              <td t-esc="f['despues']"/>
+              <td>
+                <span t-if="f['estado'] == 'ok'" class="dn-chip dn-chip--ok"><t t-esc="'Cambiado' if aplicado else 'Cambia'"/></span>
+                <span t-elif="f['estado'] == 'igual'" class="dn-chip dn-chip--neutral">Sin cambios</span>
+                <span t-else="" class="dn-chip dn-chip--err">Error</span>
+                <t t-if="f['estado'] == 'error'"><br/><small t-esc="f['mensaje']"/></t>
+                <t t-foreach="f['avisos']" t-as="aviso"><br/><small class="ls-aviso" t-esc="aviso"/></t>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <form t-if="not aplicado and a_aplicar" method="post" action="/listas/carga" class="ls-acciones">
+        <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+        <input type="hidden" name="contenido" t-att-value="contenido"/>
+        <button type="submit" name="confirmar" value="1" class="dn-btn">Confirmar y aplicar <t t-esc="a_aplicar"/></button>
+        <a class="dn-btn dn-btn--ghost" href="/listas/carga">Cancelar</a>
+      </form>
+      <a t-if="not aplicado and not a_aplicar" class="dn-btn dn-btn--ghost" href="/listas/carga">Subir otro archivo</a>
+    </t>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+</odoo>

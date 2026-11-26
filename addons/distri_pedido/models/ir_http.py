@@ -64,7 +64,7 @@ KIT_PREFIXES = (
     "/caja", "/comprobantes", "/cuentas", "/deposito", "/despacho", "/cobro", "/revisar",
     "/rutas", "/verificacion", "/mis-ventas", "/clientes", "/pedidos", "/facturas",
     "/reparto", "/nueva-venta", "/contactos", "/rendiciones", "/equipo", "/armado",
-    "/agilpedido", "/asignar", "/tablero", "/proyecto",
+    "/agilpedido", "/asignar", "/tablero", "/proyecto", "/listas",
 )
 
 

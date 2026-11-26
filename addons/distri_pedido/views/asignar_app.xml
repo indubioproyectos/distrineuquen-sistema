@@ -92,7 +92,7 @@
       <b class="as-web__name" t-esc="web['nombre']"/>
       <span t-if="web['telefono']">Teléfono: <span class="dn-num" t-esc="web['telefono']"/></span>
       <span t-if="web['domicilio']">Domicilio: <t t-esc="web['domicilio']"/></span>
-      <span t-if="mayorista" class="as-may">Pedido de la lista Distribuidoras.</span>
+      <span t-if="mayorista" class="as-may">Pedido de la lista May farmacia y varios.</span>
     </div>
 
     <!-- ============================================ existing customer -->

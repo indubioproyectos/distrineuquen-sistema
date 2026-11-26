@@ -34,3 +34,4 @@ from . import contactos
 from . import practica_pase
 from . import rendiciones_v2
 from . import correo
+from . import listas

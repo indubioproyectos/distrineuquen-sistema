@@ -28,7 +28,7 @@ affected.
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-from ..controllers.main import LISTA_OCULTA, MENSAJE_DISTRIBUIDORA
+from ..controllers.main import MENSAJE_DISTRIBUIDORA, NOMBRES_LISTA_OCULTA
 from .pedido_whatsapp import is_staff
 
 MENSAJE_LISTA = ("La lista de precios oculta (Distribuidoras y revendedores) la asignan "
@@ -99,14 +99,17 @@ class ProductPricelistOculta(models.Model):
 
     def write(self, vals):
         resultado = super().write(vals)
-        if {"distri_mayorista", "name"} & set(vals):
+        if {"distri_mayorista", "name", "distri_clave", "active"} & set(vals):
             _limpiar_reglas(self.env)
         return resultado
 
     def _distri_es_oculta(self):
-        """Distribuidoras or a list flagged «Lista de distribuidoras»
-        (the «Revendedor NN» lists)."""
-        return any(lista.distri_mayorista or lista.name == LISTA_OCULTA
+        """«May farmacia y varios» (Distribuidoras until 19.0.1.129.52) or a
+        list flagged «Lista de distribuidoras» (the «Revendedor NN» lists,
+        «Lista 2/3/4 + May farmacia»). Any list with a distri_clave other
+        than the General one is hidden too, whatever its name."""
+        return any(lista.distri_mayorista or lista.name in NOMBRES_LISTA_OCULTA
+                   or (lista.distri_clave and lista.distri_clave != "general")
                    for lista in self.sudo())
 
 

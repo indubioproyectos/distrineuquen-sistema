@@ -690,7 +690,7 @@ class ImportarPedidoLinea(models.TransientModel):
     parecido = fields.Integer(string="Coincidencia %", readonly=True)
     es_mayorista = fields.Boolean(
         string="«May»",
-        help="Vino con el prefijo «May» en AgilPedido: se valoriza con la lista Distribuidoras.",
+        help="Vino con el prefijo «May» en AgilPedido: se valoriza con la lista May farmacia y varios.",
     )
     product_uom_id = fields.Many2one(
         "uom.uom", string="Unidad",

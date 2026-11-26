@@ -1,0 +1,36 @@
+/* 19.0.1.129.52: «Listas y accesos» (controllers/listas.py, views/listas.xml).
+   On top of dn.css and deposito.css (dp-* top bar, tabs, search, checks). */
+.ls .dn-main{display:flex;flex-direction:column;gap:12px}
+.ls-tabs{margin-bottom:4px}
+.ls-filtros{display:grid;grid-template-columns:1fr;gap:8px}
+@media (min-width:720px){.ls-filtros{grid-template-columns:2fr 1fr auto;align-items:center}}
+.ls-count{margin:0;font-size:14px;color:var(--dn-muted)}
+.ls-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.ls-row,.ls-acceso,.ls-vinc{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;background:var(--dn-card);
+  border:1px solid var(--dn-line);border-radius:var(--dn-r);color:inherit;text-decoration:none}
+a.ls-row:active{background:var(--dn-tint)}
+.ls-row__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere}
+.ls-meta{font-size:14px;color:var(--dn-muted);font-weight:500}
+.ls-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px}
+.ls-form{display:flex;flex-direction:column;gap:8px}
+.ls-oculta{color:var(--dn-muted);font-weight:500}
+.ls-kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0}
+.ls-kv dt{font-weight:700;color:var(--dn-muted)}
+.ls-kv dd{margin:0;overflow-wrap:anywhere}
+.ls-pedido span{line-height:1.3}
+.ls-acciones{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0}
+.ls-vinc label{flex:1 1 220px;min-width:0}
+.ls-vinc .dn-input{flex:1 1 220px}
+.ls-tabla-wrap{overflow-x:auto;border:1px solid var(--dn-line);border-radius:var(--dn-r);background:var(--dn-card);
+  max-width:100%}
+.ls-tabla{border-collapse:collapse;width:100%;font-size:15px}
+.ls-tabla th,.ls-tabla td{padding:8px 10px;border-top:1px solid var(--dn-line);text-align:left;vertical-align:top}
+.ls-tabla thead th{border-top:0;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--dn-muted)}
+.ls-tabla tbody th{font-weight:700;min-width:160px}
+.ls-precio{min-width:110px;max-width:150px}
+.ls-may{display:block;margin-top:4px;font-size:13px;color:var(--dn-muted)}
+.ls-usar{display:block;margin-top:2px;padding:4px 0;border:0;background:none;color:var(--dn-navy);font-weight:700;
+  font-size:13px;text-decoration:underline;cursor:pointer;text-align:left}
+.ls-aviso{color:var(--dn-amber-text)}
+.ls-tabla--carga tr[data-estado="error"] td{background:var(--dn-red-bg)}
+.ls-clave .dn-btn{align-self:flex-start}

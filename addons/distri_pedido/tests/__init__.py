@@ -157,3 +157,4 @@ from . import test_v129_49_nombre_comercio
 from . import test_v129_49_1_bloqueo
 from . import test_v129_50
 from . import test_v129_51_correo
+from . import test_v129_52_listas

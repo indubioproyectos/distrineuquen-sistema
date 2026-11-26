@@ -53,10 +53,18 @@
           <field name="distri_cuenta_corriente"
                  groups="distri_pedido.grupo_administracion,base.group_system"
                  invisible="not distri_reparto_v2_on or (parent_id and not is_company)"/>
+          <!-- 19.0.1.129.52: only «Listas y accesos de distribuidores» (the
+               methods check it too) -->
           <button name="action_crear_acceso_web" type="object" class="btn-primary"
-                  string="Crear acceso web" invisible="distri_usuario_id"/>
+                  string="Crear acceso web" invisible="distri_usuario_id"
+                  groups="distri_pedido.grupo_listas_accesos"/>
           <button name="action_regenerar_clave_web" type="object"
-                  string="Regenerar contraseña" invisible="not distri_usuario_id"/>
+                  string="Regenerar contraseña" invisible="not distri_usuario_id"
+                  groups="distri_pedido.grupo_listas_accesos"/>
+          <button name="action_desactivar_acceso_web" type="object"
+                  string="Desactivar acceso web" invisible="not distri_usuario_id"
+                  groups="distri_pedido.grupo_listas_accesos"
+                  confirm="El comercio ya no va a poder entrar con su usuario. ¿Desactivar?"/>
         </group>
       </xpath>
     </field>

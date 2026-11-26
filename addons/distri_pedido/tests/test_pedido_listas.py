@@ -469,6 +469,9 @@ class TestPedidoListas(PedidoAbiertoMixin, HttpCase):
 
     def test_crear_acceso_web_users_skip_the_profile(self):
         tienda = self.env["res.partner"].create({"name": "Almacen Acceso Web", "ref": "AW-1"})
+        # 19.0.1.129.52: only «Listas y accesos de distribuidores» creates it
+        self.administracion.group_ids = [Command.link(
+            self.env.ref("distri_pedido.grupo_listas_accesos").id)]
         tienda.with_user(self.administracion).action_crear_acceso_web()
         self.assertTrue(tienda.distri_usuario_id)
         self.assertFalse(tienda.distri_alta_estado)

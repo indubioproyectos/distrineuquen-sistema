@@ -196,13 +196,13 @@
     <record id="regla_vendedor_sin_listas_ocultas" model="ir.rule">
       <field name="name">Vendedor, armador y reparto: sin listas de precios ocultas</field>
       <field name="model_id" ref="product.model_product_pricelist"/>
-      <field name="domain_force">[(1, '=', 1)] if (user.share or not (user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_armador') or user.has_group('distri_pedido.grupo_reparto')) or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', '|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')]</field>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not (user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_armador') or user.has_group('distri_pedido.grupo_reparto')) or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', '|', ('distri_mayorista', '=', True), ('name', 'in', ['Distribuidoras', 'May farmacia y varios'])]</field>
     </record>
 
     <record id="regla_vendedor_sin_precios_ocultos" model="ir.rule">
       <field name="name">Vendedor, armador y reparto: sin precios de las listas ocultas</field>
       <field name="model_id" ref="product.model_product_pricelist_item"/>
-      <field name="domain_force">[(1, '=', 1)] if (user.share or not (user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_armador') or user.has_group('distri_pedido.grupo_reparto')) or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')])]</field>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not (user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_armador') or user.has_group('distri_pedido.grupo_reparto')) or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', 'in', ['Distribuidoras', 'May farmacia y varios'])])]</field>
     </record>
 
     <!-- Clientes y visitantes (portal y público, 19.0.1.24.2): website_sale
@@ -214,19 +214,19 @@
     <record id="regla_cliente_listas_propias" model="ir.rule">
       <field name="name">Clientes: solo las listas públicas y la propia autorizada</field>
       <field name="model_id" ref="product.model_product_pricelist"/>
-      <field name="domain_force">['|', ('id', '=', user.distri_lista_cliente_id.id), '!', '|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')] if user.share else [(1, '=', 1)]</field>
+      <field name="domain_force">['|', ('id', '=', user.distri_lista_cliente_id.id), '!', '|', ('distri_mayorista', '=', True), ('name', 'in', ['Distribuidoras', 'May farmacia y varios'])] if user.share else [(1, '=', 1)]</field>
     </record>
 
     <record id="regla_cliente_precios_propios" model="ir.rule">
       <field name="name">Clientes: solo precios de las listas públicas y la propia autorizada</field>
       <field name="model_id" ref="product.model_product_pricelist_item"/>
-      <field name="domain_force">['|', ('pricelist_id', '=', user.distri_lista_cliente_id.id), '!', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')])] if user.share else [(1, '=', 1)]</field>
+      <field name="domain_force">['|', ('pricelist_id', '=', user.distri_lista_cliente_id.id), '!', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', 'in', ['Distribuidoras', 'May farmacia y varios'])])] if user.share else [(1, '=', 1)]</field>
     </record>
 
     <record id="regla_vendedor_sin_pedidos_de_distribuidoras" model="ir.rule">
       <field name="name">Vendedor: pedido de distribuidora, lo gestiona Administración</field>
       <field name="model_id" ref="sale.model_sale_order"/>
-      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', '|', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')]), ('partner_id.commercial_partner_id.distri_lista_oculta', '=', True)]</field>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', '|', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', 'in', ['Distribuidoras', 'May farmacia y varios'])]), ('partner_id.commercial_partner_id.distri_lista_oculta', '=', True)]</field>
       <field name="perm_write" eval="False"/>
       <field name="perm_create" eval="False"/>
     </record>
@@ -234,7 +234,7 @@
     <record id="regla_vendedor_sin_renglones_de_distribuidoras" model="ir.rule">
       <field name="name">Vendedor: renglones de pedidos de distribuidoras, los gestiona Administración</field>
       <field name="model_id" ref="sale.model_sale_order_line"/>
-      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', ('order_id', 'any', ['|', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', '=', 'Distribuidoras')]), ('partner_id.commercial_partner_id.distri_lista_oculta', '=', True)])]</field>
+      <field name="domain_force">[(1, '=', 1)] if (user.share or not user.has_group('distri_pedido.grupo_vendedor') or user.has_group('distri_pedido.grupo_administracion') or user.has_group('base.group_system')) else ['!', ('order_id', 'any', ['|', ('pricelist_id', 'any', ['|', ('distri_mayorista', '=', True), ('name', 'in', ['Distribuidoras', 'May farmacia y varios'])]), ('partner_id.commercial_partner_id.distri_lista_oculta', '=', True)])]</field>
     </record>
 
     <!-- «Cuentas (celular)» comments (19.0.1.74.0): the seller sees and writes

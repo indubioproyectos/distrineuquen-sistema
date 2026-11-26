@@ -180,14 +180,22 @@ POR_PAGINA = 50
 # FARMACIA) and the «Revendedor NN» lists built on it are only seen by
 # Gerencia and Administración (rule of 30/09/2026: sellers see the General
 # list only, models/lista_oculta.py) and by customers flagged
-# res.partner.distri_lista_oculta. Looked up by name
-# here and in models/importar_pedido.py and models/agilpedido_wa.py.
+# res.partner.distri_lista_oculta. 19.0.1.129.52: the hidden list is now
+# called «May farmacia y varios»; both lists are found by
+# product.pricelist.distri_clave (set by migrations/19.0.1.129.52), so a
+# rename cannot break them, and by name only on a database without the key
+# (models/listas_distri.py). Used here and in models/importar_pedido.py and
+# models/agilpedido_wa.py.
 LISTA_GENERAL = "General"
 MENSAJE_DISTRIBUIDORA = "Pedido de distribuidora: lo gestiona Administración."
 # 19.0.1.129.20: an external seller only takes orders for his customers
 MENSAJE_CLIENTE_AJENO = ("Ese cliente no es tuyo: solo podés tomar pedidos de tus clientes. Si "
                          "es nuevo, cargá el pedido sin elegir cliente.")
-LISTA_OCULTA = "Distribuidoras"
+LISTA_OCULTA = "May farmacia y varios"
+# 19.0.1.129.52: the name it had until then, still accepted when the list has
+# no key yet
+LISTA_OCULTA_ANTERIOR = "Distribuidoras"
+NOMBRES_LISTA_OCULTA = (LISTA_OCULTA, LISTA_OCULTA_ANTERIOR)
 
 # Cigarrillos y tabaco no tienen precio publico: cada revendedor tiene el suyo
 # negociado. En la lista General el renglon entra sin precio y el vendedor lo
@@ -195,18 +203,31 @@ LISTA_OCULTA = "Distribuidoras"
 CATEGORIAS_A_PRESUPUESTAR = ("CIGARRILLOS", "Tabaco VAN KIFF")
 
 
+def lista_por_clave(env, clave):
+    """19.0.1.129.52: the active price list with that distri_clave (a stable
+    reference that survives a rename), or an empty recordset."""
+    Pl = env["product.pricelist"].sudo()
+    if "distri_clave" not in Pl._fields:
+        return Pl.browse()
+    return Pl.search([("distri_clave", "=", clave)], limit=1)
+
+
 def lista_general(env):
     """The public price list. Never falls back to a hidden one: without the
     General list the prices are the products' list prices."""
     Pl = env["product.pricelist"].sudo()
-    return (Pl.search([("name", "=", LISTA_GENERAL)], limit=1)
+    return (lista_por_clave(env, "general")
+            or Pl.search([("name", "=", LISTA_GENERAL)], limit=1)
             or Pl.search([("distri_mayorista", "=", False),
-                          ("name", "!=", LISTA_OCULTA)], limit=1))
+                          ("name", "not in", list(NOMBRES_LISTA_OCULTA))], limit=1))
 
 
 def lista_oculta(env):
-    """The hidden wholesale list («May» prices) of distributors and resellers."""
-    return env["product.pricelist"].sudo().search([("name", "=", LISTA_OCULTA)], limit=1)
+    """The hidden wholesale list («May» prices) of distributors and resellers:
+    «May farmacia y varios» (it was «Distribuidoras»)."""
+    Pl = env["product.pricelist"].sudo()
+    return (lista_por_clave(env, "may")
+            or Pl.search([("name", "in", list(NOMBRES_LISTA_OCULTA))], limit=1))
 
 
 class TomaDePedidos(http.Controller):
@@ -366,6 +387,12 @@ class TomaDePedidos(http.Controller):
             return False
         return producto.categ_id.name in CATEGORIAS_A_PRESUPUESTAR
 
+    def _cigarrillo_sin_precio_propio(self, producto, precio):
+        """19.0.1.129.52: a cigarette priced 0 by the visitor's own list."""
+        return (bool(self._lista_propia()) and not producto.distri_lista_personal
+                and producto.categ_id.name in CATEGORIAS_A_PRESUPUESTAR
+                and (precio or 0.0) <= 0.0)
+
     def _unidad_de_venta(self, producto):
         """La unidad en la que el cliente compra este producto.
 
@@ -497,6 +524,11 @@ class TomaDePedidos(http.Controller):
             final = lista._get_product_price(
                 producto.product_variant_id, factor
             ) * factor
+        if not sin_precio and self._cigarrillo_sin_precio_propio(producto, final):
+            # 19.0.1.129.52: a cigarette without a price in the customer's own
+            # list (it falls to the 0 of «May farmacia y varios») stays «a
+            # presupuestar», never shown at 0 or at another list's price
+            sin_precio, final = True, 0.0
         return {
             "id": producto.id,
             "nombre": producto.name,
@@ -1855,6 +1887,10 @@ class TomaDePedidos(http.Controller):
                 valores["price_unit"] = lista_visitante._get_product_price(
                     variante, factor
                 ) * factor
+                if self._cigarrillo_sin_precio_propio(plantilla, valores["price_unit"]):
+                    # 19.0.1.129.52: no price in his list: «a presupuestar»
+                    valores["price_unit"] = 0.0
+                    sin_precio.append(plantilla.name)
             lineas.append((0, 0, valores))
         ids_descartados = descartados
         descartados = self._nombres_descartados(ids_descartados)
@@ -1921,7 +1957,7 @@ class TomaDePedidos(http.Controller):
         if de_distribuidoras:
             nota += (
                 "\n\nCON PRECIO DE LA SECCION DISTRIBUIDORAS (%s renglones): se "
-                "valorizaron con la lista %s." % (len(de_distribuidoras), LISTA_OCULTA)
+                "valorizaron con la lista %s." % (len(de_distribuidoras), lista_mayorista.name)
             )
         if sin_precio:
             nota += (

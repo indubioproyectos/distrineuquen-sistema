@@ -111,3 +111,5 @@ from . import lista_personal
 from . import reclamar_inicio
 from . import bloqueo_factura
 from . import correo_verificado
+from . import listas_distri
+from . import notificaciones

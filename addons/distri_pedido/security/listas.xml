@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.52 (owner, 26/11/2026): «Listas y accesos» (/listas,
+       controllers/listas.py, models/listas_distri.py) is only for Gonzalo
+       and Ale. No privilege on purpose: it is an extra right on top of the
+       role, not a role. Members are set by login in
+       migrations/19.0.1.129.52 (noupdate: later changes in the backend stay). -->
+  <data noupdate="1">
+    <record id="grupo_listas_accesos" model="res.groups">
+      <field name="name">Listas y accesos de distribuidores</field>
+      <field name="comment">Cambia la categoría y la lista de precios de los clientes, los precios de cigarrillos de las listas 2, 3 y 4 y los accesos web de los clientes con lista oculta.</field>
+    </record>
+  </data>
+</odoo>
