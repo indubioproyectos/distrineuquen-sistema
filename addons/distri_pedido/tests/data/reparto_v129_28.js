@@ -262,6 +262,8 @@ const homeV2 = () => ({ ok: true, v2: true, user_id: 7,
   tap5("deliv", "all");
   tap5("pay", "transfer");
   let v = screen(T, "#visita/804");
+  // 26/11/2026 (drivers): the products to check are on the v2 visit too
+  out.visitLines = v.indexOf("Controlá con el cliente") >= 0 && v.indexOf("Producto") >= 0;
   out.transferChoices = v.indexOf("Sacar foto") >= 0 && v.indexOf("Lo manda después · queda a mi cargo") >= 0;
   tap5("save");
   out.transferNeedsReceipt = element("toast").textContent;

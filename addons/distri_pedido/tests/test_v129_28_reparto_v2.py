@@ -419,6 +419,7 @@ class TestV12928RepartoV2(V12928Mixin, AccountTestInvoicingCommon):
         self.assertEqual(out["cash"], {"taps": 4, "cash": 1000, "transfer": "no", "without_code": True,
                                        "returns_answer": "none", "already_paid": False,
                                        "no_payment": False, "state": 1000})
+        self.assertTrue(out["visitLines"])
         self.assertTrue(out["transferChoices"])
         self.assertIn("Lo manda después", out["transferNeedsReceipt"])
         self.assertEqual(out["transfer"], {"cash": 0, "transfer": "yes", "amount": 1000,

@@ -247,3 +247,7 @@ button.visit.route-pick{width:100%;text-align:left;font:inherit;color:inherit;cu
 .more summary::after{content:"▾";margin-left:8px}
 .more[open] summary::after{content:"▴"}
 .more-body{display:flex;flex-direction:column;gap:10px;padding:0 14px 14px}
+/* 26/11/2026: products on the v2 visit */
+.v2lines{gap:6px}
+.v2more summary{list-style:none;cursor:pointer;margin-top:4px}
+.v2more summary::-webkit-details-marker{display:none}

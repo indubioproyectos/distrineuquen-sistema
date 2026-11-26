@@ -267,6 +267,23 @@
     return out;
   }
 
+  // 26/11/2026 (drivers): the order's products to check with the customer,
+  // as the old visit screen had them; the first 4, the rest folded
+  function linesHtml(stop) {
+    var lines = stop.lines || [];
+    function row(l) { return "<div><b>" + APP.qty(l.qty) + "</b><span>" + h(l.product) + "</span></div>"; }
+    var out = '<div class="card v2lines"><div class="split"><b>' + (stop.parcels || 0) +
+      (stop.parcels === 1 ? " bulto" : " bultos") + '</b><span class="small muted">Controlá con el cliente</span></div>';
+    if (lines.length) {
+      out += '<div class="lines">' + lines.slice(0, 4).map(row).join("") + "</div>";
+      if (lines.length > 4) {
+        out += '<details class="v2more"><summary class="link">Ver los ' + lines.length + " productos</summary>" +
+          '<div class="lines">' + lines.slice(4).map(row).join("") + "</div></details>";
+      }
+    }
+    return out + "</div>";
+  }
+
   function visitHtml(stop) {
     var d = draftFor(stop);
     refill(stop, d);
@@ -286,7 +303,7 @@
       (paid ? "Ya está pagado" : "Le toca pagar") + '</div><div class="v2amount">' + money(paid ? 0 : due) + "</div>" +
       '<div class="small muted">Pedido ' + money(dueBase(stop)) + (ret ? " · devolución − " + money(ret) : "") + "</div></div>";
 
-    out += '<div class="label">Entrega</div><div class="grid3">' +
+    out += '<div class="label">Entrega</div>' + linesHtml(stop) + '<div class="grid3">' +
       btn("deliv", "all", "Entregué todo", !nd && d.returns_answer === "none") +
       btn("deliv", "ret", "Devolvió algo", !nd && d.returns_answer === "yes") +
       btn("deliv", "nd", "No se entregó", nd, "amberopt") + "</div>";
