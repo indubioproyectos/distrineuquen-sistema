@@ -503,13 +503,15 @@
         (load.import_file ? '<span>Zip «' + h(load.import_file) + "», importado el " + h(load.imported_at) +
           (load.imported_by ? " por " + h(load.imported_by) : "") + "</span>" : "") + "</div>";
     }
-    if (D) {
+    // 19.0.1.129.50: the totals come only for gerencia, administración and Sistemas
+    if (D && D.can_see_totals) {
       head += '<div class="total num">' + money(D.total_debt) + "</div>" +
         '<div class="sub">' + plural(D.debtor_count, "cliente debe", "clientes deben") +
         " · " + h(D.user) +
         (S.refreshing ? ' · <span class="upd">actualizando…</span>' : "") + "</div>";
     } else {
-      head += "<h1>Deudores</h1>";
+      head += "<h1>Deudores</h1>" + (D ? '<div class="sub">' + h(D.user) +
+        (S.refreshing ? ' · <span class="upd">actualizando…</span>' : "") + "</div>" : "");
     }
     // a seller never sees the «incobrable» state (models/cuentas_app.py app_debtors)
     var seeUnc = !!(D && D.can_see_uncollectible);
@@ -545,7 +547,7 @@
     if (seeUnc && S.showUncollectible) {
       var unc = visibleDebtors(D.uncollectible);
       out.push('<div class="section-title"><span>Deudas incobrables (aparte)</span><span class="num">' +
-        money(D.uncollectible_total) + "</span></div>");
+        (D.can_see_totals ? money(D.uncollectible_total) : "") + "</span></div>");
       out.push(unc.length ? unc.map(debtorRow).join("") : '<div class="empty">Sin incobrables.</div>');
     }
     if (S.showSettled) {
@@ -850,7 +852,7 @@
       '<button type="button" class="dn-icon-btn" id="cu-more" aria-label="Más acciones" aria-haspopup="menu" aria-expanded="' +
       CU.menu + '">' + icon("more") + "</button></div>" + menuView(D) + "</header>";
     var out = [banner(), lastLoadView(D)];
-    out.push(D ? '<div class="dn-kpi dn-kpi--hero"><span class="dn-kpi__label">Total a cobrar</span>' +
+    out.push(D && !D.can_see_totals ? "" : D ? '<div class="dn-kpi dn-kpi--hero"><span class="dn-kpi__label">Total a cobrar</span>' +
       '<span class="dn-kpi__value dn-num">' + money(D.total_debt) + '</span><span class="dn-kpi__hint">' + kpiHint(D) +
       (D.uncollectible_count ? " · incobrables aparte " + money(D.uncollectible_total) : "") + "</span></div>" :
       '<div class="dn-skel cu-skel-kpi"></div>');
@@ -935,7 +937,7 @@
       'aria-label="Más acciones: actualizar, descargar PDF o Excel" aria-haspopup="menu" aria-expanded="' + CU.menu + '">' +
       icon("more") + "</button>" + menuView(D) + "</span></div>";
     var kpis = "";
-    if (D) {
+    if (D && D.can_see_totals) {
       kpis = '<div class="cu-kpis"><div class="dn-kpi dn-kpi--hero"><span class="dn-kpi__label">Total a cobrar</span>' +
         '<span class="dn-kpi__value dn-num">' + money(D.total_debt) + '</span><span class="dn-kpi__hint">' +
         plural(D.debtor_count, "cliente con deuda", "clientes con deuda") + "</span></div>" +
@@ -1376,7 +1378,7 @@
       (D && D.report_url ? '<a class="btn ghost sm" href="' + h(D.report_url) + '" target="_blank" rel="noopener">PDF y Excel</a>' : "") +
       "</div></div>";
     if (!D) return '<div class="desk">' + head + banner() + '<main class="dwrap">' + f + '<div class="cargando">Cargando…</div></main></div>';
-    var kpis = '<div class="kpis"><div class="kpi"><span>Clientes que deben</span><b class="num">' + D.debtor_count + "</b></div>" +
+    var kpis = !D.can_see_totals ? "" : '<div class="kpis"><div class="kpi"><span>Clientes que deben</span><b class="num">' + D.debtor_count + "</b></div>" +
       '<div class="kpi"><span>Deuda total</span><b class="num">' + money(D.total_debt) + "</b></div>" +
       '<div class="kpi"><span>Pagos a confirmar</span><b class="num">' + money(D.total_candidates || 0) + "</b></div>" +
       (seeUnc ? '<div class="kpi err"><span>Deuda incobrable (aparte)</span><b class="num">' + money(D.uncollectible_total) + "</b></div>" : "") +

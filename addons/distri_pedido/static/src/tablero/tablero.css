@@ -69,34 +69,69 @@ body.tab2{background:var(--dn-bg)}
 .tab2-main{display:flex;flex-direction:column;gap:20px;width:100%;max-width:1000px;margin:0 auto;
   padding:16px 16px calc(24px + env(safe-area-inset-bottom,0px))}
 .tab2-grupo{display:flex;flex-direction:column;gap:8px;min-width:0}
-.tab2-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tab2-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;gap:10px}
 @media (min-width:600px){.tab2-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (min-width:1024px){
   .tab2-main{padding:24px 24px 32px}
-  .tab2-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .tab2 .dn-tile--main{max-width:calc(50% - 4px)}
+  .tab2-tiles{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .tab2 .dn-tile--main{max-width:calc(50% - 6px)}
 }
-/* HomeTile */
-.dn-tile{display:flex;align-items:center;gap:10px;min-width:0;min-height:64px;padding:10px 12px;
+/* HomeTile (shared pieces; the main tile and the grid tile below) */
+.dn-tile{position:relative;display:flex;align-items:center;gap:12px;min-width:0;min-height:64px;padding:10px 12px;
   background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r);color:var(--dn-ink);
-  text-decoration:none}
+  text-decoration:none;-webkit-tap-highlight-color:transparent}
 .dn-tile:hover,.dn-tile:active{background:var(--dn-tint)}
+.dn-tile:focus-visible{outline:3px solid var(--dn-focus);outline-offset:2px}
 .dn-tile__ico{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;
   border-radius:10px;background:var(--dn-navy);color:#fff}
 .dn-tile__ico .dn-i{width:24px;height:24px}
-.dn-tile__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;font-size:15px;font-weight:700;
-  line-height:1.2;overflow-wrap:anywhere}
-.dn-tile__txt small{font-size:14px;font-weight:400;color:var(--dn-muted)}
-.dn-tile__bd{min-width:24px;height:24px;flex:none;padding:0 7px;border-radius:12px;background:var(--dn-navy);
-  color:#fff;font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;
+.dn-tile__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:15px;font-weight:700;
+  line-height:1.2}
+/* never a word cut in two: no hyphens, no break inside a word, balanced lines */
+.dn-tile__lbl,.dn-tile__sub{hyphens:manual;-webkit-hyphens:manual;overflow-wrap:normal;word-break:normal;
+  text-wrap:balance}
+.dn-tile__sub{font-size:14px;font-weight:400;line-height:1.3;color:var(--dn-muted)}
+.dn-tile__bd{min-width:26px;height:26px;flex:none;padding:0 8px;border-radius:13px;background:var(--dn-navy);
+  color:#fff;font-size:14px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;
   font-variant-numeric:tabular-nums;white-space:nowrap}
-.dn-tile__bd--err{background:var(--dn-red-bg);color:var(--dn-red-text)}
-.dn-tile__bd--warn{background:var(--dn-amber-bg);color:var(--dn-amber-text)}
-.dn-tile--main{min-height:72px;background:var(--dn-primary);border-color:var(--dn-primary);color:var(--dn-on-primary,#fff)}
+.dn-tile__bd--err{background:var(--dn-red-bg);color:var(--dn-red-text);box-shadow:inset 0 0 0 1px var(--dn-red-line)}
+.dn-tile__bd--warn{background:var(--dn-amber-bg);color:var(--dn-amber-text);box-shadow:inset 0 0 0 1px var(--dn-amber-line)}
+/* 19.0.1.129.50: the grid tile, an app tile. Icon on top-left (a 56 px
+   tinted square, 30 px glyph), the badge top-right where the icon never
+   is, the short name under them in up to two lines; every tile of the page
+   the same height (a min-height that holds two lines, and grid-auto-rows 1fr).
+   The subtitle shows from 1024 px. */
+.tab2-tiles .dn-tile{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:10px;
+  min-height:132px;padding:14px 14px 12px}
+.tab2-tiles .dn-tile__ico{width:56px;height:56px;border-radius:16px;background:var(--dn-info-bg);color:var(--dn-navy)}
+.tab2-tiles .dn-tile__ico .dn-i{width:30px;height:30px}
+.tab2-tiles .dn-tile:hover .dn-tile__ico,.tab2-tiles .dn-tile:active .dn-tile__ico{background:#d8e0eb}
+.tab2-tiles .dn-tile__txt{flex:none;width:100%;font-size:16px;line-height:1.2}
+.tab2-tiles .dn-tile__lbl{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+.tab2-tiles .dn-tile__sub{display:none}
+.tab2-tiles .dn-tile__bd{position:absolute;top:12px;right:12px}
+@media (max-width:359px){
+  .tab2-tiles .dn-tile{min-height:120px;padding:12px 10px 10px}
+  .tab2-tiles .dn-tile__ico{width:48px;height:48px;border-radius:14px}
+  .tab2-tiles .dn-tile__ico .dn-i{width:28px;height:28px}
+  .tab2-tiles .dn-tile__txt{font-size:15px}
+  .tab2-tiles .dn-tile__bd{top:10px;right:8px}
+}
+@media (min-width:1024px){
+  .tab2-tiles .dn-tile{min-height:180px;padding:16px}
+  .tab2-tiles .dn-tile__txt{font-size:17px;gap:4px}
+  .tab2-tiles .dn-tile__sub{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
+    overflow:hidden;font-size:14px}
+}
+/* the main tile: the day's first task, green and wide, with its subtitle */
+.dn-tile--main{min-height:80px;padding:12px 16px;gap:14px;background:var(--dn-primary);border-color:var(--dn-primary);
+  color:var(--dn-on-primary,#fff)}
 .dn-tile--main:hover,.dn-tile--main:active{background:var(--dn-primary-press)}
-.dn-tile--main .dn-tile__ico{background:#fff;color:var(--dn-primary-press)}
-.dn-tile--main .dn-tile__txt{font-size:17px;font-weight:800}
-.dn-tile--main .dn-tile__txt small{color:#fff}
+.dn-tile--main .dn-tile__ico{width:52px;height:52px;border-radius:14px;background:#fff;color:var(--dn-primary-press)}
+.dn-tile--main .dn-tile__ico .dn-i{width:30px;height:30px}
+.dn-tile--main .dn-tile__txt{font-size:18px;font-weight:800}
+.dn-tile--main .dn-tile__sub{color:#fff;font-size:14px}
+.dn-tile--main .dn-tile__bd{background:#fff;color:var(--dn-primary-press)}
 .dn-tile--main:focus-visible{outline-color:var(--dn-navy)}
 /* banners (Banner, card variant) */
 .tab2-banners{display:flex;flex-direction:column;gap:8px}

@@ -207,6 +207,12 @@ class TestV12943Cuentas(HttpCase):
         for user in (self.admin_u, self.seller_u, self.driver_u, self.external_u, self.system_u):
             old, _ = self._old(user)
             new = self._app(user).app_list(limit=1)
+            if user in (self.seller_u, self.driver_u, self.external_u):
+                # 19.0.1.129.50: no aggregate totals outside gerencia,
+                # administración and Sistemas
+                self.assertNotIn("total_debt", new, user.login)
+                self.assertNotIn("total_debt", old, user.login)
+                continue
             self.assertEqual(new["total_debt"], old["total_debt"], user.login)
             self.assertEqual(new["debtor_count"], old["debtor_count"], user.login)
             self.assertEqual(new["uncollectible_total"], old["uncollectible_total"], user.login)

@@ -102,6 +102,27 @@ def app_scope(env):
     return None
 
 
+# 19.0.1.129.50 (owner): the aggregate figures of the customer list («Total a
+# cobrar», «N clientes con deuda», «Pagos a confirmar», «Saldos a favor»,
+# «Incobrables (aparte)») are for gerencia, administración and Sistemas only.
+# Everybody else who opens /cuentas keeps the rows with their balances, but
+# the server never computes nor sends these keys to them.
+TOTAL_KEYS = ("total_debt", "debtor_count", "total_candidates", "uncollectible_total",
+              "uncollectible_count", "credit_total", "credit_count")
+
+
+def can_see_totals(env):
+    """Gerencia (implies administración), administración or Settings."""
+    user = env.user
+    return not user.share and (user.has_group(ADMIN_GROUP) or user.has_group(SYSTEM_GROUP))
+
+
+def _strip_totals(result):
+    for key in TOTAL_KEYS:
+        result.pop(key, None)
+    return result
+
+
 def _iso(day):
     return day.isoformat() if day else ""
 
@@ -433,8 +454,10 @@ class DistriAccountApp(models.AbstractModel):
             bucket = groups[kind]
             bucket.append(payload(entry, len(bucket) + 1))
         debtors = groups["debtor"]
-        return {
+        totals = can_see_totals(self.env)
+        result = {
             "user": self.env.user.name,
+            "can_see_totals": totals,
             "scope": scope,
             "can_filter_seller": scope == "all",
             "can_see_uncollectible": not hide_uncollectible,
@@ -459,6 +482,7 @@ class DistriAccountApp(models.AbstractModel):
             "uncollectible_total": round(sum(d["balance"] for d in groups["uncollectible"]), 2),
             "last_load": self._app_last_load(),
         }
+        return result if totals else _strip_totals(result)
 
     # ------------------------------------------------------------ one list (129.43)
 
@@ -506,6 +530,7 @@ class DistriAccountApp(models.AbstractModel):
         (the oldest red row is not in the batched balance)."""
         scope = self._app_check()
         hide_uncollectible = scope != "all"
+        totals = can_see_totals(self.env)
         if scope != "all" or seller not in SELLER_FILTER_VALUES:
             seller = "all"
         state = state if state in LIST_STATES else "all"
@@ -622,10 +647,12 @@ class DistriAccountApp(models.AbstractModel):
             "uncollectible_count": len(uncollectible),
             "credit_total": round(sum(i["balance"] for i in credit), 2),
             "credit_count": len(credit),
+            "can_see_totals": totals,
         }
+        if not totals:
+            _strip_totals(result)
         if count_only:
             return result
-        candidates = self._app_candidates([i["partner"].id for i in debtors])
         result.update({
             "user": self.env.user.name,
             "can_filter_seller": scope == "all",
@@ -634,14 +661,16 @@ class DistriAccountApp(models.AbstractModel):
             # «Descargar PDF / Excel»: the «Deudores» report (administración)
             "can_export": self.env.user.has_group(ADMIN_GROUP),
             "zones": sorted(zones) if with_zones else None,
-            "total_candidates": round(sum(candidates.get(i["partner"].id, (0, 0.0))[1]
-                                          for i in debtors), 2),
             "rows": self._app_list_rows(page, zone_of, tags, today),
             "more": offset + len(page) < len(shown),
             "updated_at": fields.Datetime.now().replace(tzinfo=timezone.utc).astimezone(
                 AR_TZ).strftime("%H:%M"),
             "last_load": self._app_last_load() if offset == 0 else None,
         })
+        if totals:
+            candidates = self._app_candidates([i["partner"].id for i in debtors])
+            result["total_candidates"] = round(
+                sum(candidates.get(i["partner"].id, (0, 0.0))[1] for i in debtors), 2)
         return result
 
     @api.model

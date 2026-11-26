@@ -216,7 +216,9 @@ class TestCuentasApp(HttpCase):
         ids = {d["id"] for d in data["debtors"] + data["settled"] + data["uncollectible"]}
         self.assertTrue({self.pa.id, self.pb.id} <= {d["id"] for d in data["debtors"]})
         self.assertIn(self.pa_zero.id, {d["id"] for d in data["settled"]})
-        self.assertEqual(data["total_debt"], round(sum(d["balance"] for d in data["debtors"]), 2))
+        # 19.0.1.129.50: no aggregate totals for a seller, only the rows
+        self.assertFalse(data["can_see_totals"])
+        self.assertNotIn("total_debt", data)
         key = self._card_row(self.pb, self.card_b)["line_key"]
         for user in (self.seller_a, self.driver_u):
             app = self._app(user)
@@ -288,7 +290,7 @@ class TestCuentasApp(HttpCase):
         seller = self._app(self.seller_a).app_debtors()
         self.assertFalse(seller["can_see_uncollectible"])
         self.assertEqual(seller["uncollectible"], [])
-        self.assertEqual(seller["uncollectible_total"], 0)
+        self.assertNotIn("uncollectible_total", seller)
         self.assertIn(self.pa.id, {d["id"] for d in seller["debtors"]},
                       "an uncollectible customer is an ordinary debtor for his seller")
         self.assertEqual([d["rank"] for d in seller["debtors"]],

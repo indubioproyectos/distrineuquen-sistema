@@ -111,12 +111,17 @@
        the first tile of the user's order highlighted on top of its group,
        the others with the name only and a short badge. -->
   <template id="tablero_v2_tile" name="Inicio v2: mosaico">
+    <!-- 19.0.1.129.50: the short name (tile_label) on screen; the full title
+         and subtitle in the tooltip; the subtitle shows on the PC only -->
+    <t t-set="label" t-value="tile_label(tile)"/>
+    <t t-set="full" t-value="tile['title'] if tile['title'] != label else ''"/>
     <a t-att-class="'dn-tile dn-tile--main' if is_main else 'dn-tile'" t-att-href="tile['url']"
        t-att-data-dn="'down' if not tile['url'].startswith('/odoo') else None"
-       t-att-data-tile="tile['key']" t-att-title="None if is_main else tile['subtitle']"
-       t-att-aria-label="('%s · %s' % (tile['title'], tile['badge']['text'])) if tile['badge'] else None">
+       t-att-data-tile="tile['key']"
+       t-att-title="None if is_main else ' · '.join(x for x in (full, tile['subtitle']) if x)"
+       t-att-aria-label="' · '.join(x for x in (label, full, tile['badge'] and tile['badge']['text']) if x) if (full or tile['badge']) else None">
       <span class="dn-tile__ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="tile['glyph']"/></t></span>
-      <span class="dn-tile__txt"><t t-esc="tile['title']"/><small t-if="is_main" t-esc="tile['subtitle']"/></span>
+      <span class="dn-tile__txt"><span class="dn-tile__lbl" t-esc="label"/><small class="dn-tile__sub" t-esc="tile['subtitle']"/></span>
       <span t-if="tile['badge']" t-att-class="'dn-tile__bd' + (' dn-tile__bd--%s' % tile['badge']['kind'] if tile['badge']['kind'] else '')"
             t-esc="badge_short(tile['badge'])" aria-hidden="true"/>
     </a>

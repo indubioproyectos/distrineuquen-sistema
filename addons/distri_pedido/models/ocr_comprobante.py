@@ -207,7 +207,19 @@ _NOT_A_NAME = re.compile(
     r"cr[eé]dito|inmediata|dni|id\b|comisi|servicio|ual[aá]|brubank|galicia|santander|"
     r"naci[oó]n|provincia|naranja|macro|bbva|icbc|personal|modo|prex|lemon|para|desde|"
     r"titular|nombre|beneficiari|destinatari|ordenante|transacci|control|coelsa|"
-    r"reintegro|saldo|disponible", re.IGNORECASE)
+    r"reintegro|saldo|disponible|"
+    # 19.0.1.129.50: the headers of Galicia «Office Banking» («Datos del
+    # pagador», «Razón Social», «Office Banking», «Impreso ...»)
+    r"\bdatos\s+del?\b|raz[oó]n\s+social|office\s+banking|impreso", re.IGNORECASE)
+# 19.0.1.129.50: Galicia «Office Banking» (companies' home banking) names its
+# operation «Identificador de la operación: LRBRBFb868», letters and digits
+_IDENTIFIER_LABEL = re.compile(
+    r"identificador\s+de\s+(?:la\s+)?operaci[oó]n\s*:?\s*([A-Za-z0-9]{6,24})(?![A-Za-z0-9])",
+    re.IGNORECASE)
+# uppercase only, so a surname like «Sa» is still read as before
+_LEGAL_FORM = re.compile(
+    r"\s((?:S\.?\s?A\.?\s?S|S\.?\s?R\.?\s?L|S\.?\s?A\.?\s?U|S\.?\s?A|S\.?\s?C\.?\s?A|S\.?\s?H)\.?)$")
+_OFFICE_BANKING = re.compile(r"office\s+banking", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------- helpers
@@ -252,14 +264,21 @@ def _looks_like_name(line):
     line = re.sub(r"^[A-Za-z]{1}\s+(?=\S+\s+\S+)", "", line)
     if not line or _NOT_A_NAME.search(line):
         return ""
+    # 19.0.1.129.50: a company's legal form at the end, «AHYRE NORTE S. A. S.»
+    # (Galicia Office Banking): its one-letter parts are not words of the name
+    suffix = ""
+    legal = _LEGAL_FORM.search(line)
+    if legal and legal.start():
+        suffix = legal.group(1) + ("." if "." in legal.group(1) else "")
+        line = line[:legal.start()].strip()
     words = line.split()
-    if not 2 <= len(words) <= 6:
+    if not (1 if suffix else 2) <= len(words) <= 6:
         return ""
     # «NELDA/JESICA MUNOZ»: Ualá joins the holder's given names with a slash
     if not all(re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'.]{2,}(?:/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ'.]{2,})*", w)
                for w in words):
         return ""
-    return " ".join(words)
+    return " ".join(words + ([suffix] if suffix else []))
 
 
 # ---------------------------------------------------------------- time cap
@@ -812,6 +831,10 @@ def _without_dates_and_ids(line):
 
 
 def _operation(lines, bank=""):
+    for line in lines:
+        identifier = _IDENTIFIER_LABEL.search(line)
+        if identifier and re.search(r"\d", identifier.group(1)):
+            return identifier.group(1)
     for index, line in enumerate(lines):
         label = _OPERATION_LABEL.search(line)
         if not label:
@@ -1039,7 +1062,11 @@ def _parties(lines, own=None):
 def _bank(lines):
     """The payer's bank or wallet: named in the first lines (the header),
     else anywhere. The destination's lines are left out first: Ualá's
-    «Cuenta destino Mercado Pago» is the company's wallet, not the payer's."""
+    «Cuenta destino Mercado Pago» is the company's wallet, not the payer's.
+    19.0.1.129.50: a Galicia «Office Banking» receipt never names the bank;
+    its footer does, after the destination's «Mercado Pago»."""
+    if any(_OFFICE_BANKING.search(line) for line in lines):
+        return "Banco Galicia"
     payer_side = [line for line, section in zip(lines, _sections(lines))
                   if section != "destination"]
     for candidates in (payer_side, lines):

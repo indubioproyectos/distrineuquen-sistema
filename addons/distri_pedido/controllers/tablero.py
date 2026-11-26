@@ -28,6 +28,10 @@ links; every role's tiles in labelled groups, the first one highlighted,
 19.0.1.129.48, behind ui_v2: «Mis comprobantes a reclamar» is the first
 block of Inicio (reclamar_block), listing each receipt with its actions,
 instead of the banner line of 129.37 (reclamar_row, kept for the flag off).
+
+19.0.1.129.50, behind ui_v2: the Inicio tiles get a short name (TILE_LABELS,
+never broken mid-word), a larger icon on top and the same height; the full
+title and subtitle stay as the tooltip (and the subtitle shows on the PC).
 """
 import json
 from datetime import timedelta
@@ -690,6 +694,26 @@ def main_tile(tiles):
     return tiles[0] if tiles else None
 
 
+# 19.0.1.129.50 (owner: «los textos de cada icono son largos y se rompen»):
+# the short name a design-system tile shows (ui_v2 Inicio only). The full
+# title stays everywhere else (flag-off Inicio, «Ordenar el Inicio», menus)
+# and, on Inicio, in the tile's tooltip and its spoken name.
+TILE_LABELS = {
+    "revisar": "Revisar",
+    "rutas": "Rutas",
+    "reparto": "Rendiciones",
+    "historial": "Cajas",
+    "verificacion": "Verificación",
+    "reportemp": "Reporte MP",
+    "tablerocobros": "Cobros MP",
+}
+
+
+def tile_label(tile):
+    """The tile's short name on Inicio (TILE_LABELS), else its title."""
+    return TILE_LABELS.get(tile["key"]) or tile["title"]
+
+
 def badge_short(badge):
     """The badge text a two-column tile has room for: the text itself when
     it is short («5», «Abierta», «2 hoy»), else its count («12 sin
@@ -773,6 +797,7 @@ class Tablero(http.Controller):
             "grupos": grouped_tiles(tiles) if ordering else [],
             "main": main_tile(tiles) if ordering else None,
             "badge_short": badge_short,
+            "tile_label": tile_label,
             "v2": ordering,
             "user": user,
             "empresa": FICHA["nombre"],
