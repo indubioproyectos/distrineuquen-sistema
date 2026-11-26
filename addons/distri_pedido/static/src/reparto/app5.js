@@ -14,7 +14,8 @@
  *   Parcial, Ya estaba pagado, No pagó) and, with a transfer, «Sacar foto» or
  *   «Lo manda después · queda a mi cargo». It fills app3.js's draft and saves
  *   with app3.js's storeVisit: the same payload and the same outbox.
- * - «Mis comprobantes a reclamar» (#reclamar, a card on the home screens):
+ * - «Mis comprobantes a reclamar» (#reclamar; 19.0.1.129.48: a block that
+ *   opens the home screens, listing the first receipts with their actions):
  *   the driver's own pending receipts, unpaid orders and charges, from
  *   /reparto/api/home (kept on the phone for no signal), with «Sacar foto»
  *   (a «receipt» event of that route, in the same outbox) and «Pedir por
@@ -462,13 +463,53 @@
       ' <button class="link" data-a5="remind-off">Ahora no</button></div>';
   }
 
+  // 19.0.1.129.48 (owner): «Mis comprobantes a reclamar» is the main task
+  // of the day, so the home screens open with it as their own block: the
+  // first BLOCK_MAX pending receipts right there (customer, document, the
+  // amount of that receipt, «hace N días», «Sacar foto», «Pedir por
+  // WhatsApp»), and «Ver todos» for #reclamar. From the phone's copy of
+  // /reparto/api/home, so it works without signal. No total, nothing «a tu
+  // cargo»: it asks the driver to help.
+  var BLOCK_MAX = 3;
+
+  function photoButton(r) {
+    if (!r.route_id) return "";
+    return '<label class="opt teal photo-btn">' + APP.icons.camera + "Sacar foto" +
+      '<input type="file" accept="' + RECEIPT_INPUT_ACCEPT + '" data-f5="photo" data-stop="' + r.stop_id +
+      '" data-route="' + r.route_id + '" data-amount="' + (r.amount || 0) + '" hidden></label>';
+  }
+  function waButton(r) {
+    return r.whatsapp ? '<a class="opt second" target="_blank" rel="noopener" href="' +
+      h(APP.waLink(r.whatsapp, r.claim || "")) + '">Pedir por WhatsApp</a>' : "";
+  }
+
+  function blockRow(r) {
+    var queued = sentPhotos[r.stop_id];
+    return '<div class="v2rec-item" data-rec="' + r.stop_id + '">' +
+      '<div class="split"><b>' + h(r.name) + "</b><b>" + money(r.amount) + "</b></div>" +
+      '<div class="small muted">' + h(r.document || r.order) + " · entregado " + h(daysAgo(r.delivered_at)) + "</div>" +
+      (queued ? '<span class="pill pendpill">Foto guardada en el celular · se envía sola</span>' :
+        '<div class="grid2">' + photoButton(r) + waButton(r) + "</div>") + "</div>";
+  }
+
   function homeHtml() {
     if (!homeOn() || !home) return "";
-    var n = owedItems().length + charges().length;
-    return reminderHtml() + '<a class="card v2home" href="#reclamar"><div class="split"><b>Mis comprobantes a reclamar</b>' +
-      '<span class="pill ' + (n ? "pendpill" : "paid") + '">' + n + "</span></div>" +
-      '<div class="small muted">' + (n ? "Tocá para verlos" : "Nada pendiente") +
-      "</div></a>";
+    var owed = owedItems(), extra = charges().length;
+    var out = reminderHtml() + '<section class="card v2rec" aria-label="Mis comprobantes a reclamar">' +
+      '<div class="split"><b class="v2rec-t">Mis comprobantes a reclamar</b>' +
+      (owed.length ? '<span class="pill pendpill">' + owed.length + "</span>" : "") + "</div>";
+    if (!owed.length) {
+      out += '<div class="small muted">Nada para reclamar.</div>';
+    } else {
+      out += '<div class="small muted">Te pedimos que nos ayudes a pedirle a cada cliente su comprobante. ' +
+        "Se borra solo cuando llega.</div>";
+      owed.slice(0, BLOCK_MAX).forEach(function (r) { out += blockRow(r); });
+    }
+    if (owed.length > BLOCK_MAX || extra) {
+      out += '<a class="link v2rec-all" href="#reclamar">' +
+        (owed.length > BLOCK_MAX ? "Ver todos (" + owed.length + ")" : "Ver todo") + " ›</a>";
+    }
+    return out + "</section>";
   }
 
   function claimRow(r) {
@@ -482,13 +523,7 @@
       '<div class="split"><b>' + h(r.name) + '</b><b class="' + (done ? "strike" : "") + '">' + money(r.amount) + "</b></div>" +
       '<div class="small"><b>' + h(APP.kindLabel(r.kind) || "") + "</b> · " + h(r.document || r.order) + " · " +
       h(daysAgo(r.delivered_at)) + "</div>" + pill;
-    if (!done) {
-      out += '<div class="grid2">' + (r.route_id ? '<label class="opt teal photo-btn">' + APP.icons.camera + "Sacar foto" +
-        '<input type="file" accept="' + RECEIPT_INPUT_ACCEPT + '" data-f5="photo" data-stop="' + r.stop_id +
-        '" data-route="' + r.route_id + '" data-amount="' + (r.amount || 0) + '" hidden></label>' : "") +
-        (r.whatsapp ? '<a class="opt second" target="_blank" rel="noopener" href="' +
-          h(APP.waLink(r.whatsapp, r.claim || "")) + '">Pedir por WhatsApp</a>' : "") + "</div>";
-    }
+    if (!done) out += '<div class="grid2">' + photoButton(r) + waButton(r) + "</div>";
     return out + "</div>";
   }
 

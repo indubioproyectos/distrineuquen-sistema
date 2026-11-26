@@ -71,7 +71,8 @@
 
     <!-- 19.0.1.129.37 (nueva_venta): «Lo manda después» left at his name -->
     <a t-if="reclamar" class="dn-banner dn-banner--warn dp-reclamar" t-att-href="reclamar['url']" data-dn="down">
-      <span>Mis comprobantes a reclamar · <b t-esc="reclamar['n']"/> · <span class="dn-num" t-esc="money(reclamar['total'])"/></span>
+      <!-- 19.0.1.129.48: the count only, no total (a request to help, not a debt) -->
+      <span>Mis comprobantes a reclamar · <b t-esc="reclamar['n']"/></span>
     </a>
     <h2 class="dn-label" id="dp-entregar">Para entregar hoy · <t t-esc="len(rows)"/></h2>
     <form class="dp-search" method="get" action="/deposito" role="search">
@@ -303,11 +304,12 @@
     <t t-set="volver" t-value="'/deposito'"/>
     <t t-set="kicker" t-value="'Depósito'"/>
     <t t-set="titulo" t-value="'Mis comprobantes a reclamar'"/>
-    <t t-set="sub" t-value="'%s · %s' % (len(rows), money(total)) if rows else 'Nada pendiente'"/>
+    <t t-set="sub" t-value="('1 comprobante' if len(rows) == 1 else '%s comprobantes' % len(rows)) if rows else 'Nada para reclamar'"/>
   </t>
   <main class="dn-main">
-    <p class="dp-hint">Son las transferencias que entregaste con «Lo manda después». Quedan a tu cargo hasta que
-      llega el comprobante: subilo acá o pedíselo al cliente. Se borran solas cuando llega o cuando administración
+    <!-- 19.0.1.129.48: a request to collaborate, no total and nothing «a tu cargo» -->
+    <p class="dp-hint">Son las transferencias que entregaste con «Lo manda después». Te pedimos que nos ayudes a
+      conseguir cada comprobante: subilo acá o pedíselo al cliente. Se borran solos cuando llega o cuando administración
       verifica la transferencia.</p>
     <section t-foreach="rows" t-as="r" t-att-class="'dn-card dp-card dp-rec' + (' dp-rec--late' if r['vencido'] else '')">
       <div class="dp-rec__head"><b t-esc="r['cliente']"/><b class="dn-num" t-esc="money(r['importe'])"/></div>

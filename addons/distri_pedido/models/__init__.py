@@ -108,3 +108,4 @@ from . import verificacion_tramo2
 from . import verificacion_cruces
 from . import contactos
 from . import lista_personal
+from . import reclamar_inicio

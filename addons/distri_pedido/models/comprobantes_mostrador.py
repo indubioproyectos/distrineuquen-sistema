@@ -249,10 +249,12 @@ class DistriPromisedTransferDepot(models.Model):
         promise = self.sudo()
         case = promise.charge_case_id
         charged = bool(case and case.state == "open")
+        # 19.0.1.129.48 (owner): claiming is a request to help, so the list
+        # no longer says «cargo a tu nombre»
         if promise.state == "overdue":
-            state = "Vencido desde el %s · cargo a tu nombre" % day_label(promise.overdue_since)
+            state = "Vencido desde el %s" % day_label(promise.overdue_since)
         elif promise.state == "fulfilled" and charged:
-            state = "Llegó el comprobante · el cargo sigue hasta que administración lo verifique"
+            state = "Llegó el comprobante · falta que administración lo verifique"
         else:
             state = "Pendiente · vence el %s" % day_label(
                 (promise.delivered_day or today_ar()) + timedelta(days=2))

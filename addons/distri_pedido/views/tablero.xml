@@ -122,6 +122,34 @@
     </a>
   </template>
 
+  <!-- 19.0.1.129.48 (ui_v2): one receipt of «Mis comprobantes a reclamar»
+       (models/reclamar_inicio.py _distri_inicio_row): customer, amount of
+       that receipt, document, «hace N días» and the actions of its role. -->
+  <template id="tablero_v2_reclamo" name="Inicio v2: comprobante a reclamar">
+    <li class="tab2-rec__item" t-att-data-rec="r['id']" t-att-data-rol="r['rol']">
+      <div class="tab2-rec__head"><b t-esc="r['cliente']"/><b class="dn-num" t-esc="money(r['importe'])"/></div>
+      <span class="tab2-rec__meta"><t t-esc="r['documento'] or r['pedido']"/><t t-if="r['documento'] and r['pedido'] and r['pedido'] not in r['documento']"> · <t t-esc="r['pedido']"/></t> · entregado <t t-esc="r['hace']"/></span>
+      <div class="tab2-rec__acts">
+        <details t-if="r['subir_post']" class="tab2-rec__up">
+          <summary class="dn-btn dn-btn--outline dn-btn--sm"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'camera'"/></t>Subir comprobante</summary>
+          <form method="post" enctype="multipart/form-data" t-att-action="r['subir_post']">
+            <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+            <input type="file" name="comprobantes" accept="image/*,application/pdf,.pdf" multiple="multiple" required="required"/>
+            <button type="submit" class="dn-btn dn-btn--sm">Enviar</button>
+          </form>
+        </details>
+        <a t-if="r['subir_url']" class="dn-btn dn-btn--outline dn-btn--sm" t-att-href="r['subir_url']" data-dn="down"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'camera'"/></t>Subir comprobante</a>
+        <a t-if="r['foto_url']" class="dn-btn dn-btn--outline dn-btn--sm" t-att-href="r['foto_url']"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'camera'"/></t>Sacar foto</a>
+        <a t-if="r['wa_url']" class="dn-btn dn-btn--ghost dn-btn--sm" target="_blank" rel="noopener" t-att-href="r['wa_url']"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'chat'"/></t>Pedir por WhatsApp</a>
+        <form t-if="r['wa_post']" method="post" t-att-action="r['wa_post']" target="_blank" class="tab2-rec__wa">
+          <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+          <input type="hidden" name="volver" value="/rendiciones/comprobantes"/>
+          <button type="submit" class="dn-btn dn-btn--ghost dn-btn--sm"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'chat'"/></t>Pedir por WhatsApp</button>
+        </form>
+      </div>
+    </li>
+  </template>
+
   <template id="tablero_v2_page" name="Inicio (sistema de diseño)">&lt;!DOCTYPE html&gt;
 <html lang="es">
 <head>
@@ -153,6 +181,27 @@
       <p t-esc="aviso_acreditar"/>
       <button type="submit" class="dn-btn dn-btn--sm dn-btn--auto">Entendido</button>
     </form>
+
+    <!-- 19.0.1.129.48: «Mis comprobantes a reclamar», the main task of the
+         day, first (controllers/tablero.py reclamar_block); not drawn when
+         there is nothing to claim. No totals: each receipt has its amount. -->
+    <section t-if="reclamos" class="dn-card tab2-rec" aria-labelledby="tab2-rec-t" data-tab="reclamar">
+      <div class="tab2-rec__top">
+        <span class="dn-tile__ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'receipt'"/></t></span>
+        <h2 id="tab2-rec-t" class="tab2-rec__t">Mis comprobantes a reclamar</h2>
+        <span class="dn-tile__bd" t-esc="reclamos['n']"/>
+      </div>
+      <p class="tab2-rec__hint">Te pedimos que nos ayudes a pedirle a cada cliente su comprobante. Cada uno se borra solo cuando llega a la empresa.</p>
+      <ul class="tab2-rec__list">
+        <t t-foreach="reclamos['rows']" t-as="r"><t t-call="distri_pedido.tablero_v2_reclamo"/></t>
+      </ul>
+      <details t-if="reclamos['more']" class="tab2-rec__more">
+        <summary class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto">Ver <t t-esc="len(reclamos['more'])"/> más</summary>
+        <ul class="tab2-rec__list">
+          <t t-foreach="reclamos['more']" t-as="r"><t t-call="distri_pedido.tablero_v2_reclamo"/></t>
+        </ul>
+      </details>
+    </section>
 
     <div t-if="banner or agil_banner or reclamar" class="tab2-banners">
       <a t-if="agil_banner" class="tab2-banner tab2-banner--err" t-att-href="agil_banner['url']" role="alert">

@@ -319,15 +319,17 @@ const homeV2 = () => ({ ok: true, v2: true, user_id: 7,
   await T.download(false); await flush();
   await ctx.window.RepartoV2.fetchHome(true); await flush();
   const visits = screen(T, "#visitas");
-  // 26/11/2026 (owner): the card shows no total and no «A tu cargo»
-  out.homeCard = visits.indexOf("Mis comprobantes a reclamar") >= 0 && visits.indexOf("$ 25.400") < 0 &&
-    visits.indexOf("A tu cargo") < 0;
+  // 19.0.1.129.48: the block lists the receipt itself, its amount and its
+  // actions; no total of receipts and charges ($ 25.400) any more
+  out.homeCard = visits.indexOf("Mis comprobantes a reclamar") >= 0 && visits.indexOf("ALMACÉN SUR") >= 0 &&
+    visits.indexOf("$ 25.000") >= 0 && visits.indexOf("$ 25.400") < 0 && visits.indexOf("A tu cargo") < 0;
   out.reminder = visits.indexOf("Tenés la ruta del 20/11 sin cerrar") >= 0 && visits.indexOf('data-a="open-route" data-id="55"') >= 0;
   out.orderLink = visits.indexOf('href="#orden"') >= 0;
   const claims = screen(T, "#reclamar");
   out.claims = { photo: claims.indexOf("Sacar foto") >= 0, whatsapp: claims.indexOf("Pedir por WhatsApp") >= 0,
                  charge: claims.indexOf("Transferencia menor al total") >= 0, resolved: claims.indexOf("Resueltas hoy") >= 0,
-                 duty: claims.indexOf("Te pedimos que nos ayudes a reclamarle") >= 0 && claims.indexOf("A tu cargo") < 0,
+                 // 29912d8 (owner): a request to help, not a duty
+                 help: claims.indexOf("Te pedimos que nos ayudes a reclamarle") >= 0 && claims.indexOf("A tu cargo") < 0,
                  days: claims.indexOf("hace ") >= 0 };
   // a receipt photo from the list: a «receipt» event of that route
   ctx.window.RepartoApp.readReceipt = () => Promise.resolve({ photo: "aGVsbG8=", thumb: "" });
@@ -343,6 +345,36 @@ const homeV2 = () => ({ ok: true, v2: true, user_id: 7,
   out.reminderOff = screen(T, "#visitas").indexOf("sin cerrar") < 0;
   // without a route: the card is still there
   out.homeWithoutRoute = ctx.window.RepartoExt.homeHtml().indexOf("Mis comprobantes a reclamar") >= 0;
+  // 19.0.1.129.48: the block on the home screens (reparto_v129_48 checks)
+  const blockOf = (home) => { ctx.window.RepartoV2.setHome(home); return ctx.window.RepartoExt.homeHtml(); };
+  // 501's photo was queued above: its row says so instead of the buttons
+  const queuedRow = blockOf(homeV2()).indexOf("Foto guardada en el celular") >= 0;
+  const fresh = homeV2();
+  fresh.receipts[0] = Object.assign({}, fresh.receipts[0], { stop_id: 510 });
+  let blk = blockOf(fresh);
+  const rows = (html) => (html.match(/class="v2rec-item"/g) || []).length;
+  out.block = { rows: rows(blk), name: blk.indexOf("ALMACÉN SUR") >= 0, amount: blk.indexOf("$ 25.000") >= 0,
+                doc: blk.indexOf("Factura 501") >= 0, days: /entregado (hace \d+ días|ayer|hoy)/.test(blk),
+                photo: blk.indexOf('data-f5="photo" data-stop="510"') >= 0, queued: queuedRow,
+                whatsapp: blk.indexOf("Pedir por WhatsApp") >= 0 && blk.indexOf("wa.me/5492995000222") >= 0,
+                resolvedLeftOut: blk.indexOf("KIOSCO NORTE") < 0, all: blk.indexOf('href="#reclamar"') >= 0 };
+  const many = homeV2();
+  many.charges = [];
+  many.receipts = [0, 1, 2, 3, 4].map((i) => Object.assign({}, many.receipts[0], {
+    stop_id: 600 + i, name: "CLIENTE " + i, amount: 1000 * (i + 1) }));
+  blk = blockOf(many);
+  out.blockMany = { rows: rows(blk), more: blk.indexOf("Ver todos (5)") >= 0, first: blk.indexOf("CLIENTE 0") >= 0,
+                    hidden: blk.indexOf("CLIENTE 4") < 0 };
+  const empty = homeV2();
+  empty.receipts = []; empty.charges = []; empty.stale_routes = [];
+  blk = blockOf(empty);
+  out.blockEmpty = { calm: blk.indexOf("Nada para reclamar") >= 0, rows: rows(blk),
+                     noLink: blk.indexOf('href="#reclamar"') < 0 };
+  const liability = /a tu cargo|cargo a tu|a tu nombre|tu cuenta|responsabilidad/i;
+  const words = { test: (html) => liability.test(html) || /Total/.test(html) };
+  const claimsNow = (ctx.window.RepartoV2.setHome(homeV2()), screen(T, "#reclamar"));
+  out.blockWording = !words.test(blockOf(homeV2())) && !words.test(blockOf(many)) && !words.test(claimsNow);
+  ctx.window.RepartoV2.setHome(homeV2());
   // #4 the driver's own order
   let posted = null;
   server.order = (b) => { posted = b; return { data: { ok: true } }; };

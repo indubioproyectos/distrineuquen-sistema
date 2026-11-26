@@ -24,6 +24,10 @@ subtitles at 13 px, and no Odoo apps for packers and drivers (hides_apps).
 tablero.xml tablero_v2_page, «HomeTile»): the same tiles, visibility and
 links; every role's tiles in labelled groups, the first one highlighted,
 2 columns on the phone and 4 on the PC.
+
+19.0.1.129.48, behind ui_v2: «Mis comprobantes a reclamar» is the first
+block of Inicio (reclamar_block), listing each receipt with its actions,
+instead of the banner line of 129.37 (reclamar_row, kept for the flag off).
 """
 import json
 from datetime import timedelta
@@ -361,6 +365,11 @@ def _badge_verificacion(env):
 
 # ------------------------------------------------------------ badges
 
+def _money_text(amount):
+    from ..models.reparto import _money
+    return _money(amount)
+
+
 def _plural(n, one, many):
     return "%s %s" % (n, one if n == 1 else many)
 
@@ -538,6 +547,52 @@ def reclamar_row(env):
                 _plural(count, "comprobante", "comprobantes"), _money(total))}
 
 
+# 19.0.1.129.48 (owner): «Mis comprobantes a reclamar» as the first block of
+# Inicio (ui_v2), for whoever is asked to help claim receipts: the depot
+# («Lo manda después»), the driver (his pending receipts, reparto_v2) and the
+# seller (his customers' pending receipts). One merged list, no totals,
+# nothing «a tu cargo»; the first RECLAMAR_MAX rows show, the rest fold.
+RECLAMAR_MAX = 5
+
+
+def reclamar_roles(env):
+    """The roles of the Inicio block that apply to the user (a set of
+    models/reclamar_inicio.py ROLE_ORDER keys); empty with ui_v2 off."""
+    from .deposito import is_depot
+    from .rendiciones_v2 import sees_promises
+    from ..models.nueva_venta import nueva_venta_on
+    from ..models.reparto_v2 import reparto_v2_on
+    user = env.user
+    if user.share or not ui_v2_on(env):
+        return set()
+    roles = set()
+    if is_depot(user) and nueva_venta_on(env):
+        roles.add("deposito")
+    if user.has_group("distri_pedido.grupo_reparto") and reparto_v2_on(env):
+        roles.add("reparto")
+    # administración implies the seller group: only a real seller (or an
+    # administración user with his own portfolio) gets his customers here
+    staff = user.has_group("distri_pedido.grupo_administracion") \
+        or user.has_group("base.group_system")
+    seller = user.has_group("distri_pedido.grupo_vendedor") and (
+        not staff or user.sudo().etiqueta_cartera_id)
+    if seller and sees_promises(env):
+        roles.add("vendedor")
+    return roles
+
+
+def reclamar_block(env):
+    """{"rows", "more", "n"} for the Inicio block, or None when there is
+    nothing to claim (the block is then not drawn)."""
+    roles = reclamar_roles(env)
+    if not roles:
+        return None
+    rows = env["distri.promised.transfer"]._distri_inicio_claims(env.user, roles)
+    if not rows:
+        return None
+    return {"rows": rows[:RECLAMAR_MAX], "more": rows[RECLAMAR_MAX:], "n": len(rows)}
+
+
 def my_route_today(env):
     """«Mi reparto de hoy» for a user that also drives (administración
     implies the driver group, so only with a route of today)."""
@@ -706,8 +761,11 @@ class Tablero(http.Controller):
             "banner": banner,
             "agil_banner": agil_banner(env),
             "mi_ruta": my_route_today(env),
-            # 19.0.1.129.37 (nueva_venta): «Lo manda después» left at his name
-            "reclamar": reclamar_row(env),
+            # 19.0.1.129.37 (nueva_venta): «Lo manda después» left at his name;
+            # 19.0.1.129.48: with ui_v2 the block below replaces that line
+            "reclamar": None if ordering else reclamar_row(env),
+            "reclamos": reclamar_block(env) if ordering else None,
+            "money": _money_text,
             "apps": [] if locked or (ordering and hides_apps(user)) else other_apps(env, taken),
             # 19.0.1.129.42 (ui_v2): administración's tiles in groups
             # 19.0.1.129.47 (ui_v2): every role's tiles in groups (until

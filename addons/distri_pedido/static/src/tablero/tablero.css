@@ -129,3 +129,31 @@ body.tab2{background:var(--dn-bg)}
   color:var(--dn-ink);text-decoration:none;text-align:center;font-size:14px;line-height:1.2}
 .tab2-app:active{background:var(--dn-tint)}
 .tab2-app img{width:42px;height:42px;border-radius:10px;object-fit:contain}
+/* 19.0.1.129.48: «Mis comprobantes a reclamar», the first block of Inicio
+   (views/tablero.xml, controllers/tablero.py reclamar_block). A card of the
+   system with a ListRow per receipt; calm colours (no red, no totals). */
+.tab2-rec{display:flex;flex-direction:column;gap:10px;border:2px solid var(--dn-navy);padding:14px 14px 12px}
+.tab2-rec__top{display:flex;align-items:center;gap:10px}
+.tab2-rec__t{flex:1;min-width:0;margin:0;font-size:18px;font-weight:800;line-height:1.2;color:var(--dn-ink)}
+.tab2-rec__hint{margin:0;font-size:14px;color:var(--dn-muted)}
+.tab2-rec__list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.tab2-rec__item{display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--dn-line);
+  border-radius:var(--dn-r);background:var(--dn-bg)}
+.tab2-rec__head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:16px}
+.tab2-rec__head b:first-child{min-width:0;overflow-wrap:anywhere}
+.tab2-rec__head .dn-num{flex:none;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tab2-rec__meta{font-size:14px;color:var(--dn-muted);overflow-wrap:anywhere}
+.tab2-rec__acts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tab2-rec__acts .dn-btn .dn-i{width:20px;height:20px;flex:none}
+.tab2-rec__wa{margin:0;display:flex}
+.tab2-rec__up{min-width:0}
+.tab2-rec__up[open]{grid-column:1/-1}
+.tab2-rec__up>summary{list-style:none;cursor:pointer}
+.tab2-rec__up>summary::-webkit-details-marker{display:none}
+.tab2-rec__up[open]>summary{margin-bottom:8px}
+.tab2-rec__up form{display:flex;flex-direction:column;gap:8px}
+.tab2-rec__up input[type=file]{font-size:15px;min-height:44px}
+.tab2-rec__more>summary{list-style:none;cursor:pointer;display:inline-flex}
+.tab2-rec__more>summary::-webkit-details-marker{display:none}
+.tab2-rec__more[open]>summary{margin-bottom:8px}
+@media (max-width:359px){.tab2-rec__acts{grid-template-columns:1fr}}

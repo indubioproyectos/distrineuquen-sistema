@@ -232,6 +232,17 @@ button.visit.route-pick{width:100%;text-align:left;font:inherit;color:inherit;cu
 .card.v2due.paid .v2amount{color:var(--green)}
 .card.v2pay{gap:10px}
 .card.v2home{text-decoration:none;color:var(--text);margin:10px 16px 0;gap:4px}
+/* 19.0.1.129.48: «Mis comprobantes a reclamar» as the block that opens the
+   home screens (app5.js homeHtml): navy frame, one row per receipt */
+.card.v2rec{margin:10px 16px 0;gap:8px;border:2px solid var(--navy)}
+.v2rec-t{font-size:17px}
+.v2rec-item{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:10px;background:var(--bg)}
+.v2rec-item .split{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.v2rec-item .split b:last-child{white-space:nowrap}
+.v2rec-item .pill{align-self:flex-start}
+.v2rec-item .photo-btn{cursor:pointer}
+.v2rec-all{display:block;text-align:center;min-height:44px;line-height:44px;text-decoration:none}
 .banner.v2remind{flex-wrap:wrap;gap:6px}
 .v2move{display:flex;gap:6px}
 .v2move .opt{min-height:40px;width:48px;padding:6px 0;font-size:18px}

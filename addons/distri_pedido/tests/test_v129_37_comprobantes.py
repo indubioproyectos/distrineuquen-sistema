@@ -297,7 +297,10 @@ class TestV12937Comprobantes(RepartoMixin, AccountTestInvoicingHttpCommon):
                          ("receipt", "open", -380, self.admin))
         self.assertIn("Queda a cargo de %s" % self.admin.name, case.candidates)
         self._login(self.admin)
-        self.assertIn("cargo a tu nombre", self.url_open("/deposito/reclamar").text)
+        # 19.0.1.129.48: «Vencido desde…», no longer «cargo a tu nombre»
+        page = self.url_open("/deposito/reclamar").text
+        self.assertIn("Vencido desde el", page)
+        self.assertNotIn("cargo a tu nombre", page)
         # Mercado Pago brings the transfer: resolved, the charge closes
         self.Promise._distri_fulfil_for(self.partner, fields.Datetime.now(), 380)
         self.assertEqual(promise.state, "fulfilled")

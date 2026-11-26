@@ -438,6 +438,12 @@ class TestV12928RepartoV2(V12928Mixin, AccountTestInvoicingCommon):
         self.assertTrue(out["reminder"])
         self.assertTrue(out["reminderOff"])
         self.assertTrue(out["homeWithoutRoute"])
+        # 19.0.1.129.48: the block on the home screens
+        self.assertEqual(out["block"].pop("rows"), 1)
+        self.assertTrue(all(out["block"].values()), out["block"])
+        self.assertEqual(out["blockMany"], {"rows": 3, "more": True, "first": True, "hidden": True})
+        self.assertEqual(out["blockEmpty"], {"calm": True, "rows": 0, "noLink": True})
+        self.assertTrue(out["blockWording"])
         self.assertTrue(all(out["claims"].values()), out["claims"])
         self.assertEqual(out["claimPhoto"], {"route": 55, "stop": 501, "amount": 25000})
         self.assertTrue(out["orderLink"])
