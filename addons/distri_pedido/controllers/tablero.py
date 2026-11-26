@@ -34,6 +34,7 @@ never broken mid-word), a larger icon on top and the same height; the full
 title and subtitle stay as the tooltip (and the subtitle shows on the PC).
 """
 import json
+import re
 from datetime import timedelta
 
 from odoo import fields, http
@@ -714,6 +715,21 @@ def tile_label(tile):
     return TILE_LABELS.get(tile["key"]) or tile["title"]
 
 
+def badge_compact(badge):
+    """19.0.1.129.50: the badge of a phone tile (3 columns): its leading
+    number («4 nuevos» -> «4», «441 · 436 vencidos» -> «441»), or "" for a
+    word («Abierta»), drawn as a dot. The full text is in the spoken name."""
+    if not badge:
+        return ""
+    match = re.match(r"\d+", badge.get("text") or "")
+    return match.group(0) if match else ""
+
+
+def label_is_long(label):
+    """A name with a word of 11+ letters: one pixel smaller on narrow tiles."""
+    return max((len(word) for word in (label or "").split()), default=0) >= 11
+
+
 def badge_short(badge):
     """The badge text a two-column tile has room for: the text itself when
     it is short («5», «Abierta», «2 hoy»), else its count («12 sin
@@ -798,6 +814,8 @@ class Tablero(http.Controller):
             "main": main_tile(tiles) if ordering else None,
             "badge_short": badge_short,
             "tile_label": tile_label,
+            "badge_compact": badge_compact,
+            "label_is_long": label_is_long,
             "v2": ordering,
             "user": user,
             "empresa": FICHA["nombre"],

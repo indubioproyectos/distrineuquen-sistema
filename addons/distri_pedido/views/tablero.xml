@@ -121,9 +121,11 @@
        t-att-title="None if is_main else ' · '.join(x for x in (full, tile['subtitle']) if x)"
        t-att-aria-label="' · '.join(x for x in (label, full, tile['badge'] and tile['badge']['text']) if x) if (full or tile['badge']) else None">
       <span class="dn-tile__ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="tile['glyph']"/></t></span>
-      <span class="dn-tile__txt"><span class="dn-tile__lbl" t-esc="label"/><small class="dn-tile__sub" t-esc="tile['subtitle']"/></span>
-      <span t-if="tile['badge']" t-att-class="'dn-tile__bd' + (' dn-tile__bd--%s' % tile['badge']['kind'] if tile['badge']['kind'] else '')"
-            t-esc="badge_short(tile['badge'])" aria-hidden="true"/>
+      <span class="dn-tile__txt"><span t-att-class="'dn-tile__lbl dn-tile__lbl--long' if label_is_long(label) else 'dn-tile__lbl'" t-esc="label"/><small class="dn-tile__sub" t-esc="tile['subtitle']"/></span>
+      <t t-if="tile['badge']"><t t-set="mini" t-value="badge_compact(tile['badge'])"/>
+        <span t-att-class="'dn-tile__bd' + (' dn-tile__bd--%s' % tile['badge']['kind'] if tile['badge']['kind'] else '') + ('' if mini or is_main else ' dn-tile__bd--dot')"
+              aria-hidden="true"><span class="dn-tile__bd-l" t-esc="badge_short(tile['badge'])"/><span t-if="not is_main" class="dn-tile__bd-s" t-esc="mini"/></span>
+      </t>
     </a>
   </template>
 

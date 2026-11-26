@@ -23,7 +23,7 @@ from odoo.tests import HttpCase, TransactionCase, new_test_user, tagged
 
 from odoo.addons.distri_pedido.controllers.kit import PARAM_UI_V2
 from odoo.addons.distri_pedido.controllers.tablero import (
-    TILE_LABELS, grouped_tiles, staff_tiles, tile_label)
+    TILE_LABELS, badge_compact, grouped_tiles, label_is_long, staff_tiles, tile_label)
 from odoo.addons.distri_pedido.models.cuentas_app import TOTAL_KEYS, can_see_totals
 from odoo.addons.distri_pedido.models.ocr_comprobante import (
     cuit_is_valid, own_account_values, parse_receipt)
@@ -231,7 +231,7 @@ class TestInicioEtiquetas(HttpCase):
         self.assertEqual(drawn, [t["key"] for g in grouped_tiles(tiles) for t in g["tiles"]])
         labels = dict(re.findall(
             r'data-tile="([^"]+)"[^>]*>\s*<span class="dn-tile__ico">.*?'
-            r'<span class="dn-tile__lbl">([^<]+)</span>', page, re.S))
+            r'<span class="dn-tile__lbl[^"]*">([^<]+)</span>', page, re.S))
         for tile in tiles:
             self.assertEqual(labels[tile["key"]], tile_label(tile), tile["key"])
             # never more than two words per line at 2 columns: short names
@@ -260,5 +260,19 @@ class TestInicioEtiquetas(HttpCase):
         self.assertIn("hyphens:manual", v2)
         self.assertIn("-webkit-line-clamp:2", v2)
         self.assertIn("grid-auto-rows:1fr", v2)
-        # the glyph is at least 28 px on the phone grid
-        self.assertRegex(v2, r"\.tab2-tiles \.dn-tile__ico \.dn-i\{width:30px;height:30px\}")
+        # owner, second review: 3 columns on the phone, 44 px icon with a
+        # 26 px glyph, compact tiles
+        self.assertIn(".tab2-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))", v2)
+        self.assertRegex(v2, r"\.tab2-tiles \.dn-tile__ico \.dn-i\{width:26px;height:26px\}")
+        self.assertIn("min-height:100px", v2)
+
+    def test_compact_badges_and_long_names(self):
+        self.assertEqual(badge_compact(None), "")
+        self.assertEqual(badge_compact({"text": "5", "n": 5}), "5")
+        self.assertEqual(badge_compact({"text": "4 nuevos", "n": 4}), "4")
+        self.assertEqual(badge_compact({"text": "441 · 436 vencidos", "n": 441}), "441")
+        self.assertEqual(badge_compact({"text": "Abierta", "n": 1}), "", "a word is a dot")
+        self.assertTrue(label_is_long("Comprobantes"))
+        self.assertTrue(label_is_long("Rendiciones"))
+        self.assertFalse(label_is_long("Mis ventas"))
+        self.assertFalse(label_is_long("Reporte MP"))
