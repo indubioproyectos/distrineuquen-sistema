@@ -27,6 +27,7 @@ Macro, BBVA, ICBC, Personal Pay, MODO and Cuenta DNI.
 """
 import io
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -42,6 +43,22 @@ try:  # a thin wrapper around the same tesseract binary
     import pytesseract
 except ImportError:  # pragma: no cover - the CLI is used instead
     pytesseract = None
+
+# 26/11/2026 (production, load 50-65 on 4 CPUs): when Odoo killed a cron
+# worker past limit_time_real, the tesseract processes it had started kept
+# running for 40+ minutes and piled up. Every pass now runs our own
+# subprocess: one thread (OMP_THREAD_LIMIT=1) and, on Linux, killed together
+# with the worker that started it (PR_SET_PDEATHSIG).
+TESSERACT_ENV = dict(os.environ, OMP_THREAD_LIMIT="1")
+
+
+def _die_with_parent():  # pragma: no cover - runs in the child process
+    try:
+        import ctypes
+        import signal
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(1, signal.SIGKILL)  # PR_SET_PDEATHSIG
+    except Exception:
+        pass
 
 OCR_LANG = "spa"
 # The Mercado Pago app's font makes the Spanish model read «8» as «3». The
@@ -442,25 +459,19 @@ SECOND_READING_MIN_AMOUNT = 1000
 
 def _tsv_words(image, lang=OCR_LANG, psm=3, timeout=OCR_TIMEOUT):
     """Words of the image: (left, top, width, height, conf, text)."""
-    if pytesseract is not None:
-        data = pytesseract.image_to_data(
-            image, lang=lang, config="--psm %d" % psm, timeout=timeout,
-            output_type=pytesseract.Output.DICT)
-        rows = zip(data["left"], data["top"], data["width"], data["height"],
-                   data["conf"], data["text"])
-    else:
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        result = subprocess.run(
-            ["tesseract", "stdin", "stdout", "-l", lang, "--psm", str(psm), "tsv"],
-            input=buffer.getvalue(), capture_output=True, timeout=timeout, check=True)
-        lines = result.stdout.decode("utf-8", "replace").splitlines()
-        rows = []
-        for line in lines[1:]:
-            parts = line.split("\t")
-            if len(parts) == 12:
-                rows.append((int(parts[6]), int(parts[7]), int(parts[8]), int(parts[9]),
-                             float(parts[10]), parts[11]))
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    result = subprocess.run(
+        ["tesseract", "stdin", "stdout", "-l", lang, "--psm", str(psm), "tsv"],
+        input=buffer.getvalue(), capture_output=True, timeout=timeout, check=True,
+        env=TESSERACT_ENV, preexec_fn=_die_with_parent)
+    lines = result.stdout.decode("utf-8", "replace").splitlines()
+    rows = []
+    for line in lines[1:]:
+        parts = line.split("\t")
+        if len(parts) == 12:
+            rows.append((int(parts[6]), int(parts[7]), int(parts[8]), int(parts[9]),
+                         float(parts[10]), parts[11]))
     words = []
     for left, top, width, height, conf, text in rows:
         text = (text or "").strip()
@@ -495,7 +506,7 @@ def ocr_image(data, lang=OCR_LANG, change=None, psm=3):
     (OCR_SECOND_READINGS)."""
     if not data:
         return "", 0.0
-    if pytesseract is None and not ocr_available():
+    if not ocr_available():
         _logger.warning("Receipt OCR: tesseract is not installed")
         return "", 0.0
     timeout = _pass_timeout()

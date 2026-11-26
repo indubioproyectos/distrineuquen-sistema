@@ -691,9 +691,17 @@ class WhatsappMessage(models.Model):
                             len(pending))
             return
         Cron = self.env["ir.cron"]
+        # 26/11/2026: the receipt reading inside a download gets the time this
+        # run has left (minus a margin), so it gives up before Odoo kills the
+        # worker past limit_time_real
+        from .ocr_comprobante import ocr_deadline
+        left = Cron._commit_progress(0)
         for record in pending:
+            budget = min(left, 3600) - WA_TIMEOUT * 3
+            if budget < 5:
+                break  # the next run picks up the rest
             try:
-                with self.env.cr.savepoint():
+                with self.env.cr.savepoint(), ocr_deadline(budget):
                     record._wa_download_media(token)
             except Exception:
                 # a bug must not block the queue forever: count the attempt
@@ -705,7 +713,8 @@ class WhatsappMessage(models.Model):
                     "media_error": "Error inesperado (ver el log del servidor)",
                     "media_state": "error" if attempts >= MEDIA_MAX_ATTEMPTS else "pending",
                 })
-            if Cron._commit_progress(1) <= WA_TIMEOUT * 2:
+            left = Cron._commit_progress(1)
+            if left <= WA_TIMEOUT * 2:
                 break  # the next run picks up the rest
 
     def action_wa_download_media(self):
