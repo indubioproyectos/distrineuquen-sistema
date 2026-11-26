@@ -245,6 +245,12 @@ class TomaDePedidos(http.Controller):
         # «Distribuidora / revendedor (lista oculta)» that log in
         return self._autorizado_lista_oculta()
 
+    def _ve_listas_personales(self):
+        """19.0.1.129.46: Administración, Gerencia and Sistemas get the
+        «Lista 3» / «Lista 4» products (models/lista_personal.py)."""
+        from ..models.lista_personal import ve_listas_personales
+        return ve_listas_personales(request.env.user)
+
     def _solo_vendedor(self):
         """Seller without Administración: sees the General list only and does
         not handle distributors (models/lista_oculta.py)."""
@@ -337,8 +343,11 @@ class TomaDePedidos(http.Controller):
 
     def _dominio_catalogo(self):
         """Only the temporary AgilPedido products with the switch on; without
-        them otherwise, so a synced copy never shows in the usual catalog."""
-        return [("distri_agil_temporal", "=", self._catalogo_agil())]
+        them otherwise, so a synced copy never shows in the usual catalog.
+        Never a «lista 3/4» product (19.0.1.129.46): those come only in their
+        own sections, for the users who may see them, even if published."""
+        return [("distri_agil_temporal", "=", self._catalogo_agil()),
+                ("distri_lista_personal", "=", False)]
 
     def _sin_precio(self, producto):
         """Los cigarrillos no tienen precio publico.
@@ -348,6 +357,9 @@ class TomaDePedidos(http.Controller):
         product always shows its price, like the storefront it copies.
         """
         if self._lista_propia() or producto.distri_agil_temporal:
+            return False
+        if producto.distri_lista_personal:
+            # 19.0.1.129.46: a «lista 3/4» cigarette has its price
             return False
         return producto.categ_id.name in CATEGORIAS_A_PRESUPUESTAR
 
@@ -399,9 +411,42 @@ class TomaDePedidos(http.Controller):
             secciones.setdefault(seccion, []).append(
                 self._renglon(producto, lista, precios.get(producto.id))
             )
-        if agil:
-            return list(secciones.items())
-        return sorted(secciones.items())
+        resultado = list(secciones.items()) if agil else sorted(secciones.items())
+        # 19.0.1.129.46: «Lista 3» and «Lista 4» last, staff that may see them only
+        return resultado + self._secciones_listas_personales()
+
+    def _secciones_listas_personales(self):
+        """19.0.1.129.46 (owner): [("Lista 3", rows), ("Lista 4", rows)] of
+        the products marked distri_lista_personal, by name, at their own
+        sales price. Only for Administración, Gerencia and Sistemas; empty for
+        everyone else, so they never reach the page. They are not published:
+        that is what keeps them off the public catalog."""
+        if not self._ve_listas_personales():
+            return []
+        from ..models.lista_personal import LISTAS_PERSONALES
+        productos = request.env["product.template"].sudo().search(
+            [("distri_lista_personal", "!=", False), ("sale_ok", "=", True),
+             ("type", "!=", "service")], order="name, id")
+        lista = self._lista_del_visitante()
+        precios = self._precios_en_lote(productos, lista)
+        secciones = []
+        for valor, nombre in LISTAS_PERSONALES:
+            filas = [self._renglon(p, lista, precios.get(p.id), sin_precio=False)
+                     for p in productos if p.distri_lista_personal == valor]
+            if filas:
+                secciones.append((nombre, filas))
+        return secciones
+
+    def _precio_lista_personal(self, plantilla):
+        """19.0.1.129.46: a «lista 3/4» product costs its own sales price, in
+        its unit of sale: the price an order line of it gets without a price
+        list rule (models/lista_personal.py), so the screen and the order
+        always agree."""
+        variante = plantilla.product_variant_id
+        if not variante:
+            return 0.0
+        unidad = self._unidad_de_venta(plantilla)
+        return variante._price_compute("list_price", uom=unidad)[variante.id]
 
     def _precios_en_lote(self, productos, lista):
         """El precio de cada producto, pedido en lote y no de a uno.
@@ -411,11 +456,15 @@ class TomaDePedidos(http.Controller):
         menos de diez llamadas y baja a centesimas.
         """
         por_factor = {}
+        precios = {}
         for producto in productos:
+            if producto.distri_lista_personal:
+                # 19.0.1.129.46: never the list's price
+                precios[producto.id] = self._precio_lista_personal(producto)
+                continue
             factor = self._unidad_de_venta(producto).relative_factor or 1.0
             por_factor.setdefault(factor, []).append(producto)
 
-        precios = {}
         for factor, grupo in por_factor.items():
             variantes = self.env["product.product"].browse([
                 p.product_variant_id.id for p in grupo if p.product_variant_id
@@ -541,6 +590,7 @@ class TomaDePedidos(http.Controller):
             return []
         plantillas = lista.item_ids.mapped("product_tmpl_id").filtered(
             lambda p: p.active and p.sale_ok and p.is_published and not p.distri_agil_temporal
+            and not p.distri_lista_personal
         )
         precios = self._precios_en_lote(plantillas, lista)
         renglones = []
@@ -566,7 +616,7 @@ class TomaDePedidos(http.Controller):
         productos = request.env["product.template"].sudo().search(
             [("categ_id.name", "in", list(CATEGORIAS_A_PRESUPUESTAR)),
              ("sale_ok", "=", True), ("is_published", "=", True),
-             ("distri_agil_temporal", "=", False)],
+             ("distri_agil_temporal", "=", False), ("distri_lista_personal", "=", False)],
             order="name",
         )
         renglones = []
@@ -1598,10 +1648,20 @@ class TomaDePedidos(http.Controller):
         """The products /pedido/enviar accepts (19.0.1.91.0): only what the
         catalog on screen can show (_catalogo, _destacados, DISTRIBUIDORAS):
         sellable, published, active, not a service (shipping, «Venta sin
-        detalle») and of the catalog currently on (_dominio_catalogo)."""
-        return request.env["product.template"].sudo().search(
-            [("id", "in", list(ids)), ("sale_ok", "=", True), ("is_published", "=", True),
+        detalle») and of the catalog currently on (_dominio_catalogo).
+        19.0.1.129.46: plus the «lista 3/4» products, unpublished, only for
+        Administración, Gerencia and Sistemas (_secciones_listas_personales);
+        for anyone else they are refused."""
+        ids = list(ids)
+        Tmpl = request.env["product.template"].sudo()
+        plantillas = Tmpl.search(
+            [("id", "in", ids), ("sale_ok", "=", True), ("is_published", "=", True),
              ("type", "!=", "service")] + self._dominio_catalogo())
+        if self._ve_listas_personales():
+            plantillas |= Tmpl.search(
+                [("id", "in", ids), ("distri_lista_personal", "!=", False),
+                 ("sale_ok", "=", True), ("type", "!=", "service")])
+        return plantillas
 
     def _error_compra_minima(self, total):
         """Below COMPRA_MINIMA: the order is not created nor changed."""
@@ -1746,7 +1806,8 @@ class TomaDePedidos(http.Controller):
             # a temporary AgilPedido product is never a DISTRIBUIDORAS row:
             # its «May» copies are products of their own, at their own price
             es_may = (bool(renglon.get("may")) and bool(lista_mayorista)
-                      and not plantilla.distri_agil_temporal)
+                      and not plantilla.distri_agil_temporal
+                      and not plantilla.distri_lista_personal)
             if es_may and plantilla.categ_id.name in CATEGORIAS_A_PRESUPUESTAR:
                 # a presupuestar: el gerente le pone el precio al asignarle
                 # la lista del revendedor
@@ -1764,6 +1825,10 @@ class TomaDePedidos(http.Controller):
                 de_distribuidoras.append(plantilla.name)
                 hay_distribuidoras = True
                 valores["distri_may"] = True
+            elif plantilla.distri_lista_personal:
+                # 19.0.1.129.46: its own sales price, whatever the list (the
+                # line keeps it: models/lista_personal.py)
+                valores["price_unit"] = self._precio_lista_personal(plantilla)
             elif self._sin_precio(plantilla):
                 # entra en cero a proposito: el precio sale de la lista del
                 # cliente cuando el gerente se lo asigna

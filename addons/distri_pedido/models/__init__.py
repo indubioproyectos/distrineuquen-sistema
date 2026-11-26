@@ -107,3 +107,4 @@ from . import comprobantes_mostrador
 from . import verificacion_tramo2
 from . import verificacion_cruces
 from . import contactos
+from . import lista_personal

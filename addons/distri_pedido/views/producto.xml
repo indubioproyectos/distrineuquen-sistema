@@ -9,6 +9,8 @@
       <field name="sale_ok" position="after">
         <field name="destacado"/>
         <field name="destacado_vence" invisible="not destacado"/>
+        <!-- 19.0.1.129.46: Lista 3 / Lista 4, staff only (models/lista_personal.py) -->
+        <field name="distri_lista_personal"/>
       </field>
     </field>
   </record>
@@ -42,6 +44,8 @@
                 domain="[('is_published', '=', False)]"/>
         <filter name="distri_destacados" string="Destacados"
                 domain="[('destacado', '=', True)]"/>
+        <filter name="distri_listas_personales" string="Lista 3 / Lista 4"
+                domain="[('distri_lista_personal', '!=', False)]"/>
       </filter>
     </field>
   </record>
