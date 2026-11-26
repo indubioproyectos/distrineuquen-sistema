@@ -206,7 +206,7 @@
     <t t-set="volver" t-value="'/listas/cigarrillos'"/>
     <t t-set="kicker" t-value="'Listas y accesos'"/>
     <t t-set="titulo" t-value="'Vincular productos May'"/>
-    <t t-set="sub" t-value="'A qué cigarrillo corresponde cada «May … - lista 3/4»'"/>
+    <t t-set="sub" t-value="'A qué cigarrillo(s) corresponde cada «May … - lista 3/4». Para sacar uno, borralo.'"/>
   </t>
   <main class="dn-main">
     <datalist id="ls-cigarrillos">
@@ -217,9 +217,13 @@
       <ul class="ls-list">
         <li t-foreach="productos" t-as="p" class="ls-vinc">
           <label t-att-for="'v-%s' % p.id"><b t-esc="p.name"/> <span class="ls-meta"><t t-esc="plata(p.list_price)"/></span></label>
-          <input class="dn-input" list="ls-cigarrillos" t-att-id="'v-%s' % p.id" t-att-name="'v_%s' % p.id"
-                 t-att-value="'#%s %s' % (p.distri_cigarrillo_id.id, p.distri_cigarrillo_id.name) if p.distri_cigarrillo_id else ''"
-                 placeholder="Sin vincular"/>
+          <div class="ls-vinc__cigs">
+            <input t-foreach="p.distri_cigarrillo_ids" t-as="c" class="dn-input" list="ls-cigarrillos"
+                   t-att-name="'v_%s' % p.id" t-att-value="'#%s %s' % (c.id, c.name)"
+                   t-att-aria-label="'Cigarrillo de %s' % p.name"/>
+            <input class="dn-input" list="ls-cigarrillos" t-att-id="'v-%s' % p.id" t-att-name="'v_%s' % p.id" value=""
+                   t-att-placeholder="'Agregar otro cigarrillo' if p.distri_cigarrillo_ids else 'Sin vincular'"/>
+          </div>
         </li>
       </ul>
       <p t-if="not productos" class="dn-empty">No hay productos «May … - lista 3/4».</p>

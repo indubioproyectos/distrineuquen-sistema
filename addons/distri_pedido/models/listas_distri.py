@@ -145,10 +145,12 @@ class ProductPricelistClave(models.Model):
 class ProductTemplateCigarrilloMay(models.Model):
     _inherit = "product.template"
 
-    distri_cigarrillo_id = fields.Many2one(
-        "product.template", string="Cigarrillo de la lista", copy=False, index=True,
-        help="En un producto «May X - lista 3/4»: el cigarrillo cuyo precio de lista 3/4 es "
-             "este. Lo usa «Listas y accesos» para «usar precio del producto May».")
+    distri_cigarrillo_ids = fields.Many2many(
+        "product.template", "distri_cigarrillo_may_rel", "producto_may_id", "cigarrillo_id",
+        string="Cigarrillos de la lista", copy=False,
+        help="En un producto «May X - lista 3/4»: los cigarrillos cuyo precio de lista 3/4 es "
+             "este (uno, o varios si el producto vale para todos, como «Milenio RED / GREEN»). "
+             "Lo usa «Listas y accesos» para «usar precio del producto May».")
 
 
 class DistriListas(models.AbstractModel):
@@ -443,14 +445,16 @@ class DistriListas(models.AbstractModel):
 
     @api.model
     def _productos_may(self):
-        """{(lista_3|lista_4, cigarette id): «May X - lista N» product}."""
+        """{(lista_3|lista_4, cigarette id): «May X - lista N» product}. A
+        product may stand for several cigarettes (19.0.1.129.52, owner:
+        «Milenio RED / GREEN 20» is RED and GREEN)."""
         productos = self.env["product.template"].sudo().search(
             [("distri_lista_personal", "in", ("lista_3", "lista_4")),
-             ("distri_cigarrillo_id", "!=", False)], order="id")
+             ("distri_cigarrillo_ids", "!=", False)], order="id")
         mapa = {}
         for producto in productos:
-            mapa.setdefault((producto.distri_lista_personal, producto.distri_cigarrillo_id.id),
-                            producto)
+            for cig in producto.distri_cigarrillo_ids:
+                mapa.setdefault((producto.distri_lista_personal, cig.id), producto)
         return mapa
 
     @api.model
@@ -535,33 +539,51 @@ class DistriListas(models.AbstractModel):
         return self._guardar_precios(cambios)
 
     @api.model
-    def _vincular(self, producto_may, cigarrillo):
-        """Links a «May X - lista N» product to the cigarette it prices (or
-        unlinks it with an empty `cigarrillo`). One product per cigarette and
-        list: another product of the same list linked to it is unlinked."""
+    def _vincular(self, producto_may, cigarrillos):
+        """Sets the cigarettes a «May X - lista N» product prices (empty =
+        unlinked). One product per cigarette and list: a cigarette taken
+        here is unlinked from any other product of the same list."""
         check_listas(self.env)
         producto_may = producto_may.sudo()
+        cigarrillos = cigarrillos.sudo()
         if not producto_may.distri_lista_personal:
             raise UserError("Ese producto no es de la lista 3 ni de la lista 4.")
-        if cigarrillo and cigarrillo.id not in self._cigarrillos().ids:
+        if cigarrillos - self._cigarrillos():
             raise UserError("Ese producto no es un cigarrillo de la grilla.")
-        if producto_may.distri_cigarrillo_id == cigarrillo:
+        if producto_may.distri_cigarrillo_ids == cigarrillos:
             return False
-        if cigarrillo:
-            self.env["product.template"].sudo().search([
+        if cigarrillos:
+            otros = self.env["product.template"].sudo().search([
                 ("distri_lista_personal", "=", producto_may.distri_lista_personal),
-                ("distri_cigarrillo_id", "=", cigarrillo.id),
-                ("id", "!=", producto_may.id)]).write({"distri_cigarrillo_id": False})
-        producto_may.distri_cigarrillo_id = cigarrillo.id if cigarrillo else False
+                ("distri_cigarrillo_ids", "in", cigarrillos.ids),
+                ("id", "!=", producto_may.id)])
+            for otro in otros:
+                otro.distri_cigarrillo_ids = [(3, c.id) for c in cigarrillos]
+        producto_may.distri_cigarrillo_ids = [(6, 0, cigarrillos.ids)]
         return True
+
+    @api.model
+    def _variantes_nombre(self, nombre):
+        """The cigarettes a «May X - lista N» name stands for: «May Milenio
+        RED / GREEN 20 - lista 3» -> ["milenio red 20", "milenio green 20"];
+        a name without «/» -> [itself], normalized."""
+        texto = re.sub(r"-\s*lista\s*\d\s*$", " ", nombre or "", flags=re.IGNORECASE)
+        partido = re.search(r"(\S+)\s*/\s*(\S+)", texto)
+        if not partido:
+            return [_normalizar(texto)]
+        antes, despues = texto[:partido.start()], texto[partido.end():]
+        return [_normalizar("%s %s %s" % (antes, alternativa, despues))
+                for alternativa in (partido.group(1), partido.group(2))]
 
     @api.model
     def _sugerir_vinculos(self):
         """For the migration: links each unlinked «May X - lista N» product
-        to its cigarette when the match is clear. First the cigarettes whose
-        current Lista 3/4 rule has exactly the product's price, the closest
-        name among them; else the closest name if it is clearly the best.
-        Returns [(May product, cigarette)]."""
+        to its cigarette(s) when the match is clear. A name with «A / B»
+        («Milenio RED / GREEN 20») stands for one cigarette per alternative.
+        For each one: first the cigarettes whose current Lista 3/4 rule has
+        exactly the product's price, the closest name among them; else the
+        closest name if it is clearly the best. Idempotent: linked products
+        are skipped. Returns [(May product, cigarette)]."""
         Tmpl = self.env["product.template"].sudo().with_context(active_test=False)
         cigarrillos = self._cigarrillos()
         nombres = {c.id: _normalizar(c.name) for c in cigarrillos}
@@ -570,34 +592,46 @@ class DistriListas(models.AbstractModel):
             lista = self._lista(clave, activas=False)
             reglas = self._regla_cigarrillo(lista, set(cigarrillos.ids)) if lista else {}
             usados = set(Tmpl.search([("distri_lista_personal", "=", valor),
-                                      ("distri_cigarrillo_id", "!=", False)]
-                                     ).mapped("distri_cigarrillo_id").ids)
+                                      ("distri_cigarrillo_ids", "!=", False)]
+                                     ).mapped("distri_cigarrillo_ids").ids)
             for producto in Tmpl.search([("distri_lista_personal", "=", valor),
-                                         ("distri_cigarrillo_id", "=", False)], order="id"):
-                propio = _normalizar(producto.name)
+                                         ("distri_cigarrillo_ids", "=", False)], order="id"):
+                variantes = self._variantes_nombre(producto.name)
+                elegidos = Tmpl.browse()
+                for propio in variantes:
 
-                def parecido(cig):
-                    return difflib.SequenceMatcher(None, propio, nombres[cig.id]).ratio()
+                    def parecido(cig, propio=propio):
+                        return difflib.SequenceMatcher(None, propio, nombres[cig.id]).ratio()
 
-                libres = cigarrillos.filtered(lambda c: c.id not in usados)
-                por_precio = libres.filtered(
-                    lambda c: c.id in reglas and lista.currency_id.compare_amounts(
-                        reglas[c.id].fixed_price, producto.list_price) == 0)
-                elegido = None
-                if por_precio:
-                    mejor = max(por_precio, key=parecido)
-                    if parecido(mejor) >= 0.4:
-                        elegido = mejor
-                if not elegido and libres:
-                    orden = sorted(libres, key=parecido, reverse=True)
-                    primero = parecido(orden[0])
-                    segundo = parecido(orden[1]) if len(orden) > 1 else 0.0
-                    if primero >= 0.75 and primero - segundo >= 0.1:
-                        elegido = orden[0]
-                if elegido:
-                    producto.distri_cigarrillo_id = elegido.id
-                    usados.add(elegido.id)
-                    hechos.append((producto, elegido))
+                    def de_otra_variante(cig, propio=propio):
+                        # «RED / GREEN»: the GREEN cigarette is not a rival of RED
+                        mio = parecido(cig)
+                        return any(difflib.SequenceMatcher(None, otra, nombres[cig.id]).ratio()
+                                   > mio for otra in variantes if otra != propio)
+
+                    libres = cigarrillos.filtered(
+                        lambda c: c.id not in usados and c not in elegidos
+                        and not de_otra_variante(c))
+                    por_precio = libres.filtered(
+                        lambda c: c.id in reglas and lista.currency_id.compare_amounts(
+                            reglas[c.id].fixed_price, producto.list_price) == 0)
+                    elegido = None
+                    if por_precio:
+                        mejor = max(por_precio, key=parecido)
+                        if parecido(mejor) >= 0.4:
+                            elegido = mejor
+                    if not elegido and libres:
+                        orden = sorted(libres, key=parecido, reverse=True)
+                        primero = parecido(orden[0])
+                        segundo = parecido(orden[1]) if len(orden) > 1 else 0.0
+                        if primero >= 0.75 and primero - segundo >= 0.1:
+                            elegido = orden[0]
+                    if elegido:
+                        elegidos |= elegido
+                if elegidos:
+                    producto.distri_cigarrillo_ids = [(6, 0, elegidos.ids)]
+                    usados.update(elegidos.ids)
+                    hechos += [(producto, cig) for cig in elegidos]
         return hechos
 
     # --------------------------------------------------------- web access

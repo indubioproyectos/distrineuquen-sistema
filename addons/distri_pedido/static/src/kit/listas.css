@@ -20,7 +20,7 @@ a.ls-row:active{background:var(--dn-tint)}
 .ls-pedido span{line-height:1.3}
 .ls-acciones{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0}
 .ls-vinc label{flex:1 1 220px;min-width:0}
-.ls-vinc .dn-input{flex:1 1 220px}
+.ls-vinc__cigs{flex:1 1 220px;display:flex;flex-direction:column;gap:6px}
 .ls-tabla-wrap{overflow-x:auto;border:1px solid var(--dn-line);border-radius:var(--dn-r);background:var(--dn-card);
   max-width:100%}
 .ls-tabla{border-collapse:collapse;width:100%;font-size:15px}

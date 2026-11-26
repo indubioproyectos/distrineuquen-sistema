@@ -210,37 +210,41 @@ class ListasAccesos(http.Controller):
     @http.route("/listas/cigarrillos/vincular", type="http", auth="user", methods=["POST"],
                 sitemap=False)
     def vincular_guardar(self, **kw):
-        """«v_<May product id>» = «#<cigarette id> name» from the datalist, or
-        empty to unlink."""
+        """«v_<May product id>» (repeated: one per cigarette) = «#<cigarette
+        id> name» from the datalist; all empty unlinks the product."""
         Listas = self._check()
         Tmpl = request.env["product.template"].sudo()
         form = request.httprequest.form
         n = 0
         try:
             pares, vistos = [], {}
-            for nombre in form:
+            for nombre in dict.fromkeys(form):
                 if not nombre.startswith("v_") or not nombre[2:].isdigit():
                     continue
                 producto = Tmpl.browse(int(nombre[2:])).exists()
                 if not producto:
                     continue
-                texto = (form.get(nombre) or "").strip()
-                cig = Tmpl.browse()
-                if texto:
+                # one input per linked cigarette plus an empty one to add another
+                cigs = Tmpl.browse()
+                for texto in form.getlist(nombre):
+                    texto = (texto or "").strip()
+                    if not texto:
+                        continue
                     numero = texto.lstrip("#").split(" ", 1)[0]
                     if not numero.isdigit():
                         raise UserError("Elegí el cigarrillo de la lista para «%s»." % producto.name)
                     cig = Tmpl.browse(int(numero)).exists()
                     clave = (producto.distri_lista_personal, cig.id)
-                    if clave in vistos:
+                    if clave in vistos and vistos[clave] != producto.name:
                         raise UserError("«%s» y «%s» apuntan al mismo cigarrillo: cada cigarrillo "
                                         "va con un solo producto May por lista."
                                         % (vistos[clave], producto.name))
                     vistos[clave] = producto.name
-                pares.append((producto, cig))
+                    cigs |= cig
+                pares.append((producto, cigs))
             # unlink first, so a product can take the cigarette another one leaves
-            for producto, cig in sorted(pares, key=lambda par: bool(par[1])):
-                if Listas._vincular(producto, cig):
+            for producto, cigs in sorted(pares, key=lambda par: len(par[1])):
+                if Listas._vincular(producto, cigs):
                     n += 1
         except UserError as exc:
             request.env.cr.rollback()

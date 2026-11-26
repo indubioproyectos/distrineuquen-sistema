@@ -279,8 +279,61 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         self.may_l3.list_price = P_LISTA3_CIG
         hechos = self.env["distri.listas"]._sugerir_vinculos()
         self.assertIn((self.may_l3, self.cig), hechos)
-        self.assertEqual(self.may_l3.distri_cigarrillo_id, self.cig)
+        self.assertEqual(self.may_l3.distri_cigarrillo_ids, self.cig)
         self.assertEqual(self.env["distri.listas"]._sugerir_vinculos(), [])
+
+    def test_one_may_product_for_two_cigarettes_red_and_green(self):
+        """Owner, 26/11/2026: «May Milenio RED / GREEN 20 - lista 3» is the
+        price of two cigarettes, RED and GREEN. The migration links both and
+        «usar precio del producto May» fills both rows; idempotent."""
+        base = {"type": "consu", "sale_ok": True, "is_published": True,
+                "categ_id": self.categ_cig.id}
+        Tmpl = self.env["product.template"]
+        red = Tmpl.create(dict(base, name="Milenito Prueba152 RED Box X 20", list_price=16900.0))
+        green = Tmpl.create(dict(base, name="Milenito Prueba152 GREEN Box X 20",
+                                 list_price=16900.0))
+        may_rg = Tmpl.create(dict(base, name="May Milenito Prueba152 RED / GREEN 20 - lista 3",
+                                  list_price=16000.0, is_published=False))
+        self.assertEqual(may_rg.distri_lista_personal, "lista_3")
+        self.assertEqual(self.env["distri.listas"]._variantes_nombre(may_rg.name),
+                         ["milenito prueba152 red 20", "milenito prueba152 green 20"])
+        hechos = self.env["distri.listas"]._sugerir_vinculos()
+        self.assertIn((may_rg, red), hechos)
+        self.assertIn((may_rg, green), hechos)
+        self.assertEqual(may_rg.distri_cigarrillo_ids, red | green)
+        self.assertEqual(self.env["distri.listas"]._sugerir_vinculos(), [], "idempotent")
+        Listas = self._listas()
+        filas = {f["id"]: f for f in Listas._grilla()["filas"]}
+        self.assertEqual(filas[red.id]["may_lista3"]["id"], may_rg.id)
+        self.assertEqual(filas[green.id]["may_lista3"]["id"], may_rg.id)
+        self.assertEqual(Listas._usar_precio_may("lista3", {red.id, green.id}), 2)
+        self.assertEqual(self._precio(self.lista3, red), 16000.0)
+        self.assertEqual(self._precio(self.lista3, green), 16000.0)
+        self.assertEqual(Listas._usar_precio_may("lista3", {red.id, green.id}), 0, "idempotent")
+        self.assertEqual(self._precio(self.lista4, red), 0.0, "Lista 4 untouched")
+        # a cigarette taken by another product of the same list leaves this one
+        otro = Tmpl.create(dict(base, name="May Otro Prueba152 - lista 3", list_price=1.0,
+                                is_published=False))
+        Listas._vincular(otro, green)
+        self.assertEqual(may_rg.distri_cigarrillo_ids, red)
+        self.assertEqual(otro.distri_cigarrillo_ids, green)
+
+    def test_link_screen_accepts_several_cigarettes(self):
+        base = {"type": "consu", "sale_ok": True, "is_published": True,
+                "categ_id": self.categ_cig.id}
+        red = self.env["product.template"].create(dict(base, name="Rojo Prueba152 20"))
+        self.authenticate("gonzalo_152", "gonzalo_152")
+        html = self.url_open("/listas/cigarrillos/vincular").text
+        token = re.search(r'name="csrf_token"[^>]*? value="([^"]+)"', html).group(1)
+        campo = "v_%s" % self.may_l3.id
+        res = self.url_open("/listas/cigarrillos/vincular", data=[
+            ("csrf_token", token), (campo, "#%s %s" % (self.cig.id, self.cig.name)),
+            (campo, "#%s %s" % (red.id, red.name)), (campo, "")])
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(self.may_l3.distri_cigarrillo_ids, self.cig | red)
+        res = self.url_open("/listas/cigarrillos/vincular", data=[
+            ("csrf_token", token), (campo, "#%s %s" % (red.id, red.name))])
+        self.assertEqual(self.may_l3.distri_cigarrillo_ids, red)
 
     # ------------------------------------------------------------ web access
 
