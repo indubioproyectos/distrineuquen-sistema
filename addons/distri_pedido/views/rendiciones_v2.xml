@@ -601,6 +601,7 @@
         <form t-if="can_edit" method="post" t-att-action="'/casos/%s' % case.id" class="dn-card rd-sec" id="rd-resolver">
           <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
           <input t-if="desde" type="hidden" name="desde" t-att-value="desde"/>
+          <input type="hidden" name="version" t-att-value="version"/>
           <h2 class="dn-label">Resolver</h2>
           <div class="dn-field">
             <label for="rd-inv">Investigación</label>

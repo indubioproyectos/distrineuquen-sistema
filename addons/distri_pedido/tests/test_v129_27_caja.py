@@ -17,6 +17,7 @@ from odoo.addons.distri_pedido.models.deudores import direct_customers
 from odoo.addons.distri_pedido.models.gasto import EXPENSE_ACCOUNTS
 from odoo.addons.distri_pedido.tests.test_caja import CajaMixin, photo_url
 from odoo.addons.distri_pedido.tests.test_reparto import _uuid
+from odoo.addons.distri_pedido.models.reparto_cliente import today_ar
 
 
 class CajaV2Mixin(CajaMixin):
@@ -481,7 +482,7 @@ class TestCajaV2Http(CajaMixin, HttpCase):
 
     def _route_on_road(self):
         return self.env["distri.route"].sudo().create({
-            "driver_id": self.driver.id, "date": fields.Date.today(), "state": "on_route"})
+            "driver_id": self.driver.id, "date": today_ar(), "state": "on_route"})
 
     def test_pages_flag_off(self):
         self._caja().open_session("1000")

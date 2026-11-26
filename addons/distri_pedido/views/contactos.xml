@@ -38,6 +38,7 @@
     <t t-set="sub" t-value="'Buscá por nombre, teléfono, CUIT, domicilio o código.'"/>
   </t>
   <main class="dn-main fi-main">
+    <div t-if="ok" class="dn-banner dn-banner--ok" role="status"><span t-esc="ok"/></div>
     <form method="get" action="/contactos" class="dn-card fi-card ct-form" id="ct-form" role="search">
       <div class="ct-search">
         <input id="ct-q" class="dn-input dn-input--big" type="search" name="q" t-att-value="params['q']"
@@ -262,7 +263,7 @@
           <div class="ct-grid2">
             <div class="dn-field"><label for="ct-vendedor">Vendedor</label>
               <select id="ct-vendedor" class="dn-input" name="vendedor">
-                <option value="">Sin vendedor</option>
+                <option t-att-value="sin_vendedor" t-att-selected="'selected' if form.get('vendedor') in ('', sin_vendedor, None) else None">Sin vendedor</option>
                 <option t-foreach="vendedores" t-as="o" t-att-value="o[0]" t-att-selected="'selected' if str(o[0]) == form.get('vendedor') else None" t-esc="o[1]"/>
               </select></div>
             <div class="dn-field"><label for="ct-cartera">Cartera</label>

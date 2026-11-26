@@ -46,6 +46,7 @@ account also lists the customer's open «Comprobantes pendientes»
 screen (zone, minimum balance, age of the oldest red invoice). Still
 read-only: nothing here approves, registers or adjusts money.
 """
+import math
 from datetime import date, timedelta, timezone
 from urllib.parse import quote
 
@@ -122,10 +123,13 @@ def _parse_day(value):
 
 
 def _number(value):
+    """A non-negative finite number; 0 for anything else (19.0.1.129.45:
+    «inf» and «nan» from a hand-made URL included)."""
     try:
-        return max(float(value or 0), 0.0)
+        number = float(value or 0)
     except (TypeError, ValueError):
         return 0.0
+    return max(number, 0.0) if math.isfinite(number) else 0.0
 
 
 def filter_debtors(entries, zone="", min_balance=0.0, min_age=0, today=None):

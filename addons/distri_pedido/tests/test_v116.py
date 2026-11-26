@@ -28,6 +28,7 @@ from odoo.addons.distri_pedido.tests.common_pedido import PedidoAbiertoMixin
 from odoo.addons.distri_pedido.tests.test_agil_equivalencia import mensaje
 from odoo.addons.distri_pedido.tests.test_catalogo_agil import AgilMixin
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
+from odoo.addons.distri_pedido.models.reparto_cliente import today_ar
 
 # the 11 temporary «May …» products of the stress test that were taken as
 # the normal product + «May» (practica/estres/out/catalogo_autoconsistencia.json)
@@ -201,7 +202,7 @@ class TestV116Http(PedidoAbiertoMixin, RepartoMixin, HttpCase):
         generico = self.env["res.partner"]._distri_generic_partner_for(False)
         order = self._order(generico, self.product)
         route = self.env["distri.route"].sudo().create({
-            "driver_id": self.driver.id, "date": fields.Date.today()})
+            "driver_id": self.driver.id, "date": today_ar()})
         with self.assertRaisesRegex(UserError, "no tiene cliente"):
             self.env["distri.route"].with_user(self.admin).planning_move(
                 order.with_user(self.admin), route.with_user(self.admin))

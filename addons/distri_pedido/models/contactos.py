@@ -84,6 +84,10 @@ def _clip(value, size):
     return " ".join((value or "").split())[:size]
 
 
+# the value of «Sin vendedor» in the administración form (19.0.1.129.45)
+SIN_VENDEDOR = "0"
+
+
 def _choice(form, key, options, label):
     """The id picked in a <select> among `options` ((id, label) pairs);
     False when empty; UserError for anything else."""
@@ -193,7 +197,13 @@ def valores_admin(env, partner, form, opciones):
     lista = _choice(form, "lista", opciones["listas"], "Lista de precios")
     if lista:
         valores["property_product_pricelist"] = lista
-    valores["user_id"] = _choice(form, "vendedor", opciones["vendedores"], "Vendedor")
+    # 19.0.1.129.45: «Sin vendedor» is an explicit choice ("0"); an empty or
+    # missing value keeps the customer's salesperson as it is
+    vendedor = (form.get("vendedor") or "").strip()
+    if vendedor == SIN_VENDEDOR:
+        valores["user_id"] = False
+    elif vendedor:
+        valores["user_id"] = _choice(form, "vendedor", opciones["vendedores"], "Vendedor")
     cartera = _choice(form, "cartera", opciones["carteras"], "Cartera")
     portfolio = {o[0] for o in opciones["carteras"]}
     tags = [t for t in partner.sudo().category_id.ids if t not in portfolio]

@@ -39,8 +39,8 @@ META_RE = re.compile(r'name="csrf-token" content="([^"]+)"')
 WEB_RE = re.compile(r'csrf_token: "([^"]+)"')
 
 
-@tagged("post_install", "-at_install", "distri_v129_44")
-class TestV12944Rendiciones(CajaMixin, AccountTestInvoicingHttpCommon):
+class V12944Mixin(CajaMixin):
+    """The users, routes and helpers of these tests (shared with 129.45)."""
 
     ROUTE_ON_ROAD = True
 
@@ -130,6 +130,10 @@ class TestV12944Rendiciones(CajaMixin, AccountTestInvoicingHttpCommon):
         return self._ledger(), sorted((r._name, r.id, str(r.write_date)) for r in
                                       [x for rs in (routes, routes.case_ids, routes.promise_ids)
                                        for x in rs])
+
+
+@tagged("post_install", "-at_install", "distri_v129_44")
+class TestV12944Rendiciones(V12944Mixin, AccountTestInvoicingHttpCommon):
 
     # ------------------------------------------------------------ flag off
 
@@ -416,7 +420,8 @@ class TestV12944Rendiciones(CajaMixin, AccountTestInvoicingHttpCommon):
         url = "/casos/%s" % cash.id
         token = self._csrf(url)
         # closing without a resolution: the model's refusal, nothing saved
-        res = self.url_open(url, data={"csrf_token": token, "accion": "cerrar",
+        res = self.url_open(url, data={"csrf_token": token, "version": rv2.case_version(cash),
+                                       "accion": "cerrar",
                                        "investigacion": "Contamos de nuevo"},
                             allow_redirects=False)
         self.assertEqual(res.status_code, 400)
@@ -424,13 +429,15 @@ class TestV12944Rendiciones(CajaMixin, AccountTestInvoicingHttpCommon):
         self.assertIn("Contamos de nuevo", res.text, "what was typed stays on the page")
         self.assertEqual(cash.state, "open")
         self.assertFalse(cash.investigation)
-        res = self.url_open(url, data={"csrf_token": token, "accion": "guardar",
+        res = self.url_open(url, data={"csrf_token": token, "version": rv2.case_version(cash),
+                                       "accion": "guardar",
                                        "investigacion": "Contamos de nuevo", "repuesto": "1"},
                             allow_redirects=False)
         self.assertEqual(res.status_code, 303)
         self.assertEqual(cash.investigation, "Contamos de nuevo")
         self.assertTrue(cash.replenished)
-        res = self.url_open(url, data={"csrf_token": token, "accion": "cerrar",
+        res = self.url_open(url, data={"csrf_token": token, "version": rv2.case_version(cash),
+                                       "accion": "cerrar",
                                        "investigacion": "Contamos de nuevo", "repuesto": "1",
                                        "resolucion": "Lo repuso el viernes"},
                             allow_redirects=False)

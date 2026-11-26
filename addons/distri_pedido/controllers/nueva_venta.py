@@ -760,6 +760,11 @@ class NuevaVenta(http.Controller):
             order.check_access("read")
         except AccessError:
             raise NotFound() from None
+        # 19.0.1.129.45: the backend's «Personal Orders» rule lets a seller
+        # read orders without salesperson; the page reads the rest with sudo,
+        # so a seller only reaches his own or his customers' (as /pedidos/<id>)
+        if not request.env.user._distri_may_reach_record(order):
+            raise NotFound()
         o = order.sudo()
         if o.distri_entregado_fuera:
             titulo, texto = "Venta cargada como entregada", (
