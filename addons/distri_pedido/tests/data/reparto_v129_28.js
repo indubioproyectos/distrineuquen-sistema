@@ -319,6 +319,8 @@ const homeV2 = () => ({ ok: true, v2: true, user_id: 7,
   await T.download(false); await flush();
   await ctx.window.RepartoV2.fetchHome(true); await flush();
   const visits = screen(T, "#visitas");
+  // 26/11/2026: the block is on «Control de carga» too, the first screen of the day
+  out.loadBlock = screen(T, "#carga").indexOf("Mis comprobantes a reclamar") >= 0;
   // 19.0.1.129.48: the block lists the receipt itself, its amount and its
   // actions; no total of receipts and charges ($ 25.400) any more
   out.homeCard = visits.indexOf("Mis comprobantes a reclamar") >= 0 && visits.indexOf("ALMACÉN SUR") >= 0 &&

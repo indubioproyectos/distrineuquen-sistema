@@ -435,6 +435,7 @@ class TestV12928RepartoV2(V12928Mixin, AccountTestInvoicingCommon):
         self.assertTrue(out["paidPreselected"])
         # «Mis comprobantes a reclamar», the reminder, the order
         self.assertTrue(out["homeCard"])
+        self.assertTrue(out["loadBlock"])
         self.assertTrue(out["reminder"])
         self.assertTrue(out["reminderOff"])
         self.assertTrue(out["homeWithoutRoute"])

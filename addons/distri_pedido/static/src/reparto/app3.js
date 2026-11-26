@@ -1246,7 +1246,7 @@
     return '<div class="head"><div class="kicker">Ruta de ' + h(dateLabel(S.route.date)) + " · Viaje " + h(S.route.trip) +
       "</div><h1>" + h(S.route.zones || "Ruta") + '</h1><div class="sub">' + list.length +
       (list.length === 1 ? " pedido · " : " pedidos · ") + total + " bultos</div></div>" +
-      '<div id="status">' + statusBanner() + "</div>" + routesBar() +
+      '<div id="status">' + statusBanner() + "</div>" + routesBar() + (extHook("homeHtml") || "") +
       (S.departError ? '<div class="banner err depart-err"><span>' + h(S.departError) + "</span></div>" : "") +
       (S.route.controlled ? '<div class="banner ok">' + ICON_CHECK + "La carga ya fue controlada con Administración.</div>" : "") +
       '<div class="intro"><h2>Control de carga</h2><p>Tocá cada pedido cuando sube a la camioneta. ' +
