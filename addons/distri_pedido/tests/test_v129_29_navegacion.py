@@ -202,7 +202,8 @@ class TestNavegacion(HttpCase):
         self.assertEqual(out["reparto_go_after_saving"]["hash"], "#visitas")
         self.assertEqual(out["reparto_forward_go"], {"hash": "#salida", "entries": 2},
                          "a forward step still adds its entry")
-        self.assertEqual(out["app5_back_links"], 3, "app5.js uses the same back links")
+        # 19.0.1.129.48: the «Cambiar el orden» screen (and its back link) is gone
+        self.assertEqual(out["app5_back_links"], 2, "app5.js uses the same back links")
 
     # ------------------------------------------------------------ ui_v2 off
 
