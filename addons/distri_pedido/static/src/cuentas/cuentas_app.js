@@ -215,6 +215,7 @@
     if (!r.id) S.lastList = "#";
     if (!r.id) {
       S.line = null;
+      if (WIDE.matches && S.account) CU.lastOpened = S.account.id;
       if (WIDE.matches) S.account = null;
       if (V2) { if (!L.data && !L.loading) loadList(true); else render(); }
       else if (!S.debtors) loadDebtors(); else render();
@@ -406,7 +407,11 @@
     var caret = focus && document.activeElement.selectionStart;
     var y = window.scrollY;
     var rid = r.transfers ? "t" : (r.id || 0);
+    var mode = deskMode(!!WIDE.matches, V2, r);
     var keepScroll = (WIDE.matches && !r.transfers) || render.lastId === rid;
+    // 19.0.1.129.49: the PC account takes the page; the list keeps its place
+    var deskY = mode === "detail" || mode === "list" ? deskScroll(render.lastId || 0, r.id || 0, y, CU.listY) : null;
+    if (deskY) CU.listY = deskY.saved;
     render.lastId = rid;
     var side = document.querySelector(".dacc");
     var sideY = side && render.lastSide === (r.id || 0) ? side.scrollTop : 0;
@@ -414,7 +419,7 @@
     var csKeep = csRows && S.line && csRows.dataset.line === S.line.line_key ? csRows.scrollTop : null;
     document.body.classList.toggle("wide", !!WIDE.matches);
     if (V2) document.body.classList.add("cu2");
-    app.innerHTML = r.transfers ? viewTransfers() : WIDE.matches ? (V2 ? viewDesk2() : viewDesk()) : r.id ? viewAccount() :
+    app.innerHTML = r.transfers ? viewTransfers() : WIDE.matches ? (V2 ? (r.id ? viewDeskAccount2() : viewDesk2()) : viewDesk()) : r.id ? viewAccount() :
       V2 ? viewList2() : viewDebtors();
     side = document.querySelector(".dacc");
     if (side) side.scrollTop = sideY;
@@ -439,7 +444,7 @@
         try { if (caret != null) el.setSelectionRange(caret, caret); } catch (e) { /* not a text field */ }
       }
     }
-    window.scrollTo(0, keepScroll ? y : 0);
+    window.scrollTo(0, deskY ? deskY.y : keepScroll ? y : 0);
     if (V2) watchEnd();
   }
 
@@ -654,10 +659,60 @@
   }
   // list-v2:end
 
+  // desk-v2:start (tests/data/cuentas_v129_43.js runs this block)
+  // 19.0.1.129.49 (owner): on the PC an open account no longer sits in a
+  // narrow column beside the list. It takes the whole page (deskMode
+  // «detail»), with «‹ Volver a la lista»; the list comes back where it was
+  // (deskScroll keeps its scroll; the filters live in CU.f). The statement
+  // is a full table: date, document, description, debit, credit, balance.
+  // The phone and the flag-off PC are unchanged.
+  var STMT_COLS = [["Fecha", ""], ["Documento", ""], ["Descripción", ""], ["Debe", "r"], ["Haber", "r"], ["Saldo", "r"]];
+  function deskMode(wide, v2, r) {
+    if (!wide || !v2) return "";
+    if (r.transfers) return "transfers";
+    return r.id ? "detail" : "list";
+  }
+  // where the PC page scrolls after a render: an account opens at the top
+  // and remembers the list's position, which the list takes back
+  function deskScroll(prevId, id, y, saved) {
+    if (prevId === id) return { y: y, saved: saved };
+    if (id && !prevId) return { y: 0, saved: y };
+    if (!id) return { y: saved || 0, saved: saved };
+    return { y: 0, saved: saved };
+  }
+  // f: {h, money, day, opening}: the page's formatters
+  function stmtTable(rows, d, f) {
+    var trs = rows.map(function (row) {
+      var concept = [row.remito ? "Remito " + row.remito : "", row.concept].filter(Boolean).join(" · ");
+      var tags = "";
+      if (row.provisional) tags += ' <span class="pill warn">a controlar</span>';
+      if (row.confirmed) tags += ' <span class="ok-check" title="Pago confirmado" role="img" aria-label="Pago confirmado">✓</span>';
+      if (row.card_id) tags += ' <span class="pill ok">MP</span>';
+      if (row.comment_count) tags += ' <span class="pill info">' + row.comment_count + "</span>";
+      return '<tr class="' + (row.provisional ? "prov" : row.owed ? "owed" : "") + '" data-line="' + f.h(row.line_key) + '">' +
+        '<td class="num cu-st-date">' + f.day(row.date) + '</td><td class="cu-st-doc"><b>' + f.h(row.doc_type) +
+        (row.number ? " " + f.h(row.number) : "") + "</b>" + tags + "</td>" +
+        '<td class="cu-st-desc">' + f.h(concept || row.source_label || "") +
+        (row.owed ? '<div class="owedtxt">debe ' + f.money(row.owed) + "</div>" : "") + "</td>" +
+        '<td class="r num">' + (row.debit ? f.money(row.debit) : "") + '</td><td class="r num cr">' +
+        (row.credit ? f.money(row.credit) : "") + '</td><td class="r num cu-st-bal">' + f.money(row.balance) + "</td></tr>";
+    }).join("");
+    if (!trs) trs = '<tr><td colspan="6" class="empty">Sin movimientos en el período.</td></tr>';
+    if (!d.more) {
+      trs += '<tr class="opening"><td colspan="5" class="muted">' + f.opening + '</td><td class="r num">' +
+        f.money(d.opening) + "</td></tr>";
+    }
+    return '<div class="tscroll"><table class="tbl stbl cu-stmt"><thead><tr>' + STMT_COLS.map(function (c) {
+      return "<th" + (c[1] ? ' class="' + c[1] + '"' : "") + ">" + c[0] + "</th>";
+    }).join("") + "</tr></thead><tbody>" + trs + "</tbody></table></div>";
+  }
+  // desk-v2:end
+
   var V2 = !!(app && app.dataset && app.dataset.v2);
   var LIST_NAME = V2 ? "Cuentas" : "Deudores";
   var L = V2 ? makeList(function (query) { return get("list?" + query); }, render, fail) : null;
-  var CU = { f: listFilters(), menu: false, sheet: false, draft: null, draftCount: null, countSeq: 0, lastLoad: false };
+  var CU = { f: listFilters(), menu: false, sheet: false, draft: null, draftCount: null, countSeq: 0, lastLoad: false,
+    listY: 0, lastOpened: 0 };
   var ICONS = {
     gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     more: '<circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/>',
@@ -829,16 +884,46 @@
       '<td class="num"' + amt + ">" + rowAmount(d) + "</td><td>" + pillHtml(d) + "</td></tr>";
   }
 
-  function viewDesk2() {
-    var D = L.data;
-    var r = route();
+  function deskBar(D) {
     var nav = NAV_ITEMS.map(function (it) {
       return '<a href="' + h(it.href) + '"' + (it.on ? ' class="on" aria-current="page"' : "") + ">" + h(it.label) + "</a>";
     }).join("");
-    var bar = '<header class="dn-appbar"><div class="dn-appbar__brand"><span class="cu-logo" aria-hidden="true">DN</span>' +
+    return '<header class="dn-appbar"><div class="dn-appbar__brand"><span class="cu-logo" aria-hidden="true">DN</span>' +
       "<span>Distri Neuquén</span></div>" + '<nav class="dn-appbar__nav" aria-label="Secciones">' + nav + "</nav>" +
       (D ? '<span class="dn-appbar__user">' + h(D.user) + "</span>" : "") +
       '<button type="button" class="dn-icon-btn" id="cu-gear" aria-label="Ajustes">' + icon("gear") + "</button></header>";
+  }
+
+  // 19.0.1.129.49: the open account on the PC, the whole width of the page
+  function viewDeskAccount2() {
+    var D = L.data;
+    var acc = S.account;
+    var d = acc && acc.data;
+    var p = d && d.partner;
+    var toTransfers = S.lastList === "#transferencias";
+    var back = '<a class="back cu-back" href="' + (toTransfers ? "#transferencias" : "#") + '">‹ ' +
+      (toTransfers ? "Volver a transferencias" : "Volver a la lista") + "</a>";
+    var body;
+    if (acc && acc.error) body = '<div class="banner err">' + h(acc.error) + "</div>";
+    else if (!p) body = '<div class="dn-skel"></div><div class="dn-skel"></div>';
+    else {
+      var facts = accountFacts(p);
+      body = '<section class="panel cu-acc" aria-label="Estado de cuenta"><div class="dacc-head cu-acc-head"><div class="who">' +
+        '<span class="label">Estado de cuenta</span><h1>' + h(p.name) + "</h1>" +
+        (facts.length ? '<span class="muted small">' + facts.join(" · ") + "</span>" : "") +
+        (p.phone ? '<div class="contact">' + contactLinks(p, "clink") + "</div>" : "") + "</div>" +
+        '<div class="bal"><span class="muted small">Saldo actual</span><b class="num">' + money(d.balance) + "</b>" +
+        '<span class="small ' + (d.balance > 0.005 ? "owes" : "muted") + '">' + balanceWord(d.balance) + "</span></div></div>" +
+        accountBody(acc, true, true) + "</section>";
+    }
+    return '<div class="cu-desk cu-desk--acc">' + deskBar(D) + banner() + '<main class="cu-wrap">' + back + body +
+      "</main></div>";
+  }
+
+  function viewDesk2() {
+    var D = L.data;
+    var r = route();
+    var bar = deskBar(D);
     var n = sheetFilterCount(CU.f);
     var head = '<div class="dn-pagehead"><div class="dn-pagehead__txt"><h1>Cuentas de clientes</h1><p>' +
       (D ? plural(D.customer_count, "cliente", "clientes") + " · actualizado hoy " + h(D.updated_at) : "Cargando…") +
@@ -872,13 +957,13 @@
     } else {
       table = '<div class="dn-table-wrap"><table class="dn-table cu-table"><thead><tr><th>Cliente</th><th>Zona</th>' +
         '<th>Vendedor</th><th>Último pago</th><th>Deuda más vieja</th><th class="num">Saldo</th><th>Estado</th></tr></thead><tbody>' +
-        L.rows.map(function (d) { return deskRow2(d, d.id === r.id); }).join("") + "</tbody>" +
+        L.rows.map(function (d) { return deskRow2(d, d.id === (r.id || CU.lastOpened)); }).join("") + "</tbody>" +
         '<tfoot><tr><td colspan="7">' + L.rows.length + " de " + plural(D.total_rows, "cliente", "clientes") + " · " +
         SORT_TEXT[CU.f.sort] + "</td></tr></tfoot></table></div>" + moreView(true);
     }
     return '<div class="cu-desk">' + bar + banner() + '<main class="cu-wrap">' + head + lastLoadView(D) + kpis +
       chipsView(D) + '<div class="cu-cols"><section class="cu-tablecol" aria-label="Clientes">' + table + "</section>" +
-      deskAccount() + "</div></main></div>";
+      "</div></main></div>";
   }
 
   function viewSheet() {
@@ -1104,12 +1189,15 @@
   }
 
   // the statement as cards (phone) or as a table (PC); newest first
-  function statementView(acc, wide) {
+  function statementView(acc, wide, full) {
     var d = acc.data;
     var tail = "";
     if (d.more) {
       tail = '<button type="button" class="btn outline more" id="more"' + (S.loadingMore ? " disabled" : "") + ">" +
         (S.loadingMore ? "Cargando…" : "Ver más movimientos (" + (d.row_count - acc.rows.length) + ")") + "</button>";
+    }
+    if (full) {
+      return stmtTable(acc.rows, d, { h: h, money: money, day: day, opening: openingText(d) }) + tail;
     }
     if (wide) {
       var trs = acc.rows.map(function (row) {
@@ -1163,7 +1251,7 @@
   }
 
   // everything below the header: the same on the phone and on the PC
-  function accountBody(acc, wide) {
+  function accountBody(acc, wide, full) {
     var d = acc.data;
     var p = d.partner;
     var boxes = [];
@@ -1187,7 +1275,7 @@
       '<div class="label">Período</div>' + periodView(acc) + shareView(d, wide) + red + totalsView(d) +
       // 19.0.1.129.2 (owner): «Comprobantes pendientes» above «Movimientos», phone and PC
       receiptsView(d) +
-      '<div class="label">Movimientos · lo más nuevo arriba</div>' + statementView(acc, wide) +
+      '<div class="label">Movimientos · lo más nuevo arriba</div>' + statementView(acc, wide, full) +
       candidatesView(d) + commentsView(d);
   }
 

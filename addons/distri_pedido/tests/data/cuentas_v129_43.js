@@ -105,6 +105,46 @@ async function main() {
   await tick();
   out.only_current_error = errors.length === 1 && errors[0] === "new" && list.loading === false;
   out.render_called = changes > 0;
+
+  // 19.0.1.129.49: the PC account takes the whole page (desk-v2 block)
+  const ds = src.indexOf("// desk-v2:start");
+  const de = src.indexOf("// desk-v2:end");
+  if (ds < 0 || de < 0) throw new Error("desk-v2 block not found");
+  const desk = new Function(src.slice(ds, de) + "\nreturn { STMT_COLS, deskMode, deskScroll, stmtTable };")();
+  out.desk_modes = desk.deskMode(true, true, { id: null }) === "list" &&
+    desk.deskMode(true, true, { id: 7 }) === "detail" &&
+    desk.deskMode(true, true, { id: null, transfers: true }) === "transfers" &&
+    desk.deskMode(false, true, { id: 7 }) === "" && desk.deskMode(true, false, { id: 7 }) === "";
+  // open an account from the list scrolled to 900: the account at the top,
+  // the list's place kept; back to the list: 900 again
+  let sc = desk.deskScroll(0, 0, 900, 0);
+  out.desk_list_keeps_scroll = sc.y === 900;
+  sc = desk.deskScroll(0, 7, 900, sc.saved);
+  out.desk_detail_top = sc.y === 0 && sc.saved === 900;
+  sc = desk.deskScroll(7, 7, 350, sc.saved);
+  out.desk_detail_rerender_keeps = sc.y === 350 && sc.saved === 900;
+  sc = desk.deskScroll(7, 0, 350, sc.saved);
+  out.desk_back_restores = sc.y === 900;
+  const fmt = { h: (t) => String(t == null ? "" : t).replace(/</g, "&lt;"), money: (n) => "$ " + n,
+    day: (iso) => iso, opening: "Saldo anterior" };
+  const html = desk.stmtTable([
+    { line_key: "a1", date: "2026-11-20", doc_type: "Factura", number: "A 0001-00000123", remito: "R-9",
+      concept: "Venta <x>", debit: 1500, credit: 0, balance: 1500, owed: 1500 },
+    { line_key: "a2", date: "2026-11-22", doc_type: "Recibo", number: "", concept: "", source_label: "Transferencia",
+      debit: 0, credit: 500, balance: 1000, confirmed: true },
+  ], { more: false, opening: 0 }, fmt);
+  const heads = (html.match(/<th[^>]*>([^<]*)<\/th>/g) || []).map((t) => t.replace(/<[^>]+>/g, ""));
+  out.desk_stmt_columns = heads.join(",") === "Fecha,Documento,Descripción,Debe,Haber,Saldo";
+  const firstRow = html.split("<tr")[2] || "";
+  out.desk_stmt_row = (firstRow.match(/<td/g) || []).length === 6 && firstRow.indexOf("Factura A 0001-00000123") >= 0 &&
+    firstRow.indexOf("Remito R-9 · Venta &lt;x>") >= 0 && firstRow.indexOf("debe $ 1500") >= 0;
+  out.desk_stmt_credit = html.indexOf('<td class="r num cr">$ 500</td>') >= 0 && html.indexOf("Transferencia") >= 0;
+  out.desk_stmt_opening = /<tr class="opening"><td colspan="5"[^>]*>Saldo anterior<\/td><td class="r num">\$ 0<\/td>/.test(html);
+  out.desk_stmt_empty = desk.stmtTable([], { more: true }, fmt).indexOf('colspan="6"') >= 0;
+  // the views: the PC account no longer renders beside the list
+  const desk2 = src.slice(src.indexOf("function viewDesk2()"), src.indexOf("function viewSheet()"));
+  out.desk_no_side_column = desk2.length > 100 && desk2.indexOf("deskAccount()") < 0 &&
+    src.indexOf("r.id ? viewDeskAccount2() : viewDesk2()") >= 0 && src.indexOf("Volver a la lista") >= 0;
   process.stdout.write(JSON.stringify(out));
 }
 
