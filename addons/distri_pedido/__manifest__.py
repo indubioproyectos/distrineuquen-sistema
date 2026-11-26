@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.44",
+    "version": "19.0.1.129.45",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -902,7 +902,7 @@
     # sheet and the PC table with the account beside it. kit/dn-v2.css holds
     # the system's token values (input border, links, focus, disabled
     # buttons), linked only with ui_v2 on. No migration, no data change.
-    # 19.0.1.129.44 («Rendiciones» and «Casos» on the design system, behind
+    # 19.0.1.129.45 («Rendiciones» and «Casos» on the design system, behind
     # ui_v2, controllers/rendiciones_v2.py, views/rendiciones_v2.xml): the
     # /rendiciones hub (routes to settle and settled, per driver), the route's
     # own settlement screen /rendiciones/ruta/<id> (instead of the Odoo form),

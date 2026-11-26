@@ -21,6 +21,7 @@ from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.tests.test_comprobante_app import _png, photo_url
 from odoo.addons.distri_pedido.tests.test_reparto import _uuid
 from odoo.addons.distri_pedido.tests.test_v129_28_reparto_v2 import V12928Mixin
+from odoo.addons.distri_pedido.models.reparto_cliente import today_ar
 
 
 @tagged("post_install", "-at_install", "distri_v129_32")
@@ -282,7 +283,7 @@ class TestYaEntregadoNeedsInvoice(v30.TestV12930NuevaVenta):
                           lambda self, bultos: ""):
             with self.assertRaisesRegex(UserError, "factura"):
                 order.with_user(self.admin)._distri_nueva_venta_ya_entregado(
-                    str(fields.Date.today()), "Entregado por Gonzalo")
+                    str(today_ar()), "Entregado por Gonzalo")
         self.assertFalse(order.distri_entregado_fuera)
 
 

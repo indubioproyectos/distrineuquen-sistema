@@ -70,6 +70,11 @@ HECHO = {
     "unido": "Listo: el cliente nuevo se unió con este.",
     "anotado": "Listo: quedó anotado en los dos clientes. No se unieron.",
 }
+# 19.0.1.129.45: /contactos?hecho=… (fixed texts, the URL never shows free text)
+HECHO_LISTA = {
+    "creado_confirmar": "Listo: el cliente quedó cargado a tu nombre. "
+                        "Queda «a confirmar» para administración.",
+}
 LOCALIDADES_MAX = 40
 UNIR_MAX = 10
 
@@ -243,6 +248,7 @@ class Contactos(http.Controller):
             "vendedores": self._vendedores() if todo else [],
             "nuevo": True,
             "mas_url": "/contactos?" + self._query(params, page=params["page"] + 1),
+            "ok": HECHO_LISTA.get(kw.get("hecho") or "", ""),
             "ms": int((time.perf_counter() - started) * 1000),
         })
 
@@ -296,6 +302,13 @@ class Contactos(http.Controller):
             socio = crear_cliente(user, valores, "Contactos")
         except (UserError, ValidationError) as exc:
             return self._nuevo_page(form, error=exc.args[0], status=400)
+        # 19.0.1.129.45: a seller without a portfolio tag cannot read the
+        # customer he just created (security/reglas.xml): it is his (he is
+        # the salesperson) and waits «a confirmar»; he goes back to the list
+        # with that notice instead of a 404
+        mine = request.env["res.partner"].browse(socio.id)
+        if not (mine.has_access("read") and user._distri_may_reach_customer(socio)):
+            return request.redirect("/contactos?hecho=creado_confirmar", 303)
         return request.redirect("%s?desde=/contactos&hecho=creado" % ficha_url(
             "cliente", socio.id), 303)
 
@@ -370,11 +383,19 @@ class Contactos(http.Controller):
                 [], order="sequence, name")]
         cuenta_corriente = reparto_v2_on(env) and (
             user.has_group(ct.ADMIN_GROUP) or user.has_group(ct.SYSTEM_GROUP))
+        vendedores = [(u.id, u.name) for u in env["res.users"].sudo().search(
+            [("share", "=", False), ("all_group_ids", "in",
+                                     env.ref(ct.SELLER_GROUP).ids)], order="name")]
+        # 19.0.1.129.45: the customer's current salesperson is always offered,
+        # even if he left the seller group or was archived, so saving the
+        # form never clears him by accident
+        actual = partner.sudo().user_id if partner else env["res.users"]
+        if actual and actual.id not in {v[0] for v in vendedores}:
+            vendedores.append((actual.id, "%s (ya no es vendedor)" % actual.name))
         return {
             "listas": [(l.id, l.name) for l in listas],
-            "vendedores": [(u.id, u.name) for u in env["res.users"].sudo().search(
-                [("share", "=", False), ("all_group_ids", "in",
-                                         env.ref(ct.SELLER_GROUP).ids)], order="name")],
+            "vendedores": vendedores,
+            "sin_vendedor": ct.SIN_VENDEDOR,
             "carteras": self._carteras(),
             "vendedores_web": [(v.id, v.display_name) for v in env["distri.vendedor.web"].sudo().search(
                 [], order="name")],

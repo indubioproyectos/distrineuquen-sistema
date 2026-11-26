@@ -820,8 +820,13 @@ class DistriCaja(models.Model):
         movements = self.env["distri.caja.movimiento"].sudo().search([
             ("difference_mode", "=", "manana"), ("route_difference", "<", 0),
             ("caja_id.company_id", "=", self.env.company.id)])
+        # 19.0.1.129.45: a case whose shortage already came in («ajuste») is
+        # not pending again, even if «Repuesto» was unchecked afterwards
+        brought = set(self.env["distri.caja.movimiento"].sudo().search([
+            ("kind", "=", "ajuste"), ("case_id", "in", movements.case_id.ids)]).case_id.ids)
         return movements.filtered(lambda m: m.case_id and m.case_id.state == "open"
-                                  and not m.case_id.replenished)
+                                  and not m.case_id.replenished
+                                  and m.case_id.id not in brought)
 
     def bring_shortage(self, movement):
         """«Lo trajo»: the driver's shortage enters as an «ajuste»."""
@@ -829,6 +834,11 @@ class DistriCaja(models.Model):
         movement = movement.sudo().exists()
         if movement not in self.pending_shortages():
             raise UserError("Ese faltante ya no está pendiente.")
+        # 19.0.1.129.45: idempotent. A case whose shortage already came in
+        # never gets a second «ajuste», even if «Repuesto» was unchecked later
+        if self.env["distri.caja.movimiento"].sudo().search_count([
+                ("kind", "=", "ajuste"), ("case_id", "=", movement.case_id.id)], limit=1):
+            raise UserError("Ese faltante ya lo trajo: está en la caja.")
         amount = -movement.route_difference
         result = self.env["distri.caja.movimiento"].sudo().create({
             "caja_id": caja.id,

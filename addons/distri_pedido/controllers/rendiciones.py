@@ -52,6 +52,26 @@ def installed(env):
     return bool(env.ref(TEMPLATE, raise_if_not_found=False))
 
 
+# 19.0.1.129.45: ?ok=<code> shows one of these fixed notices; the URL never
+# carries the text itself (a crafted link cannot show a made-up «rendida»)
+OK_MESSAGES = {
+    "reabierta": "Ruta reabierta para el repartidor.",
+    "caso": "Caso abierto por la diferencia.",
+    "llego": "Listo: el comprobante quedó resuelto a tu nombre.",
+    "anulado": "Listo: el comprobante quedó anulado.",
+    "guardado": "Guardado.",
+    "resuelto": "Caso resuelto.",
+}
+
+
+def ok_text(code, route=None):
+    """The notice of an ?ok= code ("" for anything unknown)."""
+    text = OK_MESSAGES.get(code if isinstance(code, str) else "", "")
+    if text and code == "reabierta" and route:
+        text = "%s: reabierta para el repartidor." % route.name
+    return text
+
+
 def can_open(env):
     """The tile's rule: the user sees «Reparto › Rendición de caja»."""
     menu = env.ref(VISIBLE_MENU, raise_if_not_found=False)
@@ -194,7 +214,7 @@ class Rendiciones(http.Controller):
         response = self._render("distri_pedido.rendiciones_rutas", {
             "routes": routes_to_settle(request.env),
             "route_url": ROUTE_URL,
-            "ok": ok,
+            "ok": ok_text(ok),
             "error": error,
         })
         response.status_code = status
@@ -214,5 +234,4 @@ class Rendiciones(http.Controller):
             route._distri_reopen(request.env.user, via="rendiciones")
         except UserError as exc:
             return self._routes_page(error=exc.args[0] if exc.args else str(exc), status=400)
-        return request.redirect("/rendiciones/rutas?" + urlencode(
-            {"ok": "%s: reabierta para el repartidor." % route.name}), 303)
+        return request.redirect("/rendiciones/rutas?" + urlencode({"ok": "reabierta"}), 303)

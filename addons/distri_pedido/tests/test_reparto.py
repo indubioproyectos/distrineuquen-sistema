@@ -9,6 +9,7 @@ from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.models.reparto_cliente import (
     receipt_code_hash, strip_town_prefix, town_from_name,
 )
+from odoo.addons.distri_pedido.models.reparto_cliente import today_ar
 
 
 def _uuid():
@@ -60,7 +61,7 @@ class RepartoMixin:
     def _route(self, orders, driver=None, on_road=None):
         route = self.env["distri.route"].sudo().create({
             "driver_id": (driver or self.driver).id,
-            "date": fields.Date.today(),
+            "date": today_ar(),
         })
         route._add_orders(orders)
         if self.ROUTE_ON_ROAD if on_road is None else on_road:

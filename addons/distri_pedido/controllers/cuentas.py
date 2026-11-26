@@ -39,7 +39,7 @@ from odoo.http import request
 
 from ..models.cuentas_app import app_scope
 from ..models.marca import marca_manifest_icons
-from .kit import legacy_ui
+from .kit import legacy_ui, ui_v2_on
 from .main import FICHA
 from .reparto import SHARED_CSS, _disk
 
@@ -128,6 +128,9 @@ class Cuentas(http.Controller):
         and its PDF or xlsx. Nothing else is written."""
         if fmt not in ("pdf", "xlsx"):
             raise NotFound()
+        # 19.0.1.129.45: part of the 129.43 screen, so only with ui_v2
+        if not ui_v2_on(request.env):
+            raise NotFound()
         if not app_scope(request.env):
             raise Forbidden()
         if seller not in ("all", "italo", "distrineuquen"):
@@ -174,7 +177,10 @@ class Cuentas(http.Controller):
                 sitemap=False)
     def list_page(self, q="", seller="all", zone="", min_balance=0, min_age=0, state="all",
              sort="debt", offset=0, limit=50, zones="0", **kw):
-        """19.0.1.129.43: one page of the one list of customers (app_list)."""
+        """19.0.1.129.43: one page of the one list of customers (app_list).
+        19.0.1.129.45: only with ui_v2, like the screen that calls it."""
+        if not ui_v2_on(request.env):
+            raise NotFound()
         return self._call("app_list", q=q, seller=seller, zone=zone, min_balance=min_balance,
                           min_age=min_age, state=state, sort=sort, offset=offset, limit=limit,
                           with_zones=zones == "1")

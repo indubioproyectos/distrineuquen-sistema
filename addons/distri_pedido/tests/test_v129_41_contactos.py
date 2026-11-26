@@ -35,8 +35,8 @@ CSRF_RE = re.compile(r'(?:name="csrf_token" value|name="csrf-token" content)="([
 CUIT_OK = "20123456786"
 
 
-@tagged("post_install", "-at_install", "distri_v129_41")
-class TestV12941Contactos(AccountTestInvoicingHttpCommon):
+class V12941Mixin:
+    """The users, customers and helpers of these tests (shared with 129.45)."""
 
     @classmethod
     def setUpClass(cls):
@@ -127,6 +127,10 @@ class TestV12941Contactos(AccountTestInvoicingHttpCommon):
         res = self.url_open(url, data=data, allow_redirects=False)
         self.env.invalidate_all()
         return res
+
+
+@tagged("post_install", "-at_install", "distri_v129_41")
+class TestV12941Contactos(V12941Mixin, AccountTestInvoicingHttpCommon):
 
     # ------------------------------------------------------------ flag
 

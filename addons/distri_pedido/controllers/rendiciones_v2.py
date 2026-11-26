@@ -40,6 +40,7 @@ repartidor, Comprobantes pendientes; a seller opens the last one under
 for administración, gerencia and Sistemas (fichas.sees_odoo). Drivers keep
 their own app (/reparto), untouched.
 """
+import hashlib
 from datetime import datetime, time, timedelta
 from urllib.parse import urlencode
 
@@ -58,7 +59,7 @@ from .caja import _dia, _hora, is_cashier
 from .fichas import sees_odoo
 from .main import HORA_ARGENTINA
 from .kit import HOME, SCREEN_PARENTS, kit_context, page_nav, route_matches, ui_v2_on
-from .rendiciones import CHARGE_KINDS, ROUTE_URL, _backend, can_open, installed
+from .rendiciones import CHARGE_KINDS, ROUTE_URL, _backend, can_open, installed, ok_text
 from .tablero import wants_tablero
 
 MENU_CASES = "distri_pedido.menu_reparto_cases"
@@ -470,21 +471,28 @@ def promise_domain(estado, tipo="", repartidor=0):
     return domain
 
 
-def promise_row(promise, is_admin):
+def promise_row(promise, is_admin, sees_routes=True):
+    """One row of «Comprobantes pendientes». `promise` was read in the user's
+    environment (the record rules already limited it to what he may see);
+    the route and the order are only shown, so they are read with sudo:
+    sellers have no access to distri.route. `sees_routes` is False for users
+    who cannot open the route screen (sellers): no link then."""
     open_ = promise.state in OPEN_STATES
+    shown = promise.sudo()
+    route = shown.route_id
     return {
         "id": promise.id,
         "partner": promise.partner_id._distri_app_name() if promise.partner_id else "",
         "sub": " · ".join(b for b in (
             _label(promise, "kind"), promise.driver_id.name or "",
-            _when(promise.captured_at), promise.order_id.name or "") if b),
+            _when(promise.captured_at), shown.order_id.name or "") if b),
         "amount": _money(promise.amount),
         "pill": promise.status_label or _label(promise, "state"),
         "tone": {"open": "warn", "overdue": "err", "fulfilled": "ok"}.get(promise.state,
                                                                           "neutral"),
-        "route_url": "/rendiciones/ruta/%s" % promise.route_id.id
-        if promise.route_id and promise.route_id.kind == "route" else "",
-        "route": promise.route_id.name or "",
+        "route_url": "/rendiciones/ruta/%s" % route.id
+        if sees_routes and route and route.kind == "route" else "",
+        "route": route.name or "",
         "can_remind": open_,
         "can_arrive": open_,
         "arrive_label": "Marcar cobrado" if promise.kind == "unpaid"
@@ -493,6 +501,22 @@ def promise_row(promise, is_admin):
         "can_cancel": open_ and is_admin,
         "reminded": "Reclamado %s" % _when(promise.reminded_at) if promise.reminded_at else "",
     }
+
+
+def case_version(case):
+    """The optimistic-concurrency token of the case form (19.0.1.129.45):
+    what the form shows plus the last write. A form opened before somebody
+    else changed the case (e.g. the cashier's «Lo trajo») no longer matches
+    and its save is refused instead of reverting that change."""
+    case = case.sudo()
+    seed = "|".join(str(v) for v in (
+        case.id, case.state, case.replenished, case.investigation or "",
+        case.resolution or "", case.amount, case.write_date or ""))
+    return hashlib.sha256(seed.encode()).hexdigest()[:20]
+
+
+CASE_CHANGED = ("Este caso cambió mientras lo tenías abierto (por ejemplo, el cajero marcó "
+                "«Lo trajo»). Revisá cómo quedó y guardá de nuevo.")
 
 
 # ------------------------------------------------------------------ controller
@@ -546,7 +570,7 @@ class RendicionesV2(http.Controller):
         data = hub_data(env, vista or "para_rendir", _int(repartidor), _int(ruta))
         return self._render("distri_pedido.rendiciones_v2_hub", {
             "h": data,
-            "ok": ok,
+            "ok": ok_text(ok),
             "error": error,
             "is_cashier": is_cashier(env.user),
             "ajustes": _backend(env, "distri_pedido.menu_reparto_zones"),
@@ -571,7 +595,8 @@ class RendicionesV2(http.Controller):
         refused = self._refused_rendiciones()
         if refused:
             return refused
-        return self._route_page(self._route(route_id), ok=ok)
+        route = self._route(route_id)
+        return self._route_page(route, ok=ok_text(ok, route))
 
     @http.route("/rendiciones/ruta/<int:route_id>/reabrir", type="http", auth="user",
                 methods=["POST"], sitemap=False)
@@ -591,7 +616,7 @@ class RendicionesV2(http.Controller):
             return self._route_page(route, error=exc.args[0] if exc.args else str(exc),
                                     status=400)
         return request.redirect("/rendiciones/ruta/%s?%s" % (route.id, urlencode(
-            {"ok": "%s: reabierta para el repartidor." % route.name})), 303)
+            {"ok": "reabierta"})), 303)
 
     @http.route("/rendiciones/ruta/<int:route_id>/caso", type="http", auth="user",
                 methods=["POST"], sitemap=False)
@@ -612,7 +637,7 @@ class RendicionesV2(http.Controller):
             return request.redirect(case_url(action["res_id"], "/rendiciones/ruta/%s" % route.id),
                                     303)
         return request.redirect("/rendiciones/ruta/%s?%s" % (route.id, urlencode(
-            {"ok": "Caso abierto por la diferencia."})), 303)
+            {"ok": "caso"})), 303)
 
     # ------------------------------------------------------------ promises
 
@@ -630,7 +655,9 @@ class RendicionesV2(http.Controller):
         domain = promise_domain(estado, tipo, repartidor)
         total, amount = Promise._read_group(domain, [], ["__count", "amount:sum"])[0]
         is_admin = env.user.has_group(ADMIN_GROUP)
-        rows = [promise_row(p, is_admin) for p in Promise.search(domain, limit=200)]
+        sees_routes = can_open(env)
+        rows = [promise_row(p, is_admin, sees_routes)
+                for p in Promise.search(domain, limit=200)]
         query = urlencode({k: v for k, v in (("estado", estado), ("tipo", tipo),
                                              ("repartidor", repartidor or "")) if v})
         return self._render("distri_pedido.rendiciones_v2_comprobantes", {
@@ -653,7 +680,7 @@ class RendicionesV2(http.Controller):
             return request.redirect("/tablero", 303)
         if not ui_v2_on(env):
             return self._off(MENU_PROMISES)
-        return self._promises_page(estado, tipo, _int(repartidor), ok=ok)
+        return self._promises_page(estado, tipo, _int(repartidor), ok=ok_text(ok))
 
     @http.route("/rendiciones/comprobantes/<int:promise_id>/<string:accion>", type="http",
                 auth="user", methods=["POST"], sitemap=False)
@@ -673,7 +700,7 @@ class RendicionesV2(http.Controller):
         promise = env["distri.promised.transfer"].browse(promise_id).exists()
         if not promise or not promise._filtered_access("read"):
             raise NotFound()
-        row = promise_row(promise, env.user.has_group(ADMIN_GROUP))
+        row = promise_row(promise, env.user.has_group(ADMIN_GROUP), can_open(env))
         if accion in ("llego", "anular") and confirmar != "1":
             question = row["arrive_question"] if accion == "llego" else CONFIRM_CANCEL
             label = row["arrive_label"] if accion == "llego" else "Anular"
@@ -693,10 +720,9 @@ class RendicionesV2(http.Controller):
                                        status=400)
         if accion == "reclamar":
             return request.redirect(result["url"], 303, local=False)
-        message = {"llego": "%s: quedó resuelto a tu nombre.",
-                   "anular": "%s: quedó anulado."}[accion] % row["partner"]
+        code = {"llego": "llego", "anular": "anulado"}[accion]
         return request.redirect(volver + ("&" if "?" in volver else "?")
-                                + urlencode({"ok": message}), 303)
+                                + urlencode({"ok": code}), 303)
 
     # ------------------------------------------------------------ cases
 
@@ -784,6 +810,7 @@ class RendicionesV2(http.Controller):
             "form": form or {"investigacion": case.investigation or "",
                              "resolucion": case.resolution or "",
                              "repuesto": case.replenished},
+            "version": case_version(case),
             "ok": ok, "error": error,
             "odoo_url": "/odoo/distri.route.case/%s" % case.id if sees_odoo(env.user) else "",
         }
@@ -795,20 +822,27 @@ class RendicionesV2(http.Controller):
         refused = self._refused_cases(MENU_CASES)
         if refused:
             return refused
-        return self._case_page(self._case(case_id), desde=desde, ok=ok)
+        return self._case_page(self._case(case_id), desde=desde, ok=ok_text(ok))
 
     @http.route("/casos/<int:case_id>", type="http", auth="user", methods=["POST"],
                 sitemap=False)
     def case_save(self, case_id, accion="guardar", investigacion="", resolucion="",
-                  repuesto="", desde="", **kw):
+                  repuesto="", desde="", version="", **kw):
         """«Guardar» (the backend form's save) or «Cerrar caso» (the save plus
-        action_close, which asks for the resolution), as the user."""
+        action_close, which asks for the resolution), as the user. The form
+        carries the case's version (case_version): a form opened before the
+        case changed is refused, so it never reverts «Lo trajo»."""
         refused = self._refused_cases(MENU_CASES)
         if refused:
             return refused
         case = self._case(case_id)
         form = {"investigacion": investigacion, "resolucion": resolucion,
                 "repuesto": repuesto == "1"}
+        if case.state == "open" and version != case_version(case):
+            # keep what was typed; the checkbox shows the case's current value
+            form["repuesto"] = case.replenished
+            return self._case_page(case, desde=desde, form=form, status=409,
+                                   error=CASE_CHANGED)
         values = {"investigation": investigacion.strip() or False,
                   "resolution": resolucion.strip() or False,
                   "replenished": repuesto == "1"}
@@ -824,8 +858,7 @@ class RendicionesV2(http.Controller):
         except (UserError, AccessError) as exc:
             return self._case_page(case, desde=desde, form=form, status=400,
                                    error=exc.args[0] if exc.args else str(exc))
-        message = "Caso resuelto." if accion == "cerrar" else "Guardado."
-        query = {"ok": message}
+        query = {"ok": "resuelto" if accion == "cerrar" else "guardado"}
         if desde:
             query["desde"] = desde
         return request.redirect("/casos/%s?%s" % (case.id, urlencode(query)), 303)

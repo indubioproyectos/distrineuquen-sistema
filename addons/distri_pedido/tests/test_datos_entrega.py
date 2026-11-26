@@ -7,6 +7,7 @@ from odoo.tests import HttpCase, new_test_user, tagged
 from odoo.addons.distri_pedido.models import datos_entrega
 from odoo.addons.distri_pedido.models.reparto_cliente import WEEKDAYS
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
+from odoo.addons.distri_pedido.models.reparto_cliente import today_ar
 
 CSRF_RE = re.compile(r'name="csrf_token" value="([^"]+)"')
 
@@ -90,7 +91,7 @@ class TestDatosEntrega(RepartoMixin, HttpCase):
         # put on another route: the newest stop decides
         stop.write({"unloaded": True})
         other = self.env["distri.route"].sudo().create({
-            "driver_id": self.driver.id, "date": fields.Date.add(fields.Date.today(), days=1)})
+            "driver_id": self.driver.id, "date": fields.Date.add(today_ar(), days=1)})
         stop.reassign_route_id = other
         stop.action_reassign()
         day = "%s %s" % (WEEKDAYS[other.date.weekday()], other.date.strftime("%d/%m"))

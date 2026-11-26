@@ -6,6 +6,7 @@ from odoo.tests import new_test_user, tagged
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
+from odoo.addons.distri_pedido.models.reparto_cliente import today_ar
 
 
 @tagged("post_install", "-at_install", "distri_deudas")
@@ -160,7 +161,7 @@ class TestCatrielPicksUp(RepartoMixin, AccountTestInvoicingCommon):
         self.assertFalse(order.distri_encomienda)
         # never on a route, even one of the Catriel zone
         route = self.env["distri.route"].sudo().create({
-            "driver_id": self.driver.id, "date": fields.Date.today(),
+            "driver_id": self.driver.id, "date": today_ar(),
             "zone_ids": [Command.set(self.catriel.ids)]})
         route.action_assign_orders()
         self.assertNotIn(order, route.stop_ids.order_id)

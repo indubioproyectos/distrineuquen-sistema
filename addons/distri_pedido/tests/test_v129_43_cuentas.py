@@ -133,6 +133,11 @@ class TestV12943Cuentas(HttpCase):
     def _flag(self, on):
         self.env["ir.config_parameter"].sudo().set_param(PARAM_UI_V2, "1" if on else "0")
 
+    def setUp(self):
+        super().setUp()
+        # 19.0.1.129.45: /cuentas/api/list and the exports need ui_v2
+        self._flag(True)
+
     def _mine(self, rows):
         return [r for r in rows if r["id"] in self.mine.ids]
 
