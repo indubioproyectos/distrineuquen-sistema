@@ -13,6 +13,7 @@ from odoo.exceptions import AccessError
 from odoo.tests import HttpCase, new_test_user, tagged
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
+from odoo.addons.distri_pedido.models.bloqueo_factura import REABRIR_OK
 from odoo.addons.distri_pedido.models.factura_armado import RESUMEN_ACTIVIDAD
 from odoo.addons.distri_pedido.models.factura_sin_armar import DIAS_FACTURADOS_SIN_ARMAR
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
@@ -98,8 +99,9 @@ class TestV117YaArmado(YaArmadoMixin, AccountTestInvoicingCommon):
         old.sudo().date_order = fields.Datetime.now() - timedelta(
             days=DIAS_FACTURADOS_SIN_ARMAR + 1)
         cancelled_invoice = self._order()
-        self._invoices(cancelled_invoice).button_draft()
-        self._invoices(cancelled_invoice).button_cancel()
+        # the old manual cancel (129.49 hotfix: only past REABRIR_OK)
+        self._invoices(cancelled_invoice).with_context(**{REABRIR_OK: True}).button_draft()
+        self._invoices(cancelled_invoice).with_context(**{REABRIR_OK: True}).button_cancel()
         listed = self._listed()
         self.assertIn(invoiced, listed)
         for order in (plain, held, waiting, old, cancelled_invoice):

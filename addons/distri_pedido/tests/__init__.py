@@ -154,3 +154,4 @@ from . import test_v129_47_diseno
 from . import test_v129_48_reclamar
 from . import test_v129_48_login
 from . import test_v129_49_nombre_comercio
+from . import test_v129_49_1_bloqueo

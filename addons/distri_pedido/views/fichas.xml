@@ -101,6 +101,13 @@
       </form>
     </section>
     <t t-call="distri_pedido.ficha_acciones"/>
+    <!-- 129.49 hotfix: «Agregar a este cliente»: a new sale (and a new
+         invoice) with the same customer; a confirmed order is not edited -->
+    <t t-if="agregar_url">
+      <a class="dn-btn dn-btn--outline fi-agregar" t-att-href="agregar_url" data-fi-agregar="">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'plus'"/></t>Agregar a este cliente</a>
+      <p class="dp-meta fi-agregar__txt">Lo que se lleva de más va en una venta nueva, con su propia factura: este pedido y su factura no se modifican.</p>
+    </t>
     <a t-if="anular_url" class="dn-btn dn-btn--ghost fi-anular" t-att-href="anular_url" data-dn="down" data-fi-anular="">
       <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'alert'"/></t>Anular venta</a>
 

@@ -109,3 +109,4 @@ from . import verificacion_cruces
 from . import contactos
 from . import lista_personal
 from . import reclamar_inicio
+from . import bloqueo_factura

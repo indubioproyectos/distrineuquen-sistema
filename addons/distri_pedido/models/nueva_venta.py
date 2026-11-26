@@ -341,25 +341,54 @@ class SaleOrderNuevaVenta(models.Model):
             raise AccessError("Ese pedido no es de tus clientes.")
         bloqueo = self._distri_kit_bloqueo_aprobar()
         if bloqueo:
-            raise UserError(bloqueo)
+            raise UserError("No se aprobó: %s" % bloqueo)
+        # 129.49 hotfix (audit of 26/11/2026: 7 refusals with no clear
+        # reason): every refusal says what is missing and how to go on
+        requerido = self.env["distri.pedido.whatsapp.settings"].requires_whatsapp()
         if self._distri_kit_pide_whatsapp():
             if not (area or numero) and not sin_whatsapp:
-                raise UserError("Falta el WhatsApp del cliente para aprobarlo.")
+                raise UserError(falta_whatsapp_texto(requerido))
+            if sin_whatsapp and requerido and not (area or numero):
+                raise UserError(falta_whatsapp_texto(True))
             wizard = self.env["distri.wa.confirm.wizard"].create({
                 "order_id": self.id, "then": "confirm",
                 "area": area or False, "number": numero or False})
             if area or numero:
+                try:
+                    wizard._canonical()
+                except UserError as exc:
+                    raise UserError(WHATSAPP_INVALIDO % (
+                        " ".join(x for x in (area, numero) if x),
+                        exc.args[0] if exc.args else exc)) from None
                 wizard.action_save_confirm()
             else:
                 wizard.action_skip()
         else:
             result = self.with_context(distri_wa_ask=True).action_confirm()
             if isinstance(result, dict) and self.state != "sale":
-                raise UserError("Falta el WhatsApp del cliente para aprobarlo.")
+                raise UserError(falta_whatsapp_texto(requerido))
         if self.state != "sale":
-            raise UserError("No se pudo aprobar el pedido %s." % self.name)
+            raise UserError(NO_SE_APROBO % self.name)
         self.message_post(body="Aprobado por %s desde la pantalla del pedido." % self.env.user.name)
         return True
+
+
+# 129.49 hotfix: «Aprobar» on the order screen (distri_kit_aprobar)
+FALTA_WHATSAPP = ("No se aprobó. Falta el WhatsApp del cliente: escribí el código de área "
+                  "(sin el 0) y el número (sin el 15) en «El cliente no tiene WhatsApp "
+                  "cargado» y tocá «Aprobar» otra vez.")
+FALTA_WHATSAPP_OPCIONAL = (" Si el cliente no tiene WhatsApp, tocá «Aprobar sin WhatsApp».")
+FALTA_WHATSAPP_REQUERIDO = (" Hace falta para confirmar el pedido: sin el WhatsApp no se "
+                            "puede aprobar.")
+WHATSAPP_INVALIDO = ("No se aprobó: el WhatsApp «%s» no es válido (%s). Escribí el código de "
+                     "área sin el 0 y el número sin el 15, por ejemplo 299 y 4222444, y tocá "
+                     "«Aprobar» otra vez.")
+NO_SE_APROBO = ("No se aprobó el pedido %s: sigue como presupuesto. Recargá la pantalla y "
+                "probá otra vez; si vuelve a pasar, avisá a Sistemas.")
+
+
+def falta_whatsapp_texto(requerido):
+    return FALTA_WHATSAPP + (FALTA_WHATSAPP_REQUERIDO if requerido else FALTA_WHATSAPP_OPCIONAL)
 
 
 def guardar_whatsapp_nueva_venta(env, cliente, area, numero, order):

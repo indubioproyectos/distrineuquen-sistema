@@ -305,6 +305,7 @@ class Deposito(http.Controller):
         return order.action_distri_depot_delivery()
 
     def _entrega(self, order, mostrador=False, error="", form=None, status=200, nv=False):
+        from .fichas import agregar_url
         try:
             action = self._delivery_action(order, mostrador)
         except (UserError, AccessError) as exc:
@@ -346,6 +347,8 @@ class Deposito(http.Controller):
             # 19.0.1.129.42: a counter sale of «Nueva venta» goes back to its
             # done page after the delivery
             "nv": bool(nv and mostrador),
+            # 129.49 hotfix: «Agregar a este cliente» at the counter
+            "agregar_url": agregar_url(order, mostrador=True) if mostrador else "",
         }, status=status)
 
     @http.route("/deposito/entrega/<int:order_id>", type="http", auth="user", methods=["GET"],

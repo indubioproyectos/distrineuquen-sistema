@@ -246,9 +246,10 @@ class SaleOrderAnularVenta(models.Model):
             refund._get_html_link(), self.env.user.name, motivo))
         return refund
 
-    def _distri_anular_remito(self, picking, moves):
+    def _distri_anular_remito(self, picking, moves, origen=None):
         """Odoo's return of `moves` [(move, quantity)] of the validated
-        delivery `picking`, validated at once."""
+        delivery `picking`, validated at once. `origen` names it (19.0.1.
+        129.49 hotfix: «Rearmar» returns the old remito too)."""
         self.ensure_one()
         warehouse = picking.picking_type_id.warehouse_id
         if warehouse:
@@ -260,7 +261,7 @@ class SaleOrderAnularVenta(models.Model):
         for line in wizard.product_return_moves:
             line.quantity = quantities.get(line.move_id.id, 0.0)
         ret = wizard._create_return()
-        ret.origin = "Devolución de %s · venta anulada %s" % (picking.name, self.name)
+        ret.origin = origen or "Devolución de %s · venta anulada %s" % (picking.name, self.name)
         for move in ret.move_ids:
             move.quantity = move.product_uom_qty
             move.picked = True

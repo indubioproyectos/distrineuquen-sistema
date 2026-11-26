@@ -27,6 +27,16 @@ in the view. Refused when:
   every invoiced order has one done; it stays done, as in the 20/11 script;
 - the order is on a route not visited yet: the stop would keep pointing at
   a cancelled order. It is taken off the route first.
+
+129.49 hotfix (audit of 26/11/2026, problem 5): the done remito of the
+old order was left as it was, and the new order deducted the same goods
+again when its packing ended (11 orders, 663 units in production). Now
+what the old remito sent and did not come back yet is returned to stock
+first, with Odoo's return (stock.return.picking, the DEV-… type), exactly
+as «Anular venta» does (SaleOrderAnularVenta._distri_anular_devoluciones /
+_distri_anular_remito): after the new packing, the stock is down only by
+what was finally packed. The invoice is reset and cancelled with
+REABRIR_OK (models/bloqueo_factura.py), the only flow allowed to.
 """
 from markupsafe import Markup
 
@@ -111,18 +121,30 @@ class SaleOrderRearmar(models.Model):
             }
 
         # 19.0.1.129.26: the order is cancelled on purpose, no «factura
-        # anulada» note (models/factura_anulada.py)
-        invoices = old.invoice_ids.with_context(distri_skip_cancel_notice=True)
+        # anulada» note (models/factura_anulada.py); 129.49 hotfix: the one
+        # flow allowed to reset an invoice of the circuit
+        from .bloqueo_factura import REABRIR_OK
+        invoices = old.invoice_ids.with_context(distri_skip_cancel_notice=True,
+                                                **{REABRIR_OK: True})
         for invoice in invoices.filtered(lambda f: f.state != "cancel"):
             if invoice.state == "posted":
                 invoice.button_draft()
             invoice.button_cancel()
-        old._action_cancel()
+        # 129.49 hotfix: what the old remito sent comes back to stock, or
+        # the new packing deducts it a second time
+        returned = self.env["stock.picking"]
+        for picking, moves in old._distri_anular_devoluciones():
+            returned |= old._distri_anular_remito(
+                picking, moves, origen="Devolución de %s · rearmado %s" % (picking.name, old.name))
+        old.with_context(distri_skip_cancel_notice=True)._action_cancel()
         new = old.copy({"note": old.note})
         new.action_confirm()
 
         nota = (Markup(" Corrección de %s. Motivo: %s.") % (self.env.user.name, motivo)
                 if motivo else "")
+        if returned:
+            nota += Markup(" Volvió al stock lo del remito anterior: %s.") % Markup(", ").join(
+                p._get_html_link() for p in returned)
         new.message_post(body=Markup("Pedido rearmado: reemplaza a %s, que se canceló con su "
                                      "factura. Vuelve al armado.") % old._get_html_link() + nota)
         old.message_post(body=Markup("Rearmado: se canceló con su factura y se creó %s para "

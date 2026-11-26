@@ -3,6 +3,7 @@ from odoo.exceptions import UserError
 from odoo.tests import tagged
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
+from odoo.addons.distri_pedido.models.bloqueo_factura import REABRIR_OK
 from odoo.addons.distri_pedido.models.remito import numerar_remitos
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin, _uuid
 
@@ -146,8 +147,10 @@ class TestDevolucion(RepartoMixin, AccountTestInvoicingCommon):
     def test_return_without_invoice_is_left_out_of_the_invoice(self):
         """Delivered without an invoice yet: the invoice skips the returned units."""
         order = self._packed()
-        order.distri_factura_auto_id.button_draft()
-        order.distri_factura_auto_id.button_cancel()
+        # the old manual cancel (129.49 hotfix: only past REABRIR_OK)
+        factura = order.distri_factura_auto_id.with_context(**{REABRIR_OK: True})
+        factura.button_draft()
+        factura.button_cancel()
         line = self._line(order, self.product_a)
         route = self._route(order)
         stop = route.stop_ids

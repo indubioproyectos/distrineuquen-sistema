@@ -9,6 +9,7 @@ from odoo.tests import new_test_user, tagged
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.distri_pedido.models import factura_anulada
+from odoo.addons.distri_pedido.models.bloqueo_factura import REABRIR_OK
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
 
@@ -81,7 +82,9 @@ class TestFacturaAnulada(RepartoMixin, AccountTestInvoicingCommon):
         self.assertTrue(invoice.distri_cancel_warning)
         before = self._money_counts()
 
-        invoice.with_user(self.admin).button_cancel()
+        # 129.49 hotfix: staff can no longer cancel an invoice of the
+        # circuit; the note still follows any cancel that is let through
+        invoice.with_user(self.admin).with_context(**{REABRIR_OK: True}).button_cancel()
 
         # the cancel goes through and nothing is undone around it
         self.assertEqual(invoice.state, "cancel")
@@ -133,7 +136,8 @@ class TestFacturaAnulada(RepartoMixin, AccountTestInvoicingCommon):
 
     def test_reset_to_draft_then_cancel_also_notifies(self):
         order = self._packed()
-        invoice = order.invoice_ids
+        # 129.49 hotfix: only a flow passing REABRIR_OK resets it
+        invoice = order.invoice_ids.with_context(**{REABRIR_OK: True})
         invoice.button_draft()
         self.assertTrue(invoice.distri_cancel_warning)
         invoice.button_cancel()

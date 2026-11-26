@@ -565,10 +565,34 @@
     listo();
     buscarClientes();
   });
+  // 129.49 hotfix «Agregar a este cliente» (order screen, counter
+  // delivery): /nueva-venta?cliente=<id>[&salida=mostrador] starts a new
+  // sale with that customer picked (the server checks he may be sold to)
+  // and, when this user has it, the suggested exit. The query is dropped
+  // once read, so a reload offers the draft as usual.
+  function preseleccion() {
+    var q = (window.location && window.location.search) || '';
+    var c = /[?&]cliente=(\d+)/.exec(q);
+    if (!c || /[?&]volver=/.test(q)) { return null; }
+    var s = /[?&]salida=([a-z]+)/.exec(q);
+    if (window.history && history.replaceState) {
+      try { history.replaceState(history.state, '', window.location.pathname); } catch (e) { /* old */ }
+    }
+    return {id: +c[1], salida: s ? s[1] : ''};
+  }
+
   // the cursor in the search when the sale starts empty (not when a draft
   // is offered or taken up)
+  var pre = preseleccion();
   var sinBorrador = !leerBorrador();
-  ofrecerBorrador();
+  if (pre) {
+    var radio = pre.salida && DN.$('input[name=salida][value="' + pre.salida + '"]', form);
+    if (radio) { radio.checked = true; }
+    elegirCliente({id: pre.id});
+    sinBorrador = false;
+  } else {
+    ofrecerBorrador();
+  }
   buscarClientes();
   if (sinBorrador) { $('nv-q-cliente').focus(); }
 }());

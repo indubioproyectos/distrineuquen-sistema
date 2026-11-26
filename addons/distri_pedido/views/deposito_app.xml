@@ -151,6 +151,12 @@
       <input t-if="nv" type="hidden" name="nv" value="1"/>
       <div t-if="mostrador" class="dn-card dn-card--warn" role="status">El pedido ya quedó confirmado, armado
         completo, con remito y factura. Registrá lo que se lleva el cliente y cómo paga.</div>
+      <!-- 129.49 hotfix: what the customer adds is a new sale with its own invoice -->
+      <div t-if="agregar_url" class="dn-card dp-card dp-agregar">
+        <p class="dp-meta">¿Se lleva algo más? Va en una venta nueva del mismo cliente, con su propia factura:
+          este pedido y su factura no se cambian. Esta entrega queda pendiente hasta que la confirmes acá.</p>
+        <a class="dn-btn dn-btn--outline" t-att-href="agregar_url" data-dp-agregar="">Agregar a este cliente</a>
+      </div>
 
       <section class="dn-card dp-card">
         <h2>Saldo</h2>

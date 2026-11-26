@@ -29,6 +29,10 @@ from .fichas import Fichas, ficha_url, may_use
 from .kit import ui_v2_on
 
 
+SIN_PERMISO_APROBAR = ("No se aprobó: no tenés permiso para aprobar este pedido (es de otro "
+                       "vendedor o de un cliente que no es tuyo). Pedíselo a administración.")
+
+
 def _error_text(exc):
     return exc.args[0] if exc.args else str(exc)
 
@@ -56,17 +60,20 @@ class VentaAcciones(http.Controller):
     def aprobar(self, order_id, area="", numero="", sin_whatsapp="", **kw):
         self._check()
         order = self._order(order_id)
+        area, numero = (area or "").strip()[:8], (numero or "").strip()[:16]
         try:
             order.check_access("write")
         except AccessError:
-            raise Forbidden() from None
+            # 129.49 hotfix: the reason on the order screen, not a bare 403
+            return Fichas()._pedido_page(order.id, error=SIN_PERMISO_APROBAR, status=403)
         try:
             with request.env.cr.savepoint():
-                order.distri_kit_aprobar(area=(area or "").strip()[:8],
-                                         numero=(numero or "").strip()[:16],
+                order.distri_kit_aprobar(area=area, numero=numero,
                                          sin_whatsapp=sin_whatsapp == "1")
         except (UserError, AccessError, ValidationError) as exc:
-            return Fichas()._pedido_page(order.id, error=_error_text(exc), status=400)
+            # what was typed stays in the form
+            return Fichas()._pedido_page(order.id, error=_error_text(exc), status=400,
+                                         wa=(area, numero))
         return request.redirect("/pedidos/%s?hecho=aprobado" % order.id, 303)
 
     # ------------------------------------------------------------ «Anular venta»

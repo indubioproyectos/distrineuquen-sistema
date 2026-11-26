@@ -92,6 +92,31 @@ def sees_odoo(user):
     return bool(user) and not user.share and any(user.has_group(g) for g in ODOO_GROUPS)
 
 
+def agregar_url(order, mostrador=False):
+    """129.49 hotfix «Agregar a este cliente»: /nueva-venta?cliente=<id>
+    (and &salida=mostrador after a counter sale, or from the counter's
+    depot delivery: `mostrador`) for a confirmed order of a
+    real customer, when this user may use «Nueva venta» and sell to him;
+    "" otherwise. The extra goods become a new order with its own invoice."""
+    from ..models import nueva_venta as nv
+    from .nueva_venta import NuevaVenta
+    env = request.env
+    user = env.user
+    o = order.sudo()
+    if not nv.nueva_venta_on(env) or not nv.puede_nueva_venta(user) or o.state != "sale":
+        return ""
+    partner = o.partner_id
+    if not partner or partner.distri_generic_partner:
+        return ""
+    cliente, error = NuevaVenta()._cliente(str(partner.id))
+    if error or not cliente:
+        return ""
+    url = "/nueva-venta?cliente=%s" % cliente.id
+    if (mostrador or o.distri_wa_state == "counter") and nv.MOSTRADOR in nv.salidas_de(user):
+        url += "&salida=%s" % nv.MOSTRADOR
+    return url
+
+
 def ficha_url(kind, record_id, desde=""):
     """The kit screen of a record; `desde` (a path of one of its declared
     parents) is where «Volver» goes."""
@@ -298,7 +323,7 @@ class Fichas(http.Controller):
         # text per key: nothing of the URL is shown)
         return self._pedido_page(order_id, desde, ok=HECHO.get(hecho, ""))
 
-    def _pedido_page(self, order_id, desde="", ok="", error="", status=200):
+    def _pedido_page(self, order_id, desde="", ok="", error="", status=200, wa=None):
         from ..models.mis_ventas import fila
         self._check()
         order = self._get("sale.order", order_id)
@@ -349,6 +374,10 @@ class Fichas(http.Controller):
         } for s in o.distri_stop_ids.sorted(lambda s: (s.route_id.date or s.create_date.date(),
                                                          s.id), reverse=True)]
         acts, liberar = self._order_actions(order, commercial)
+        aprobar = self._aprobar(order)
+        if aprobar and wa and any(wa):
+            # 129.49 hotfix: a refused «Aprobar» keeps what was typed
+            aprobar.update(area=wa[0], numero=wa[1])
         return self._render("distri_pedido.ficha_pedido", "pedido", o, desde, {
             "o": o,
             "row": row,
@@ -370,8 +399,10 @@ class Fichas(http.Controller):
             "presupuesto": o.state in ("draft", "sent"),
             # 19.0.1.129.35 (distri_pedido.nueva_venta): «Aprobar» and
             # «Anular venta» (controllers/anular_venta.py)
-            "aprobar": self._aprobar(order),
+            "aprobar": aprobar,
             "anular_url": self._anular_url(order),
+            # 129.49 hotfix: «Agregar a este cliente» (a new sale, a new invoice)
+            "agregar_url": self._agregar_url(order),
             "anulada": (o.distri_anulada_motivo or "") if o.state == "cancel" else "",
             "ok": ok,
             "error": error,
@@ -404,6 +435,14 @@ class Fichas(http.Controller):
         return {"url": "/pedidos/%s/aprobar" % o.id, "bloqueo": order._distri_kit_bloqueo_aprobar(),
                 "pide_wa": pide, "sin_wa": pide and not requerido, "area": area,
                 "numero": numero}
+
+    def _agregar_url(self, order):
+        """129.49 hotfix «Agregar a este cliente»: «Nueva venta» with the
+        customer of this confirmed order already picked, for whoever may use
+        it; a counter sale suggests «Mostrador» again. What is added is a
+        new order with its own invoice: a confirmed order and its invoice
+        are never edited (models/bloqueo_factura.py)."""
+        return agregar_url(order)
 
     def _anular_url(self, order):
         from ..models.anular_venta import puede_anular
