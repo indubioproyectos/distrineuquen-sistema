@@ -67,3 +67,99 @@
 .nv-hoja{display:grid;gap:10px}
 .nv-aviso:empty{display:none}
 .nv-aviso{color:var(--dn-err,#c92a2a)}
+
+/* ------------------------------------------------------------ 19.0.1.129.47
+   «Nueva venta» on the DistriNeuquén design system, only with
+   distri_pedido.ui_v2 on (body.nv--v2; mockups s26-02-venta-cliente,
+   -productos and -como-sigue). Same markup, ids and steps as before: the
+   header is the system's ScreenHeader with the progress of the 3 steps
+   (taken from the steps shown, no script), the customers and products are
+   ListRows, the exits are the system's options. Tokens from dn.css +
+   dn-v2.css. */
+body.nv--v2{background:var(--dn-bg)}
+.nv-top--v2 .dn-top__row{position:relative}
+.nv-top--v2 .dn-gear{color:#fff}
+.nv-top--v2 .dn-top__extra{display:grid;gap:10px}
+.nv-top--v2 .nv-top__sub{margin:0}
+.nv--v2 .dn-progress{height:8px;border-radius:4px;background:var(--dn-navy-2);overflow:hidden}
+.nv--v2 .dn-progress>i{display:block;width:33.4%;height:100%;background:var(--dn-turq);transition:width .2s}
+.nv--v2:has(#nv-paso-carrito:not([hidden])) .nv-avance>i{width:66.7%}
+.nv--v2:has(#nv-carrito .nv-prod) .nv-avance>i{width:100%}
+@media (prefers-reduced-motion:reduce){.nv--v2 .dn-progress>i{transition:none}}
+.nv--v2>.dn-banner{margin:12px max(16px,calc((100% - 728px) / 2)) 0;border-radius:var(--dn-r)}
+.nv--v2 .nv-borrador{border:1px solid var(--dn-amber-line)}
+.nv--v2 .nv-main{gap:12px}
+.nv--v2 .nv-step{gap:12px}
+.nv--v2 .nv-step__t{gap:10px;font-size:17px;font-weight:800;color:var(--dn-navy)}
+.nv--v2 .nv-n{width:28px;height:28px;font-size:14px;font-weight:800}
+.nv--v2 .nv-meta{font-size:14px}
+.nv--v2 .nv-sub-t{margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--dn-muted)}
+.nv--v2 .dn-btn--outline{border:1px solid var(--dn-input);color:var(--dn-navy);font-weight:700}
+.nv--v2 .dn-btn--secondary .dn-i,.nv--v2 .nv-gps .dn-i{width:22px;height:22px}
+/* search field with its icon (SearchField) */
+.nv--v2 .nv-search{position:relative}
+.nv--v2 .nv-search>.dn-i{position:absolute;left:14px;top:14px;width:24px;height:24px;color:var(--dn-muted);pointer-events:none}
+.nv--v2 .nv-search>.dn-input{padding-left:46px}
+.nv--v2 #nv-clientes{margin-top:8px}
+.nv--v2 #nv-clientes:empty{margin-top:0}
+.nv--v2 .nv-nuevo-abrir{justify-self:stretch;margin-top:12px}
+/* customers, «Repetir» and look-alikes as one list (ListRow) */
+.nv--v2 .nv-list:has(>.nv-item){gap:0;background:var(--dn-card);border:1px solid var(--dn-line);
+  border-radius:var(--dn-r);overflow:hidden}
+.nv--v2 .nv-list>.nv-item{align-content:center;min-height:64px;padding:10px 16px;border:0;border-top:1px solid var(--dn-line);
+  border-radius:0;background:var(--dn-card);cursor:pointer}
+.nv--v2 .nv-list>.nv-item:first-child,.nv--v2 .nv-list>p+.nv-item{border-top:0}
+.nv--v2 .nv-list>button.nv-item:hover,.nv--v2 .nv-list>button.nv-item:active{background:var(--dn-tint)}
+.nv--v2 .nv-item b{font-size:16px;font-weight:700}
+.nv--v2 .nv-item small{font-size:14px}
+.nv--v2 .nv-list>p.nv-meta{padding:12px 16px 4px}
+.nv--v2 .nv-anterior{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:default}
+.nv--v2 .nv-anterior>span{display:grid;gap:2px;min-width:0}
+.nv--v2 .nv-anterior .dn-btn{width:auto;flex:none}
+/* the customer once picked */
+.nv--v2 .nv-elegido{padding:12px 12px 12px 16px;border:1px solid var(--dn-line);border-radius:var(--dn-r);background:var(--dn-tint)}
+.nv--v2 #nv-cliente-nombre{font-size:17px;font-weight:800}
+.nv--v2 .nv-cuenta{display:inline-flex;align-items:center;min-height:44px;font-weight:700}
+/* products and cart rows with the system's stepper */
+.nv--v2 .nv-elegir .dn-i{width:24px;height:24px}
+.nv--v2 .nv-tools{gap:8px}
+.nv--v2 .nv-prod{min-height:64px;padding:10px 12px 10px 16px;border-radius:var(--dn-r);background:var(--dn-card)}
+.nv--v2 .nv-prod.on{border-color:var(--dn-primary);box-shadow:inset 0 0 0 1px var(--dn-primary)}
+.nv--v2 .nv-prod__txt b{font-size:16px;font-weight:700;line-height:1.25}
+.nv--v2 .nv-prod__txt small{font-size:14px}
+.nv--v2 .nv-qty .dn-icon-btn{width:44px;height:44px;border:1px solid var(--dn-input);border-radius:22px;background:var(--dn-card);
+  color:var(--dn-navy);font-size:22px;font-weight:700;line-height:1}
+.nv--v2 .nv-qty .dn-icon-btn:active{background:var(--dn-tint)}
+.nv--v2 .nv-qty .dn-input{width:52px;min-height:44px;height:44px;padding:4px;font-size:18px;font-weight:800}
+.nv--v2 .nv-list--carrito:not(:empty){padding-bottom:12px;border-bottom:1px solid var(--dn-line)}
+/* total (the foot's sum) */
+.nv--v2 .nv-total{align-items:center;gap:4px 8px;min-height:56px;padding:10px 16px;border-radius:var(--dn-r);
+  background:var(--dn-tint);font-size:15px;font-weight:700;color:var(--dn-muted)}
+.nv--v2 .nv-total small{order:1}
+.nv--v2 .nv-total b{order:2;margin-left:auto;font-size:22px;font-weight:800;color:var(--dn-ink)}
+/* «¿Cómo sigue?»: the system's options (radio, 64 px, green when chosen) */
+.nv--v2 .nv-salida{gap:12px;min-height:64px;padding:14px 16px;border:1px solid var(--dn-input);border-radius:var(--dn-r);
+  background:var(--dn-card)}
+.nv--v2 .nv-salida input{flex:none;width:22px;height:22px;margin:1px 0 0;accent-color:var(--dn-primary)}
+.nv--v2 .nv-salida:has(input:checked){padding:13px 15px;border:2px solid var(--dn-primary);background:var(--dn-green-bg);box-shadow:none}
+.nv--v2 .nv-salida:has(input:focus-visible){outline:3px solid var(--dn-focus);outline-offset:2px}
+.nv--v2 .nv-salida__txt b{font-size:16px;font-weight:700}
+.nv--v2 .nv-salida__txt small{font-size:14px;color:var(--dn-muted)}
+.nv--v2 .nv-salida:has(input:checked) .nv-salida__txt small{color:var(--dn-ink)}
+.nv--v2 .nv-check{gap:10px;font-size:16px}
+.nv--v2 .nv-check input{flex:none;width:22px;height:22px;margin:0;accent-color:var(--dn-primary)}
+.nv--v2 .nv-wa{padding:14px 16px;border-width:1px;border-radius:var(--dn-r)}
+/* folded parts with a chevron */
+.nv--v2 .nv-mas{padding:4px 16px;border-color:var(--dn-line);border-radius:var(--dn-r);background:var(--dn-card)}
+.nv--v2 .nv-mas[open]{padding-bottom:16px}
+.nv--v2 .nv-mas>summary{list-style:none;font-weight:700}
+.nv--v2 .nv-mas>summary::-webkit-details-marker{display:none}
+.nv--v2 .nv-mas>summary::after{content:"";flex:none;width:9px;height:9px;margin:0 4px 4px auto;
+  border-right:2px solid var(--dn-muted);border-bottom:2px solid var(--dn-muted);transform:rotate(45deg)}
+.nv--v2 .nv-mas[open]>summary::after{margin-bottom:-4px;transform:rotate(-135deg)}
+.nv--v2 .nv-ok{margin-top:4px}
+/* the sale done */
+.nv--v2 .nv-hecho{gap:12px}
+.nv--v2 .nv-hecho__name{font-size:17px}
+.nv--v2 .nv-hecho__name b{color:var(--dn-navy);font-weight:800}
+.nv--v2 .nv-link{display:flex;align-items:center;justify-content:center;min-height:44px;font-weight:700}

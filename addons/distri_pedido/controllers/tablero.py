@@ -19,6 +19,11 @@ With the flag off the tiles, their order and the page are as before.
 19.0.1.129.42, behind ui_v2 too: «Tablero de verificación» before
 «Capacitación», administración's tiles in groups (TILE_GROUPS), the
 subtitles at 13 px, and no Odoo apps for packers and drivers (hides_apps).
+
+19.0.1.129.47, behind ui_v2: Inicio on the design system (views/
+tablero.xml tablero_v2_page, «HomeTile»): the same tiles, visibility and
+links; every role's tiles in labelled groups, the first one highlighted,
+2 columns on the phone and 4 on the PC.
 """
 import json
 from datetime import timedelta
@@ -602,17 +607,50 @@ GROUPED_ROLES = ("distri_pedido.grupo_administracion", "base.group_system")
 
 
 def grouped_tiles(tiles):
-    """[{"label", "tiles"}] in TILE_GROUPS order, empty groups left out."""
+    """[{"label", "tiles"}] in TILE_GROUPS order, empty groups left out.
+    19.0.1.129.47: the group of the first tile (the main one, main_tile)
+    goes first, so the main tile is always on top; with the default order
+    it already is the first group."""
     where = {key: i for i, (_label, keys) in enumerate(TILE_GROUPS) for key in keys}
     last = len(TILE_GROUPS) - 1
     groups = [{"label": label, "tiles": []} for label, _keys in TILE_GROUPS]
     for tile in tiles:
         groups[where.get(tile["key"], last)]["tiles"].append(tile)
-    return [g for g in groups if g["tiles"]]
+    groups = [g for g in groups if g["tiles"]]
+    if tiles:
+        lead = [g for g in groups if g["tiles"][0]["key"] == tiles[0]["key"]]
+        groups = lead + [g for g in groups if g not in lead]
+    return groups
+
+
+# 19.0.1.129.47 (ui_v2): the design system's Inicio («HomeTile»): every role
+# sees its tiles in labelled groups, the first tile of his order (the role's
+# main task: «Nueva venta», «Armado», «Cobrar»...) highlighted on top, and
+# the other tiles with the name only and a short badge.
+BADGE_SHORT = 8
+
+
+def main_tile(tiles):
+    """The highlighted tile: the first one of the user's order, or None."""
+    return tiles[0] if tiles else None
+
+
+def badge_short(badge):
+    """The badge text a two-column tile has room for: the text itself when
+    it is short («5», «Abierta», «2 hoy»), else its count («12 sin
+    confirmar» -> «12»); the full text stays in the tile's label."""
+    if not badge:
+        return ""
+    text = badge.get("text") or ""
+    if len(text) <= BADGE_SHORT:
+        return text
+    n = badge.get("n") or badge.get("sin_factura") or ""
+    return str(n) if n else text.split(" ")[0]
 
 
 def wants_groups(user):
-    """Administración (gerencia implies it) and Sistemas: many tiles."""
+    """Administración (gerencia implies it) and Sistemas: many tiles.
+    Unused since 19.0.1.129.47 (every role gets the groups with ui_v2)."""
     return any(user.has_group(g) for g in GROUPED_ROLES)
 
 
@@ -661,7 +699,9 @@ class Tablero(http.Controller):
         # the root menus behind our tiles (Armado/Despacho tiles are not root menus;
         # 19.0.1.127.0: a tile on a sub-menu takes its root too)
         taken = tile_roots(env, tiles)
-        html = env["ir.qweb"]._render("distri_pedido.tablero_page", {
+        # 19.0.1.129.47: the design system's page with ui_v2 on
+        template = "distri_pedido.tablero_v2_page" if ordering else "distri_pedido.tablero_page"
+        html = env["ir.qweb"]._render(template, {
             "tiles": tiles,
             "banner": banner,
             "agil_banner": agil_banner(env),
@@ -670,7 +710,11 @@ class Tablero(http.Controller):
             "reclamar": reclamar_row(env),
             "apps": [] if locked or (ordering and hides_apps(user)) else other_apps(env, taken),
             # 19.0.1.129.42 (ui_v2): administración's tiles in groups
-            "grupos": grouped_tiles(tiles) if ordering and wants_groups(user) else [],
+            # 19.0.1.129.47 (ui_v2): every role's tiles in groups (until
+            # 129.46 only administración and Sistemas: wants_groups)
+            "grupos": grouped_tiles(tiles) if ordering else [],
+            "main": main_tile(tiles) if ordering else None,
+            "badge_short": badge_short,
             "v2": ordering,
             "user": user,
             "empresa": FICHA["nombre"],

@@ -33,7 +33,8 @@ from .test_reparto import RepartoMixin
 
 NAV_RE = re.compile(r'<nav class="dn-nav".*?</nav>', re.S)
 HREF_RE = re.compile(r'<a href="([^"]+)"')
-TILE_RE = re.compile(r'class="tab-tile"[^>]*data-tile="([^"]+)"')
+# 19.0.1.129.47: with ui_v2 the tiles are the design system's (dn-tile)
+TILE_RE = re.compile(r'class="(?:tab-tile|dn-tile(?: dn-tile--main)?)"[^>]*data-tile="([^"]+)"')
 SHARED_CSS = "/distri_pedido/static/src/css/distri_ui.css"
 
 

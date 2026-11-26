@@ -105,4 +105,108 @@
 </html>
   </template>
 
+  <!-- 19.0.1.129.47 (ui_v2): Inicio on the design system («HomeTile», mockup
+       s26-01-inicio). Same tiles, visibility, order and links as the page
+       above (controllers/tablero.py); every role's tiles in labelled groups,
+       the first tile of the user's order highlighted on top of its group,
+       the others with the name only and a short badge. -->
+  <template id="tablero_v2_tile" name="Inicio v2: mosaico">
+    <a t-att-class="'dn-tile dn-tile--main' if is_main else 'dn-tile'" t-att-href="tile['url']"
+       t-att-data-dn="'down' if not tile['url'].startswith('/odoo') else None"
+       t-att-data-tile="tile['key']" t-att-title="None if is_main else tile['subtitle']"
+       t-att-aria-label="('%s · %s' % (tile['title'], tile['badge']['text'])) if tile['badge'] else None">
+      <span class="dn-tile__ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="tile['glyph']"/></t></span>
+      <span class="dn-tile__txt"><t t-esc="tile['title']"/><small t-if="is_main" t-esc="tile['subtitle']"/></span>
+      <span t-if="tile['badge']" t-att-class="'dn-tile__bd' + (' dn-tile__bd--%s' % tile['badge']['kind'] if tile['badge']['kind'] else '')"
+            t-esc="badge_short(tile['badge'])" aria-hidden="true"/>
+    </a>
+  </template>
+
+  <template id="tablero_v2_page" name="Inicio (sistema de diseño)">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Inicio · <t t-esc="empresa"/></title>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+</head>
+<body class="tab2" data-parent="" data-page="tablero">
+  <header class="dn-top tab2-top">
+    <div class="dn-top__row">
+      <svg class="tab2-logo" width="38" height="32" viewBox="96 122 320 266" fill="none" aria-hidden="true"><path fill="#ffffff" fill-rule="evenodd" d="M104.5 130H170.5A75 75 0 0 1 170.5 280H104.5ZM142.5 168H170.5A37 37 0 0 1 170.5 242H142.5ZM277.5 280V130H319.5L369.5 215.2V130H407.5V280H365.5L315.5 194.8V280Z"/><path d="M123.5 335C211.8 367 300.2 367 388.5 335" fill="none" stroke="#00d1b2" stroke-width="38" stroke-linecap="round"/></svg>
+      <div class="dn-top__txt">
+        <span class="dn-top__kicker"><t t-esc="empresa"/> · <t t-esc="user.name"/></span>
+        <h1 class="dn-top__title">Inicio</h1>
+      </div>
+      <t t-call="distri_pedido.dn_ajustes"/>
+    </div>
+  </header>
+
+  <main class="tab2-main">
+    <!-- the one-time notice of the instant crediting, until «Entendido» -->
+    <form t-if="aviso_acreditar" class="dn-card dn-card--warn tab2-aviso" method="post"
+          action="/tablero/aviso-acreditar" role="alert" data-aviso="acreditar">
+      <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+      <input type="hidden" name="volver" value="/tablero"/>
+      <p t-esc="aviso_acreditar"/>
+      <button type="submit" class="dn-btn dn-btn--sm dn-btn--auto">Entendido</button>
+    </form>
+
+    <div t-if="banner or agil_banner or reclamar" class="tab2-banners">
+      <a t-if="agil_banner" class="tab2-banner tab2-banner--err" t-att-href="agil_banner['url']" role="alert">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'alert'"/></t>
+        <span t-esc="agil_banner['text']"/>
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
+      </a>
+      <a t-if="reclamar" class="tab2-banner" t-att-href="reclamar['url']" data-dn="down" data-tab="reclamar">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'receipt'"/></t>
+        <span t-esc="reclamar['text']"/>
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
+      </a>
+      <a t-if="banner" class="tab2-banner" t-att-href="banner['url']" data-dn="down">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'alert'"/></t>
+        <span t-esc="banner['text']"/>
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
+      </a>
+    </div>
+
+    <!-- a user that also drives, with a route today -->
+    <section t-if="mi_ruta" class="tab2-grupo" aria-label="Para el repartidor">
+      <h2 class="dn-label">Para el repartidor</h2>
+      <a class="tab2-row" t-att-href="mi_ruta['url']">
+        <span class="dn-tile__ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'truck'"/></t></span>
+        <span class="tab2-row__txt"><b>Mi reparto de hoy</b><span t-esc="mi_ruta['detail']"/></span>
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
+      </a>
+    </section>
+
+    <section t-foreach="grupos" t-as="grupo" class="tab2-grupo" t-att-aria-label="grupo['label']">
+      <h2 class="dn-label" t-esc="grupo['label']"/>
+      <t t-set="lead" t-value="bool(main) and grupo['tiles'][0]['key'] == main['key']"/>
+      <t t-if="lead" t-call="distri_pedido.tablero_v2_tile">
+        <t t-set="tile" t-value="main"/><t t-set="is_main" t-value="True"/>
+      </t>
+      <div t-if="len(grupo['tiles']) &gt; (1 if lead else 0)" class="tab2-tiles">
+        <t t-foreach="grupo['tiles'][1:] if lead else grupo['tiles']" t-as="tile">
+          <t t-call="distri_pedido.tablero_v2_tile"><t t-set="is_main" t-value="False"/></t>
+        </t>
+      </div>
+    </section>
+
+    <div t-if="ordenar_url or apps" class="tab2-more">
+      <a t-if="ordenar_url" class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto tab2-ordenar" t-att-href="ordenar_url" data-dn="down">Ordenar el Inicio</a>
+      <details t-if="apps" class="tab2-apps">
+        <summary class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto">Todas las aplicaciones del sistema</summary>
+        <div class="tab2-apps__grid">
+          <a t-foreach="apps" t-as="app" class="tab2-app" t-att-href="app['url']"><img t-att-src="app['icon']" alt="" loading="lazy"/><t t-esc="app['title']"/></a>
+        </div>
+      </details>
+    </div>
+  </main>
+</body>
+</html>
+  </template>
+
 </odoo>

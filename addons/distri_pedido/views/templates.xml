@@ -5,7 +5,7 @@
 <!-- 19.0.1.129.29: with distri_pedido.ui_v2 on, the kit's look
      (kit/pedido_v2.css after the page's own <style>) and, for the staff, the
      role's bottom bar under the order bar; same steps, fields and post -->
-<html lang="es" t-att-class="(('dn-pedido-v2 dn-con-nav' if nav else 'dn-pedido-v2') if ui_v2 else None)">
+<html lang="es" t-att-class="((('dn-pedido-v2 dn-con-nav' if nav else 'dn-pedido-v2') + (' dn-nv-picker' if picker else '')) if ui_v2 else None)">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
@@ -201,7 +201,9 @@
 </head>
 <body>
   <!-- 19.0.1.98.0: «Ajustes» (letter size, install, name/role, Salir); 129.15: small wrench -->
-  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/><t t-set="gear_mini" t-value="True"/></t>
+  <t t-call="distri_pedido.dn_ajustes"><t t-set="gear_float" t-value="True"/><t t-set="gear_mini" t-value="True"/>
+    <!-- 19.0.1.129.47: «Nueva venta»'s picker goes back with its own arrow -->
+    <t t-set="sin_inicio" t-value="bool(picker and ui_v2)"/></t>
 
   <!-- Iconos de Font Awesome Free 5.13 (CC BY 4.0, fontawesome.com), embebidos
        para no depender de un CDN en una pantalla de cara al cliente. Son los
@@ -220,7 +222,22 @@
 
   <!-- 19.0.1.129.40: «Nueva venta»'s full-screen product picker
        (controllers/nueva_venta.py productos, nueva_venta_productos.js) -->
-  <div class="editando" t-if="picker" id="nv-picker" t-att-data-uid="picker['uid']"
+  <!-- 19.0.1.129.47 (ui_v2): the design system's header of a task step
+       (ScreenHeader + progress, mockup s26-02-venta-productos) instead of
+       the yellow bar and the shop's header; same id and data -->
+  <header class="nvp-top" t-if="picker and ui_v2" id="nv-picker" t-att-data-uid="picker['uid']"
+          t-att-data-cliente-id="picker['cliente_id']" t-att-data-cliente="picker['cliente']">
+    <div class="nvp-top__row">
+      <a class="nvp-back" t-att-href="picker['volver']" data-up="" aria-label="Volver sin cambios" title="Volver sin cambios">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a>
+      <div class="nvp-top__txt">
+        <span class="nvp-kicker"><t t-esc="picker['cliente']"/> · Paso 2 de 3</span>
+        <h1>Productos</h1>
+      </div>
+    </div>
+    <div class="nvp-progress" role="img" aria-label="Paso 2 de 3"><i></i></div>
+  </header>
+  <div class="editando" t-elif="picker" id="nv-picker" t-att-data-uid="picker['uid']"
        t-att-data-cliente-id="picker['cliente_id']" t-att-data-cliente="picker['cliente']">
     <div class="marco">
       <p>Productos para <b t-esc="picker['cliente']"/></p>
@@ -234,7 +251,7 @@
     </div>
   </div>
 
-  <div class="cab">
+  <div class="cab" t-if="not (picker and ui_v2)">
     <div class="marco">
       <!-- 19.0.1.129.15 (owner): smaller header, no locality line; the data
            go in one compact wrapped row so the products show sooner -->

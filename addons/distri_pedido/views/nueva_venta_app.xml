@@ -5,7 +5,26 @@
        the cart priced with his list, and how the sale goes on. -->
 
   <template id="nueva_venta_top" name="Nueva venta: barra">
-    <header class="dn-top nv-top">
+    <!-- 19.0.1.129.47 (ui_v2): the design system's ScreenHeader of a task
+         screen: back arrow, kicker, title, gear; under it the short help
+         and, on the sale itself (avance), the progress of its 3 steps
+         (nueva_venta.css, from the steps shown) -->
+    <header t-if="v2" class="dn-top nv-top nv-top--v2">
+      <div class="dn-top__row">
+        <a class="dn-icon-btn" t-att-href="volver" data-dn-back="" aria-label="Volver">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'back'"/></t></a>
+        <div class="dn-top__txt">
+          <span class="dn-top__kicker" t-esc="kicker or 'Distri Neuquén · %s' % user.name"/>
+          <h1 class="dn-top__title" t-esc="titulo"/>
+        </div>
+        <t t-call="distri_pedido.dn_ajustes"/>
+      </div>
+      <div t-if="sub or avance" class="dn-top__extra">
+        <p t-if="sub" class="dn-top__sub nv-top__sub" t-esc="sub"/>
+        <div t-if="avance" class="dn-progress nv-avance" role="img" aria-label="Avance de la venta"><i></i></div>
+      </div>
+    </header>
+    <header t-else="" class="dn-top nv-top">
       <div class="dn-top__row nv-top__row">
         <a class="dn-back" t-att-href="volver" data-dn-back="">‹ Volver</a>
         <t t-call="distri_pedido.dn_ajustes"/>
@@ -25,12 +44,13 @@
   <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
   <t t-call="distri_pedido.dn_head"/>
 </head>
-<body class="nv dn-has-nav" t-att-data-parent="inicio" data-page="nueva-venta" t-att-data-uid="uid"
+<body t-att-class="'nv nv--v2 dn-has-nav' if v2 else 'nv dn-has-nav'" t-att-data-parent="inicio" data-page="nueva-venta" t-att-data-uid="uid"
       t-att-data-wa-requerido="'1' if wa_requerido else '0'">
   <t t-call="distri_pedido.nueva_venta_top">
     <t t-set="volver" t-value="inicio"/>
     <t t-set="titulo" t-value="'Nueva venta'"/>
     <t t-set="sub" t-value="'Elegí el cliente, cargá los productos y decí cómo sigue.'"/>
+    <t t-set="avance" t-value="True"/>
   </t>
   <div class="dn-banner dn-banner--err" role="alert" id="nv-error" t-att-hidden="None if error else 'hidden'"><span t-esc="error"/></div>
   <!-- 19.0.1.129.35 (#59): the draft kept on the phone (nueva_venta.js) -->
@@ -85,10 +105,15 @@
       </div>
       <div id="nv-buscar-cliente">
         <label for="nv-q-cliente" class="dn-sr">Buscar cliente</label>
+        <div class="nv-search">
+        <t t-if="v2" t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'search'"/></t>
         <input id="nv-q-cliente" class="dn-input" type="search" maxlength="60" autocomplete="off"
                placeholder="Buscar cliente por nombre, CUIT o WhatsApp" enterkeyhint="search"/>
+        </div>
         <div id="nv-clientes" class="nv-list" aria-live="polite"></div>
-        <button type="button" class="dn-btn dn-btn--outline dn-btn--sm nv-nuevo-abrir" id="nv-nuevo-abrir">+ Nuevo cliente</button>
+        <button t-if="v2" type="button" class="dn-btn dn-btn--secondary nv-nuevo-abrir" id="nv-nuevo-abrir">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'plus'"/></t>Nuevo cliente</button>
+        <button t-else="" type="button" class="dn-btn dn-btn--outline dn-btn--sm nv-nuevo-abrir" id="nv-nuevo-abrir">+ Nuevo cliente</button>
       </div>
     </section>
 
@@ -96,7 +121,9 @@
       <h2 class="nv-step__t" id="nv-t2"><span class="nv-n">2</span> Productos
         <small class="nv-meta" id="nv-lista"></small></h2>
       <!-- 19.0.1.129.40: /pedido's catalog on the whole screen, the main way on a phone -->
-      <a class="dn-btn dn-btn--lg nv-elegir" id="nv-elegir" href="/nueva-venta/productos">Elegir productos</a>
+      <a t-if="v2" class="dn-btn dn-btn--secondary dn-btn--lg nv-elegir" id="nv-elegir" href="/nueva-venta/productos">
+        <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'list'"/></t>Elegir productos</a>
+      <a t-else="" class="dn-btn dn-btn--lg nv-elegir" id="nv-elegir" href="/nueva-venta/productos">Elegir productos</a>
       <div class="nv-tools">
         <label for="nv-q-prod" class="dn-sr">Buscar producto</label>
         <input id="nv-q-prod" class="dn-input" type="search" maxlength="60" autocomplete="off"
@@ -278,7 +305,7 @@
   <title>Nueva venta · Distri Neuquén</title>
   <t t-call="distri_pedido.dn_head"/>
 </head>
-<body class="nv dn-has-nav" data-parent="/nueva-venta" data-page="nueva-venta-hecho">
+<body t-att-class="'nv nv--v2 dn-has-nav' if v2 else 'nv dn-has-nav'" data-parent="/nueva-venta" data-page="nueva-venta-hecho">
   <t t-call="distri_pedido.nueva_venta_top">
     <t t-set="volver" t-value="'/nueva-venta'"/>
     <t t-set="titulo" t-value="titulo"/>

@@ -342,7 +342,8 @@ class TestPedidoV98(PedidoAbiertoMixin, HttpCase):
             self.assertEqual(page.status_code, 200, url)
             self.assertIn('id="dn-gear"', page.text, url)
             self.assertIn("Tamaño de letra", page.text, url)
-            self.assertIn("Instalar la app", page.text, url)
+            # 19.0.1.129.47: visitors get no «Instalar la app»
+            self.assertNotIn("Instalar la app", page.text, url)
             self.assertNotIn("dn-aj__salir", page.text, "%s: no «Salir» for visitors" % url)
 
     def test_gear_on_staff_and_customer_pages(self):

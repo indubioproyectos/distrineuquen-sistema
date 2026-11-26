@@ -55,3 +55,77 @@
 .tab-grupos{max-width:760px;margin:0 auto;padding-top:4px}
 .tab-grupo .tab-tiles{padding-top:4px}
 .tab-grupo__t{padding:12px 16px 0;margin:0}
+
+/* ------------------------------------------------------------ 19.0.1.129.47
+   Inicio on the DistriNeuquén design system (ui_v2 only, views/tablero.xml
+   tablero_v2_page, body.tab2; mockup s26-01-inicio, component «HomeTile»).
+   The tile pieces are the system's (components/bundle.css .dn-tile), here
+   until a second screen uses them; tokens from dn.css + dn-v2.css. Phone:
+   two columns, 16 px gutter; from 600 px three, from 1024 px four. */
+body.tab2{background:var(--dn-bg)}
+.tab2-top .dn-top__row{max-width:1000px}
+.tab2-logo{flex:none;margin-left:8px}
+.tab2-top .dn-gear{color:#fff}
+.tab2-main{display:flex;flex-direction:column;gap:20px;width:100%;max-width:1000px;margin:0 auto;
+  padding:16px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+.tab2-grupo{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tab2-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (min-width:600px){.tab2-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1024px){
+  .tab2-main{padding:24px 24px 32px}
+  .tab2-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .tab2 .dn-tile--main{max-width:calc(50% - 4px)}
+}
+/* HomeTile */
+.dn-tile{display:flex;align-items:center;gap:10px;min-width:0;min-height:64px;padding:10px 12px;
+  background:var(--dn-card);border:1px solid var(--dn-line);border-radius:var(--dn-r);color:var(--dn-ink);
+  text-decoration:none}
+.dn-tile:hover,.dn-tile:active{background:var(--dn-tint)}
+.dn-tile__ico{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;
+  border-radius:10px;background:var(--dn-navy);color:#fff}
+.dn-tile__ico .dn-i{width:24px;height:24px}
+.dn-tile__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;font-size:15px;font-weight:700;
+  line-height:1.2;overflow-wrap:anywhere}
+.dn-tile__txt small{font-size:14px;font-weight:400;color:var(--dn-muted)}
+.dn-tile__bd{min-width:24px;height:24px;flex:none;padding:0 7px;border-radius:12px;background:var(--dn-navy);
+  color:#fff;font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.dn-tile__bd--err{background:var(--dn-red-bg);color:var(--dn-red-text)}
+.dn-tile__bd--warn{background:var(--dn-amber-bg);color:var(--dn-amber-text)}
+.dn-tile--main{min-height:72px;background:var(--dn-primary);border-color:var(--dn-primary);color:var(--dn-on-primary,#fff)}
+.dn-tile--main:hover,.dn-tile--main:active{background:var(--dn-primary-press)}
+.dn-tile--main .dn-tile__ico{background:#fff;color:var(--dn-primary-press)}
+.dn-tile--main .dn-tile__txt{font-size:17px;font-weight:800}
+.dn-tile--main .dn-tile__txt small{color:#fff}
+.dn-tile--main:focus-visible{outline-color:var(--dn-navy)}
+/* banners (Banner, card variant) */
+.tab2-banners{display:flex;flex-direction:column;gap:8px}
+.tab2-banner{display:flex;align-items:center;gap:10px;min-height:56px;padding:12px 16px;border-radius:var(--dn-r);
+  background:var(--dn-amber-bg);border:1px solid var(--dn-amber-line);color:var(--dn-amber-text);
+  font-size:15px;font-weight:600;text-decoration:none}
+.tab2-banner>span{flex:1;min-width:0}
+.tab2-banner .dn-i{flex:none;width:22px;height:22px}
+.tab2-banner .dn-i:last-child{width:20px;height:20px}
+.tab2-banner--err{background:var(--dn-red-bg);border-color:#eeb2aa;color:var(--dn-red-text)}
+.tab2-aviso{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.tab2-aviso p{margin:0}
+/* «Mi reparto de hoy» (ListRow) */
+.tab2-row{display:flex;align-items:center;gap:12px;min-height:64px;padding:10px 12px 10px 16px;background:var(--dn-card);
+  border:1px solid var(--dn-line);border-radius:var(--dn-r);color:var(--dn-ink);text-decoration:none}
+.tab2-row:active{background:var(--dn-tint)}
+.tab2-row>.dn-i{flex:none;width:20px;height:20px;color:var(--dn-muted)}
+.tab2-row__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tab2-row__txt b{font-size:16px}
+.tab2-row__txt span{font-size:14px;color:var(--dn-muted)}
+/* «Ordenar el Inicio» and Odoo's apps: quiet text buttons at the end */
+.tab2-more{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.tab2-more .dn-btn--ghost{background:transparent;border-color:transparent;color:var(--dn-link);padding-left:8px;padding-right:8px}
+.tab2-more .dn-btn--ghost:active{background:var(--dn-green-bg)}
+.tab2-apps{align-self:stretch}
+.tab2-apps>summary{list-style:none;cursor:pointer;display:inline-flex}
+.tab2-apps>summary::-webkit-details-marker{display:none}
+.tab2-apps__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:4px;padding:8px 0}
+.tab2-app{display:flex;flex-direction:column;align-items:center;gap:6px;min-height:44px;padding:8px 4px;border-radius:10px;
+  color:var(--dn-ink);text-decoration:none;text-align:center;font-size:14px;line-height:1.2}
+.tab2-app:active{background:var(--dn-tint)}
+.tab2-app img{width:42px;height:42px;border-radius:10px;object-fit:contain}

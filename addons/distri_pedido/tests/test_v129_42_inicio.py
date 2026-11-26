@@ -57,10 +57,10 @@ class TestV12942Inicio(HttpCase):
             self.assertEqual(keys[-1], "capacitacion")
         self.authenticate(self.admin.login, self.admin.login)
         page = self.url_open("/tablero").text
-        self.assertIn('class="tab-grupos"', page)
+        # 19.0.1.129.47: the design system's Inicio (tablero_v2_page)
+        self.assertIn('class="tab2"', page)
         for label in ("Ventas", "Reparto", "Sistema"):
-            self.assertIn('class="dn-label tab-grupo__t">%s<' % label, page)
-        self.assertIn("tab tab--v2", page)
+            self.assertIn('<h2 class="dn-label">%s</h2>' % label, page)
         self.assertIn("Todas las aplicaciones del sistema", page, "administración keeps the apps")
 
     def test_packer_and_driver_without_odoo_apps(self):
@@ -71,7 +71,8 @@ class TestV12942Inicio(HttpCase):
         self.authenticate(self.mixto.login, self.mixto.login)
         page = self.url_open("/tablero").text
         self.assertNotIn("Todas las aplicaciones del sistema", page)
-        self.assertNotIn('class="tab-grupos"', page, "only administración gets the groups")
+        # 19.0.1.129.47: every role gets its tiles in groups
+        self.assertIn('<h2 class="dn-label">Reparto</h2>', page)
 
     def test_flag_off_is_the_old_inicio(self):
         self._flags(False)

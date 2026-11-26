@@ -160,6 +160,9 @@ class NuevaVenta(http.Controller):
             "inicio": self._inicio(user),
             "csrf_token": request.csrf_token(),
             "nav": staff_nav(request.env, "nuevaventa"),
+            # 19.0.1.129.47: the design system's look (ScreenHeader, search
+            # field, rows, options), with distri_pedido.ui_v2 only
+            "v2": ui_v2_on(request.env),
             "money": _money,
             "error": "",
             "ok": "",

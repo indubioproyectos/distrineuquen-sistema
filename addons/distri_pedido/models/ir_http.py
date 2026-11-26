@@ -184,7 +184,9 @@ class IrHttp(models.AbstractModel):
             "js": kit_url("ajustes.js"),
             # 19.0.1.129.40: the phone keyboard helper (static/src/kit/teclado.js)
             "teclado": kit_url("teclado.js"),
-            "manifest": "/tablero/manifest.webmanifest" if staff else "/dn/cliente.webmanifest",
+            # 19.0.1.129.47: none for visitors (no «Instalar la app» for them)
+            "manifest": ("/tablero/manifest.webmanifest" if staff else
+                         "" if user._is_public() else "/dn/cliente.webmanifest"),
         }
 
 

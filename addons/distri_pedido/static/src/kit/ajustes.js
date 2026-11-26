@@ -7,7 +7,8 @@
  *   localStorage «dn:letra» (the macro applies it before paint).
  * - «Instalar la app»: Android/Chrome beforeinstallprompt; on iOS the short
  *   Safari instructions; hidden when the app already runs installed. A page
- *   without a manifest gets the one in data-manifest.
+ *   without a manifest gets the one in data-manifest. 19.0.1.129.47: only
+ *   for logged-in users (the macro renders neither for visitors).
  * - Armado preferences post to /armado/preferencias; with fetch the page
  *   reloads to show the new view.
  */
@@ -36,6 +37,8 @@
     var box = el.querySelector('.dn-aj__inst');
     var tip = el.querySelector('.dn-aj__ios');
     var btn = el.querySelector('[data-aj-instalar]');
+    // 19.0.1.129.47: visitors get no install block
+    if (!box || !tip || !btn) { return; }
     var isIos = ios() && !standalone();
     box.hidden = standalone() || !(deferred || isIos);
     btn.hidden = !deferred;
