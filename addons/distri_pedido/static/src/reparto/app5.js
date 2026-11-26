@@ -329,7 +329,7 @@
     if (d.cash > 0) bits.push("efectivo " + money(d.cash));
     if (d.transfer === "yes") {
       bits.push("transferencia " + money(d.transfer_amount) + (d.receipt_answer === "photo" ? " con foto" :
-        " · comprobante a tu cargo"));
+        " · comprobante a reclamar"));
     }
     return bits.join(" + ");
   }
@@ -433,10 +433,6 @@
     return ((home && home.receipts) || []).filter(function (r) { return r.state === "open" || r.state === "overdue"; });
   }
   function charges() { return (home && home.charges) || []; }
-  function owedTotal() {
-    return round2(owedItems().reduce(function (s, r) { return s + (r.amount || 0); }, 0) +
-      charges().reduce(function (s, c) { return s + (c.amount || 0); }, 0));
-  }
 
   function reminderHtml() {
     var stale = (home && home.stale_routes) || [];
@@ -454,16 +450,16 @@
     var n = owedItems().length + charges().length;
     return reminderHtml() + '<a class="card v2home" href="#reclamar"><div class="split"><b>Mis comprobantes a reclamar</b>' +
       '<span class="pill ' + (n ? "pendpill" : "paid") + '">' + n + "</span></div>" +
-      '<div class="small muted">' + (n ? "A tu cargo " + money(owedTotal()) + " · tocá para verlos" : "Nada pendiente") +
+      '<div class="small muted">' + (n ? "Tocá para verlos" : "Nada pendiente") +
       "</div></a>";
   }
 
   function claimRow(r) {
     var late = r.state === "overdue", done = r.state === "fulfilled";
     var queued = sentPhotos[r.stop_id];
-    var pill = done ? '<span class="pill paid">Llegó · ya no está a tu cargo</span>' :
+    var pill = done ? '<span class="pill paid">Llegó</span>' :
       queued ? '<span class="pill pendpill">Foto guardada en el celular · se envía sola</span>' :
-      late ? '<span class="pill not_paid">Vencida desde ' + h(r.overdue_since) + " · cargada a tu cuenta</span>" :
+      late ? '<span class="pill not_paid">Vencida desde ' + h(r.overdue_since) + "</span>" :
       '<span class="pill pendpill">Pendiente</span>';
     var out = '<div class="card rcpt' + (late ? " late" : "") + (done ? " done" : "") + '" style="gap:6px">' +
       '<div class="split"><b>' + h(r.name) + '</b><b class="' + (done ? "strike" : "") + '">' + money(r.amount) + "</b></div>" +
@@ -491,13 +487,11 @@
     var owed = owedItems(), list = charges();
     var resolved = (home.receipts || []).filter(function (r) { return r.state === "fulfilled"; });
     if (!owed.length && !list.length) {
-      out += '<div class="card"><b>Nada pendiente.</b><div class="small muted">No tenés comprobantes ni cargos a tu nombre.</div></div>';
-    } else {
-      out += '<div class="owed"><span>A tu cargo · ' + (owed.length + list.length) + "</span><b>" + money(owedTotal()) + "</b></div>";
+      out += '<div class="card"><b>Nada pendiente.</b><div class="small muted">No tenés comprobantes para reclamar.</div></div>';
     }
     owed.forEach(function (r) { out += claimRow(r); });
     if (list.length) {
-      out += '<div class="label">Cargos a tu nombre</div>';
+      out += '<div class="label">Otros pendientes</div>';
       list.forEach(function (c) {
         out += '<div class="card rcpt late" style="gap:6px"><div class="split"><b>' + h(c.name || c.label) + "</b><b>" +
           money(c.amount) + '</b></div><div class="small"><b>' + h(c.label) + "</b>" +
@@ -509,9 +503,8 @@
       out += '<div class="label">Resueltas hoy</div>';
       resolved.forEach(function (r) { out += claimRow(r); });
     }
-    out += '<div class="note">Reclamar los comprobantes es tu responsabilidad. Los de hoy vencen en la rendición de ' +
-      "mañana: si no llegan, se cargan a tu cuenta. Un cargo se descarga cuando administración verifica el " +
-      "comprobante o el pago, aunque llegue tarde.</div></div>";
+    out += '<div class="note">Te pedimos que nos ayudes a reclamarle a cada cliente su comprobante. ' +
+      "Cada uno se cierra solo cuando el comprobante o el pago llega a la empresa, aunque llegue tarde.</div></div>";
     return out;
   }
 
