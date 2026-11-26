@@ -161,7 +161,16 @@ const local = (visits, rejected) => ({ routeId: 60, visits: visits, loaded: {}, 
   T.boot(); await flush();
   ctx.location.hash = "#visita/602";
   const s602 = T.stopById(602);
-  T.viewVisit(s602);
+  // 26/11/2026 (owner): a new visit starts in «No»; «Sí» with nothing loaded
+  // still locks «Entregar igual»
+  const fresh602 = T.viewVisit(s602);
+  out.defaultNo = { answer: T.draft().returns_answer,
+                    on: /class="opt on" data-a="ret-none">No<\/button>/.test(fresh602),
+                    yesOff: /class="opt" data-a="ret-yes">Sí<\/button>/.test(fresh602),
+                    noMandatory: fresh602.indexOf("¿Devolvió algo? <small>Obligatorio") < 0,
+                    oldLabels: fresh602.indexOf("No, recibió todo") >= 0 || fresh602.indexOf("Sí, devolvió") >= 0 };
+  T.ACTIONS["ret-yes"]();
+  out.yesOpensReturns = T.viewVisit(s602).indexOf("Agregar devolución") >= 0;
   T.ACTIONS["no-code"](null, s602);
   out.noCodeLocked = { on: T.draft().without_code, toast: element("toast").textContent };
   T.ACTIONS["ret-none"]();
@@ -179,6 +188,28 @@ const local = (visits, rejected) => ({ routeId: 60, visits: visits, loaded: {}, 
   T.ACTIONS["ret-none"]();
   T.ACTIONS["no-code"](null, s603);
   out.lockedStatus = T.codeStatus(s603);
+  // a visit saved with returns keeps «Sí» when reopened
+  T.S.local.visits[602] = { visit_uuid: "v-602", stop_id: 602, outcome: "delivered", returns_answer: "yes",
+    returns: [{ uuid: "r-602", line_id: 1, qty: 2, reason: "Vencido" }], code: "", code_ok: false,
+    without_code: true, cash: 800, transfer: "no", transfer_amount: 0, receipt_answer: null, red_ok: false,
+    no_payment: false, already_paid: false, to_confirm: false, comment: "" };
+  ctx.location.hash = "#visita/602";
+  const saved602 = T.viewVisit(s602);
+  out.savedKeepsYes = { answer: T.draft().returns_answer,
+                        on: /class="opt on" data-a="ret-yes">Sí<\/button>/.test(saved602),
+                        listed: saved602.indexOf("Motivo: Vencido") >= 0 };
+  delete T.S.local.visits[602];
+  // a saved «No se pudo entregar» turned back to delivered shows «No»
+  T.S.local.visits[602] = { visit_uuid: "v-602b", stop_id: 602, outcome: "not_delivered", reason: "Cerrado",
+    returns_answer: null, returns: [], code: "", code_ok: false, without_code: false, cash: 0, transfer: "no",
+    transfer_amount: 0, receipt_answer: null, no_payment: false, already_paid: false, to_confirm: false, comment: "" };
+  ctx.location.hash = "#visita/603";
+  T.viewVisit(s603);
+  ctx.location.hash = "#visita/602";
+  T.viewVisit(s602);
+  T.ACTIONS["undo-nd"](null, s602);
+  out.undoNdNo = /class="opt on" data-a="ret-none">No<\/button>/.test(T.viewVisit(s602));
+  delete T.S.local.visits[602];
 
   // ---- 3. «Ya estaba pagado»
   server.sync = (body) => ({ data: { results: body.events.map((e) => ({ uuid: e.uuid, status: "ok" })) } });

@@ -118,8 +118,9 @@ class DistriDepotDelivery(models.TransientModel):
     returns_amount = fields.Monetary(string="Devolución", compute="_compute_balance")
     expected_balance = fields.Monetary(string="Saldo total", compute="_compute_balance")
 
-    returns_answer = fields.Selection([("none", "No, recibió todo"), ("yes", "Sí, devolvió")],
-                                      string="¿Devolvió algo?")
+    # 26/11/2026 (owner): only «No» / «Sí», «No» preselected
+    returns_answer = fields.Selection([("none", "No"), ("yes", "Sí")],
+                                      string="¿Devolvió algo?", default="none")
     return_ids = fields.One2many("distri.depot.delivery.return", "wizard_id",
                                  string="Devoluciones")
     returns_received = fields.Boolean(

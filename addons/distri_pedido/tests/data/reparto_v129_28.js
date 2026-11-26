@@ -5,7 +5,8 @@
 //   /reparto/api/home {"v2": false} adds nothing;
 // - the old app (app3.js + app4.js, no app5.js) against a flag-on server
 //   (extra keys in the route) draws and sends what it did before;
-// - flag on: the new visit (four taps for a delivery in cash), transfer «lo
+// - flag on: the new visit (three taps for a delivery in cash: «¿Devolvió
+//   algo?» comes in «No», 26/11/2026), transfer «lo
 //   manda después», partial (charged / exempt), mixed, «Ya estaba pagado»
 //   with debt, the optional code, «Mis comprobantes a reclamar», the
 //   reminder and the driver's own order (19.0.1.129.48: long press and drag
@@ -292,14 +293,19 @@ function dragKit(T) {
   T.boot(); await flush();
   const visit = screen(T, "#visita/801");
   out.v2Visit = { due: visit.indexOf("Le toca pagar") >= 0 && visit.indexOf("$ 1.000") >= 0,
-                  noReturnsQuestion: visit.indexOf("¿Devolvió algo?") < 0,
+                  // 26/11/2026 (owner): «¿Devolvió algo?» «No» (preselected) / «Sí»
+                  returnsQuestion: visit.indexOf("¿Devolvió algo?") >= 0,
+                  defaultNo: /class="opt on" data-a5="deliv" data-v="all">No<\/button>/.test(visit) &&
+                    T.draft().returns_answer === "none",
+                  yesOff: /class="opt" data-a5="deliv" data-v="ret">Sí<\/button>/.test(visit),
+                  noOldLabels: visit.indexOf("Entregué todo") < 0 && visit.indexOf(">Devolvió algo<") < 0,
+                  notDeliveredApart: /<\/div><button type="button" class="opt amberopt" data-a5="deliv" data-v="nd">No se entregó<\/button>/.test(visit),
                   codeOptional: visit.indexOf("Código de recibido (opcional)") >= 0,
                   noWhatsappCard: visit.indexOf("WhatsApp del cliente, según el contacto") < 0,
-                  buttons: ["Entregué todo", "Devolvió algo", "No se entregó", "Efectivo", "Transferencia", "Mixto",
+                  buttons: ["No se entregó", "Efectivo", "Transferencia", "Mixto",
                             "Parcial", "Ya estaba pagado", "No pagó"].every((b) => visit.indexOf(b) >= 0) };
-  // four taps: Entregué todo, Efectivo, Guardar visita, Sí, guardar
+  // three taps: Efectivo, Guardar visita, Sí, guardar («No» is preselected)
   let taps = 0;
-  tap5("deliv", "all"); taps++;
   tap5("pay", "cash"); taps++;
   tap5("save"); taps++;
   out.cashConfirm = (T.confirm() || {}).text || "";
@@ -310,10 +316,18 @@ function dragKit(T) {
                returns_answer: p2.returns_answer, already_paid: p2.already_paid, no_payment: p2.no_payment,
                state: T.S.local.visits[801] && T.S.local.visits[801].cash };
   // transfer, the customer sends the receipt later
-  screen(T, "#visita/804");
-  tap5("deliv", "all");
-  tap5("pay", "transfer");
   let v = screen(T, "#visita/804");
+  // «Sí» opens the returns editor; «No» closes it again
+  tap5("deliv", "ret");
+  v = screen(T, "#visita/804");
+  out.yesOpensReturns = v.indexOf("Agregar devolución") >= 0 &&
+    /class="opt on" data-a5="deliv" data-v="ret">Sí<\/button>/.test(v);
+  tap5("save");
+  out.yesEmptyToast = element("toast").textContent;
+  tap5("deliv", "all");
+  out.noClosesReturns = screen(T, "#visita/804").indexOf("Agregar devolución") < 0;
+  tap5("pay", "transfer");
+  v = screen(T, "#visita/804");
   // 26/11/2026 (drivers): the products to check are on the v2 visit too
   out.visitLines = v.indexOf("Controlá con el cliente") >= 0 && v.indexOf("Producto") >= 0;
   out.transferChoices = v.indexOf("Sacar foto") >= 0 && v.indexOf("Lo manda después · queda a mi cargo") >= 0;
@@ -366,6 +380,15 @@ function dragKit(T) {
   // a right code is kept, a missing one never blocks
   screen(T, "#visita/801");
   out.reopenedMode = T.draft().pay;
+  // a visit saved with returns keeps «Sí» when reopened
+  const saved805 = T.S.local.visits[805];
+  T.S.local.visits[805] = Object.assign({}, saved805, { returns_answer: "yes",
+    returns: [{ uuid: "r-805", line_id: 1, qty: 2, reason: "Vencido" }] });
+  v = screen(T, "#visita/805");
+  out.savedKeepsYes = { answer: T.draft().returns_answer, listed: v.indexOf("Motivo: Vencido") >= 0,
+                        on: /class="opt on" data-a5="deliv" data-v="ret">Sí<\/button>/.test(v) };
+  T.S.local.visits[805] = saved805;
+  screen(T, "#visita/801");
 
   // ---- 4. «Mis comprobantes a reclamar», the reminder, the order
   await T.download(false); await flush();

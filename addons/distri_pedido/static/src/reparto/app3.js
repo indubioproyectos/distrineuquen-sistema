@@ -48,6 +48,8 @@
  *     already_paid; the server may answer «ok» with a warning (still owed);
  *   · «Entregar igual» sets (one tap), «deshacer» clears it, and before
  *     «¿Devolvió algo?» it says so instead of doing nothing.
+ * - 26/11/2026 (owner): «¿Devolvió algo?» answers only «No» / «Sí» and a new
+ *   visit starts in «No» (newDraft); a saved visit keeps its own answer.
  * - 19.0.1.129.25:
  *   · «Ya estaba pagado · a confirmar» when the customer uploaded a receipt
  *     not credited yet that covers what is due (stop.payments_to_confirm):
@@ -1778,7 +1780,8 @@
     if (v) return JSON.parse(JSON.stringify(v));
     return {
       visit_uuid: uuid(), stop_id: stop.id, outcome: "delivered", reason: "",
-      returns_answer: null, returns: [], code: "", code_ok: false, without_code: false,
+      // 26/11/2026 (owner): «¿Devolvió algo?» starts in «No»
+      returns_answer: "none", returns: [], code: "", code_ok: false, without_code: false,
       cash: 0, transfer: "no", transfer_amount: 0, receipt_answer: null, red_ok: false,
       no_payment: false, already_paid: false, to_confirm: false, comment: "",
       // the receipt photo: «photo» only until it is queued, the thumbnail stays
@@ -1841,9 +1844,9 @@
         return "<div><b>" + qty(l.qty) + "</b><span>" + h(l.product) + "</span></div>";
       }).join("") + "</div>" +
       (lines.length > 4 && !d.showAll ? '<button class="link" data-a="all-lines">Ver los ' + lines.length + " productos</button>" : "") +
-      '<div class="sep"><div class="q">¿Devolvió algo? <small>Obligatorio</small></div><div class="grid2">' +
-      '<button class="opt' + (d.returns_answer === "none" ? " on" : "") + '" data-a="ret-none">No, recibió todo</button>' +
-      '<button class="opt' + (d.returns_answer === "yes" ? " on" : "") + '" data-a="ret-yes">Sí, devolvió</button></div>';
+      '<div class="sep"><div class="q">¿Devolvió algo?</div><div class="grid2">' +
+      '<button class="opt' + (d.returns_answer === "none" ? " on" : "") + '" data-a="ret-none">No</button>' +
+      '<button class="opt' + (d.returns_answer === "yes" ? " on" : "") + '" data-a="ret-yes">Sí</button></div>';
     if (d.returns_answer === "yes") {
       d.returns.forEach(function (r, i) {
         var line = lines.filter(function (l) { return l.id === r.line_id; })[0] || {};
@@ -2132,7 +2135,7 @@
 
   function validateDelivered(stop, d) {
     if (d.returns_answer !== "none" && d.returns_answer !== "yes") return "Respondé si devolvió algo.";
-    if (d.returns_answer === "yes" && !d.returns.length) return "Cargá lo que devolvió, o respondé «No, recibió todo».";
+    if (d.returns_answer === "yes" && !d.returns.length) return "Cargá lo que devolvió, o tocá «No» en ¿Devolvió algo?";
     if (!d.code_ok && !d.without_code) return "Falta el código de recibido, o tocá «Entregar igual».";
     if (redOf(stop) && !d.red_ok) {
       return "Cliente en rojo: cobrá lo que debe y reenviá los comprobantes antes de descargar, o guardá «No se pudo entregar».";
@@ -2656,7 +2659,11 @@
     // 19.0.1.129.22: «Entregar igual» sets (a re-opened visit already has it
     // on: a toggle turned it off with the usual tap); «deshacer» clears it
     "no-code": function (el, stop) {
-      if (!returnsAnswered(draft)) return toast("Primero contestá ¿Devolvió algo?", true);
+      // 26/11/2026: «No» comes preselected, so this is «Sí» with nothing loaded
+      if (!returnsAnswered(draft)) {
+        return toast(draft.returns_answer === "yes" ? "Primero cargá lo que devolvió, o tocá «No» en ¿Devolvió algo?" :
+          "Primero contestá ¿Devolvió algo?", true);
+      }
       if (draft.without_code) return;
       draft.without_code = true; draft.code = ""; draft.code_ok = false;
       rerender();
@@ -2676,7 +2683,12 @@
     rcpt: function (el) { draft.receipt_answer = el.getAttribute("data-v"); rerender(); },
     "red-ok": function () { draft.red_ok = !draft.red_ok; rerender(); },
     nd: function () { draft.outcome = "not_delivered"; rerender(); window.scrollTo(0, 0); },
-    "undo-nd": function (el, stop) { draft.outcome = stop && stop.parcel ? "dispatched" : "delivered"; rerender(); },
+    "undo-nd": function (el, stop) {
+      draft.outcome = stop && stop.parcel ? "dispatched" : "delivered";
+      // 26/11/2026 (owner): back to delivered, «¿Devolvió algo?» shows «No»
+      if (!draft.returns_answer) draft.returns_answer = "none";
+      rerender();
+    },
     "parcel-save": function (el, stop) {
       var d = draft, pays = stop.parcel.payer === "distri";
       if (!d.photo && !d.thumb && !d.has_photo) return toast("Sacá la foto de la guía.", true);

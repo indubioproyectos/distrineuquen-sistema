@@ -321,8 +321,9 @@ class Deposito(http.Controller):
         o = order.sudo()
         lines = order.order_line.filtered(lambda l: not l.display_type and l.product_uom_qty > 0)
         v137 = self._v137()
+        # 26/11/2026 (owner): «¿Devolvió algo?» comes preselected in «No»
         form = form if form is not None else {
-            "devolvio": "", "codigo_op": "code", "transferencia": "no",
+            "devolvio": "none", "codigo_op": "code", "transferencia": "no",
             "presente": "1" if values.get("counter_present") else "",
             "bultos": str(values.get("parcels") or ""),
         }

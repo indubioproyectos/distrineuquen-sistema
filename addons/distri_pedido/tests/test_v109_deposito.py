@@ -187,6 +187,15 @@ class TestDepositoApp(RepartoMixin, AccountTestInvoicingHttpCommon):
         self.assertIn("Saldo total", page)
         self.assertIn("Ingresar el código", page)
         self.assertIn("No tiene el código · Entregar igual", page)
+        # 26/11/2026 (owner): «¿Devolvió algo?» only «No» / «Sí», «No» preselected
+        self.assertRegex(page, r'name="devolvio" value="none" checked="checked"/><span>No</span>')
+        self.assertRegex(page, r'name="devolvio" value="yes"/><span>Sí</span>')
+        self.assertNotIn("No, recibió todo", page)
+        self.assertNotIn("Sí, devolvió", page)
+        # the backend wizard starts in «No» too
+        action = order.action_distri_depot_delivery()
+        defaults = self.env["distri.depot.delivery"].with_context(action["context"]).default_get(["returns_answer"])
+        self.assertEqual(defaults["returns_answer"], "none")
 
         res = self._deliver(order, codigo_op="code", codigo=code, efectivo="1.300")
         self.assertEqual(res.status_code, 200, res.text)

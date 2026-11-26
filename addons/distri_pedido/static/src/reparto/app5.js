@@ -8,10 +8,11 @@
  * nothing and app3.js draws the screens of before.
  *
  * - The new visit (#visita/<id>): one screen with what is due already
- *   computed («Le toca pagar $ X»), «Entregué todo / Devolvió algo / No se
- *   entregó», the receipt code optional (never blocks: without it the visit
- *   goes «sin código»), «¿Cómo pagó?» (Efectivo, Transferencia, Mixto,
- *   Parcial, Ya estaba pagado, No pagó) and, with a transfer, «Sacar foto» or
+ *   computed («Le toca pagar $ X»), «¿Devolvió algo?» «No / Sí» (26/11/2026,
+ *   owner: «No» comes preselected) and «No se entregó» apart, the receipt
+ *   code optional (never blocks: without it the visit goes «sin código»),
+ *   «¿Cómo pagó?» (Efectivo, Transferencia, Mixto, Parcial, Ya estaba
+ *   pagado, No pagó) and, with a transfer, «Sacar foto» or
  *   «Lo manda después · queda a mi cargo». It fills app3.js's draft and saves
  *   with app3.js's storeVisit: the same payload and the same outbox.
  * - «Mis comprobantes a reclamar» (#reclamar; 19.0.1.129.48: a block that
@@ -308,10 +309,13 @@
       (paid ? "Ya está pagado" : "Le toca pagar") + '</div><div class="v2amount">' + money(paid ? 0 : due) + "</div>" +
       '<div class="small muted">Pedido ' + money(dueBase(stop)) + (ret ? " · devolución − " + money(ret) : "") + "</div></div>";
 
-    out += '<div class="label">Entrega</div>' + linesHtml(stop) + '<div class="grid3">' +
-      btn("deliv", "all", "Entregué todo", !nd && d.returns_answer === "none") +
-      btn("deliv", "ret", "Devolvió algo", !nd && d.returns_answer === "yes") +
-      btn("deliv", "nd", "No se entregó", nd, "amberopt") + "</div>";
+    // 26/11/2026 (owner): «¿Devolvió algo?» only «No» / «Sí», «No» preselected;
+    // «No se entregó» stays as its own option below
+    out += '<div class="label">Entrega</div>' + linesHtml(stop) +
+      '<div class="label">¿Devolvió algo?</div><div class="grid2">' +
+      btn("deliv", "all", "No", !nd && d.returns_answer === "none") +
+      btn("deliv", "ret", "Sí", !nd && d.returns_answer === "yes") + "</div>" +
+      btn("deliv", "nd", "No se entregó", nd, "amberopt");
 
     if (nd) {
       out += '<div class="card"><label class="stack">¿Por qué no se entregó? (obligatorio al cerrar la ruta)' +
@@ -360,7 +364,7 @@
     var d = draftFor(stop);
     if (d.outcome === "not_delivered") return APP.actions["save-nd"](null, stop);
     var err = "";
-    if (!APP.returnsAnswered(d)) err = d.returns_answer === "yes" ? "Cargá lo que devolvió." : "Tocá «Entregué todo» o «Devolvió algo».";
+    if (!APP.returnsAnswered(d)) err = d.returns_answer === "yes" ? "Cargá lo que devolvió." : "Tocá «No» o «Sí» en ¿Devolvió algo?";
     else if (!d.pay) err = "Elegí cómo pagó.";
     if (!err && d.pay !== "already" && d.pay !== "none") {
       if (d.pay === "cash" || d.transfer !== "yes") { d.transfer = "no"; d.transfer_amount = 0; d.receipt_answer = null; }

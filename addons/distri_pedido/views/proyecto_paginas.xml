@@ -253,7 +253,7 @@
         <div class="paso-cab"><span class="cuando">En cada cliente</span><h3>Entregar y cobrar</h3><span class="url">/reparto · Visitas</span></div>
         <ol>
           <li>En <b>Visitas</b>, tocá el cliente que vas a visitar y después <span class="k">Llegué</span>.</li>
-          <li>Controlá los bultos con el cliente. En <span class="txt">¿Devolvió algo?</span> tocá <span class="k2">No, recibió todo</span> o <span class="k2">Sí, devolvió</span> y elegí producto, cantidad y motivo.</li>
+          <li>Controlá los bultos con el cliente. En <span class="txt">¿Devolvió algo?</span> ya viene marcado <span class="k2">No</span>; si devolvió, tocá <span class="k2">Sí</span> y elegí producto, cantidad y motivo.</li>
           <li><b>En la fase 1 el cliente todavía no tiene código de recibido.</b> Tocá <span class="k2">El cliente no tiene el código · Entregar igual</span>. Desde la fase 2 el cliente te va a dictar su código.</li>
           <li>En <span class="txt">¿Cómo pagó?</span>: <span class="k2">Efectivo</span> con el importe, o <span class="k2">¿Paga con transferencia?</span> con el importe transferido y el comprobante. Si no pagó, abrí <span class="txt">¿Algo salió distinto?</span> y tocá <span class="k2">No pagó nada</span>.</li>
           <li>Tocá <span class="k">Guardar visita</span>. Si no hay señal, dice <span class="txt">Guardado en el celular</span>; cuando se manda, <span class="txt">Enviado</span>.</li>
@@ -341,7 +341,7 @@
         <div class="paso-cab"><span class="cuando">Cuando un cliente retira</span><h3>Entrega en depósito</h3><span class="url">/deposito</span></div>
         <ol>
           <li>Entrá a <b>Entrega en depósito</b> y buscá el pedido o el cliente. Tocá <span class="k">Entregar</span>.</li>
-          <li>Controlá los bultos con el cliente. En <span class="txt">¿Devolvió algo?</span> elegí <span class="k2">No, recibió todo</span> o <span class="k2">Sí, devolvió</span>.</li>
+          <li>Controlá los bultos con el cliente. En <span class="txt">¿Devolvió algo?</span> ya viene marcado <span class="k2">No</span>; si devolvió, elegí <span class="k2">Sí</span>.</li>
           <li>En la fase 1 el cliente no tiene código: tocá <span class="k2">No tiene el código · Entregar igual</span>. Desde la fase 2 lo vas a pedir con <span class="k2">Ingresar el código</span>.</li>
           <li>En <span class="txt">¿Cómo pagó?</span>: Efectivo, transferencia con su comprobante, o <span class="k2">No pagó nada</span>.</li>
           <li>Tocá <span class="k">Registrar entrega</span>.</li>

@@ -417,9 +417,14 @@ class TestV12928RepartoV2(V12928Mixin, AccountTestInvoicingCommon):
         self.assertEqual(out["oldAppPayload"]["cash"], 600)
         # the new visit
         self.assertTrue(all(out["v2Visit"].values()), out["v2Visit"])
-        self.assertEqual(out["cash"], {"taps": 4, "cash": 1000, "transfer": "no", "without_code": True,
+        self.assertEqual(out["cash"], {"taps": 3, "cash": 1000, "transfer": "no", "without_code": True,
                                        "returns_answer": "none", "already_paid": False,
                                        "no_payment": False, "state": 1000})
+        # 26/11/2026 (owner): «Sí» opens the returns, a saved «Sí» stays
+        self.assertTrue(out["yesOpensReturns"])
+        self.assertEqual(out["yesEmptyToast"], "Cargá lo que devolvió.")
+        self.assertTrue(out["noClosesReturns"])
+        self.assertEqual(out["savedKeepsYes"], {"answer": "yes", "listed": True, "on": True})
         self.assertTrue(out["visitLines"])
         self.assertTrue(out["transferChoices"])
         self.assertIn("Lo manda después", out["transferNeedsReceipt"])

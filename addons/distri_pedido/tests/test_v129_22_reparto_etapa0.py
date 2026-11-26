@@ -272,8 +272,15 @@ class TestV12922RepartoEtapa0(CajaMixin, AccountTestInvoicingCommon):
         self.assertEqual(out["resolvedNoVisit"], {"visit": None, "unsynced": 0})
         self.assertEqual(out["closeRefresh"], {"asked": True, "unsynced": 0, "closeQueued": True})
         # 4. «Entregar igual»
-        self.assertEqual(out["noCodeLocked"], {"on": False,
-                                               "toast": "Primero contestá ¿Devolvió algo?"})
+        # 26/11/2026 (owner): «¿Devolvió algo?» starts in «No», only «No» / «Sí»
+        self.assertEqual(out["defaultNo"], {"answer": "none", "on": True, "yesOff": True,
+                                            "noMandatory": True, "oldLabels": False})
+        self.assertTrue(out["yesOpensReturns"], "«Sí» opens the returns editor")
+        self.assertEqual(out["savedKeepsYes"], {"answer": "yes", "on": True, "listed": True})
+        self.assertTrue(out["undoNdNo"])
+        # «Sí» with nothing loaded still locks «Entregar igual»
+        self.assertEqual(out["noCodeLocked"], {
+            "on": False, "toast": "Primero cargá lo que devolvió, o tocá «No» en ¿Devolvió algo?"})
         self.assertTrue(out["noCode"]["first"])
         self.assertTrue(out["noCode"]["second"], "a second tap keeps it")
         self.assertIn("Entregado sin código", out["noCode"]["status"])

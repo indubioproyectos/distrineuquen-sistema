@@ -178,8 +178,8 @@
       <section class="dn-card dp-card">
         <h2>¿Devolvió algo?</h2>
         <div class="dp-seg" role="radiogroup" aria-label="¿Devolvió algo?">
-          <label><input type="radio" name="devolvio" value="none" t-att-checked="'checked' if form.get('devolvio') == 'none' else None"/><span>No, recibió todo</span></label>
-          <label><input type="radio" name="devolvio" value="yes" t-att-checked="'checked' if form.get('devolvio') == 'yes' else None"/><span>Sí, devolvió</span></label>
+          <label><input type="radio" name="devolvio" value="none" t-att-checked="'checked' if form.get('devolvio') == 'none' else None"/><span>No</span></label>
+          <label><input type="radio" name="devolvio" value="yes" t-att-checked="'checked' if form.get('devolvio') == 'yes' else None"/><span>Sí</span></label>
         </div>
         <div data-dp-show="devolvio=yes" t-att-hidden="None if form.get('devolvio') == 'yes' else 'hidden'">
           <p class="dp-fl">Cuánto devolvió de cada producto</p>
