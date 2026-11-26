@@ -685,10 +685,6 @@
       on: a.classList.contains("on") };
   });
 
-  function initials(name) {
-    var words = String(name || "").replace(/[^A-Za-zÁÉÍÓÚÑÜáéíóúñü0-9 ]/g, " ").trim().split(/\s+/);
-    return ((words[0] || "").charAt(0) + (words[1] || "").charAt(0)).toUpperCase() || "·";
-  }
   function amountClass(d) {
     return d.state === "credit" ? " dn-rowi__amt--fav" : d.state === "zero" ? " dn-rowi__amt--zero" : "";
   }
@@ -708,8 +704,8 @@
   }
 
   function listRow(d) {
-    return '<a class="dn-rowi" href="#cuenta/' + d.id + '"><span class="dn-rowi__lead" aria-hidden="true">' +
-      h(initials(d.name)) + '</span><span class="dn-rowi__main"><span class="dn-rowi__title">' + h(d.name) +
+    // 26/11/2026 (owner): no initials badge, the full name is what matters
+    return '<a class="dn-rowi" href="#cuenta/' + d.id + '"><span class="dn-rowi__main"><span class="dn-rowi__title">' + h(d.name) +
       '</span><span class="dn-rowi__sub">' + rowSub(d) + '</span></span><span class="dn-rowi__end">' +
       '<span class="dn-rowi__amt' + amountClass(d) + '">' + rowAmount(d) + "</span>" + pillHtml(d) + "</span>" +
       '<span class="dn-rowi__chev">' + icon("next", 20) + "</span></a>";
