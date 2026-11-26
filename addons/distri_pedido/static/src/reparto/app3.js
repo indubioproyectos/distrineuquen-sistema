@@ -1486,12 +1486,21 @@
       '<div class="sub small">Orden sugerido. Tocá el cliente que vas a visitar.' + (extHook("visitsTools") || "") +
       "</div></div>" +
       '<div id="status">' + statusBanner() + "</div>" + routesBar() + (extHook("homeHtml") || "") + rejected +
-      '<div class="body">' + cards + "</div>" +
-      '<div class="foot"><div class="grid2"><a class="btn teal" href="#gasto">Cargar gasto</a>' +
-      '<a class="btn outline" href="#cierre">Cerrar la ruta</a></div>' +
-      '<a class="link cashlink" href="' + CASH_PAGE + '">Cobro en efectivo a cualquier cliente ›</a>' +
-      '<a class="link cashlink" href="' + ACCOUNTS_APP + '">Cuentas de clientes (buscar cualquier cliente) ›</a>' +
-      '<a class="link cashlink" href="' + PAST_ROUTES + '">Rutas anteriores ›</a></div>';
+      '<div class="body">' + cards + visitsMore(done.length === list.length) + "</div>";
+  }
+
+  // 26/11/2026 (drivers, via the owner): the visits list is the screen they
+  // use most, so no fixed footer covering half of it. «Cargar gasto»,
+  // «Cerrar la ruta» and «Rutas anteriores» live at the END of the list,
+  // folded under «Más opciones» so they are not tapped by mistake; «Cerrar la
+  // ruta» shows as a button there only once every visit is done. Cash
+  // collection and customer accounts are no longer offered from here.
+  function visitsMore(allDone) {
+    return (allDone ? '<div class="more-close"><a class="btn outline" href="#cierre">Cerrar la ruta</a></div>' : "") +
+      '<details class="more"><summary>Más opciones</summary><div class="more-body">' +
+      '<a class="btn outline" href="#gasto">Cargar gasto</a>' +
+      (allDone ? "" : '<a class="btn outline" href="#cierre">Cerrar la ruta</a>') +
+      '<a class="link cashlink" href="' + PAST_ROUTES + '">Rutas anteriores ›</a></div></details>';
   }
 
   // --- «Ver cuenta» (19.0.1.92.0): the customer's balance and newest
