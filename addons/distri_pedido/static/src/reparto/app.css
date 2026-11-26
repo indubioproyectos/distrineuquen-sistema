@@ -54,7 +54,6 @@ textarea.inp{resize:none}
 .visit{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;
        gap:6px;color:var(--text);text-decoration:none}
 .visit.done{opacity:.72}
-.visit.next{border:2px solid var(--navy)}
 .visit .t{font-size:16px;font-weight:700}
 .visit.next .t{font-size:17px;font-weight:800}
 .visit .d{font-size:13px;color:var(--muted)}
