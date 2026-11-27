@@ -27,7 +27,7 @@ from unittest import SkipTest
 
 from PIL import Image
 
-from odoo import Command, fields
+from odoo import Command
 from odoo.modules.module import get_module_path
 from odoo.tests import new_test_user, tagged
 
@@ -36,6 +36,7 @@ from odoo.addons.distri_pedido.controllers.kit import PARAM_UI_V2
 from odoo.addons.distri_pedido.controllers.main import LISTA_GENERAL
 from odoo.addons.distri_pedido.models.nueva_venta import PARAM_NUEVA_VENTA
 from odoo.addons.distri_pedido.models.remito import numerar_remitos
+from odoo.addons.distri_pedido.models.reparto_cliente import today_ar
 from odoo.addons.distri_pedido.tests.test_reparto import RepartoMixin
 
 FETCH = {"X-Distri-Fetch": "1"}
@@ -369,7 +370,7 @@ class TestV12953Planilla(RepartoMixin, AccountTestInvoicingHttpCommon):
         self._flags()
         self._login(self.admin)
         snap = self._snap()
-        order = self._order_of(self._crear("entregado", fecha=str(fields.Date.today()),
+        order = self._order_of(self._crear("entregado", fecha=str(today_ar()),
                                            motivo="Ya entregado: lo llevó el dueño"))
         self.assertTrue(order.distri_entregado_fuera)
         v = self._venta(order)
@@ -399,7 +400,7 @@ class TestV12953Planilla(RepartoMixin, AccountTestInvoicingHttpCommon):
     def test_cobrar_transfer_needs_its_receipt(self):
         self._flags()
         self._login(self.admin)
-        order = self._order_of(self._crear("entregado", fecha=str(fields.Date.today()),
+        order = self._order_of(self._crear("entregado", fecha=str(today_ar()),
                                            motivo="Ya entregado"))
         before = self.env["distri.promised.transfer"]._distri_ledger_fingerprint()
         res = self._post("/nueva-venta/planilla/cobrar/%s" % order.id,
