@@ -167,3 +167,9 @@ body.nv--v2{background:var(--dn-bg)}
 /* 19.0.1.129.53: «Ver versión planilla» only where the PC layout makes sense */
 .nv-a-planilla { display: none; justify-self: center; padding: 8px; }
 @media (min-width: 1024px) { .nv-a-planilla { display: inline-block; } }
+/* 19.0.1.129.59: the unit price of a cart line (administración) */
+.nv-prod--precio{flex-wrap:wrap}
+.nv-precio{display:flex;align-items:center;gap:8px;flex:1 0 100%;font-size:14px;color:var(--dn-muted,#5b6573)}
+.nv-precio .dn-input{width:8.5em;text-align:right;padding:6px 8px}
+.nv-precio small{font-size:13px}
+.nv-precio--cambiado span,.nv-precio--cambiado .dn-input{color:var(--dn-warn-ink,#8a5a00);font-weight:700}

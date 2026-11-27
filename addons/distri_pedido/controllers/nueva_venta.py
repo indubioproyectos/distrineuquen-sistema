@@ -77,8 +77,8 @@ from odoo.http import request
 from ..models import nueva_venta as nv
 from ..models.reparto import _money
 from .kit import kit_context, staff_nav, ui_v2_on
-from .main import (CTX_DATOS_DE_LA_FICHA, MAX_CANTIDAD, MENSAJE_CLIENTE_AJENO,
-                   MENSAJE_DISTRIBUIDORA, TomaDePedidos)
+from .main import (CTX_DATOS_DE_LA_FICHA, CTX_PLANTILLAS_EXTRA, MAX_CANTIDAD,
+                   MENSAJE_CLIENTE_AJENO, MENSAJE_DISTRIBUIDORA, TomaDePedidos)
 from .tablero import wants_tablero
 
 TEMPLATE = "distri_pedido.nueva_venta_page"
@@ -124,6 +124,9 @@ def crear_cliente(user, valores, donde):
 
 # 19.0.1.129.32: the second of two simultaneous posts of the same sale
 DOBLE_TOQUE = "Esa venta ya se está cargando (se tocó dos veces). Fijate en «Mis ventas»."
+# 19.0.1.129.59: a seller's post with prices (the screen never sends them)
+SOLO_ADMIN_PRECIOS = "Solo administración y gerencia cambian el precio de un producto."
+SOLO_ADMIN_PRODUCTO = "Solo administración y gerencia crean productos desde acá."
 
 class NuevaVenta(http.Controller):
 
@@ -312,6 +315,8 @@ class NuevaVenta(http.Controller):
             # one per page shown: the same form posted twice gives one sale
             "envio": uuid.uuid4().hex,
             "motivo": nv.MOTIVO_ENTREGADO,
+            # 19.0.1.129.59: «Cambiar el precio» and «Producto nuevo»
+            "precios": nv.puede_cambiar_precios(user),
             "error": error,
         }, status=status)
 
@@ -344,6 +349,8 @@ class NuevaVenta(http.Controller):
                 })
         return self._json({
             "ok": True,
+            # 19.0.1.129.59: the lines' price can be changed (administración)
+            "precios": nv.puede_cambiar_precios(request.env.user),
             "cliente": self._cliente_json(cliente, lista),
             "productos": productos,
             "anteriores": self._anteriores(cliente, vendibles),
@@ -543,6 +550,78 @@ class NuevaVenta(http.Controller):
             renglones[plantilla.id] = renglones.get(plantilla.id, 0) + int(round(cantidad))
         return [{"id": k, "cantidad": v} for k, v in renglones.items()], sueltos
 
+    # ---------------------------------------------------------------- «Producto nuevo»
+
+    @http.route("/nueva-venta/producto", type="http", auth="user", methods=["POST"],
+                sitemap=False)
+    def producto_nuevo(self, **kw):
+        """19.0.1.129.59 «Producto nuevo» (administración, gerencia,
+        Sistemas): name, unit price and quantity typed in the cart. The
+        product is created with sudo behind the role (models/nueva_venta.py
+        crear_producto_nueva_venta), unpublished, and comes back as a cart
+        row of the screen at that price."""
+        user = self._check()
+        if not nv.puede_cambiar_precios(user):
+            return self._json({"ok": False, "error": SOLO_ADMIN_PRODUCTO}, status=403)
+        form = self._form()
+        try:
+            with request.env.cr.savepoint():
+                plantilla = nv.crear_producto_nueva_venta(request.env, form.get("nombre"),
+                                                          form.get("precio"))
+        except (UserError, ValidationError) as exc:
+            return self._json({"ok": False, "error": _error_text(exc)}, status=400)
+        return self._json({"ok": True, "producto": self._fila_extra(plantilla,
+                                                                    plantilla.list_price)})
+
+    @staticmethod
+    def _fila_extra(plantilla, precio):
+        """A product outside the customer's catalog as the screen's rows are
+        (/nueva-venta/catalogo), at its typed price."""
+        venta = nv.unidad_de_venta(plantilla)
+        return {"id": plantilla.id, "nombre": plantilla.name, "seccion": "Producto nuevo",
+                "unidad": venta.name or "", "contiene": "", "precio": precio,
+                "precio_texto": _money(precio), "extra": True}
+
+    def _precios_del_carrito(self, user, renglones):
+        """19.0.1.129.59: the prices typed in the cart, {template id: unit
+        price}, or an error with its status. Only administración may send
+        one (the server never trusts the screen: a seller's is refused);
+        each must be a number above zero."""
+        precios = {}
+        for renglon in renglones:
+            if not isinstance(renglon, dict) or renglon.get("precio") in (None, ""):
+                continue
+            if not nv.puede_cambiar_precios(user):
+                return None, SOLO_ADMIN_PRECIOS, 403
+            precio = nv.precio_valido(renglon.get("precio"))
+            try:
+                plantilla = int(renglon.get("id"))
+            except (TypeError, ValueError):
+                return None, "La venta llegó incompleta: recargá la página.", 400
+            if precio is None:
+                return None, "Revisá los precios: cada uno tiene que ser un número mayor que cero.", 400
+            precios[plantilla] = precio
+        return precios, "", 200
+
+    def _fuera_del_catalogo(self, precios):
+        """19.0.1.129.59: of the products with a typed price, the ones
+        outside /pedido's catalog that administración may still sell as in
+        the backend (sellable, active, not a service): a product created on
+        the spot. Returns (their ids, the ones created in «Nueva venta»)."""
+        if not precios:
+            return set(), set()
+        ids = list(precios)
+        catalogo = set(self._pedido()._plantillas_del_catalogo(ids).ids)
+        resto = [i for i in ids if i not in catalogo]
+        Tmpl = request.env["product.template"].sudo()
+        extra = Tmpl.search([("id", "in", resto), ("sale_ok", "=", True),
+                             ("type", "!=", "service")]) if resto else Tmpl
+        nuevos = Tmpl.search([("id", "in", ids), ("distri_nueva_venta_creado", "=", True)])
+        if extra:
+            # for the rest of this request only (_plantillas_del_catalogo)
+            request.update_context(**{CTX_PLANTILLAS_EXTRA: extra.ids})
+        return set(extra.ids), set(nuevos.ids)
+
     # ---------------------------------------------------------------- create
 
     def _clave(self, envio, renglones, salida, cliente):
@@ -566,10 +645,13 @@ class NuevaVenta(http.Controller):
         text = SPACES_RE.sub(" ", TAG_RE.sub(" ", body or "")).replace(" Volver", "").strip()
         return text[:400] or "No se pudo cargar la venta."
 
-    def _por_pedido(self, form, cliente, renglones):
+    def _por_pedido(self, form, cliente, renglones, precios=None, nuevos=()):
         """«A armar» and «Presupuesto»: the order of «Tomar un pedido»,
         through /pedido's own code with what its page would post for this
-        customer. Returns (order, error)."""
+        customer. Returns (order, error). 19.0.1.129.59: the prices typed by
+        administración (`precios`) go on its lines once it exists, before
+        anything confirms it; a double tap finds the first order and
+        changes nothing."""
         pedido = self._pedido()
         socio = cliente.sudo()
         # 19.0.1.129.40: what is left empty comes from his record
@@ -599,14 +681,18 @@ class NuevaVenta(http.Controller):
         if error:
             return None, error
         clave = pedido._clave_envio(post, validos)
+        Order = request.env["sale.order"].sudo()
+        previo = bool(clave) and bool(Order.search_count([("distri_envio_clave", "=", clave)]))
         # 19.0.1.129.40: the customer on file is the contact (main.py _datos_faltantes)
         request.update_context(**{CTX_DATOS_DE_LA_FICHA: True})
         response = pedido.enviar(**post)
-        order = request.env["sale.order"].sudo().search(
-            [("distri_envio_clave", "=", clave)], limit=1) if clave else None
+        order = Order.search([("distri_envio_clave", "=", clave)], limit=1) if clave else None
         if not order:
             return None, self._texto_de_respuesta(response)
-        return request.env["sale.order"].browse(order.id), ""
+        order = request.env["sale.order"].browse(order.id)
+        if (precios or nuevos) and not previo:
+            order._distri_nueva_venta_precios(precios or {}, nuevos)
+        return order, ""
 
     def _renglones_admin(self, renglones):
         """«Mostrador» and «Ya entregado»: [(template, quantity)] of the
@@ -615,6 +701,8 @@ class NuevaVenta(http.Controller):
         validos, error = pedido._renglones_validos(json.dumps(renglones), MAX_CANTIDAD)
         if error:
             return None, error
+        # 19.0.1.129.59: plus what administración sells at a typed price
+        # (CTX_PLANTILLAS_EXTRA, set by _fuera_del_catalogo)
         permitidas = pedido._plantillas_del_catalogo(r["id"] for r in validos)
         fuera = [r["id"] for r in validos if r["id"] not in permitidas.ids]
         if fuera:
@@ -648,6 +736,11 @@ class NuevaVenta(http.Controller):
             return self._refuse("Agregá al menos un producto.")
         # 19.0.1.129.40: the same product twice is one line with the sum
         renglones = nv.juntar_renglones(renglones)
+        # 19.0.1.129.59: prices typed by administración, never a seller's
+        precios, error, status = self._precios_del_carrito(user, renglones)
+        if error:
+            return self._refuse(error, status=status)
+        _extra, nuevos = self._fuera_del_catalogo(precios)
         respuesta, error = self._respuesta_whatsapp(form, cliente, salida)
         if error:
             return self._refuse(error)
@@ -658,7 +751,7 @@ class NuevaVenta(http.Controller):
                     nv.guardar_whatsapp_nueva_venta(request.env, cliente, form.get("wa_area"),
                                                     form.get("wa_numero"), None)
                 if salida in (nv.ARMAR, nv.PRESUPUESTO):
-                    order, error = self._por_pedido(form, cliente, renglones)
+                    order, error = self._por_pedido(form, cliente, renglones, precios, nuevos)
                     if error:
                         raise UserError(error)
                     self._extras(order, form)
@@ -669,7 +762,8 @@ class NuevaVenta(http.Controller):
                     url = "/nueva-venta/hecho/%s" % order.id
                     order_id = order.id
                 else:
-                    url, order, order_id = self._crear_admin(form, cliente, renglones, salida)
+                    url, order, order_id = self._crear_admin(form, cliente, renglones, salida,
+                                                             precios, nuevos)
                 if (respuesta == "sin" and order and order.state == "sale"
                         and self._sin_whatsapp(cliente)):
                     order.message_post(body="Confirmado sin WhatsApp del cliente por %s "
@@ -711,10 +805,12 @@ class NuevaVenta(http.Controller):
         for aviso in avisos:
             order.message_post(body="«Nueva venta»: %s" % aviso)
 
-    def _crear_admin(self, form, cliente, renglones, salida):
+    def _crear_admin(self, form, cliente, renglones, salida, precios=None, nuevos=()):
         """«Mostrador» and «Ya entregado»: a backend quotation and the
         existing step. Returns (the URL to go to, the order made now, the id
-        of the sale: the one made now or, on a double tap, the first one)."""
+        of the sale: the one made now or, on a double tap, the first one).
+        19.0.1.129.59: the typed prices go on the quotation's lines before
+        the step confirms, packs and invoices it."""
         lineas, error = self._renglones_admin(renglones)
         if error:
             raise UserError(error)
@@ -746,6 +842,8 @@ class NuevaVenta(http.Controller):
                 order.sudo().unlink()
                 raise UserError(DOBLE_TOQUE) from None
         self._extras(order, form)
+        if precios or nuevos:
+            order._distri_nueva_venta_precios(precios or {}, nuevos)
         if salida == nv.MOSTRADOR:
             order._distri_nueva_venta_mostrador()
         else:

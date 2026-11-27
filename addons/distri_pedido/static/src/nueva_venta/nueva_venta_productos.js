@@ -52,6 +52,12 @@
     var mismo = b && b.cliente && String(b.cliente.id) === String(cliente.id);
     var out = mismo ? b : {cliente: cliente, salida: '', campos: {}, encomienda: false, sin_wa: false};
     out.cliente = cliente;
+    // 19.0.1.129.59: a product made on the spot is not on this page: kept
+    if (mismo && b.extras && b.carrito) {
+      Object.keys(b.extras).forEach(function (id) {
+        if (b.carrito[id] > 0 && !(id in carrito)) { carrito[id] = b.carrito[id]; }
+      });
+    }
     out.carrito = carrito;
     out.t = now;
     out.paso = 'salida';

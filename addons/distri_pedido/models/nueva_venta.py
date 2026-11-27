@@ -27,9 +27,11 @@ implies it): Gonzalo, Denis and Ale. Sellers get «A armar» and
 Everything is behind the parameter distri_pedido.nueva_venta, OFF by
 default: with it off there is no screen, no tile and nothing changes.
 """
+import math
 from datetime import datetime, time
 
 import pytz
+from markupsafe import Markup, escape
 
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
@@ -85,6 +87,72 @@ def salidas_de(user):
     return [key for key, _label, _help in SALIDAS if admin or key not in SALIDAS_ADMIN]
 
 
+# 19.0.1.129.59 (owner, 27/11/2026: «como podían en Odoo»): administración
+# (gerencia implies it) and Sistemas change a line's price and create a
+# product on the spot in «Nueva venta»; sellers see and may do neither
+GRUPOS_PRECIOS = (ADMIN_GROUP, "base.group_system")
+PRECIO_MAXIMO = 100_000_000
+CATEGORIA_PRODUCTO_NUEVO = "Varios"
+
+
+def puede_cambiar_precios(user):
+    """«Cambiar el precio» of a line and «Producto nuevo» (19.0.1.129.59)."""
+    return puede_nueva_venta(user) and any(user.has_group(g) for g in GRUPOS_PRECIOS)
+
+
+def precio_valido(valor):
+    """A typed unit price: a float above 0 (a comma is a decimal point), or
+    None. «1.234,50» and «1234.5» both read as 1234.5."""
+    if isinstance(valor, bool) or valor is None:
+        return None
+    if isinstance(valor, (int, float)):
+        precio = float(valor)
+    else:
+        texto = str(valor).strip().replace("$", "").replace(" ", "")
+        if "," in texto:
+            texto = texto.replace(".", "").replace(",", ".")
+        try:
+            precio = float(texto)
+        except ValueError:
+            return None
+    if not math.isfinite(precio) or precio <= 0 or precio > PRECIO_MAXIMO:
+        return None
+    return round(precio, 2)
+
+
+def _plata(monto):
+    return "$ %s" % ("{:,.2f}".format(monto).replace(",", "X").replace(".", ",").replace("X", "."))
+
+
+def crear_producto_nueva_venta(env, nombre, precio):
+    """19.0.1.129.59 «Producto nuevo»: a sellable product made on the spot by
+    administración, created with sudo (Gonzalo has no product manager
+    rights: the role is the gate, puede_cambiar_precios, checked by the
+    caller) and kept out of /pedido's customer catalog (not published).
+    Its type is the one every product of this database has (goods, stock
+    tracked) and its category «Varios» when it exists. A chatter note says
+    who made it. UserError when the name or the price cannot be used."""
+    nombre = " ".join((nombre or "").split())[:120]
+    if len(nombre) < 2:
+        raise UserError("Escribí el nombre del producto.")
+    precio = precio_valido(precio)
+    if precio is None:
+        raise UserError("Poné el precio del producto: un número mayor que cero.")
+    Tmpl = env["product.template"].sudo()
+    valores = {"name": nombre, "sale_ok": True, "type": "consu", "is_storable": True,
+               "list_price": precio, "is_published": False,
+               "distri_nueva_venta_creado": True}
+    categoria = env["product.category"].sudo().search(
+        [("name", "=ilike", CATEGORIA_PRODUCTO_NUEVO)], order="id", limit=1)
+    if categoria:
+        valores["categ_id"] = categoria.id
+    # sudo keeps the uid: create_uid is the user
+    plantilla = Tmpl.create(valores)
+    plantilla.message_post(body="Producto creado por %s en «Nueva venta», a %s. No se publica "
+                                "en el catálogo de /pedido." % (env.user.name, _plata(precio)))
+    return plantilla
+
+
 def unidad_de_venta(plantilla):
     """The unit the catalog sells in (controllers/main.py _unidad_de_venta)."""
     return plantilla.uom_ids[:1] or plantilla.uom_id
@@ -116,8 +184,71 @@ def juntar_renglones(renglones):
     return orden
 
 
+class ProductTemplateNuevaVenta(models.Model):
+    _inherit = "product.template"
+
+    # 19.0.1.129.59: «Producto nuevo» of «Nueva venta» (to find and complete)
+    distri_nueva_venta_creado = fields.Boolean(
+        string="Creado en «Nueva venta»", readonly=True, copy=False,
+        help="Producto creado por administración desde «Nueva venta» (botón «Producto nuevo»). "
+             "No se publica en el catálogo de /pedido.")
+
+
+class SaleOrderLineNuevaVenta(models.Model):
+    _inherit = "sale.order.line"
+
+    # 19.0.1.129.59: a price typed by administración in «Nueva venta»
+    distri_precio_manual = fields.Boolean(
+        string="Precio cambiado a mano", readonly=True, copy=False,
+        help="Administración puso este precio en «Nueva venta»: «Actualizar precios» y los "
+             "cambios de lista no lo pisan.")
+
+
 class SaleOrderNuevaVenta(models.Model):
     _inherit = "sale.order"
+
+    def _get_update_prices_lines(self):
+        """19.0.1.129.59: a price typed in «Nueva venta» stays when the list
+        is recomputed («Actualizar precios», a customer or list change)."""
+        return super()._get_update_prices_lines().filtered(lambda l: not l.distri_precio_manual)
+
+    def _distri_nueva_venta_precios(self, precios, nuevos=()):
+        """19.0.1.129.59: the prices administración typed in «Nueva venta»
+        ({product.template id: unit price in the unit of sale}) on this
+        order's lines, before it is confirmed, packed or invoiced, and a
+        chatter note with each overridden line (list price → new price) and
+        the products created on the spot (`nuevos`, template ids). Written
+        after the lines exist, so Odoo keeps them as manual prices
+        (technical_price_unit stays the list's)."""
+        self.ensure_one()
+        if not precios and not nuevos:
+            return
+        user = self.env.user
+        cambios, creados = [], []
+        lineas = self.order_line.filtered(lambda l: not l.display_type)
+        for linea in lineas:
+            plantilla = linea.product_id.product_tmpl_id
+            precio = precios.get(plantilla.id)
+            if precio is None:
+                continue
+            antes = linea.price_unit
+            moneda = linea.currency_id or self.currency_id
+            if plantilla.id in nuevos:
+                creados.append(escape("%s a %s" % (plantilla.name, _plata(precio))))
+            elif moneda.compare_amounts(antes, precio) != 0:
+                cambios.append(escape("%s: %s → %s" % (plantilla.name, _plata(antes),
+                                                       _plata(precio))))
+            if moneda.compare_amounts(antes, precio) != 0 or plantilla.id in nuevos:
+                linea.sudo().write({"price_unit": precio, "distri_precio_manual": True})
+        partes = []
+        if cambios:
+            partes.append(Markup("Precios cambiados por %s en «Nueva venta» (precio de lista → "
+                                 "precio puesto):<br/>%s") % (user.name, Markup("<br/>").join(cambios)))
+        if creados:
+            partes.append(Markup("Productos creados en «Nueva venta», vendidos por %s:<br/>%s") % (
+                user.name, Markup("<br/>").join(creados)))
+        if partes:
+            self.message_post(body=Markup("<br/><br/>").join(partes))
 
     # 19.0.1.129.30: «Ya entregado» of «Nueva venta» (who and when it was
     # marked are distri_entregado_fuera_por_id / _el, 19.0.1.129.25)

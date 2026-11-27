@@ -201,3 +201,6 @@
   .pl-lado{position:static;max-height:none}
   .pl-c-uni{display:none}
 }
+/* 19.0.1.129.59: the «Precio» cell typed over (administración) */
+.pl-pre{text-align:right}
+.pl-pre--cambiado{color:var(--dn-warn-ink,#8a5a00);font-weight:700;border-color:var(--dn-line)}

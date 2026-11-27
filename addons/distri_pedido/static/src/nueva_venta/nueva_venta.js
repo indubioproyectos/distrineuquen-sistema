@@ -20,7 +20,13 @@
  * search adds it (or finds its line) and puts the cursor in its quantity.
  *
  * 19.0.1.129.42: the customer list shows only from the 2nd letter typed
- * (not on open, not on «Cambiar»); before that, a one-line hint. */
+ * (not on open, not on «Cambiar»); before that, a one-line hint.
+ *
+ * 19.0.1.129.59 (administración only, body data-precios="1"; the server
+ * checks it again): each cart line has its unit price to change (the
+ * customer's list price by default) and «Producto nuevo» creates a product
+ * (/nueva-venta/producto) and puts it in the cart at its price. A changed
+ * price goes with its line as `precio`; both are kept in the draft. */
 (function () {
   'use strict';
   var DN = window.DN;
@@ -43,9 +49,30 @@
   var restaurando = false;
   var datos = null;   // the picked customer as /nueva-venta/catalogo sent it
   var VOLVER = 'dn:nv:volver';
+  // 19.0.1.129.59
+  var PRECIOS = document.body.getAttribute('data-precios') === '1';
+  var precios = {};   // template id -> typed unit price
+  var extras = {};    // template id -> row of a product outside the catalog
 
   function plata(n) {
     return '$ ' + Math.round(n).toLocaleString('es-AR');
+  }
+
+  // 19.0.1.129.59: a typed price (models/nueva_venta.py precio_valido)
+  function leerPrecio(v) {
+    var t = String(v == null ? '' : v).replace(/[$\s]/g, '');
+    if (t.indexOf(',') !== -1) { t = t.replace(/\./g, '').replace(',', '.'); }
+    var n = +t;
+    return t && isFinite(n) && n > 0 && n <= 1e8 ? Math.round(n * 100) / 100 : 0;
+  }
+  function precioDe(id) {
+    if (precios[id]) { return precios[id]; }
+    return (porId[id] && porId[id].precio) || 0;
+  }
+  function sumarExtras() {
+    Object.keys(extras).forEach(function (id) {
+      if (!porId[id]) { productos.push(extras[id]); porId[id] = extras[id]; }
+    });
   }
 
   function error(text) {
@@ -89,6 +116,7 @@
     var campos = {};
     CAMPOS.forEach(function (n) { var el = form.elements[n]; if (el) { campos[n] = el.value; } });
     var data = {t: Date.now(), cliente: cliente, carrito: carrito, salida: salida(), campos: campos,
+      precios: PRECIOS ? precios : {}, extras: PRECIOS ? extras : {},
       encomienda: $('nv-encomienda').checked, sin_wa: !!($('nv-sin-wa') && $('nv-sin-wa').checked)};
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* full or private */ }
   }
@@ -119,6 +147,11 @@
   function restaurar(b) {
     restaurando = true;
     Object.keys(b.carrito || {}).forEach(function (id) { if (porId[id]) { carrito[id] = b.carrito[id]; } });
+    if (PRECIOS) {
+      Object.keys(b.precios || {}).forEach(function (id) {
+        if (porId[id] && leerPrecio(b.precios[id])) { precios[id] = leerPrecio(b.precios[id]); }
+      });
+    }
     Object.keys(b.campos || {}).forEach(function (n) {
       var el = form.elements[n];
       if (el && b.campos[n] != null) { el.value = b.campos[n]; }
@@ -193,6 +226,11 @@
       productos = data.productos;
       porId = {};
       productos.forEach(function (p) { porId[p.id] = p; });
+      // 19.0.1.129.59: the products made on the spot stay (any customer)
+      if (PRECIOS && borrador && borrador.extras) {
+        Object.keys(borrador.extras).forEach(function (id) { extras[id] = borrador.extras[id]; });
+      }
+      if (PRECIOS) { sumarExtras(); }
       // what is not in this customer's catalog leaves the cart
       Object.keys(carrito).forEach(function (id) { if (!porId[id]) { delete carrito[id]; } });
       pintarAnteriores(data.anteriores || []);
@@ -269,9 +307,21 @@
 
   // ------------------------------------------------------------ cart
 
+  // 19.0.1.129.59: the unit price of a cart line, to change (administración)
+  function campoPrecio(p) {
+    var cambiado = !!precios[p.id] && !p.extra;
+    return '<label class="nv-precio' + (cambiado ? ' nv-precio--cambiado' : '') + '">' +
+      '<span>Precio unitario $</span><input class="dn-input dn-num" data-precio="' + p.id +
+      '" inputmode="decimal" enterkeyhint="done" autocomplete="off" aria-label="Precio unitario de ' + h(p.nombre) +
+      '" value="' + (precioDe(p.id) ? String(precioDe(p.id)).replace('.', ',') : '') + '"/>' +
+      (cambiado ? '<small>Lista: ' + (p.precio_texto ? '$ ' + h(p.precio_texto) : 'sin precio') + '</small>' : '') +
+      '</label>';
+  }
+
   function fila(p, enCarrito) {
     var n = carrito[p.id] || 0;
-    return '<div class="nv-prod' + (n ? ' on' : '') + '" data-id="' + p.id + '">' +
+    var editable = PRECIOS && enCarrito;
+    return '<div class="nv-prod' + (n ? ' on' : '') + (editable ? ' nv-prod--precio' : '') + '" data-id="' + p.id + '">' +
       '<span class="nv-prod__txt"' + (enCarrito ? '' : ' data-elige="1" role="button" tabindex="0"') +
       '><b>' + h(p.nombre) + '</b><small>' +
       h([p.unidad + (p.contiene ? ' x ' + p.contiene : ''),
@@ -281,7 +331,8 @@
       '<button type="button" class="dn-icon-btn" data-d="-1" aria-label="Uno menos">−</button>' +
       '<input class="dn-input dn-num" inputmode="numeric" enterkeyhint="done" aria-label="Cantidad" value="' +
       (n || '') + '"/>' +
-      '<button type="button" class="dn-icon-btn" data-d="1" aria-label="Uno más">+</button></span></div>';
+      '<button type="button" class="dn-icon-btn" data-d="1" aria-label="Uno más">+</button></span>' +
+      (editable ? campoPrecio(p) : '') + '</div>';
   }
 
   function pintarProductos() {
@@ -301,19 +352,21 @@
     $('nv-carrito-vacio').hidden = ids.length > 0;
     var total = 0;
     var unidades = 0;
-    ids.forEach(function (id) { total += carrito[id] * (porId[id].precio || 0); unidades += carrito[id]; });
+    ids.forEach(function (id) { total += carrito[id] * precioDe(id); unidades += carrito[id]; });
     $('nv-total').textContent = plata(total);
     $('nv-conteo').textContent = ids.length ? ids.length + (ids.length === 1 ? ' producto' : ' productos') +
       ', ' + unidades + (unidades === 1 ? ' unidad' : ' unidades') : '';
     $('nv-renglones').value = JSON.stringify(ids.map(function (id) {
-      return {id: +id, cantidad: carrito[id]};
+      var r = {id: +id, cantidad: carrito[id]};
+      if (PRECIOS && precios[id]) { r.precio = precios[id]; }
+      return r;
     }));
     listo();
   }
 
   function cambiar(id, valor) {
     var n = Math.max(0, Math.min(10000, Math.floor(+valor || 0)));
-    if (n) { carrito[id] = n; } else { delete carrito[id]; }
+    if (n) { carrito[id] = n; } else { delete carrito[id]; if (porId[id] && !porId[id].extra) { delete precios[id]; } }
     pintarCarrito();
     pintarProductos();
   }
@@ -325,8 +378,25 @@
     var btn = ev.target.closest('button[data-d]');
     if (btn && ev.type === 'click') { cambiar(id, (carrito[id] || 0) + (+btn.dataset.d)); }
     if (!btn && ev.type === 'click' && ev.target.closest('[data-elige]')) { elegirProducto(id); }
+    if (ev.type === 'change' && ev.target.hasAttribute('data-precio')) { cambiarPrecio(id, ev.target.value); return; }
     if (ev.type === 'change' && ev.target.tagName === 'INPUT') { cambiar(id, ev.target.value); }
   }
+  // 19.0.1.129.59: the list price again = no change; empty = the list's
+  function cambiarPrecio(id, valor) {
+    var p = porId[id];
+    if (!PRECIOS || !p) { return; }
+    var n = leerPrecio(valor);
+    error(String(valor).trim() && !n ? 'El precio de ' + p.nombre + ' tiene que ser un número mayor que cero.' : '');
+    if (p.extra) {
+      if (n) { precios[id] = n; }
+    } else if (n && Math.abs(n - (p.precio || 0)) >= 0.005) {
+      precios[id] = n;
+    } else {
+      delete precios[id];
+    }
+    pintarCarrito();
+  }
+
   // 19.0.1.129.40: a product found in the search: in the cart once (the
   // same product again finds its line), the search cleared and the cursor
   // in its quantity, ready to type it
@@ -446,6 +516,45 @@
           DN.toast('Se cargaron ' + r.renglones.length + ' productos.', 'ok');
         }
       }).catch(function (e) { $('nv-pegar-aviso').textContent = e.message; });
+    });
+  }
+
+  // ------------------------------------------------------------ «Producto nuevo» (129.59)
+
+  var hojaProducto = PRECIOS && $('nv-producto') && DN.sheet ? DN.sheet($('nv-producto')) : null;
+  if (hojaProducto) {
+    DN.$$('[data-dn-close]', $('nv-producto')).forEach(function (b) { b.addEventListener('click', hojaProducto.close); });
+    $('nv-producto-abrir').addEventListener('click', function () {
+      $('nv-p-nombre').value = $('nv-q-prod').value.trim();
+      $('nv-p-precio').value = '';
+      $('nv-p-cantidad').value = '1';
+      $('nv-producto-aviso').textContent = '';
+      hojaProducto.open();
+    });
+    $('nv-producto-crear').addEventListener('click', function () {
+      var nombre = $('nv-p-nombre').value.trim();
+      var precio = leerPrecio($('nv-p-precio').value);
+      var cantidad = Math.max(1, Math.min(10000, Math.floor(+$('nv-p-cantidad').value || 1)));
+      if (nombre.length < 2) { $('nv-producto-aviso').textContent = 'Escribí el nombre del producto.'; return; }
+      if (!precio) { $('nv-producto-aviso').textContent = 'Poné el precio: un número mayor que cero.'; return; }
+      var btn = $('nv-producto-crear');
+      btn.disabled = true;
+      DN.api('/nueva-venta/producto', {body: {nombre: nombre, precio: precio}}).then(function (r) {
+        btn.disabled = false;
+        var p = r.producto;
+        extras[p.id] = p;
+        sumarExtras();
+        carrito[p.id] = cantidad;
+        precios[p.id] = p.precio;
+        $('nv-q-prod').value = '';
+        hojaProducto.close();
+        pintarCarrito();
+        pintarProductos();
+        DN.toast('Listo: se creó ' + p.nombre + ' y está en la venta.', 'ok');
+      }).catch(function (e) {
+        btn.disabled = false;
+        $('nv-producto-aviso').textContent = e.message;
+      });
     });
   }
 

@@ -23,6 +23,10 @@
  * back to change and load again), and the remito to print or share.
  * The draft (customer, lines, exit, answers, and the order once loaded) is
  * kept in localStorage, so a failed step or a reload loses nothing.
+ * 19.0.1.129.59 (administración only, body data-precios="1"; the server
+ * checks it again): the «Precio» cell of each line can be typed over (the
+ * customer's list price by default) and «Producto nuevo»
+ * (/nueva-venta/producto) adds a product made on the spot at its price.
  *
  * The pure part (search, the lines' keyboard, shortcuts, amounts, where an
  * error goes) is window.DNPlanilla, tested in Node
@@ -73,6 +77,7 @@
   // {i, campo: 'prod' | 'cant'} and the product list open under it.
   function Lineas(productos) {
     this.filas = [];
+    this.extras = {};  // 19.0.1.129.59: products outside the catalog
     this.foco = {i: 0, campo: 'prod'};
     this.drop = {abierto: false, items: [], idx: 0};
     this.setCatalogo(productos || []);
@@ -80,9 +85,12 @@
   }
   Lineas.prototype.setCatalogo = function (productos) {
     var self = this;
-    this.productos = productos;
+    this.productos = productos.slice();
     this.porId = {};
     productos.forEach(function (p) { self.porId[p.id] = p; });
+    Object.keys(this.extras).forEach(function (id) {
+      if (!self.porId[id]) { self.productos.push(self.extras[id]); self.porId[id] = self.extras[id]; }
+    });
     // what is not in this customer's catalog leaves the table
     var fuera = [];
     this.filas = this.filas.filter(function (f) {
@@ -102,7 +110,7 @@
   // always one empty line at the end
   Lineas.prototype._cola = function () {
     var ultima = this.filas[this.filas.length - 1];
-    if (!ultima || !this._vacia(ultima)) { this.filas.push({pid: null, texto: '', cantidad: ''}); }
+    if (!ultima || !this._vacia(ultima)) { this.filas.push({pid: null, texto: '', cantidad: '', precio: ''}); }
   };
   Lineas.prototype.cerrar = function () { this.drop = {abierto: false, items: [], idx: 0}; };
   Lineas.prototype.enfocar = function (i, campo) {
@@ -118,6 +126,34 @@
     var items = buscarProductos(this.productos, texto);
     this.drop = {abierto: items.length > 0 || !!norm(texto), items: items, idx: 0};
     this._cola();
+  };
+  // 19.0.1.129.59: a product made on the spot, kept whatever the customer
+  Lineas.prototype.agregarExtra = function (p) {
+    if (!p || !p.id) { return; }
+    p.extra = true;
+    this.extras[p.id] = p;
+    if (!this.porId[p.id]) { this.productos.push(p); this.porId[p.id] = p; }
+  };
+  Lineas.prototype.setPrecio = function (i, v) {
+    if (this.filas[i]) { this.filas[i].precio = String(v == null ? '' : v).replace(/[^0-9.,$ ]/g, '').slice(0, 14); }
+  };
+  // the line's unit price: the typed one, else the list's
+  Lineas.prototype.precioDe = function (f) {
+    var p = f && f.pid && this.porId[f.pid];
+    return precioValido(f && f.precio) || (p && p.precio) || 0;
+  };
+  // the typed price differs from the list's (a product made on the spot
+  // always carries its price)
+  Lineas.prototype.precioCambiado = function (f) {
+    var p = f && f.pid && this.porId[f.pid];
+    var n = precioValido(f && f.precio);
+    if (!p) { return 0; }
+    if (p.extra) { return n || p.precio || 0; }
+    return n && Math.abs(n - (p.precio || 0)) >= 0.005 ? n : 0;
+  };
+  // rows whose typed price cannot be read
+  Lineas.prototype.preciosMalos = function () {
+    return this.filas.filter(function (f) { return f.pid && String(f.precio || '').trim() && !precioValido(f.precio); }).length;
   };
   Lineas.prototype.setCantidad = function (i, v) {
     if (this.filas[i]) { this.filas[i].cantidad = String(v == null ? '' : v).replace(/[^0-9]/g, '').slice(0, 5); }
@@ -205,10 +241,17 @@
     if (key === 'Escape') { this.enfocar(i, 'prod'); return true; }
     return false;
   };
-  // what /nueva-venta/crear posts: [{id, cantidad}]
+  // what /nueva-venta/crear posts: [{id, cantidad}] (19.0.1.129.59: and
+  // `precio` on a line whose price was changed)
   Lineas.prototype.renglones = function () {
+    var self = this;
     return this.filas.filter(function (f) { return f.pid && cantidadValida(f.cantidad); })
-      .map(function (f) { return {id: f.pid, cantidad: cantidadValida(f.cantidad)}; });
+      .map(function (f) {
+        var r = {id: f.pid, cantidad: cantidadValida(f.cantidad)};
+        var precio = self.precioCambiado(f);
+        if (precio) { r.precio = precio; }
+        return r;
+      });
   };
   // rows with text that is not a product of the list
   Lineas.prototype.sueltas = function () {
@@ -219,9 +262,11 @@
     var self = this;
     this.filas = [];
     (renglones || []).forEach(function (r) {
+      if (r.fila && !self.porId[r.id]) { self.agregarExtra(r.fila); }
       var p = self.porId[r.id];
       if (p && cantidadValida(r.cantidad)) {
-        self.filas.push({pid: p.id, texto: p.nombre, cantidad: String(cantidadValida(r.cantidad))});
+        self.filas.push({pid: p.id, texto: p.nombre, cantidad: String(cantidadValida(r.cantidad)),
+          precio: precioValido(r.precio) ? montoCampo(precioValido(r.precio)) : ''});
       }
     });
     this._cola();
@@ -236,7 +281,8 @@
       if (!p || !n) { return; }
       productos += 1;
       unidades += n;
-      if (p.precio > 0) { total += p.precio * n; } else { presupuestar += 1; }
+      var precio = self.precioDe(f);
+      if (precio > 0) { total += precio * n; } else { presupuestar += 1; }
     });
     return {total: total, unidades: unidades, productos: productos, presupuestar: presupuestar};
   };
@@ -272,6 +318,12 @@
     var c = Math.round((n || 0) * 100);
     if (c <= 0) { return ''; }
     return c % 100 ? Math.floor(c / 100) + ',' + String(c % 100).padStart(2, '0') : String(c / 100);
+  }
+  // 19.0.1.129.59: a typed unit price, above 0 (models/nueva_venta.py
+  // precio_valido), else 0
+  function precioValido(text) {
+    var n = parseMonto(text);
+    return n > 0 && n <= 1e8 ? Math.round(n * 100) / 100 : 0;
   }
   function plata(n) {
     var c = Math.round((n || 0) * 100) / 100;
@@ -332,7 +384,7 @@
   var core = {norm: norm, buscarProductos: buscarProductos, Lineas: Lineas, atajo: atajo,
     parseMonto: parseMonto, montoCampo: montoCampo, plata: plata, ubicarError: ubicarError,
     elegirVista: elegirVista, cantidadValida: cantidadValida, VISTA: 'dn:nv:vista',
-    pasosDe: pasosDe, textoPasos: textoPasos, chipSaldo: chipSaldo};
+    pasosDe: pasosDe, textoPasos: textoPasos, chipSaldo: chipSaldo, precioValido: precioValido};
   window.DNPlanilla = core;
   if (typeof document === 'undefined' || !document.getElementById || !document.getElementById('pl-form')) {
     return;
@@ -366,6 +418,7 @@
   var archivos = [];      // receipts of the delivery's transfer
   var transf = [];        // «Cobrar»: [{file, importe, recibo, nombre}]
   var flagsCobro = {};
+  var PRECIOS = body.getAttribute('data-precios') === '1';  // 19.0.1.129.59
 
   function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
   function leer(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -450,7 +503,8 @@
     CAMPOS.forEach(function (n) { var el = form.elements[n]; if (el) { campos[n] = el.value; } });
     guardar(KEY, JSON.stringify({t: Date.now(), cliente: {id: cliente.id, nombre: cliente.nombre},
       renglones: lineas.renglones(), salida: salidaActual(), campos: campos, envio: envio,
-      encomienda: $('pl-encomienda').checked, venta_id: venta ? venta.id : pendiente}));
+      encomienda: $('pl-encomienda').checked, venta_id: venta ? venta.id : pendiente,
+      extras: PRECIOS ? lineas.extras : {}}));
   }
   function leerBorrador() {
     try {
@@ -677,9 +731,25 @@
 
   // ------------------------------------------------------------ lines table
 
-  function celdaPrecio(p) {
+  function celdaPrecio(p, f, i, bloqueada) {
     if (!p) { return ''; }
-    return p.precio > 0 ? plata(p.precio) : '<span class="pl-presup">a presupuestar</span>';
+    var precio = lineas.precioDe(f);
+    if (PRECIOS && !bloqueada) {
+      // 19.0.1.129.59: typed over (administración); the list's by default
+      var cambiado = !!lineas.precioCambiado(f) && !p.extra;
+      return '<input class="pl-cell pl-pre dn-num' + (cambiado ? ' pl-pre--cambiado' : '') + '" data-i="' + i +
+        '" value="' + h(f.precio || montoCampo(p.precio)) + '" inputmode="decimal" autocomplete="off"' +
+        ' title="' + h(p.extra ? 'Producto nuevo' : 'Precio de lista: ' + (p.precio > 0 ? plata(p.precio) : 'a presupuestar')) +
+        '" aria-label="Precio unitario del renglón ' + (i + 1) + '"/>';
+    }
+    return precio > 0 ? plata(precio) : '<span class="pl-presup">a presupuestar</span>';
+  }
+  function celdaSub(f) {
+    var p = f.pid && lineas.porId[f.pid];
+    var n = cantidadValida(f.cantidad);
+    if (!p || !n) { return ''; }
+    var precio = lineas.precioDe(f);
+    return precio > 0 ? plata(precio * n) : '<span class="pl-presup">a presupuestar</span>';
   }
   function pintarFilas() {
     var bloqueada = !!venta;
@@ -688,7 +758,7 @@
       var n = cantidadValida(f.cantidad);
       if (bloqueada && !p) { return ''; }
       var unidad = p ? h(p.unidad + (p.contiene ? ' x ' + p.contiene : '')) : '';
-      var sub = p && n ? (p.precio > 0 ? plata(p.precio * n) : '<span class="pl-presup">a presupuestar</span>') : '';
+      var sub = celdaSub(f);
       return '<tr data-i="' + i + '"' + (p ? '' : ' class="pl-fila--vacia"') + '><td class="pl-c-n dn-num">' +
         (i + 1) + '</td><td class="pl-c-prod"><input class="pl-cell pl-prod" data-i="' + i + '" value="' +
         h(f.texto) + '" title="' + h(f.texto) + '" autocomplete="off" spellcheck="false" aria-label="Producto del renglón ' + (i + 1) + '"' +
@@ -697,11 +767,12 @@
         '/></td><td class="pl-c-cant"><input class="pl-cell pl-cant dn-num" data-i="' + i + '" value="' +
         h(f.cantidad) + '" inputmode="numeric" autocomplete="off" aria-label="Cantidad del renglón ' + (i + 1) + '"' +
         (bloqueada || !p ? ' tabindex="-1"' : '') + (bloqueada ? ' disabled="disabled"' : '') + '/></td>' +
-        '<td class="pl-c-uni">' + unidad + '</td><td class="pl-c-pre dn-num">' + celdaPrecio(p) + '</td>' +
+        '<td class="pl-c-uni">' + unidad + '</td><td class="pl-c-pre dn-num">' + celdaPrecio(p, f, i, bloqueada) + '</td>' +
         '<td class="pl-c-sub dn-num" data-sub="' + i + '">' + sub + '</td><td class="pl-c-x">' +
         (bloqueada || !p ? '' : '<button type="button" class="pl-x" data-x="' + i + '" tabindex="-1" ' +
           'aria-label="Quitar ' + h(f.texto) + '">×</button>') + '</td></tr>';
     }).join('');
+    if ($('pl-producto-abrir')) { $('pl-producto-abrir').hidden = bloqueada || !cliente; }
     pintarTotales();
     pintarDrop();
   }
@@ -715,9 +786,10 @@
     $('pl-renglones').value = JSON.stringify(lineas.renglones());
     lineas.filas.forEach(function (f, i) {
       var td = tbody.querySelector('[data-sub="' + i + '"]');
+      if (td) { td.innerHTML = celdaSub(f); }
+      var pre = PRECIOS && inputDe(i, 'pre');
       var p = f.pid && lineas.porId[f.pid];
-      var n = cantidadValida(f.cantidad);
-      if (td) { td.innerHTML = p && n ? (p.precio > 0 ? plata(p.precio * n) : '<span class="pl-presup">a presupuestar</span>') : ''; }
+      if (pre && p) { pre.classList.toggle('pl-pre--cambiado', !!lineas.precioCambiado(f) && !p.extra); }
     });
     pintarListo();
   }
@@ -763,6 +835,13 @@
   tbody.addEventListener('input', function (ev) {
     var el = ev.target;
     var i = +el.dataset.i;
+    if (el.classList.contains('pl-pre')) {
+      // 19.0.1.129.59: the typed price, without drawing the row again
+      lineas.setPrecio(i, el.value);
+      pintarTotales();
+      guardarBorrador();
+      return;
+    }
     if (el.classList.contains('pl-prod')) {
       var f = lineas.filas[i];
       if (f && f.pid) { f._antes = f.pid; }
@@ -787,7 +866,7 @@
   });
   tbody.addEventListener('focusin', function (ev) {
     var el = ev.target;
-    if (!el.dataset || el.dataset.i == null) { return; }
+    if (!el.dataset || el.dataset.i == null || el.classList.contains('pl-pre')) { return; }
     var campo = el.classList.contains('pl-cant') ? 'cant' : 'prod';
     if (lineas.foco.i !== +el.dataset.i || lineas.foco.campo !== campo) {
       lineas.foco = {i: +el.dataset.i, campo: campo};
@@ -803,7 +882,7 @@
   tbody.addEventListener('keydown', function (ev) {
     if (ev.altKey || ev.ctrlKey || ev.metaKey) { return; }
     var el = ev.target;
-    if (!el.dataset || el.dataset.i == null) { return; }
+    if (!el.dataset || el.dataset.i == null || el.classList.contains('pl-pre')) { return; }
     if (ev.key === 'Tab' && ev.shiftKey) { return; }
     lineas.foco = {i: +el.dataset.i, campo: el.classList.contains('pl-cant') ? 'cant' : 'prod'};
     var antes = JSON.stringify([lineas.filas.length, lineas.foco, lineas.filas.map(function (f) { return f.pid; })]);
@@ -832,6 +911,61 @@
     aplicarFoco();
     guardarBorrador();
   });
+
+  // ------------------------------------------------------------ «Producto nuevo» (129.59)
+
+  if (PRECIOS && $('pl-producto')) {
+    var cerrarProducto = function () {
+      $('pl-producto').hidden = true;
+      enfocarProducto();
+    };
+    $('pl-producto-abrir').addEventListener('click', function () {
+      var f = lineas.filas[lineas.foco.i];
+      $('pl-p-nombre').value = f && !f.pid ? String(f.texto || '').trim() : '';
+      $('pl-p-precio').value = '';
+      $('pl-p-cantidad').value = '1';
+      $('pl-err-producto').hidden = true;
+      $('pl-producto').hidden = false;
+      $('pl-p-nombre').focus();
+    });
+    $('pl-producto-cancelar').addEventListener('click', cerrarProducto);
+    $('pl-producto').addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' && ev.target.tagName === 'INPUT') { ev.preventDefault(); ev.stopPropagation(); $('pl-producto-crear').click(); }
+      if (ev.key === 'Escape') { cerrarProducto(); }
+    });
+    $('pl-producto-crear').addEventListener('click', function () {
+      var err = $('pl-err-producto');
+      var nombre = $('pl-p-nombre').value.trim();
+      var precio = precioValido($('pl-p-precio').value);
+      var cantidad = cantidadValida($('pl-p-cantidad').value) || 1;
+      err.hidden = true;
+      if (nombre.length < 2) { err.textContent = 'Escribí el nombre del producto.'; err.hidden = false; return; }
+      if (!precio) { err.textContent = 'Poné el precio: un número mayor que cero.'; err.hidden = false; return; }
+      var fd = new FormData();
+      fd.append('nombre', nombre);
+      fd.append('precio', String(precio));
+      var btn = $('pl-producto-crear');
+      btn.disabled = true;
+      pedir('/nueva-venta/producto', fd).then(function (r) {
+        btn.disabled = false;
+        if (!r.data.ok) { err.textContent = r.data.error || 'No se pudo crear el producto.'; err.hidden = false; return; }
+        var p = r.data.producto;
+        lineas.agregarExtra(p);
+        // in the row being typed when it was empty or unmatched, else a new one
+        var i = lineas.foco.i;
+        var f = lineas.filas[i];
+        if (!f || f.pid) { i = lineas.filas.length - 1; }
+        lineas.elegir(i, p.id);
+        var k = lineas.foco.i;
+        lineas.setCantidad(k, String(cantidad));
+        lineas.setPrecio(k, montoCampo(p.precio));
+        $('pl-producto').hidden = true;
+        pintarFilas();
+        aplicarFoco();
+        guardarBorrador();
+      });
+    });
+  }
 
   // ------------------------------------------------------------ the steps on top
 
@@ -948,6 +1082,10 @@
       return;
     }
     if (!lineas.renglones().length) { mostrarError('Agregá al menos un producto.', 'pl-err-lineas'); enfocarProducto(); return; }
+    if (PRECIOS && lineas.preciosMalos()) {
+      mostrarError('Revisá los precios: cada uno tiene que ser un número mayor que cero.', 'pl-err-lineas');
+      return;
+    }
     if (!salidaActual()) { mostrarError('Elegí cómo sigue la venta (Alt+1 a Alt+' + ops.length + ').', 'pl-err-cargar'); irASalida(); return; }
     if (salidaActual() === 'entregado' && !$('pl-motivo').value.trim()) {
       mostrarError('Poné el motivo de la entrega fuera del sistema.', 'pl-err-cargar');
@@ -1560,6 +1698,7 @@
 
   function restaurar(b) {
     restaurando = true;
+    if (PRECIOS) { Object.keys(b.extras || {}).forEach(function (id) { lineas.agregarExtra(b.extras[id]); }); }
     lineas.cargar(b.renglones || []);
     Object.keys(b.campos || {}).forEach(function (n) {
       var el = form.elements[n];

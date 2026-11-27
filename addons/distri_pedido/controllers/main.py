@@ -21,6 +21,11 @@ _logger = logging.getLogger(__name__)
 # 19.0.1.129.40: context key «Nueva venta» sets before calling enviar() for a
 # customer on file (see _datos_faltantes)
 CTX_DATOS_DE_LA_FICHA = "distri_nv_datos_de_la_ficha"
+# 19.0.1.129.59: context key «Nueva venta» sets (server side only, never from
+# the post) with the product templates administración sells outside the
+# catalog at a typed price (a product created on the spot): enviar() and
+# _plantillas_del_catalogo accept them for that one call
+CTX_PLANTILLAS_EXTRA = "distri_nv_plantillas_extra"
 
 # Mercado Pago ids are plain integers; anything else is rejected outright.
 MP_ID = re.compile(r"^\d{1,20}$")
@@ -1713,6 +1718,12 @@ class TomaDePedidos(http.Controller):
             plantillas |= Tmpl.search(
                 [("id", "in", ids), ("distri_lista_personal", "!=", False),
                  ("sale_ok", "=", True), ("type", "!=", "service")])
+        extra = set(request.env.context.get(CTX_PLANTILLAS_EXTRA) or ()) & set(ids)
+        if extra:
+            # 19.0.1.129.59: checked by «Nueva venta» (administración, a typed
+            # price, a sellable product) before it calls this
+            plantillas |= Tmpl.search([("id", "in", list(extra)), ("sale_ok", "=", True),
+                                       ("type", "!=", "service")])
         return plantillas
 
     def _error_compra_minima(self, total):

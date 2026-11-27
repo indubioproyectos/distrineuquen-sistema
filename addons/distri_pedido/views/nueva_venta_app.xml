@@ -51,7 +51,7 @@
   <t t-call="distri_pedido.dn_head"/>
 </head>
 <body t-att-class="'nv nv--v2 dn-has-nav' if v2 else 'nv dn-has-nav'" t-att-data-parent="inicio" data-page="nueva-venta" t-att-data-uid="uid"
-      t-att-data-wa-requerido="'1' if wa_requerido else '0'">
+      t-att-data-wa-requerido="'1' if wa_requerido else '0'" t-att-data-precios="'1' if precios else '0'">
   <t t-call="distri_pedido.nueva_venta_top">
     <t t-set="volver" t-value="inicio"/>
     <t t-set="titulo" t-value="'Nueva venta'"/>
@@ -136,6 +136,9 @@
                placeholder="O buscá uno acá" enterkeyhint="search"/>
         <button t-if="pegar" type="button" class="dn-btn dn-btn--outline dn-btn--sm dn-btn--auto" id="nv-pegar-abrir">
           Pegar mensaje de AgilPedido</button>
+        <!-- 19.0.1.129.59: administración only (the server checks it again) -->
+        <button t-if="precios" type="button" class="dn-btn dn-btn--outline dn-btn--sm dn-btn--auto" id="nv-producto-abrir">
+          Producto nuevo</button>
       </div>
       <p class="nv-meta" id="nv-carrito-vacio">Todavía no hay productos en la venta.</p>
       <div id="nv-carrito" class="nv-list nv-list--carrito"></div>
@@ -253,6 +256,27 @@
     <div class="dn-grid2 nv-grid2">
       <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</button>
       <button type="button" class="dn-btn" id="nv-pegar-leer">Leer el mensaje</button>
+    </div>
+  </div>
+  <!-- 19.0.1.129.59: «Producto nuevo» (administración): created unpublished
+       and put in the cart at its price -->
+  <div t-if="precios" class="dn-sheet nv-hoja" id="nv-producto" role="dialog" aria-labelledby="nv-producto-t">
+    <h2 id="nv-producto-t">Producto nuevo</h2>
+    <p class="nv-meta">Se crea para vender ya. No aparece en el catálogo de los clientes.</p>
+    <div class="dn-field"><label for="nv-p-nombre">Nombre del producto</label>
+      <input id="nv-p-nombre" class="dn-input" type="text" maxlength="120" autocomplete="off" enterkeyhint="next"/></div>
+    <div class="nv-wa__campos">
+      <div class="dn-field"><label for="nv-p-precio">Precio unitario $</label>
+        <input id="nv-p-precio" class="dn-input dn-num" inputmode="decimal" maxlength="14" autocomplete="off"
+               enterkeyhint="next"/></div>
+      <div class="dn-field"><label for="nv-p-cantidad">Cantidad</label>
+        <input id="nv-p-cantidad" class="dn-input dn-num" inputmode="numeric" maxlength="5" value="1"
+               autocomplete="off" enterkeyhint="done"/></div>
+    </div>
+    <p class="nv-meta nv-aviso" id="nv-producto-aviso"></p>
+    <div class="dn-grid2 nv-grid2">
+      <button type="button" class="dn-btn dn-btn--ghost" data-dn-close="">Cancelar</button>
+      <button type="button" class="dn-btn" id="nv-producto-crear">Crear y agregar</button>
     </div>
   </div>
   <!-- 19.0.1.129.40: «Datos del cliente» and «Nuevo cliente», on this page

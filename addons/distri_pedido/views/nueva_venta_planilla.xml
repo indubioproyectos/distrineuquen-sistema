@@ -21,7 +21,8 @@
   <t t-call="distri_pedido.dn_head"/>
 </head>
 <body class="nv nv--v2 pl" t-att-data-parent="inicio" data-page="nueva-venta-planilla" t-att-data-uid="uid"
-      t-att-data-wa-requerido="'1' if wa_requerido else '0'" t-att-data-max-transf="max_transf">
+      t-att-data-wa-requerido="'1' if wa_requerido else '0'" t-att-data-max-transf="max_transf"
+      t-att-data-precios="'1' if precios else '0'">
   <t t-call="distri_pedido.nueva_venta_top">
     <t t-set="volver" t-value="inicio"/>
     <t t-set="titulo" t-value="'Nueva venta'"/>
@@ -131,6 +132,28 @@
           <ul class="pl-drop pl-drop--prod" id="pl-productos" role="listbox" aria-label="Productos" hidden="hidden"></ul>
         </div>
         <p class="pl-err" id="pl-err-lineas" role="alert" hidden="hidden"></p>
+        <!-- 19.0.1.129.59: administración only (the server checks it again):
+             a product made on the spot, unpublished, at its price -->
+        <t t-if="precios">
+          <div class="pl-acts"><button type="button" class="dn-btn dn-btn--outline dn-btn--sm dn-btn--auto" id="pl-producto-abrir"
+                  hidden="hidden">+ Producto nuevo</button></div>
+          <div class="pl-nuevo" id="pl-producto" hidden="hidden">
+            <h3 class="pl-sub">Producto nuevo <small class="nv-meta">Se crea para vender ya. No aparece en el catálogo de los clientes.</small></h3>
+            <div class="pl-grid">
+              <div class="dn-field pl-span2"><label for="pl-p-nombre">Nombre del producto</label>
+                <input id="pl-p-nombre" class="dn-input" type="text" maxlength="120" autocomplete="off"/></div>
+              <div class="dn-field"><label for="pl-p-precio">Precio unitario $</label>
+                <input id="pl-p-precio" class="dn-input dn-num" inputmode="decimal" maxlength="14" autocomplete="off"/></div>
+              <div class="dn-field"><label for="pl-p-cantidad">Cantidad</label>
+                <input id="pl-p-cantidad" class="dn-input dn-num" inputmode="numeric" maxlength="5" value="1" autocomplete="off"/></div>
+            </div>
+            <p class="pl-err" id="pl-err-producto" role="alert" hidden="hidden"></p>
+            <div class="pl-acts">
+              <button type="button" class="dn-btn dn-btn--sm dn-btn--auto" id="pl-producto-crear">Crear y agregar</button>
+              <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" id="pl-producto-cancelar">Cancelar</button>
+            </div>
+          </div>
+        </t>
         <!-- 19.0.1.129.56: «agregar o sacar algo a último momento», while the
              counter sale waits for its delivery (/nueva-venta/planilla/corregir) -->
         <div class="pl-corregir" id="pl-corregir" hidden="hidden">

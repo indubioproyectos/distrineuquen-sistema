@@ -106,6 +106,8 @@ class NuevaVentaPlanilla(http.Controller):
             "localidades": base._pedido()._localidades_encomienda(),
             "motivo": nv.MOTIVO_ENTREGADO,
             "max_transf": MAX_TRANSFERS,
+            # 19.0.1.129.59: «Cambiar el precio» and «Producto nuevo»
+            "precios": nv.puede_cambiar_precios(user),
         })
 
     # ---------------------------------------------------------------- the sale
@@ -256,12 +258,20 @@ class NuevaVentaPlanilla(http.Controller):
     @staticmethod
     def _renglones(o):
         """The sale's lines as the screen posts them: [{id: product
-        template, cantidad}] in the unit of sale."""
+        template, cantidad}] in the unit of sale. 19.0.1.129.59: a price
+        typed in «Nueva venta» comes back with the line (precio, and the
+        product's row for one outside the catalog), so the corrected sale
+        keeps it."""
         out = []
         for line in o.order_line.filtered(lambda l: not l.display_type and l.product_uom_qty > 0):
             qty = line.product_uom_qty
-            out.append({"id": line.product_id.product_tmpl_id.id,
-                        "cantidad": int(qty) if float(qty).is_integer() else qty})
+            renglon = {"id": line.product_id.product_tmpl_id.id,
+                       "cantidad": int(qty) if float(qty).is_integer() else qty}
+            if line.distri_precio_manual:
+                renglon["precio"] = line.price_unit
+                renglon["fila"] = NuevaVenta._fila_extra(line.product_id.product_tmpl_id,
+                                                         line.price_unit)
+            out.append(renglon)
         return out
 
     def _corregir(self, order):
