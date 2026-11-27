@@ -82,7 +82,7 @@ from odoo.exceptions import AccessError, UserError
 
 from .cobros import (
     AMOUNT_TOLERANCE, BANK_TWIN_DAYS, RECEIPT_TIME_CLOSE, _check_cobros, digits, local_day,
-    local_when, operation_close, own_account,
+    local_when, operation_close, operation_key, own_account,
 )
 from .ocr_comprobante import CONFIDENCE_HIGH, CONFIDENCE_LOW, ocr_deadline, ocr_seconds
 from .reparto import _money
@@ -355,7 +355,7 @@ class DistriMpCollectionCredit(models.Model):
         if receipt._distri_other_account(own_account(self.env)):
             errors.append("El comprobante es una transferencia a otra cuenta (%s), no a la de la "
                           "empresa: no se acredita." % (receipt._distri_destination_label() or ""))
-        operation = digits(card.operation or receipt.distri_operation)
+        operation = operation_key(card.operation or receipt.distri_operation)
         if operation:
             twin = self.sudo().search([
                 ("kind", "=", "verify"), ("state", "in", ("confirmed", "authorized")),
@@ -486,7 +486,7 @@ class DistriMpCollectionCredit(models.Model):
                             [self.id])
         self.invalidate_recordset()
         card = self.sudo()
-        operation = digits(card.operation or card.receipt_id.distri_operation)
+        operation = operation_key(card.operation or card.receipt_id.distri_operation)
         if operation:
             self.env.cr.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",
                                 ["distri_credit_op:%s" % operation])

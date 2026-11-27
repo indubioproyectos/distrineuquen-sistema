@@ -56,7 +56,9 @@ from markupsafe import Markup
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError
 
-from .cobros import AMOUNT_TOLERANCE, can_authorize_money, digits, local_day, local_when
+from .cobros import (
+    AMOUNT_TOLERANCE, can_authorize_money, digits, local_day, local_when, operation_key,
+)
 from .reparto import _money
 from .reparto_cliente import AR_TZ, today_ar
 
@@ -773,7 +775,7 @@ class DistriMpAudit(models.Model):
                                    ("company_id", "=", self.company_id.id)], order="id")
         by_operation = defaultdict(lambda: Collection.browse())
         for card in cards:
-            by_operation[digits(card.operation)] |= card
+            by_operation[operation_key(card.operation)] |= card
         before = len(found)
         for operation, group in by_operation.items():
             if operation and len(group) > 1:

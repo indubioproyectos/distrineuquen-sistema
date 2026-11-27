@@ -41,7 +41,7 @@ from datetime import date as date_cls
 from odoo import api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
-from .cobros import digits, format_cuit, local_day, own_account
+from .cobros import digits, format_cuit, local_day, operation_key, own_account
 from .comprobante_subir import BUCKETS
 from .pago_proveedor import AUTHORIZER_GROUPS, SUPPLIER_DENIED, can_supplier_pay
 from .reparto import _money
@@ -188,7 +188,7 @@ class DistriSupplierPaymentReceipt(models.Model):
         """The supplier payment (not cancelled) of the same file or the same
         operation, or an empty recordset."""
         checksums = [c for c in checksums if c]
-        operation = digits(operation)
+        operation = operation_key(operation)
         if not checksums and not operation:
             return self.browse()
         domain = [("state", "!=", "cancelled")]
@@ -376,7 +376,7 @@ class DistriWhatsappMessageSupplier(models.Model):
         if twins:
             return "Es el mismo comprobante que otro ya acreditado o registrado (%s): no se " \
                    "registra dos veces." % twins[:1]._distri_upload_label()
-        operation = digits(msg.distri_operation)
+        operation = operation_key(msg.distri_operation)
         if operation and self.env["distri.mp.collection"].sudo().search_count([
                 ("kind", "=", "verify"), ("state", "in", ("confirmed", "authorized")),
                 ("operation", "=", operation), ("receipt_id", "!=", msg.id)]):
@@ -424,7 +424,7 @@ class DistriWhatsappMessageSupplier(models.Model):
             "receipt_filename": attachment.name or msg.media_filename or "comprobante",
             "receipt_message_id": msg.id,
             "receipt_checksum": attachment.checksum or False,
-            "operation": digits(msg.distri_operation) or False,
+            "operation": operation_key(msg.distri_operation) or False,
             "note": note or False,
         })
         record.action_post()

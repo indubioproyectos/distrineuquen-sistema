@@ -319,6 +319,31 @@ def digits(value):
     return re.sub(r"\D", "", str(value or ""))
 
 
+_LETTER_RE = re.compile(r"[A-Za-z]")
+# a label written before the number («Nº 4902…», «Nro. 4902…», «Op: 4902…»)
+_OPERATION_PREFIX_RE = re.compile(
+    r"^\s*(?:n\s*[°º.]|nro\b\.?|n(?:[uú]mero)?\s+(?=\d)|op\b\.?|operaci[oó]n\b|#)[\s:#°º.-]*",
+    re.IGNORECASE)
+
+
+def _has_letters(value):
+    return bool(_LETTER_RE.search(_OPERATION_PREFIX_RE.sub("", str(value or ""))))
+
+
+def operation_key(value):
+    """The operation number that identifies a receipt's transfer, as stored
+    on its card and compared between cards. A purely numeric one (Mercado
+    Pago ids, even after a label like «Nº») keeps only its digits, as always;
+    one with letters (BPN, BNA: «ORD6LEN8MZRK3KZPNM1Y30») is kept whole,
+    uppercase and without spaces, dashes or other separators: its digits
+    alone are not the transfer (19.0.1.129.58, two transfers collapsed to
+    «683130»)."""
+    text = _OPERATION_PREFIX_RE.sub("", str(value or ""))
+    if _LETTER_RE.search(text):
+        return re.sub(r"[^0-9A-Za-z]", "", text).upper()
+    return digits(text)
+
+
 def own_account(env):
     """The company's own CUIT, holder, CVU/CBU and alias, normalized
     (ir.config_parameter distri_pedido.cuenta_propia, comma separated)."""
@@ -330,7 +355,12 @@ def operation_close(read, source):
     """The operation number read from a photo is the transfer's, allowing
     one OCR slip: one digit wrong, or one digit dropped or added at the end
     (Mercado Pago ids have 11-12 digits). Together with the same amount it
-    counts as an operation match."""
+    counts as an operation match. An operation with letters (a bank's
+    alphanumeric id) matches only the same code: no slip allowed, and never
+    a number by its digits alone."""
+    if _has_letters(read) or _has_letters(source):
+        read, source = operation_key(read), operation_key(source)
+        return bool(read) and read == source
     read, source = digits(read), digits(source)
     if not (read and source):
         return False
@@ -2030,7 +2060,7 @@ class DistriMpCollection(models.Model):
         values = {
             "date": receipt.timestamp,
             "amount": receipt.distri_amount,
-            "operation": digits(receipt.distri_operation) or False,
+            "operation": operation_key(receipt.distri_operation) or False,
             "payer_name": receipt.distri_payer_name or False,
             "payer_cuit": digits(receipt.distri_payer_cuit) or False,
             "conflict_note": receipt.distri_conflict or False,
