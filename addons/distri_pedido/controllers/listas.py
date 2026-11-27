@@ -7,11 +7,13 @@ else gets 403, whatever his role; the model methods check the group again
   opens /listas/cliente/<id>, where the category (1-6) is chosen, the change
   and the open orders are previewed, and «Aplicar» sets it (opt-in «Actualizar
   precios» per open order).
-- /listas/cigarrillos: the cigarettes × Lista 2 / Lista 3 / Lista 4 grid; for
-  Lista 3/4 the «May X - lista N» product price next to it and «Usar precio
-  May» per row or for all. Empty = «a presupuestar».
-  /listas/cigarrillos/vincular links each «May X - lista N» product to its
-  cigarette.
+- /listas/cigarrillos: the cigarettes × May / Lista 2 / Lista 3 / Lista 4
+  grid; for Lista 3/4 the «May X - lista N» product price next to it and
+  «Usar precio May» per row or for all. Empty = «a presupuestar». The «May»
+  column (19.0.1.129.55) is read-only: the price of the plain «May …»
+  product linked to the cigarette, to see where Lista 3/4 come from.
+  /listas/cigarrillos/vincular links each «May X - lista N» product, and the
+  plain «May …» ones, to its cigarette.
 - /listas/accesos: web access of the customers with a hidden list: create
   (login = CUIT digits, or a generated one), regenerate the password,
   deactivate. The temporary password is shown once, with a WhatsApp link.
@@ -32,6 +34,10 @@ from .kit import kit_context, page_nav
 PESTANAS = (("clientes", "Clientes", "/listas"), ("cigarrillos", "Cigarrillos", "/listas/cigarrillos"),
             ("accesos", "Accesos web", "/listas/accesos"), ("carga", "Carga inicial", "/listas/carga"))
 NOMBRE_LISTA_GRILLA = {"lista2": "Lista 2", "lista3": "Lista 3", "lista4": "Lista 4"}
+# 19.0.1.129.55 (owner): display order of the grid columns, highest price
+# first (the read-only «May» column goes before them). Display only: the form
+# fields and LISTAS_CIGARRILLOS keep their meaning.
+ORDEN_GRILLA = ("lista4", "lista3", "lista2")
 
 
 def _precio(texto):
@@ -151,9 +157,9 @@ class ListasAccesos(http.Controller):
     def _fila_por_lista(fila):
         """19.0.1.129.55 (owner): the grid lists only what is priced per list:
         «precio por lista obligatorio», a price in Lista 2/3/4 or a linked
-        «May X - lista N» product. The rest takes the General price and is
-        shown only on request («Ver todos»)."""
-        return bool(fila["obligatorio"]
+        «May X - lista N» or plain «May …» product. The rest takes the
+        General price and is shown only on request («Ver todos»)."""
+        return bool(fila["obligatorio"] or fila.get("may")
                     or any(fila.get(clave) for clave in LISTAS_CIGARRILLOS)
                     or any(fila.get("may_" + clave) for clave in PERSONAL_POR_CLAVE))
 
@@ -163,7 +169,7 @@ class ListasAccesos(http.Controller):
         filas = grilla["filas"]
         visibles = filas if todos else [f for f in filas if self._fila_por_lista(f)]
         return self._page("distri_pedido.listas_cigarrillos_page", "cigarrillos", {
-            "filas": visibles, "listas": grilla["listas"], "claves": LISTAS_CIGARRILLOS,
+            "filas": visibles, "listas": grilla["listas"], "claves": ORDEN_GRILLA,
             "nombre_lista": NOMBRE_LISTA_GRILLA, "con_may": PERSONAL_POR_CLAVE,
             "todos": bool(todos), "ocultos": len(filas) - len(visibles),
             "ok": ok, "error": error})
@@ -222,7 +228,8 @@ class ListasAccesos(http.Controller):
             [("distri_lista_personal", "in", ("lista_3", "lista_4"))],
             order="distri_lista_personal, name, id")
         return self._page("distri_pedido.listas_vincular_page", "cigarrillos", {
-            "cigarrillos": cigarrillos, "productos": productos, "ok": ok, "error": error})
+            "cigarrillos": cigarrillos, "productos": productos,
+            "sueltos": Listas._may_sueltos_para_vincular(cigarrillos), "ok": ok, "error": error})
 
     @http.route("/listas/cigarrillos/vincular", type="http", auth="user", methods=["GET"],
                 sitemap=False)
@@ -258,7 +265,7 @@ class ListasAccesos(http.Controller):
                     if not numero.isdigit():
                         raise UserError("Elegí el cigarrillo de la lista para «%s»." % producto.name)
                     cig = Tmpl.browse(int(numero)).exists()
-                    clave = (producto.distri_lista_personal, cig.id)
+                    clave = (Listas._clave_vinculo(producto), cig.id)
                     if clave in vistos and vistos[clave] != producto.name:
                         raise UserError("«%s» y «%s» apuntan al mismo cigarrillo: cada cigarrillo "
                                         "va con un solo producto May por lista."

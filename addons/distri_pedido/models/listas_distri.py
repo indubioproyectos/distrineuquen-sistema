@@ -72,6 +72,11 @@ NOMBRES_POR_CLAVE = {
     "presupuestar": ("Cigarrillos a presupuestar",),
 }
 LISTAS_CIGARRILLOS = ("lista2", "lista3", "lista4")
+# 19.0.1.129.55 (owner): the key of a plain «May …» product (wholesale
+# pharmacy and misc price, no distri_lista_personal) in the «one product per
+# cigarette and list» rule of the links. Informational only: no price list
+# reads it.
+CLAVE_MAY_SUELTO = "may"
 # the «May X - lista N» products (models/lista_personal.py) of each list
 PERSONAL_POR_CLAVE = {"lista3": "lista_3", "lista4": "lista_4"}
 
@@ -213,7 +218,9 @@ class ProductTemplateCigarrilloMay(models.Model):
         string="Cigarrillos de la lista", copy=False,
         help="En un producto «May X - lista 3/4»: los cigarrillos cuyo precio de lista 3/4 es "
              "este (uno, o varios si el producto vale para todos, como «Milenio RED / GREEN»). "
-             "Lo usa «Listas y accesos» para «usar precio del producto May».")
+             "Lo usa «Listas y accesos» para «usar precio del producto May». En un producto "
+             "«May …» común (sin lista 3/4) solo se muestra en la columna May de la grilla: "
+             "no cambia ningún precio.")
 
 
 class DistriListas(models.AbstractModel):
@@ -598,6 +605,56 @@ class DistriListas(models.AbstractModel):
         return mapa
 
     @api.model
+    def _dominio_may_suelto(self):
+        """19.0.1.129.55: a plain «May …» product: active, name starting with
+        «May » (any case), not a «May X - lista N» one. Its own sale price is
+        the real «May farmacia y varios» price (that list only has a global
+        rule)."""
+        return [("name", "=ilike", "may %"), ("distri_lista_personal", "=", False)]
+
+    @api.model
+    def _es_may_suelto(self, producto):
+        producto = producto.sudo()
+        return bool(producto.active and not producto.distri_lista_personal
+                    and (producto.name or "").lower().startswith("may "))
+
+    @api.model
+    def _clave_vinculo(self, producto):
+        """The key of the «one product per cigarette» rule: lista_3 / lista_4
+        or CLAVE_MAY_SUELTO."""
+        return producto.distri_lista_personal or CLAVE_MAY_SUELTO
+
+    @api.model
+    def _productos_may_sueltos(self):
+        """{cigarette id: plain «May …» product linked to it}. Only shown in
+        the «May» column of the grid; no price comes from it."""
+        productos = self.env["product.template"].sudo().search(
+            self._dominio_may_suelto() + [("distri_cigarrillo_ids", "!=", False)], order="id")
+        mapa = {}
+        for producto in productos:
+            for cig in producto.distri_cigarrillo_ids:
+                mapa.setdefault(cig.id, producto)
+        return mapa
+
+    @api.model
+    def _may_sueltos_para_vincular(self, cigarrillos=None):
+        """The plain «May …» products the link screen offers: the linked ones
+        plus those whose name (without «May») starts with the first word of a
+        cigarette of the grid («May Milenio Red» -> «Milenio …», «May Ocb
+        premium» -> «OCB …»). Keeps the screen short: there are many «May …»
+        pharmacy products that are no cigarette at all."""
+        if cigarrillos is None:
+            cigarrillos = self._cigarrillos()
+        def marca(nombre):
+            palabras = _normalizar(nombre).split()
+            return palabras[0] if palabras and not palabras[0].isdigit() else None
+
+        marcas = {marca(c.name) for c in cigarrillos} - {None}
+        productos = self.env["product.template"].sudo().search(
+            self._dominio_may_suelto(), order="name, id")
+        return productos.filtered(lambda p: p.distri_cigarrillo_ids or marca(p.name) in marcas)
+
+    @api.model
     def _grilla(self):
         check_listas(self.env)
         cigarrillos = self._cigarrillos()
@@ -606,10 +663,14 @@ class DistriListas(models.AbstractModel):
         reglas = {clave: self._regla_cigarrillo(lista, ids) if lista else {}
                   for clave, lista in listas.items()}
         may = self._productos_may()
+        may_sueltos = self._productos_may_sueltos()
         filas = []
         for cig in cigarrillos:
+            suelto = may_sueltos.get(cig.id)
             fila = {"id": cig.id, "nombre": cig.name, "precio_lista": cig.list_price,
-                    "obligatorio": cig.distri_precio_por_lista}
+                    "obligatorio": cig.distri_precio_por_lista,
+                    "may": ({"id": suelto.id, "nombre": suelto.name, "precio": suelto.list_price}
+                            if suelto else None)}
             for clave in LISTAS_CIGARRILLOS:
                 regla = reglas[clave].get(cig.id)
                 fila[clave] = regla.fixed_price if regla else None
@@ -684,19 +745,25 @@ class DistriListas(models.AbstractModel):
     def _vincular(self, producto_may, cigarrillos):
         """Sets the cigarettes a «May X - lista N» product prices (empty =
         unlinked). One product per cigarette and list: a cigarette taken
-        here is unlinked from any other product of the same list."""
+        here is unlinked from any other product of the same list.
+        19.0.1.129.55: a plain «May …» product (no list 3/4) links too, as
+        its own list (CLAVE_MAY_SUELTO); that link only feeds the «May»
+        column of the grid and changes no price."""
         check_listas(self.env)
         producto_may = producto_may.sudo()
         cigarrillos = cigarrillos.sudo()
-        if not producto_may.distri_lista_personal:
-            raise UserError("Ese producto no es de la lista 3 ni de la lista 4.")
+        suelto = self._es_may_suelto(producto_may)
+        if not producto_may.distri_lista_personal and not suelto:
+            raise UserError("Ese producto no es de la lista 3 ni de la lista 4 ni un "
+                            "producto «May …».")
         if cigarrillos - self._cigarrillos():
             raise UserError("Ese producto no es un cigarrillo de la grilla.")
         if producto_may.distri_cigarrillo_ids == cigarrillos:
             return False
         if cigarrillos:
-            otros = self.env["product.template"].sudo().search([
-                ("distri_lista_personal", "=", producto_may.distri_lista_personal),
+            dominio = (self._dominio_may_suelto() if suelto else
+                       [("distri_lista_personal", "=", producto_may.distri_lista_personal)])
+            otros = self.env["product.template"].sudo().search(dominio + [
                 ("distri_cigarrillo_ids", "in", cigarrillos.ids),
                 ("id", "!=", producto_may.id)])
             for otro in otros:

@@ -25,6 +25,7 @@ from odoo.addons.distri_pedido.controllers.main import (
     CATEGORIAS_A_PRESUPUESTAR, LISTA_GENERAL, LISTA_OCULTA, LISTA_OCULTA_ANTERIOR, lista_general,
     lista_oculta,
 )
+from odoo.addons.distri_pedido.controllers.listas import ListasAccesos
 from odoo.addons.distri_pedido.controllers.tablero import staff_tiles
 from odoo.addons.distri_pedido.models.listas_distri import (
     GRUPO_LISTAS, MENSAJE_SIN_PERMISO, puede_listas,
@@ -327,7 +328,8 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
                                                           list_price=700.0))
         self.assertFalse(filtro.distri_precio_por_lista)
         self.authenticate("gonzalo_152", "gonzalo_152")
-        html = self.url_open("/listas/cigarrillos").text
+        # 19.0.1.129.55: nothing per list, so only under «Ver todos»
+        html = self.url_open("/listas/cigarrillos?todos=1").text
         self.assertIn('name="f_%s"' % filtro.id, html)
         self.assertIn("Sin precio en la lista: precio General", html)
         token = re.search(r'name="csrf_token"[^>]*? value="([^"]+)"', html).group(1)
@@ -438,6 +440,132 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         res = self.url_open("/listas/cigarrillos/vincular", data=[
             ("csrf_token", token), (campo, "#%s %s" % (red.id, red.name))])
         self.assertEqual(self.may_l3.distri_cigarrillo_ids, red)
+
+    # ------------------------------------- 19.0.1.129.55: «May» column
+
+    def _items(self):
+        """Every price list rule as it is (to prove nothing moved)."""
+        return {(i.id, i.pricelist_id.id, i.applied_on, i.product_tmpl_id.id, i.compute_price,
+                 i.fixed_price, i.base_pricelist_id.id)
+                for i in self.env["product.pricelist.item"].sudo().with_context(
+                    active_test=False).search([])}
+
+    def _fila(self, Listas, plantilla):
+        return [f for f in Listas._grilla()["filas"] if f["id"] == plantilla.id][0]
+
+    def test_plain_may_product_shows_in_may_column_and_changes_no_price(self):
+        """Owner, 26/11/2026: «Agregá una columna más que diga May, así vemos
+        de dónde sale». A plain «May …» product (no lista 3/4) links to a
+        cigarette; the grid shows its price in the «May» column. No rule is
+        created or changed, «usar precio del producto May» still takes the
+        «May X - lista 3» product, and both links live side by side."""
+        Tmpl = self.env["product.template"]
+        suelto = Tmpl.create({"name": "May Cigarrillo Prueba152 A", "type": "consu",
+                              "sale_ok": True, "list_price": 8300.0})
+        otro_suelto = Tmpl.create({"name": "MAY cigarrillo Prueba152 A box", "type": "consu",
+                                   "sale_ok": True, "list_price": 8200.0})
+        self.assertFalse(suelto.distri_lista_personal)
+        Listas = self._listas()
+        self.assertTrue(Listas._es_may_suelto(suelto))
+        self.assertFalse(Listas._es_may_suelto(self.may_l3))
+        self.assertFalse(Listas._es_may_suelto(self.farmacia))
+        self.assertIsNone(self._fila(Listas, self.cig)["may"])
+        Listas._vincular(self.may_l3, self.cig)
+        antes = self._items()
+        precios = {lista: self._precio(lista, self.cig)
+                   for lista in (self.general, self.may, self.lista2, self.lista3, self.lista4)}
+        self.assertTrue(Listas._vincular(suelto, self.cig))
+        fila = self._fila(Listas, self.cig)
+        self.assertEqual(fila["may"], {"id": suelto.id, "nombre": suelto.name, "precio": 8300.0})
+        self.assertEqual(fila["may_lista3"]["id"], self.may_l3.id, "the lista 3 link stays")
+        self.assertEqual(self.may_l3.distri_cigarrillo_ids, self.cig)
+        self.assertEqual(self._items(), antes, "no price list rule moved")
+        for lista, precio in precios.items():
+            self.assertEqual(self._precio(lista, self.cig), precio, lista.name)
+        # «usar precio del producto May» is still the «- lista 3» product
+        self.assertEqual(Listas._usar_precio_may("lista3"), 1)
+        self.assertEqual(self._precio(self.lista3, self.cig), P_MAY_PRODUCTO_L3)
+        self.assertEqual(self._fila(Listas, self.cig)["may"]["id"], suelto.id)
+        # one plain May product per cigarette: the other one takes it
+        self.assertTrue(Listas._vincular(otro_suelto, self.cig))
+        self.assertFalse(suelto.distri_cigarrillo_ids)
+        self.assertEqual(self.may_l3.distri_cigarrillo_ids, self.cig)
+        self.assertEqual(self._fila(Listas, self.cig)["may"]["id"], otro_suelto.id)
+        # a «- lista 3» product taking the cigarette leaves the plain one alone
+        may_l3_b = Tmpl.create({"name": "May Cigarrillo Prueba152 A bis - lista 3",
+                                "type": "consu", "sale_ok": True, "list_price": 1.0})
+        Listas._vincular(may_l3_b, self.cig)
+        self.assertFalse(self.may_l3.distri_cigarrillo_ids)
+        self.assertEqual(otro_suelto.distri_cigarrillo_ids, self.cig)
+        # neither a product that is no «May …» nor an archived one
+        with self.assertRaises(UserError):
+            Listas._vincular(self.farmacia, self.cig)
+        suelto.active = False
+        with self.assertRaises(UserError):
+            Listas._vincular(suelto, self.cig)
+        with self.assertRaises(AccessError):
+            self.env["distri.listas"].with_user(self.gerente)._vincular(otro_suelto, self.cig_sin)
+
+    def test_may_column_and_plain_may_links_over_http(self):
+        Tmpl = self.env["product.template"]
+        suelto = Tmpl.create({"name": "May Cigarrillo Prueba152 B", "type": "consu",
+                              "sale_ok": True, "list_price": 7300.0})
+        ajeno = Tmpl.create({"name": "May Ibuprofeno Prueba155", "type": "consu",
+                             "sale_ok": True, "list_price": 500.0})
+        self.authenticate("gonzalo_152", "gonzalo_152")
+        html = self.url_open("/listas/cigarrillos/vincular").text
+        self.assertIn("Productos May (farmacia y varios)", html)
+        self.assertIn('name="v_%s"' % suelto.id, html, "same brand as a cigarette")
+        self.assertNotIn('name="v_%s"' % ajeno.id, html, "no cigarette brand: not offered")
+        token = re.search(r'name="csrf_token"[^>]*? value="([^"]+)"', html).group(1)
+        antes = self._items()
+        res = self.url_open("/listas/cigarrillos/vincular", data=[
+            ("csrf_token", token), ("v_%s" % suelto.id, "#%s %s" % (self.cig_sin.id,
+                                                                   self.cig_sin.name))])
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(suelto.distri_cigarrillo_ids, self.cig_sin)
+        self.assertEqual(self._items(), antes)
+        # the grid: «May» column first, then Lista 4, Lista 3, Lista 2
+        html = self.url_open("/listas/cigarrillos").text
+        cabecera = re.search(r"<thead>(.*?)</thead>", html, re.S).group(1)
+        columnas = re.findall(r"<th[^>]*>([^<]*)</th>", cabecera)
+        self.assertEqual(columnas, ["Cigarrillo", "May", "Lista 4", "Lista 3", "Lista 2"])
+        fila = re.search(r'<tr data-cig="%s">(.*?)</tr>' % self.cig_sin.id, html, re.S).group(1)
+        self.assertIn("$ 7.300", fila)
+        self.assertIn(suelto.name, fila)
+        fila = re.search(r'<tr data-cig="%s">(.*?)</tr>' % self.cig.id, html, re.S).group(1)
+        self.assertIn("sin producto May", fila)
+        self.assertIn('data-label="Lista 4"', fila)
+
+    def test_grid_lists_only_per_list_rows_unless_todos(self):
+        """19.0.1.129.55 (owner): the grid hides what takes the General price
+        (nothing per list) unless «Ver todos» (?todos=1); a linked plain
+        «May …» product counts as per list."""
+        filtro = self.env["product.template"].create({
+            "name": "Filtro Prueba155 x 100", "type": "consu", "sale_ok": True,
+            "categ_id": self.categ_agil.id, "list_price": 600.0})
+        self.assertFalse(filtro.distri_precio_por_lista)
+        Listas = self._listas()
+        fila = self._fila(Listas, filtro)
+        self.assertFalse(ListasAccesos._fila_por_lista(fila))
+        self.assertTrue(ListasAccesos._fila_por_lista(dict(fila, obligatorio=True)))
+        self.assertTrue(ListasAccesos._fila_por_lista(dict(fila, lista4=100.0)))
+        self.assertTrue(ListasAccesos._fila_por_lista(dict(fila, may_lista3={"id": 1})))
+        self.assertTrue(ListasAccesos._fila_por_lista(self._fila(Listas, self.cig)))
+        self.authenticate("gonzalo_152", "gonzalo_152")
+        html = self.url_open("/listas/cigarrillos").text
+        self.assertNotIn('data-cig="%s"' % filtro.id, html)
+        self.assertIn('data-cig="%s"' % self.cig.id, html)
+        self.assertIn("/listas/cigarrillos?todos=1", html)
+        html = self.url_open("/listas/cigarrillos?todos=1").text
+        self.assertIn('data-cig="%s"' % filtro.id, html)
+        suelto = self.env["product.template"].create({
+            "name": "May Filtro Prueba155 x 100", "type": "consu", "sale_ok": True,
+            "list_price": 450.0})
+        Listas._vincular(suelto, filtro)
+        self.assertTrue(ListasAccesos._fila_por_lista(self._fila(Listas, filtro)))
+        html = self.url_open("/listas/cigarrillos").text
+        self.assertIn('data-cig="%s"' % filtro.id, html)
 
     # ------------------------------------------------------------ web access
 

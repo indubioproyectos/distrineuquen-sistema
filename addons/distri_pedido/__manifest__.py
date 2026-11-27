@@ -970,6 +970,17 @@
     # (views/cuenta.xml) move to views restricted to those groups. Every
     # customer's own balance stays for everybody. Display only: no data
     # change, no migration.
+    # Same build, «Listas y accesos › Precios de cigarrillos» (owner): the
+    # grid lists only what is priced per list («precio por lista
+    # obligatorio», a Lista 2/3/4 price or a linked May product; «Ver todos»
+    # shows the rest); clearer «Copiar precios» buttons and help text; a
+    # read-only «May» column (first, then Lista 4, Lista 3, Lista 2) with the
+    # price of the plain «May …» product linked to the cigarette, to see
+    # where Lista 3/4 come from. Plain «May …» products link on «Vincular
+    # productos May» (own section, one per cigarette) through the existing
+    # distri_cigarrillo_ids; the link changes no price. Phones get one card
+    # per cigarette instead of the wide table (static/src/kit/listas.css).
+    # No migration.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth", "mail_bot", "digest"],
     "data": ["security/grupos.xml", "security/listas.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",

@@ -145,7 +145,7 @@
     <t t-set="volver" t-value="'/listas'"/>
     <t t-set="kicker" t-value="'Listas y accesos'"/>
     <t t-set="titulo" t-value="'Precios de cigarrillos'"/>
-    <t t-set="sub" t-value="'Precio de cada cigarrillo en la Lista 2, la Lista 3 y la Lista 4. Lo que no figura acá va a precio General.'"/>
+    <t t-set="sub" t-value="'Precio de cada cigarrillo en la Lista 4, la Lista 3 y la Lista 2. Lo que no figura acá va a precio General.'"/>
   </t>
   <main class="dn-main">
     <t t-call="distri_pedido.listas_tabs"/>
@@ -157,15 +157,16 @@
         <button type="submit" name="usar_todos" value="lista4" class="dn-btn dn-btn--outline">Lista 4: copiar precios de los productos viejos «… - lista 4»</button>
         <a class="dn-link" href="/listas/cigarrillos/vincular">Vincular productos May</a>
       </div>
-      <p class="ls-ayuda">Cada casillero es el precio del cigarrillo en esa lista. «Copiar precios» trae, a la lista elegida, el precio que tenía en Odoo Online el producto «May … - lista 3» (o «- lista 4») vinculado a cada cigarrillo; los que no tienen producto vinculado no cambian. Nada se guarda hasta tocar un botón.</p>
+      <p class="ls-ayuda">Cada casillero es el precio del cigarrillo en esa lista. «Copiar precios» trae, a la lista elegida, el precio que tenía en Odoo Online el producto «May … - lista 3» (o «- lista 4») vinculado a cada cigarrillo; los que no tienen producto vinculado no cambian. La columna «May» es solo para ver: el precio del producto «May …» (farmacia y varios) vinculado al cigarrillo, de donde salen la Lista 3 y la Lista 4; no cambia ningún precio. Se vincula en «Vincular productos May». Nada se guarda hasta tocar un botón.</p>
       <p class="ls-ayuda">
         <t t-if="todos">Se muestran todos los productos de la categoría. <a class="dn-link" href="/listas/cigarrillos">Ver solo los que tienen precio por lista</a></t>
         <t t-elif="ocultos"><t t-esc="ocultos"/> producto(s) más van a precio General y no se muestran. <a class="dn-link" href="/listas/cigarrillos?todos=1">Ver todos</a></t>
       </p>
       <div class="ls-tabla-wrap">
-        <table class="ls-tabla">
+        <table class="ls-tabla ls-tabla--grilla">
           <thead><tr>
             <th scope="col">Cigarrillo</th>
+            <th scope="col">May</th>
             <t t-foreach="claves" t-as="clave"><th scope="col" t-esc="nombre_lista[clave]"/></t>
           </tr></thead>
           <tbody>
@@ -178,7 +179,13 @@
                 </label>
                 <small class="ls-meta"><t t-if="f['obligatorio']">Sin precio en la lista: a presupuestar</t><t t-else="">Sin precio en la lista: precio General</t></small>
               </th>
-              <td t-foreach="claves" t-as="clave">
+              <td class="ls-celda-may" data-label="May">
+                <t t-set="suelto" t-value="f['may']"/>
+                <span t-if="suelto" class="ls-may-precio" t-att-title="suelto['nombre']"><t t-esc="plata(suelto['precio'])"/>
+                  <small class="ls-meta ls-may-nombre" t-esc="suelto['nombre']"/></span>
+                <small t-else="" class="ls-meta">sin producto May</small>
+              </td>
+              <td t-foreach="claves" t-as="clave" t-att-data-label="nombre_lista[clave]">
                 <t t-set="valor" t-value="f[clave]"/>
                 <input type="hidden" t-att-name="'o_%s_%s' % (clave, f['id'])" t-att-value="num(valor)"/>
                 <input class="dn-input ls-precio" inputmode="decimal" t-att-name="'p_%s_%s' % (clave, f['id'])"
@@ -218,7 +225,7 @@
     <t t-set="volver" t-value="'/listas/cigarrillos'"/>
     <t t-set="kicker" t-value="'Listas y accesos'"/>
     <t t-set="titulo" t-value="'Vincular productos May'"/>
-    <t t-set="sub" t-value="'A qué cigarrillo(s) corresponde cada «May … - lista 3/4». Para sacar uno, borralo.'"/>
+    <t t-set="sub" t-value="'A qué cigarrillo(s) corresponde cada «May … - lista 3/4» y cada producto «May …» de farmacia y varios. Para sacar uno, borralo.'"/>
   </t>
   <main class="dn-main">
     <datalist id="ls-cigarrillos">
@@ -239,7 +246,22 @@
         </li>
       </ul>
       <p t-if="not productos" class="dn-empty">No hay productos «May … - lista 3/4».</p>
-      <button t-if="productos" type="submit" class="dn-btn">Guardar</button>
+      <h2 class="ls-subtitulo">Productos May (farmacia y varios)</h2>
+      <p class="ls-ayuda">Su precio sale en la columna «May» de la grilla, para ver de dónde salen la Lista 3 y la Lista 4. Solo informativo: no cambia ningún precio. Se muestran los vinculados y los que empiezan con la marca de algún cigarrillo.</p>
+      <ul class="ls-list">
+        <li t-foreach="sueltos" t-as="p" class="ls-vinc">
+          <label t-att-for="'v-%s' % p.id"><b t-esc="p.name"/> <span class="ls-meta"><t t-esc="plata(p.list_price)"/></span></label>
+          <div class="ls-vinc__cigs">
+            <input t-foreach="p.distri_cigarrillo_ids" t-as="c" class="dn-input" list="ls-cigarrillos"
+                   t-att-name="'v_%s' % p.id" t-att-value="'#%s %s' % (c.id, c.name)"
+                   t-att-aria-label="'Cigarrillo de %s' % p.name"/>
+            <input class="dn-input" list="ls-cigarrillos" t-att-id="'v-%s' % p.id" t-att-name="'v_%s' % p.id" value=""
+                   t-att-placeholder="'Agregar otro cigarrillo' if p.distri_cigarrillo_ids else 'Sin vincular'"/>
+          </div>
+        </li>
+      </ul>
+      <p t-if="not sueltos" class="dn-empty">No hay productos «May …» con la marca de algún cigarrillo.</p>
+      <button t-if="productos or sueltos" type="submit" class="dn-btn">Guardar</button>
     </form>
   </main>
   <t t-call="distri_pedido.dn_page_nav"/>

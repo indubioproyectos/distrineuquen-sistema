@@ -36,3 +36,26 @@ a.ls-row:active{background:var(--dn-tint)}
 .ls-clave .dn-btn{align-self:flex-start}
 .ls-oblig{display:flex;align-items:center;gap:6px;margin:4px 0 2px;font-size:13px;font-weight:600;cursor:pointer}
 .ls-oblig input[type=checkbox]{width:20px;height:20px}
+.ls-ayuda{margin:0;font-size:14px;line-height:1.4;color:var(--dn-muted)}
+.ls-subtitulo{margin:12px 0 0;font-size:17px;font-weight:700}
+/* 19.0.1.129.55: read-only «May» column (plain «May …» product linked) */
+.ls-may-precio{display:flex;flex-direction:column;gap:2px;font-weight:700}
+.ls-may-nombre{font-size:13px;overflow-wrap:anywhere}
+/* phones: one card per cigarette, one labelled row per list (data-label),
+   same inputs and names, so the form posts the same fields */
+@media (max-width:719px){
+  .ls-tabla-wrap:has(.ls-tabla--grilla){overflow-x:visible;border:0;background:none}
+  .ls-tabla--grilla,.ls-tabla--grilla tbody,.ls-tabla--grilla tr{display:block;width:100%}
+  .ls-tabla--grilla thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);
+    white-space:nowrap}
+  .ls-tabla--grilla tbody tr{margin:0 0 10px;padding:10px 12px;background:var(--dn-card);
+    border:1px solid var(--dn-line);border-radius:var(--dn-r)}
+  .ls-tabla--grilla tbody th{display:block;min-width:0;padding:0 0 6px;border-top:0;overflow-wrap:anywhere}
+  .ls-tabla--grilla td{display:grid;grid-template-columns:5.5em minmax(0,1fr);column-gap:10px;align-items:start;
+    padding:8px 0;border-top:1px solid var(--dn-line)}
+  .ls-tabla--grilla td::before{content:attr(data-label);grid-column:1;grid-row:1 / span 3;padding-top:10px;
+    font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--dn-muted)}
+  .ls-tabla--grilla td.ls-celda-may::before{padding-top:0}
+  .ls-tabla--grilla td>*{grid-column:2;min-width:0}
+  .ls-tabla--grilla .ls-precio{width:100%;min-width:0;max-width:none}
+}
