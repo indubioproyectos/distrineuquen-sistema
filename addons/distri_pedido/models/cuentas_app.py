@@ -126,9 +126,10 @@ def ve_total_deuda(env):
     return user.has_group(ADMIN_GROUP) or user.has_group(SYSTEM_GROUP) or is_owner(user)
 
 
-# the groups of the backend views that add the sum footers back
-# (views/partner.xml, views/cuenta.xml): ve_total_deuda in XML terms
+# the groups that imply grupo_total_deuda, the group of the backend sum
+# footers (views/partner.xml, views/cuenta.xml): ve_total_deuda in XML terms
 TOTAL_VIEW_GROUPS = (ADMIN_GROUP, SYSTEM_GROUP, "distri_pedido.grupo_ingresos_reporte")
+TOTAL_DEUDA_GROUP = "distri_pedido.grupo_total_deuda"
 
 # 19.0.1.129.50's name, kept: /cuentas and its tests call it
 can_see_totals = ve_total_deuda

@@ -153,7 +153,7 @@ class TestTotalDeuda(HttpCase):
                         model, column, role))
 
     def test_footer_views_follow_the_rule(self):
-        groups = {self.env.ref(x) for x in TOTAL_VIEW_GROUPS}
-        for xmlid in ("distri_pedido.view_partner_list_saldo_total",
-                      "distri_pedido.view_cuenta_list_total"):
-            self.assertEqual(set(self.env.ref(xmlid).group_ids), groups, xmlid)
+        total = self.env.ref("distri_pedido.grupo_total_deuda")
+        for xmlid in TOTAL_VIEW_GROUPS:
+            self.assertIn(total, self.env.ref(xmlid).all_implied_ids, xmlid)
+        self.assertIn(total, self.env.ref("distri_pedido.grupo_gerencia").all_implied_ids)

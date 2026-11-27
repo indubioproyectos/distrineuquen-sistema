@@ -158,5 +158,26 @@
       <field name="comment">Confirma o registra como pago un ingreso del reporte de Mercado Pago (el flujo normal es acreditar el comprobante) y aprueba las tarjetas del tablero de migración.</field>
       <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
     </record>
+
+    <!-- 19.0.1.129.55 (owner): who sees the aggregate customer debt in the
+         backend lists (the «Total» footers of views/partner.xml and
+         views/cuenta.xml). Never assigned by hand: implied by
+         administración (so gerencia), Settings and «ingresos del reporte»
+         (the owner), the XML twin of models/cuentas_app.py ve_total_deuda.
+         Odoo 19 refuses groups on an inherited view, so the views use
+         groups="…" / groups="!…" on the columns. -->
+    <record id="grupo_total_deuda" model="res.groups">
+      <field name="name">Ve el total de deuda de clientes</field>
+      <field name="comment">Ve los totales al pie de las listas de saldos y de la cuenta corriente. Lo dan Administración, Gerencia, Ajustes y el dueño; no se asigna a mano.</field>
+    </record>
+    <record id="grupo_administracion" model="res.groups">
+      <field name="implied_ids" eval="[(4, ref('grupo_total_deuda'))]"/>
+    </record>
+    <record id="grupo_ingresos_reporte" model="res.groups">
+      <field name="implied_ids" eval="[(4, ref('grupo_total_deuda'))]"/>
+    </record>
+    <record id="base.group_system" model="res.groups">
+      <field name="implied_ids" eval="[(4, ref('distri_pedido.grupo_total_deuda'))]"/>
+    </record>
   </data>
 </odoo>

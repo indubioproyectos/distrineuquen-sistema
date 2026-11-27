@@ -7,31 +7,17 @@
     <field name="inherit_id" ref="base.view_partner_tree"/>
     <field name="arch" type="xml">
       <field name="email" position="after">
-        <field name="saldo_odoo"/>
+        <!-- 19.0.1.129.55: the «Total» footers add up several customers,
+             only for grupo_total_deuda (security/grupos.xml) -->
+        <field name="saldo_odoo" sum="Total" groups="distri_pedido.grupo_total_deuda"/>
+        <field name="saldo_odoo" groups="!distri_pedido.grupo_total_deuda"/>
         <field name="facturas_sin_conciliar" optional="show"/>
-        <field name="monto_sin_conciliar" optional="hide"/>
+        <field name="monto_sin_conciliar" optional="hide" sum="Total" groups="distri_pedido.grupo_total_deuda"/>
+        <field name="monto_sin_conciliar" optional="hide" groups="!distri_pedido.grupo_total_deuda"/>
       </field>
     </field>
   </record>
 
-  <!-- 19.0.1.129.55 (owner): the «Total» under the balances adds up several
-       customers, so only gerencia, administración and Sistemas get it
-       (models/cuentas_app.py ve_total_deuda / TOTAL_VIEW_GROUPS); everybody
-       else keeps each customer's balance in its row -->
-  <record id="view_partner_list_saldo_total" model="ir.ui.view">
-    <field name="name">res.partner.list.saldo.total</field>
-    <field name="model">res.partner</field>
-    <field name="inherit_id" ref="view_partner_list_saldo"/>
-    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion')), (4, ref('base.group_system')), (4, ref('distri_pedido.grupo_ingresos_reporte'))]"/>
-    <field name="arch" type="xml">
-      <field name="saldo_odoo" position="attributes">
-        <attribute name="sum">Total</attribute>
-      </field>
-      <field name="monto_sin_conciliar" position="attributes">
-        <attribute name="sum">Total</attribute>
-      </field>
-    </field>
-  </record>
 
   <record id="view_partner_form_saldo" model="ir.ui.view">
     <field name="name">res.partner.form.saldo</field>
