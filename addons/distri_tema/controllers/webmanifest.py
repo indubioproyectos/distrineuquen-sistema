@@ -1,5 +1,7 @@
 import json
 
+from werkzeug.exceptions import BadRequest
+
 from odoo import http
 from odoo.tools import file_path
 
@@ -37,7 +39,11 @@ class DistriWebManifest(WebManifest):
         return manifest
 
     @http.route()
-    def scoped_app_manifest(self, app_id, path, app_name=""):
+    def scoped_app_manifest(self, app_id=None, path=None, app_name=""):
+        # 19.0.1.1.2: a public URL; asked without app_id or path (a crawler,
+        # a cut link) it answered 500 with a traceback. Now a plain 400.
+        if not app_id or not path:
+            raise BadRequest()
         # single-app shortcuts ("Install Ventas"): same navy instead of Odoo purple
         response = super().scoped_app_manifest(app_id, path, app_name)
         data = json.loads(response.get_data())

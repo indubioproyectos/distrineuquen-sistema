@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.56",
+    "version": "19.0.1.129.57",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -1002,6 +1002,11 @@
     # form. Menus and buttons only: no access right, group or record changes.
     # «Facturación directa de servicios» gets its own menu (Facturación ›
     # Clientes › «Facturas directas de servicios», its group only). No model
+    # column, no migration, no data change.
+    # 19.0.1.129.57 (general test run of 27/11/2026). No change in this
+    # module: the version only names the release. distri_tema 19.0.1.1.2:
+    # the public /web/manifest.scoped_app_manifest asked without app_id or
+    # path answers 400 instead of 500 (controllers/webmanifest.py). No model
     # column, no migration, no data change.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth", "mail_bot", "digest"],

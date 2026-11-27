@@ -44,3 +44,21 @@ class TestWebManifest(HttpCase):
         self.assertIn('rel="shortcut icon" href="%sfavicon-32.png?v=129.12"' % ICONS, html)
         self.assertIn("viewport-fit=cover", html)
         self.assertNotIn("#71639e", html)
+
+
+@tagged("post_install", "-at_install", "distri_v129_57")
+class TestScopedManifestWithoutArguments(HttpCase):
+    """19.0.1.1.2 (general test run of 27/11/2026): the public
+    /web/manifest.scoped_app_manifest answered 500 (TypeError, traceback in
+    the log) when asked without app_id or path."""
+
+    def test_missing_arguments_are_a_bad_request(self):
+        for query in ("", "?app_id=sale", "?path=/odoo/sales", "?app_id=&path="):
+            with self.subTest(query=query):
+                response = self.url_open("/web/manifest.scoped_app_manifest" + query)
+                self.assertEqual(response.status_code, 400)
+
+    def test_complete_request_still_answers(self):
+        response = self.url_open("/web/manifest.scoped_app_manifest?app_id=sale&path=/odoo/sales")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["theme_color"], NAVY)
