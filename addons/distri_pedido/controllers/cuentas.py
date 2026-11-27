@@ -37,7 +37,7 @@ from odoo import http
 from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
-from ..models.cuentas_app import app_scope, can_see_totals
+from ..models.cuentas_app import app_scope, ve_total_deuda
 from ..models.marca import marca_manifest_icons
 from .kit import legacy_ui, ui_v2_on
 from .main import FICHA
@@ -133,7 +133,7 @@ class Cuentas(http.Controller):
             raise NotFound()
         # 19.0.1.129.50: the report carries the list's totals, so it follows
         # the same rule (gerencia, administración, Sistemas), checked here too
-        if not app_scope(request.env) or not can_see_totals(request.env):
+        if not app_scope(request.env) or not ve_total_deuda(request.env):
             raise Forbidden()
         if seller not in ("all", "italo", "distrineuquen"):
             seller = "all"

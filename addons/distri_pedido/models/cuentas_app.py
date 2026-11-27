@@ -111,10 +111,27 @@ TOTAL_KEYS = ("total_debt", "debtor_count", "total_candidates", "uncollectible_t
               "uncollectible_count", "credit_total", "credit_count")
 
 
-def can_see_totals(env):
-    """Gerencia (implies administración), administración or Settings."""
+def ve_total_deuda(env):
+    """19.0.1.129.55 (owner): who sees the AGGREGATE customer debt (the sum
+    of every customer's balance, the count of debtors, a sum footer over
+    several customers): gerencia (implies administración), administración,
+    Settings and the owner (models/verificacion.py is_owner: the user
+    «admin», Sistemas). Everybody else keeps each customer's own balance;
+    one customer's subtotal is not an aggregate. The one rule for every
+    screen; the backend list footers follow it with TOTAL_VIEW_GROUPS."""
+    from .verificacion import is_owner
     user = env.user
-    return not user.share and (user.has_group(ADMIN_GROUP) or user.has_group(SYSTEM_GROUP))
+    if not user or user.share:
+        return False
+    return user.has_group(ADMIN_GROUP) or user.has_group(SYSTEM_GROUP) or is_owner(user)
+
+
+# the groups of the backend views that add the sum footers back
+# (views/partner.xml, views/cuenta.xml): ve_total_deuda in XML terms
+TOTAL_VIEW_GROUPS = (ADMIN_GROUP, SYSTEM_GROUP, "distri_pedido.grupo_ingresos_reporte")
+
+# 19.0.1.129.50's name, kept: /cuentas and its tests call it
+can_see_totals = ve_total_deuda
 
 
 def _strip_totals(result):

@@ -11,13 +11,33 @@
         <field name="comprobante"/>
         <field name="tipo"/>
         <field name="concepto" optional="hide"/>
-        <field name="debe" sum="Total debe"/>
-        <field name="haber" sum="Total haber"/>
+        <field name="debe"/>
+        <field name="haber"/>
         <field name="distri_owed" optional="show"/>
         <field name="distri_owed_amount" optional="hide"/>
         <field name="distri_owed_note" optional="hide"/>
         <field name="currency_id" column_invisible="1"/>
       </list>
+    </field>
+  </record>
+
+  <!-- 19.0.1.129.55 (owner): «Total debe» / «Total haber» at the foot of
+       the list add up every customer listed (the aggregate debt), so only
+       gerencia, administración and Sistemas get them (models/cuentas_app.py
+       ve_total_deuda / TOTAL_VIEW_GROUPS). A seller keeps the rows and each
+       customer's own group subtotal -->
+  <record id="view_cuenta_list_total" model="ir.ui.view">
+    <field name="name">distri.cuenta.movimiento.list.total</field>
+    <field name="model">distri.cuenta.movimiento</field>
+    <field name="inherit_id" ref="view_cuenta_list"/>
+    <field name="group_ids" eval="[(4, ref('distri_pedido.grupo_administracion')), (4, ref('base.group_system')), (4, ref('distri_pedido.grupo_ingresos_reporte'))]"/>
+    <field name="arch" type="xml">
+      <field name="debe" position="attributes">
+        <attribute name="sum">Total debe</attribute>
+      </field>
+      <field name="haber" position="attributes">
+        <attribute name="sum">Total haber</attribute>
+      </field>
     </field>
   </record>
 

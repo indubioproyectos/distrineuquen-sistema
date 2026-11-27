@@ -161,3 +161,4 @@ from . import test_v129_52_listas
 from . import test_v129_52_recibos_pagados
 from . import test_v129_53_planilla
 from . import test_v129_54_novedades
+from . import test_v129_55_total_deuda
