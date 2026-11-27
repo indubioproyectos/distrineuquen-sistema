@@ -450,7 +450,7 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
                 for i in self.env["product.pricelist.item"].sudo().with_context(
                     active_test=False).search([])}
 
-    def _fila(self, Listas, plantilla):
+    def _fila_grilla(self, Listas, plantilla):
         return [f for f in Listas._grilla()["filas"] if f["id"] == plantilla.id][0]
 
     def test_plain_may_product_shows_in_may_column_and_changes_no_price(self):
@@ -469,13 +469,13 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         self.assertTrue(Listas._es_may_suelto(suelto))
         self.assertFalse(Listas._es_may_suelto(self.may_l3))
         self.assertFalse(Listas._es_may_suelto(self.farmacia))
-        self.assertIsNone(self._fila(Listas, self.cig)["may"])
+        self.assertIsNone(self._fila_grilla(Listas, self.cig)["may"])
         Listas._vincular(self.may_l3, self.cig)
         antes = self._items()
         precios = {lista: self._precio(lista, self.cig)
                    for lista in (self.general, self.may, self.lista2, self.lista3, self.lista4)}
         self.assertTrue(Listas._vincular(suelto, self.cig))
-        fila = self._fila(Listas, self.cig)
+        fila = self._fila_grilla(Listas, self.cig)
         self.assertEqual(fila["may"], {"id": suelto.id, "nombre": suelto.name, "precio": 8300.0})
         self.assertEqual(fila["may_lista3"]["id"], self.may_l3.id, "the lista 3 link stays")
         self.assertEqual(self.may_l3.distri_cigarrillo_ids, self.cig)
@@ -485,12 +485,12 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
         # «usar precio del producto May» is still the «- lista 3» product
         self.assertEqual(Listas._usar_precio_may("lista3"), 1)
         self.assertEqual(self._precio(self.lista3, self.cig), P_MAY_PRODUCTO_L3)
-        self.assertEqual(self._fila(Listas, self.cig)["may"]["id"], suelto.id)
+        self.assertEqual(self._fila_grilla(Listas, self.cig)["may"]["id"], suelto.id)
         # one plain May product per cigarette: the other one takes it
         self.assertTrue(Listas._vincular(otro_suelto, self.cig))
         self.assertFalse(suelto.distri_cigarrillo_ids)
         self.assertEqual(self.may_l3.distri_cigarrillo_ids, self.cig)
-        self.assertEqual(self._fila(Listas, self.cig)["may"]["id"], otro_suelto.id)
+        self.assertEqual(self._fila_grilla(Listas, self.cig)["may"]["id"], otro_suelto.id)
         # a «- lista 3» product taking the cigarette leaves the plain one alone
         may_l3_b = Tmpl.create({"name": "May Cigarrillo Prueba152 A bis - lista 3",
                                 "type": "consu", "sale_ok": True, "list_price": 1.0})
@@ -546,12 +546,12 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
             "categ_id": self.categ_agil.id, "list_price": 600.0})
         self.assertFalse(filtro.distri_precio_por_lista)
         Listas = self._listas()
-        fila = self._fila(Listas, filtro)
+        fila = self._fila_grilla(Listas, filtro)
         self.assertFalse(ListasAccesos._fila_por_lista(fila))
         self.assertTrue(ListasAccesos._fila_por_lista(dict(fila, obligatorio=True)))
         self.assertTrue(ListasAccesos._fila_por_lista(dict(fila, lista4=100.0)))
         self.assertTrue(ListasAccesos._fila_por_lista(dict(fila, may_lista3={"id": 1})))
-        self.assertTrue(ListasAccesos._fila_por_lista(self._fila(Listas, self.cig)))
+        self.assertTrue(ListasAccesos._fila_por_lista(self._fila_grilla(Listas, self.cig)))
         self.authenticate("gonzalo_152", "gonzalo_152")
         html = self.url_open("/listas/cigarrillos").text
         self.assertNotIn('data-cig="%s"' % filtro.id, html)
@@ -563,7 +563,7 @@ class TestV12952Listas(PedidoAbiertoMixin, HttpCase):
             "name": "May Filtro Prueba155 x 100", "type": "consu", "sale_ok": True,
             "list_price": 450.0})
         Listas._vincular(suelto, filtro)
-        self.assertTrue(ListasAccesos._fila_por_lista(self._fila(Listas, filtro)))
+        self.assertTrue(ListasAccesos._fila_por_lista(self._fila_grilla(Listas, filtro)))
         html = self.url_open("/listas/cigarrillos").text
         self.assertIn('data-cig="%s"' % filtro.id, html)
 

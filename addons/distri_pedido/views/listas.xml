@@ -157,7 +157,7 @@
         <button type="submit" name="usar_todos" value="lista4" class="dn-btn dn-btn--outline">Lista 4: copiar precios de los productos viejos «… - lista 4»</button>
         <a class="dn-link" href="/listas/cigarrillos/vincular">Vincular productos May</a>
       </div>
-      <p class="ls-ayuda">Cada casillero es el precio del cigarrillo en esa lista. «Copiar precios» trae, a la lista elegida, el precio que tenía en Odoo Online el producto «May … - lista 3» (o «- lista 4») vinculado a cada cigarrillo; los que no tienen producto vinculado no cambian. La columna «May» es solo para ver: el precio del producto «May …» (farmacia y varios) vinculado al cigarrillo, de donde salen la Lista 3 y la Lista 4; no cambia ningún precio. Se vincula en «Vincular productos May». Nada se guarda hasta tocar un botón.</p>
+      <p class="ls-ayuda">Cada casillero es el precio del cigarrillo en esa lista. «Copiar precios» trae, a la lista elegida, el precio que tenía en el sistema anterior el producto «May … - lista 3» (o «- lista 4») vinculado a cada cigarrillo; los que no tienen producto vinculado no cambian. La columna «May» es solo para ver: el precio del producto «May …» (farmacia y varios) vinculado al cigarrillo, de donde salen la Lista 3 y la Lista 4; no cambia ningún precio. Se vincula en «Vincular productos May». Nada se guarda hasta tocar un botón.</p>
       <p class="ls-ayuda">
         <t t-if="todos">Se muestran todos los productos de la categoría. <a class="dn-link" href="/listas/cigarrillos">Ver solo los que tienen precio por lista</a></t>
         <t t-elif="ocultos"><t t-esc="ocultos"/> producto(s) más van a precio General y no se muestran. <a class="dn-link" href="/listas/cigarrillos?todos=1">Ver todos</a></t>
