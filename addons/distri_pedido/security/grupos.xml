@@ -159,6 +159,10 @@
       <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
     </record>
 
+  </data>
+  <!-- updatable (noupdate=0): the implied links must reach databases that
+       already have the groups, not only a fresh install -->
+  <data noupdate="0">
     <!-- 19.0.1.129.55 (owner): who sees the aggregate customer debt in the
          backend lists (the «Total» footers of views/partner.xml and
          views/cuenta.xml). Never assigned by hand: implied by
