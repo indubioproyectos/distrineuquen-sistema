@@ -674,9 +674,13 @@ def other_apps(env, taken):
     """Every other top menu the user can see, in menu order (Odoo's app list)."""
     Menu = env["ir.ui.menu"]
     visible = Menu._visible_menu_ids()
+    # 19.0.1.129.56: the old «PRESUPUESTOS» app, hidden from the staff with
+    # distri_pedido.ocultar_presupuesto_factura on (models/entradas_viejas.py)
+    from ..models.entradas_viejas import hidden_root_ids
+    hidden = hidden_root_ids(env)
     return [{"title": menu.name, "icon": _menu_icon(menu), "url": _menu_url(menu)}
             for menu in Menu.search([("parent_id", "=", False)])
-            if menu.id in visible and menu.id not in taken]
+            if menu.id in visible and menu.id not in taken and menu.id not in hidden]
 
 
 def tile_roots(env, tiles):

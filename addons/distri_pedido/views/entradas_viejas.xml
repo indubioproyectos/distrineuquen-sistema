@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.56 (models/entradas_viejas.py): the old entry points to the
+       quotations and the customer invoices, hidden from the staff while
+       distri_pedido.ocultar_presupuesto_factura is on. -->
+
+  <!-- «Facturación directa de servicios» keeps its own way in: the customer
+       invoices that do not come from an order. What may be posted is
+       decided by models/factura_directa.py, as before. -->
+  <record id="action_facturas_directas" model="ir.actions.act_window">
+    <field name="name">Facturas directas de servicios</field>
+    <field name="res_model">account.move</field>
+    <field name="view_mode">list,kanban,form</field>
+    <field name="view_id" ref="account.view_out_invoice_tree"/>
+    <field name="search_view_id" ref="account.view_account_invoice_filter"/>
+    <field name="domain">[('move_type', '=', 'out_invoice'), ('invoice_origin', '=', False)]</field>
+    <field name="context">{'default_move_type': 'out_invoice'}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">Cargá una factura de servicios</p>
+      <p>Solo fletes, servicios o cargos que no son mercadería. La mercadería se vende con «Nueva venta».</p>
+    </field>
+  </record>
+
+  <menuitem id="menu_facturas_directas"
+            name="Facturas directas de servicios"
+            parent="account.menu_finance_receivables"
+            action="action_facturas_directas"
+            groups="distri_pedido.grupo_facturacion_directa"
+            sequence="1"/>
+
+  <!-- «Crear factura» on the order form: the invoice comes out by itself at
+       the end of the packing. Hidden with the flag on, but for Sistemas,
+       the owner and Gerencia. -->
+  <record id="view_order_form_entradas_viejas" model="ir.ui.view">
+    <field name="name">sale.order.form.distri.entradas.viejas</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//button[@id='create_invoice']" position="before">
+        <field name="distri_sin_entradas_viejas" invisible="1"/>
+      </xpath>
+      <xpath expr="//button[@id='create_invoice']" position="attributes">
+        <attribute name="invisible" add="distri_sin_entradas_viejas" separator=" or "/>
+      </xpath>
+      <xpath expr="//button[@id='create_invoice_percentage']" position="attributes">
+        <attribute name="invisible" add="distri_sin_entradas_viejas" separator=" or "/>
+      </xpath>
+    </field>
+  </record>
+</odoo>

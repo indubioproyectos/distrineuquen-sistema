@@ -110,6 +110,7 @@ from . import contactos
 from . import lista_personal
 from . import reclamar_inicio
 from . import bloqueo_factura
+from . import entradas_viejas
 from . import correo_verificado
 from . import listas_distri
 from . import notificaciones

@@ -29,6 +29,9 @@ from odoo import api, models
 PARAM_UI_V2 = "distri_pedido.ui_v2"
 ON_VALUES = ("1", "true", "yes", "si", "sí", "on")
 SYSTEM_GROUP = "base.group_system"
+# 19.0.1.129.56: the parameters the menu bar depends on (this one and
+# models/entradas_viejas.py's): a change clears the cached menus
+PARAMS_MENUS = (PARAM_UI_V2, "distri_pedido.ocultar_presupuesto_factura")
 
 # xmlid of each menu (its sub-menus go with it) only Sistemas keeps
 SISTEMAS_ONLY_MENUS = (
@@ -91,24 +94,26 @@ class IrConfigParameter(models.Model):
 
     # load_menus() is cached per user in the default cache, which a parameter
     # write does not clear (it clears the «stable» one): clear it when the
-    # ui_v2 flag changes, so the menus follow the flag on the next page load.
+    # ui_v2 flag (or 19.0.1.129.56's ocultar_presupuesto_factura) changes, so
+    # the menus follow the flag on the next page load.
 
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
-        if any(vals.get("key") == PARAM_UI_V2 for vals in vals_list):
+        if any(vals.get("key") in PARAMS_MENUS for vals in vals_list):
             self.env.registry.clear_cache()
         return records
 
     def write(self, vals):
-        touched = PARAM_UI_V2 in self.mapped("key") or vals.get("key") == PARAM_UI_V2
+        touched = bool(set(PARAMS_MENUS) & set(self.mapped("key"))) \
+            or vals.get("key") in PARAMS_MENUS
         result = super().write(vals)
         if touched:
             self.env.registry.clear_cache()
         return result
 
     def unlink(self):
-        touched = PARAM_UI_V2 in self.mapped("key")
+        touched = bool(set(PARAMS_MENUS) & set(self.mapped("key")))
         result = super().unlink()
         if touched:
             self.env.registry.clear_cache()

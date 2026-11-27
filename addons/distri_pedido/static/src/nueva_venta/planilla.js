@@ -16,6 +16,11 @@
  *   5. «Cobrar» (/nueva-venta/planilla/cobrar/<id>, distri.cobro) while the
  *      invoice owes, and the summary with the documents (new tab);
  *      «Nueva venta» (Alt+N).
+ * 19.0.1.129.56 (owner: «cerrar la operación de mostrador en una pantalla»):
+ * the steps of the sale on top (pasosDe), the customer's balance, «Cuenta
+ * corriente» as a way to pay, «Corregir la venta» before the delivery
+ * (/nueva-venta/planilla/corregir/<id>: «Anular venta» and the same lines
+ * back to change and load again), and the remito to print or share.
  * The draft (customer, lines, exit, answers, and the order once loaded) is
  * kept in localStorage, so a failed step or a reload loses nothing.
  *
@@ -248,6 +253,8 @@
     if (code === 'KeyC') { return 'cliente'; }
     if (code === 'KeyP') { return 'productos'; }
     if (code === 'KeyN') { return 'nueva'; }
+    if (code === 'KeyG') { return 'corregir'; }
+    if (code === 'KeyR') { return 'remito'; }
     return null;
   }
 
@@ -284,6 +291,38 @@
     return '';
   }
 
+  // 19.0.1.129.56: where the sale stands, for the steps on top. Each step is
+  // 'hecho', 'ahora', 'no' (does not apply here / not yet) or ''.
+  function pasosDe(v) {
+    if (!v) { return {carga: 'ahora', cargada: '', entregada: '', cobrada: ''}; }
+    if (v.estado === 'cancel') { return {carga: 'hecho', cargada: 'no', entregada: 'no', cobrada: 'no'}; }
+    var p = {carga: 'hecho', cargada: 'hecho', entregada: '', cobrada: ''};
+    if (v.entrega) { p.entregada = 'ahora'; return p; }
+    // «A armar» and «Presupuesto» go on in Armado, not on this screen
+    if (!v.entregado) { p.entregada = 'no'; p.cobrada = 'no'; return p; }
+    p.entregada = 'hecho';
+    if (v.cobrar) { p.cobrada = 'ahora'; } else if (v.facturada && !(v.residual > 0.005)) { p.cobrada = 'hecho'; } else { p.cobrada = 'no'; }
+    return p;
+  }
+  // the names of the steps that change with the sale
+  function textoPasos(v) {
+    var t = {cargada: 'Cargada', cobrada: 'Cobrada'};
+    if (!v) { return t; }
+    if (v.estado === 'cancel') { t.cargada = 'Anulada'; return t; }
+    t.cargada = v.facturada ? 'Facturada' : (v.estado === 'sale' ? 'Confirmada · va a Armado' : 'Presupuesto guardado');
+    if (v.entregado && !v.cobrar && v.residual > 0.005) {
+      t.cobrada = v.en_camino > 0.005 && v.residual - v.en_camino <= 0.005 ? 'Transferencia a verificar' : 'En cuenta corriente';
+    }
+    return t;
+  }
+  // the customer's balance as a chip: {texto, clase} or null (not shown)
+  function chipSaldo(c) {
+    if (!c || c.saldo == null) { return null; }
+    if (c.saldo > 0.005) { return {texto: 'Debe ' + c.saldo_texto, clase: 'dn-chip--warn'}; }
+    if (c.saldo < -0.005) { return {texto: 'A favor ' + c.saldo_texto, clase: 'dn-chip--ok'}; }
+    return {texto: 'Al día', clase: 'dn-chip--ok'};
+  }
+
   // the layout this device opens: its own choice, else by the screen
   function elegirVista(pref, pc) {
     if (pref === 'planilla' || pref === 'celular') { return pref; }
@@ -292,7 +331,8 @@
 
   var core = {norm: norm, buscarProductos: buscarProductos, Lineas: Lineas, atajo: atajo,
     parseMonto: parseMonto, montoCampo: montoCampo, plata: plata, ubicarError: ubicarError,
-    elegirVista: elegirVista, cantidadValida: cantidadValida, VISTA: 'dn:nv:vista'};
+    elegirVista: elegirVista, cantidadValida: cantidadValida, VISTA: 'dn:nv:vista',
+    pasosDe: pasosDe, textoPasos: textoPasos, chipSaldo: chipSaldo};
   window.DNPlanilla = core;
   if (typeof document === 'undefined' || !document.getElementById || !document.getElementById('pl-form')) {
     return;
@@ -522,6 +562,12 @@
     $('pl-nuevo').hidden = true;
     $('pl-cliente-nombre').textContent = c.nombre;
     $('pl-cliente-meta').textContent = [c.domicilio, c.whatsapp].filter(Boolean).join(' · ');
+    var chip = chipSaldo(c);
+    $('pl-saldo').hidden = !chip;
+    if (chip) {
+      $('pl-saldo').textContent = chip.texto;
+      $('pl-saldo').className = 'dn-chip ' + chip.clase;
+    }
     $('pl-lista').hidden = !c.lista;
     $('pl-lista').textContent = c.lista ? 'Lista: ' + c.lista : '';
     $('pl-precios-de').textContent = c.lista ? '· precios de ' + c.lista : '';
@@ -787,6 +833,20 @@
     guardarBorrador();
   });
 
+  // ------------------------------------------------------------ the steps on top
+
+  function pintarPasos() {
+    var estado = pasosDe(venta);
+    var texto = textoPasos(venta);
+    Array.prototype.forEach.call(document.querySelectorAll('#pl-pasos [data-paso]'), function (li) {
+      var k = li.getAttribute('data-paso');
+      li.className = estado[k] ? 'pl-paso--' + estado[k] : '';
+      if (estado[k] === 'ahora') { li.setAttribute('aria-current', 'step'); } else { li.removeAttribute('aria-current'); }
+      var t = li.querySelector('[data-paso-t]');
+      if (t && texto[k]) { t.textContent = texto[k]; }
+    });
+  }
+
   // ------------------------------------------------------------ «¿Cómo sigue?»
 
   var ops = Array.prototype.slice.call(document.querySelectorAll('#pl-salidas [data-salida]'));
@@ -942,6 +1002,7 @@
     venta = v;
     guardarBorrador();
     body.classList.add('pl--cargada');
+    $('pl-corregida').hidden = true;
     $('pl-card-salida').hidden = true;
     $('pl-cambiar').hidden = true;
     $('pl-anteriores').hidden = true;
@@ -961,6 +1022,36 @@
     $('pl-h-pagos').hidden = !v.pagos.length;
     $('pl-h-enviar').hidden = !v.enviar;
     if (v.enviar) { $('pl-h-enviar').href = v.enviar; }
+    pintarPasos();
+    // what the invoice still owes once delivered
+    var saldo = $('pl-h-saldo');
+    saldo.hidden = !(v.facturada && v.entregado && v.estado !== 'cancel');
+    if (!saldo.hidden) {
+      var falta = Math.max((v.residual || 0) - (v.en_camino || 0), 0);
+      if (!(v.residual > 0.005)) {
+        saldo.textContent = 'Pagada: no queda nada pendiente de esta venta.';
+        saldo.className = 'pl-h-saldo pl-h-saldo--ok';
+      } else if (falta <= 0.005) {
+        saldo.textContent = 'Transferencia de ' + v.en_camino_texto + ' a verificar: se acredita cuando se revisa el comprobante.';
+        saldo.className = 'pl-h-saldo pl-h-saldo--debe';
+      } else {
+        saldo.textContent = 'Queda en su cuenta corriente: ' + plata(falta) + '.';
+        saldo.className = 'pl-h-saldo pl-h-saldo--debe';
+      }
+    }
+    $('pl-h-remito').hidden = !v.remito || v.estado === 'cancel';
+    avisoRemito('');
+    // «Corregir la venta» while the counter sale waits for its delivery
+    var corr = v.entrega && v.corregir;
+    $('pl-corregir').hidden = !corr;
+    $('pl-corregir-pregunta').hidden = true;
+    if (corr) {
+      $('pl-corregir-btn').disabled = !!v.corregir.motivo;
+      $('pl-corregir-txt').textContent = v.corregir.motivo
+        ? 'Esta venta no se puede corregir desde acá: ' + v.corregir.motivo
+        : '¿Agrega o saca algo? La venta ya está facturada, así que no se le cambian los renglones: se anula ' +
+          'con su nota de crédito y la cargás de nuevo con los cambios.';
+    }
     // the delivery (Mostrador)
     var entrega = !!v.entrega;
     $('pl-card-entrega').hidden = !entrega;
@@ -969,7 +1060,7 @@
     $('pl-card-cobrar').hidden = entrega || !v.cobrar;
     if (!entrega && v.cobrar) { prepararCobro(v); }
     if (recien || entrega || v.cobrar) {
-      if (entrega) { $('pl-efectivo').focus(); } else if (v.cobrar) { $('pl-c-efectivo').focus(); } else { $('pl-nueva').focus(); }
+      if (entrega) { $('pl-efectivo').focus(); } else if (v.cobrar && !v.a_cuenta) { $('pl-c-efectivo').focus(); } else { $('pl-nueva').focus(); }
     }
   }
 
@@ -1027,6 +1118,9 @@
     $('pl-vuelto').textContent = paga > efectivo && efectivo > 0 ? 'Vuelto: ' + plata(paga - efectivo) :
       (paga && paga < efectivo ? 'Con ' + plata(paga) + ' no alcanza para ' + plata(efectivo) + '.' : '');
     $('pl-debe-monto').textContent = plata(Math.max(saldo - efectivo - transfer, 0));
+    $('pl-cc-aviso').hidden = modoPago !== 'nada';
+    $('pl-debe-l').textContent = modoPago === 'nada' ? 'Queda en cuenta corriente' : 'Queda debiendo';
+    $('pl-entregar-t').textContent = modoPago === 'nada' ? 'Entregar · a cuenta corriente' : 'Entregar y cobrar';
   }
   Array.prototype.forEach.call(document.querySelectorAll('#pl-pago [data-pago]'), function (b, k, all) {
     b.addEventListener('click', function () { elegirPago(b.dataset.pago); });
@@ -1143,7 +1237,9 @@
 
   function prepararCobro(v) {
     $('pl-c-debe').textContent = '· debe ' + v.cobrar.debe_texto;
-    if (!$('pl-c-efectivo').value && !transf.length) { $('pl-c-efectivo').value = montoCampo(v.cobrar.debe); }
+    // delivered «a cuenta corriente»: nothing was paid, so no amount is
+    // offered (a second Ctrl+Enter must not collect by itself)
+    if (!v.a_cuenta && !$('pl-c-efectivo').value && !transf.length) { $('pl-c-efectivo').value = montoCampo(v.cobrar.debe); }
     $('pl-c-destino').querySelector('option[value=factura]').disabled = !v.cobrar.factura_id;
     pintarTransf();
   }
@@ -1236,10 +1332,8 @@
 
   // ------------------------------------------------------------ next sale
 
-  function reiniciar(mismoCliente) {
-    if (venta && venta.entrega && !window.confirm('La entrega de ' + venta.nombre + ' queda pendiente en Depósito. ¿Empezar otra venta igual?')) {
-      return;
-    }
+  // back to an empty sale on the same screen (the customer stays chosen)
+  function limpiarVenta() {
     quitar(KEY);
     venta = null;
     pendiente = null;
@@ -1253,10 +1347,21 @@
     $('pl-dev').hidden = true;
     pintarArchivos();
     pintarTransf();
-    ['pl-card-entrega', 'pl-card-cobrar', 'pl-card-hecho'].forEach(function (id) { $(id).hidden = true; });
+    ['pl-card-entrega', 'pl-card-cobrar', 'pl-card-hecho', 'pl-corregir', 'pl-corregida'].forEach(function (id) {
+      $(id).hidden = true;
+    });
     ok('');
     $('pl-card-salida').hidden = false;
     $('pl-cambiar').hidden = false;
+    limpiarErrores();
+    pintarPasos();
+  }
+
+  function reiniciar(mismoCliente) {
+    if (venta && venta.entrega && !window.confirm('La entrega de ' + venta.nombre + ' queda pendiente en Depósito. ¿Empezar otra venta igual?')) {
+      return;
+    }
+    limpiarVenta();
     ['comentario', 'nota_deposito', 'contacto', 'enc_nombre', 'enc_dni', 'enc_localidad'].forEach(function (n) {
       if (form.elements[n]) { form.elements[n].value = ''; }
     });
@@ -1264,7 +1369,6 @@
     $('pl-motivo').value = $('pl-motivo').defaultValue;
     $('pl-salida').value = '';
     lineas.vaciar();
-    limpiarErrores();
     if (mismoCliente && cliente) {
       // the same customer: his catalog and data are still here
       pintarCliente();
@@ -1273,6 +1377,7 @@
       pintarSalida();
       enfocarProducto(0);
       guardarBorrador();
+      refrescarCliente();
       return;
     }
     cliente = null;
@@ -1290,6 +1395,142 @@
     pintarSalida();
     $('pl-q-cliente').focus();
   }
+  // after a sale to the same customer: his balance and last orders again
+  // (the lines being typed are not touched)
+  function refrescarCliente() {
+    var id = cliente && cliente.id;
+    if (!id) { return; }
+    pedir('/nueva-venta/catalogo?cliente_id=' + encodeURIComponent(id)).then(function (r) {
+      if (!r.data.ok || !cliente || cliente.id !== id || venta) { return; }
+      cliente.saldo = r.data.cliente.saldo;
+      cliente.saldo_texto = r.data.cliente.saldo_texto;
+      pintarCliente();
+      pintarAnteriores(r.data.anteriores || []);
+    });
+  }
+
+  // ------------------------------------------------------------ «Corregir la venta» (before the delivery)
+
+  function pedirCorregir() {
+    if (!venta || !venta.entrega || !venta.corregir || venta.corregir.motivo) { return; }
+    $('pl-corregir-nombre').textContent = venta.nombre;
+    $('pl-corregir-pasos').innerHTML = (venta.corregir.pasos || []).map(function (p) { return '<li>' + h(p) + '</li>'; }).join('');
+    $('pl-corregir-pregunta').hidden = false;
+    $('pl-corregir-si').focus();
+    if ($('pl-corregir-pregunta').scrollIntoView) { $('pl-corregir-pregunta').scrollIntoView({block: 'nearest'}); }
+  }
+  var corrigiendo = false;
+  function corregir() {
+    if (corrigiendo || !venta || !venta.entrega) { return; }
+    corrigiendo = true;
+    var btn = $('pl-corregir-si');
+    btn.disabled = true;
+    btn.classList.add('pl-esperando');
+    $('pl-err-corregir').hidden = true;
+    pedir('/nueva-venta/planilla/corregir/' + venta.id, new FormData(), 90000).then(function (r) {
+      corrigiendo = false;
+      btn.disabled = false;
+      btn.classList.remove('pl-esperando');
+      if (!r.data.ok) {
+        $('pl-err-corregir').textContent = r.data.error || 'No se pudo corregir la venta.';
+        $('pl-err-corregir').hidden = false;
+        return;
+      }
+      reabrir(r.data.renglones || [], r.data.texto || '');
+    });
+  }
+  // the cancelled sale's customer and lines, to change and load as a new sale
+  function reabrir(renglones, texto) {
+    limpiarVenta();
+    lineas.cargar(renglones);
+    var faltan = renglones.length - lineas.renglones().length;
+    if (ops.some(function (b) { return b.dataset.salida === 'mostrador'; })) { $('pl-salida').value = 'mostrador'; }
+    pintarCliente();
+    pintarAnteriores(anteriores);
+    pintarFilas();
+    pintarSalida();
+    $('pl-corregida').textContent = texto;
+    $('pl-corregida').hidden = !texto;
+    if (faltan > 0) {
+      mostrarError(faltan === 1 ? 'Un producto de la venta anulada ya no está en el catálogo: agregalo de nuevo si corresponde.'
+        : faltan + ' productos de la venta anulada ya no están en el catálogo: agregalos de nuevo si corresponde.', 'pl-err-lineas');
+    }
+    guardarBorrador();
+    enfocarProducto();
+    refrescarCliente();
+  }
+  $('pl-corregir-btn').addEventListener('click', pedirCorregir);
+  $('pl-corregir-si').addEventListener('click', corregir);
+  $('pl-corregir-no').addEventListener('click', function () {
+    $('pl-corregir-pregunta').hidden = true;
+    if (!$('pl-card-entrega').hidden) { $('pl-efectivo').focus(); }
+  });
+
+  // ------------------------------------------------------------ the remito: print or share
+
+  function avisoRemito(texto) {
+    $('pl-h-remito-aviso').textContent = texto;
+    $('pl-h-remito-aviso').hidden = !texto;
+  }
+  function bajarRemito() {
+    return fetch(venta.remito.url, {credentials: 'same-origin'}).then(function (r) {
+      if (!r.ok) { throw new Error('remito'); }
+      return r.blob();
+    });
+  }
+  var marcoRemito = null;   // the hidden frame the remito is printed from
+  function abrirRemito() { window.open(venta.remito.url, '_blank', 'noopener'); }
+  function imprimirRemito() {
+    if (!venta || !venta.remito) { return; }
+    avisoRemito('Preparando el remito para imprimir…');
+    bajarRemito().then(function (blob) {
+      var marco = marcoRemito;
+      if (!marco) {
+        marco = marcoRemito = document.createElement('iframe');
+        marco.setAttribute('aria-hidden', 'true');
+        marco.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+        document.body.appendChild(marco);
+      }
+      marco.onload = function () {
+        setTimeout(function () {
+          try {
+            marco.contentWindow.focus();
+            marco.contentWindow.print();
+            avisoRemito('Si no se abrió la impresión, abrí el remito desde el enlace de arriba.');
+          } catch (e) { abrirRemito(); avisoRemito(''); }
+        }, 300);
+      };
+      marco.src = URL.createObjectURL(new Blob([blob], {type: 'application/pdf'}));
+    }, function () { abrirRemito(); avisoRemito(''); });
+  }
+  function descargarRemito(blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = venta.remito.archivo;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    avisoRemito('Se descargó «' + venta.remito.archivo + '»: arrastralo al chat de WhatsApp del cliente.');
+  }
+  function compartirRemito() {
+    if (!venta || !venta.remito) { return; }
+    avisoRemito('Preparando el remito…');
+    bajarRemito().then(function (blob) {
+      var file = null;
+      try { file = new File([blob], venta.remito.archivo, {type: 'application/pdf'}); } catch (e) { /* old browser */ }
+      if (file && navigator.canShare && navigator.canShare({files: [file]})) {
+        avisoRemito('');
+        return navigator.share({files: [file], title: 'Remito ' + venta.remito.nombre}).catch(function (err) {
+          // closed by the user: nothing; refused by the browser: the file instead
+          if (!err || err.name !== 'AbortError') { descargarRemito(blob); }
+        });
+      }
+      descargarRemito(blob);
+    }, function () { abrirRemito(); avisoRemito(''); });
+  }
+  $('pl-imprimir').addEventListener('click', imprimirRemito);
+  $('pl-compartir').addEventListener('click', compartirRemito);
+
   $('pl-nueva').addEventListener('click', function () { reiniciar(false); });
   $('pl-otra').addEventListener('click', function () { reiniciar(true); });
 
@@ -1310,7 +1551,9 @@
     }
     if (a === 'cliente') { ev.preventDefault(); if (!venta) { cliente ? cambiarCliente() : $('pl-q-cliente').focus(); } return; }
     if (a === 'productos') { ev.preventDefault(); enfocarProducto(); return; }
-    if (a === 'nueva' && venta) { ev.preventDefault(); reiniciar(false); }
+    if (a === 'nueva' && venta) { ev.preventDefault(); reiniciar(false); return; }
+    if (a === 'corregir' && venta && venta.entrega && venta.corregir) { ev.preventDefault(); pedirCorregir(); return; }
+    if (a === 'remito' && venta && venta.remito && !$('pl-h-remito').hidden) { ev.preventDefault(); imprimirRemito(); }
   });
 
   // ------------------------------------------------------------ start
@@ -1329,6 +1572,7 @@
   }
   var borrador = leerBorrador();
   pintarSalida();
+  pintarPasos();
   if (borrador && borrador.venta_id) {
     // a sale already loaded: go on with its delivery / payment / summary
     pendiente = borrador.venta_id;

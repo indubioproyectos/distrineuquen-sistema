@@ -11,6 +11,9 @@ and distri_pedido.ui_v2: with either off every route answers 404 and
         /nueva-venta/planilla/venta/<order> GET   JSON: what was done with the
                                                   sale and what can follow
         /nueva-venta/planilla/cobrar/<order> POST JSON: «Cobrar» of that sale
+        /nueva-venta/planilla/corregir/<order> POST JSON (19.0.1.129.56):
+                                                  «Corregir la venta» before
+                                                  the delivery
 
 Nothing here is a parallel implementation. The screen
 (static/src/nueva_venta/planilla.js) calls the endpoints the phone and the
@@ -28,6 +31,18 @@ depot already use, by fetch:
   route below, which calls distri.cobro.collect_receipts / collect exactly as
   /cobro/registrar does (same cash box rules, same receipt crediting).
 The summary only reads.
+
+19.0.1.129.56 (owner: «cerrar la operación de mostrador en una pantalla»):
+- «agregar o sacar algo a último momento»: a counter sale already loaded
+  (confirmed, packed, invoiced) and not delivered yet is corrected with
+  «Corregir la venta»: the existing «Anular venta» (models/anular_venta.py:
+  a credit note that reverses the invoice, the goods back in stock, the
+  order cancelled; the customer's balance is back where it was) and the
+  screen opens again with the same customer and lines to change and load
+  as a new sale. A confirmed order's lines and its invoice are never
+  edited (models/bloqueo_factura.py);
+- the summary says where the sale stands (`pasos`), what the invoice still
+  owes, and carries the remito to print or share.
 """
 from werkzeug.exceptions import NotFound
 
@@ -36,6 +51,7 @@ from odoo.exceptions import AccessError, UserError
 from odoo.http import request
 
 from ..models import nueva_venta as nv
+from ..models.anular_venta import puede_anular
 from ..models.cobrar import CREDIT_OK, MAX_TRANSFERS, QUESTIONS, can_collect, question_field
 from ..models.cobro_efectivo import RouteCashWarning
 from ..models.comprobante_subir import MAX_FILE_BYTES
@@ -45,6 +61,12 @@ from .nueva_venta import NuevaVenta
 
 TEMPLATE = "distri_pedido.nueva_venta_planilla"
 REMITO_PDF = "/report/pdf/distri_pedido.remito_pedido_documento/%s"
+# 19.0.1.129.56: the reason «Corregir la venta» leaves on the cancelled sale
+MOTIVO_CORREGIR = "Corrección antes de entregar («Nueva venta», mostrador)"
+NO_ES_MOSTRADOR = ("Esa venta no está esperando la entrega en el mostrador: no se corrige desde "
+                   "acá. Desde el pedido, usá «Rearmar» o «Anular venta».")
+YA_ENTREGADA = ("Esa venta ya se entregó: no se corrige desde acá. Si devuelve algo, usá "
+                "«Devolver»; si se lleva algo más, hacé otra venta a este cliente.")
 
 
 def planilla_on(env):
@@ -155,7 +177,8 @@ class NuevaVentaPlanilla(http.Controller):
                 rows.append("Transferencia %s: comprobante pendiente hasta que se verifique"
                             % _money(stop.transfer_amount))
             if stop.state == "not_paid":
-                rows.append("En la entrega no pagó")
+                # 19.0.1.129.56: «Cuenta corriente» on the PC layout
+                rows.append("En la entrega no pagó: queda en su cuenta corriente")
         if facturas:
             cobros = request.env["distri.cobro"].sudo().search(
                 [("invoice_id", "in", facturas.ids)], order="id")
@@ -176,6 +199,8 @@ class NuevaVentaPlanilla(http.Controller):
         elif o.state == "sale" and facturas and not entregado:
             titulo, texto = ("Venta en mostrador", "Confirmada, armada y facturada. Falta "
                              "registrar la entrega en el depósito.")
+        if o.state == "cancel":
+            titulo, texto = "Venta anulada", o.distri_anulada_motivo or ""
         documentos = []
         from .fichas import ficha_url
         for factura in facturas:
@@ -200,18 +225,90 @@ class NuevaVentaPlanilla(http.Controller):
         if debe > 0.005 and can_collect(user):
             cobrar = {"debe": debe, "debe_texto": _money(debe), "factura_id": facturas[:1].id,
                       "max": MAX_TRANSFERS}
+        entrega = None if entregado else self._entrega(order)
+        residual = round(sum(facturas.mapped("amount_residual")), 2)
         return {
             "id": o.id, "nombre": o.name, "cliente": o.partner_id.name or "",
             "cliente_id": o.partner_id.id,
             "total": o.amount_total, "total_texto": _money(o.amount_total),
             "titulo": titulo, "texto": texto, "estado": o.state,
             "entregado": entregado,
-            "entrega": None if entregado else self._entrega(order),
+            "entrega": entrega,
             "cobrar": cobrar,
             "pagos": self._pagos(o, facturas),
             "documentos": documentos,
             "enviar": enviar,
+            # 19.0.1.129.56
+            "facturada": bool(facturas),
+            # delivered «a cuenta corriente»: «Cobrar» stays at hand but is
+            # neither prefilled nor focused (nothing was paid)
+            "a_cuenta": any(s.state == "not_paid" for s in o.distri_stop_ids
+                            if s.route_id.kind == "depot"),
+            "residual": residual, "residual_texto": _money(residual),
+            "en_camino": round(en_camino, 2), "en_camino_texto": _money(en_camino),
+            "remito": {"nombre": remitos, "url": REMITO_PDF % o.id,
+                       "archivo": "Remito %s.pdf" % remitos.replace("/", "-")} if remitos else None,
+            "corregir": self._corregir(order) if entrega else None,
         }
+
+    # ---------------------------------------------------------------- «Corregir la venta»
+
+    @staticmethod
+    def _renglones(o):
+        """The sale's lines as the screen posts them: [{id: product
+        template, cantidad}] in the unit of sale."""
+        out = []
+        for line in o.order_line.filtered(lambda l: not l.display_type and l.product_uom_qty > 0):
+            qty = line.product_uom_qty
+            out.append({"id": line.product_id.product_tmpl_id.id,
+                        "cantidad": int(qty) if float(qty).is_integer() else qty})
+        return out
+
+    def _corregir(self, order):
+        """What «Corregir la venta» would do with a counter sale not
+        delivered yet, for whoever may cancel a sale: the steps of «Anular
+        venta» (models/anular_venta.py), or why it cannot be corrected."""
+        if not puede_anular(request.env.user):
+            return None
+        plan = order.sudo()._distri_anular_plan()
+        return {"pasos": plan["steps"], "motivo": plan["refusals"][0] if plan["refusals"] else ""}
+
+    @http.route("/nueva-venta/planilla/corregir/<int:order_id>", type="http", auth="user",
+                methods=["POST"], sitemap=False)
+    def corregir(self, order_id, **kw):
+        """«Corregir la venta» («agregar o sacar algo a último momento»): a
+        counter sale waiting for its delivery is cancelled by «Anular venta»
+        (credit note, goods back in stock, order cancelled) and its lines
+        come back to load it again, changed, as a new sale. Never after the
+        delivery or a payment («Anular venta» refuses an invoice with
+        payments)."""
+        user = self._check_pc()
+        order = self._venta(order_id)
+        if not puede_anular(user):
+            return self._json({"ok": False, "error": "Solo administración y gerencia corrigen "
+                                                     "una venta ya cargada."}, status=403)
+        o = order.sudo()
+        if o.state == "cancel":
+            # a second tap, or a retry after a lost answer: the lines again
+            return self._json({"ok": True, "renglones": self._renglones(o), "nombre": o.name,
+                               "texto": "%s ya estaba anulada." % o.name})
+        if o.distri_delivery_state == "delivered" or o.distri_entregado_fuera:
+            return self._json({"ok": False, "error": YA_ENTREGADA}, status=400)
+        if self._entrega(order) is None:
+            return self._json({"ok": False, "error": NO_ES_MOSTRADOR}, status=400)
+        nota = " ".join((request.httprequest.form.get("motivo") or "").split())[:120]
+        motivo = MOTIVO_CORREGIR + (": %s" % nota if nota else "")
+        renglones = self._renglones(o)
+        try:
+            with request.env.cr.savepoint():
+                order.distri_anular_venta(motivo)
+        except (UserError, AccessError) as exc:
+            return self._json({"ok": False, "error": exc.args[0] if exc.args else str(exc)},
+                              status=400)
+        return self._json({
+            "ok": True, "renglones": renglones, "nombre": o.name,
+            "texto": "%s se anuló con su nota de crédito y la mercadería volvió al stock. "
+                     "Cambiá lo que haga falta y cargala de nuevo." % o.name})
 
     # ---------------------------------------------------------------- «Cobrar»
 

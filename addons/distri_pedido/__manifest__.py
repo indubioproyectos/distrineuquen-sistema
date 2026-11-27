@@ -1,7 +1,7 @@
 {
     "name": "Distri Neuquen - Toma de pedidos",
     "summary": "Carga de pedidos en una sola pantalla, sin login",
-    "version": "19.0.1.129.55",
+    "version": "19.0.1.129.56",
     "license": "LGPL-3",
     # website_sale aporta `is_published` en product.template, que es el
     # interruptor visible/oculto del catalogo. Sin declararlo, al instalar
@@ -981,6 +981,28 @@
     # distri_cigarrillo_ids; the link changes no price. Phones get one card
     # per cigarette instead of the wide table (static/src/kit/listas.css).
     # No migration.
+    # 19.0.1.129.56 (owner, 27/11/2026: «cerrar la operación de mostrador en
+    # una pantalla» and «sacar los botones de Presupuesto y Facturación»).
+    # «Nueva venta» on the PC (controllers/nueva_venta_pc.py, views/
+    # nueva_venta_planilla.xml, static/src/nueva_venta/planilla.*), reviewed
+    # against the quotation form: the steps of the sale on top (where it
+    # stands), the customer's balance next to his list, the delivery's main
+    # button always in sight, «Cuenta corriente» as a way to pay, the remito
+    # to print or share on the summary. «Corregir la venta» («agregar o
+    # sacar algo a último momento», /nueva-venta/planilla/corregir/<id>): a
+    # counter sale loaded and not delivered yet is cancelled by the existing
+    # «Anular venta» (credit note, goods back in stock) and its customer and
+    # lines come back to load it again, changed; a confirmed order and its
+    # invoice are never edited (models/bloqueo_factura.py).
+    # New parameter distri_pedido.ocultar_presupuesto_factura (models/
+    # entradas_viejas.py, views/entradas_viejas.xml), OFF by default: with
+    # it on, everybody but Sistemas, the owner and Gerencia stops seeing
+    # the «PRESUPUESTOS» app, Ventas › Cotizaciones / Pedidos / A facturar,
+    # Facturación › Clientes › Facturas and «Crear factura» on the order
+    # form. Menus and buttons only: no access right, group or record changes.
+    # «Facturación directa de servicios» gets its own menu (Facturación ›
+    # Clientes › «Facturas directas de servicios», its group only). No model
+    # column, no migration, no data change.
     "depends": ["sale_management", "sale_stock", "website", "website_sale", "purchase",
                 "auth_signup", "auth_oauth", "mail_bot", "digest"],
     "data": ["security/grupos.xml", "security/listas.xml", "security/ir.model.access.csv", "security/reglas.xml", "views/sitio.xml", "views/producto.xml", "views/templates.xml", "views/portal.xml", "views/partner.xml", "views/cuenta.xml", "views/estado_cuenta.xml", "views/importar.xml", "views/categoria.xml", "views/roles.xml", "views/presentacion.xml", "views/presentacion_cobranza.xml", "views/presentacion_reparto.xml", "views/proyecto_paginas.xml", "views/presentacion_migracion.xml", "views/presentacion_presupuesto.xml", "views/proyecto.xml", "views/mercado_pago.xml", "views/whatsapp.xml", "views/factura.xml", "data/whatsapp_cron.xml", "views/privacidad.xml", "views/kit.xml", "views/armado.xml", "views/reparto.xml", "views/deudas_empleados.xml", "views/etiquetas.xml", "views/reparto_gps.xml", "views/reparto_app.xml", "views/deposito.xml", "views/despacho.xml", "views/socio_generico.xml", "views/cobros.xml", "views/pedido_whatsapp.xml", "views/whatsapp_cliente.xml", "views/revisar.xml", "views/comprobante_app.xml", "views/pedido_link.xml", "views/gastos_encomiendas.xml", "views/agilpedido_wa.xml", "views/agil_equivalencia.xml", "views/puesta_al_dia.xml", "views/revision_cliente.xml", "views/ajuste_cuenta.xml", "views/tarjeta_confirmacion.xml", "views/migracion.xml", "views/visor_chat.xml", "views/deudores.xml", "views/cuentas.xml", "views/cash_sheet.xml", "views/tablero.xml", "views/login.xml", "data/cobros_cron.xml", "data/zonas.xml", "data/parametros.xml", "data/proyecto.xml", "data/zona_horaria.xml", "data/encomiendas.xml", "data/ventas_sin_registrar.xml", "data/ajuste_cuenta.xml", "data/iconos.xml", "views/whatsapp_numero.xml", "views/catalogo_agil.xml", "data/catalogo_agil.xml", "views/respaldo.xml", "views/cobro.xml", "views/alta_revendedor.xml", "data/caja.xml", "views/caja.xml", "views/caja_backend.xml", "views/factura_sin_armar.xml",
@@ -1000,7 +1022,8 @@
              "views/nueva_venta_app.xml", "views/verificacion.xml",
              "views/equipo.xml", "views/fichas.xml", "views/venta_v129_35.xml",
              "views/factura_directa.xml", "views/contactos.xml", "views/correo.xml", "views/listas.xml",
-             "views/nueva_venta_planilla.xml", "views/novedades.xml"],
+             "views/nueva_venta_planilla.xml", "views/novedades.xml",
+             "views/entradas_viejas.xml"],
     "assets": {
         # ver el comentario dentro del archivo: cambia el hash de la URL del
         # paquete para esquivar un 502 que quedo cacheado en Cloudflare

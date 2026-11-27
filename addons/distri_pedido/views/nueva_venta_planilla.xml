@@ -5,7 +5,13 @@
        One screen closes the whole sale: customer, lines, exit, and after
        «Cargar la venta» the delivery with the payment (Mostrador), «Cobrar»
        and the summary with the documents. Everything posts to the
-       endpoints the phone and the depot already use. -->
+       endpoints the phone and the depot already use.
+       19.0.1.129.56 (owner: «más parecida a la pantalla de presupuestos del
+       sistema» and «cerrar la operación de mostrador en una pantalla»): the
+       steps of the sale on top (where it stands), the customer's balance,
+       «Corregir la venta» before the delivery, «Cuenta corriente» as a way
+       to pay, the main button always in sight and the remito to print or
+       share on the summary. -->
 
   <template id="nueva_venta_planilla" name="Nueva venta: planilla (PC)">&lt;!DOCTYPE html&gt;
 <html lang="es">
@@ -34,11 +40,19 @@
         <dt><kbd>Esc</kbd></dt><dd>Cierra la lista</dd>
         <dt><kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>4</kbd></dt><dd>¿Cómo sigue? (A armar, Mostrador, Ya entregado, Presupuesto)</dd>
         <dt><kbd>Ctrl</kbd>+<kbd>Enter</kbd></dt><dd>Cargar la venta · Entregar y cobrar · Cobrar</dd>
+        <dt><kbd>Alt</kbd>+<kbd>G</kbd></dt><dd>Corregir la venta (mostrador, antes de entregar)</dd>
+        <dt><kbd>Alt</kbd>+<kbd>R</kbd></dt><dd>Imprimir el remito (al terminar)</dd>
         <dt><kbd>Alt</kbd>+<kbd>N</kbd></dt><dd>Nueva venta (al terminar)</dd>
       </dl>
     </details>
     <a class="dn-link pl-barra__cel" href="/nueva-venta?celular=1" id="pl-celular">Ver versión celular</a>
   </div>
+  <ol class="pl-pasos" id="pl-pasos" aria-label="Cómo va la venta">
+    <li data-paso="carga" class="pl-paso--ahora"><span class="pl-paso__n">1</span> Cliente y productos</li>
+    <li data-paso="cargada"><span class="pl-paso__n">2</span> <span data-paso-t="">Cargada</span></li>
+    <li data-paso="entregada"><span class="pl-paso__n">3</span> Entregada</li>
+    <li data-paso="cobrada"><span class="pl-paso__n">4</span> <span data-paso-t="">Cobrada</span></li>
+  </ol>
   <div class="dn-banner dn-banner--warn pl-borrador" role="status" id="pl-borrador" hidden="hidden">
     <span id="pl-borrador-txt"></span>
     <span class="pl-borrador__btns">
@@ -65,6 +79,7 @@
             <b id="pl-cliente-nombre"></b>
             <span class="nv-meta" id="pl-cliente-meta"></span>
           </div>
+          <span class="dn-chip" id="pl-saldo" hidden="hidden"></span>
           <span class="dn-chip" id="pl-lista" hidden="hidden"></span>
           <a class="dn-link" id="pl-cuenta" href="#" target="_blank" rel="noopener" hidden="hidden">Estado de cuenta</a>
           <a class="dn-link" id="pl-ficha" href="#" target="_blank" rel="noopener" hidden="hidden">Ver ficha</a>
@@ -116,6 +131,24 @@
           <ul class="pl-drop pl-drop--prod" id="pl-productos" role="listbox" aria-label="Productos" hidden="hidden"></ul>
         </div>
         <p class="pl-err" id="pl-err-lineas" role="alert" hidden="hidden"></p>
+        <!-- 19.0.1.129.56: «agregar o sacar algo a último momento», while the
+             counter sale waits for its delivery (/nueva-venta/planilla/corregir) -->
+        <div class="pl-corregir" id="pl-corregir" hidden="hidden">
+          <p class="nv-meta" id="pl-corregir-txt">¿Agrega o saca algo? La venta ya está facturada, así que no se le
+            cambian los renglones: se anula con su nota de crédito y la cargás de nuevo con los cambios.</p>
+          <button type="button" class="dn-btn dn-btn--outline dn-btn--sm dn-btn--auto" id="pl-corregir-btn">Corregir la venta <small class="pl-key">Alt+G</small></button>
+          <div class="dn-card dn-card--warn pl-pregunta" id="pl-corregir-pregunta" hidden="hidden" role="alert">
+            <p><b>Se va a anular <span id="pl-corregir-nombre"></span> para cargarla de nuevo:</b></p>
+            <ul class="pl-pagos" id="pl-corregir-pasos"></ul>
+            <p class="nv-meta">Después quedan acá el cliente y los productos para cambiar lo que haga falta.</p>
+            <div class="pl-acts">
+              <button type="button" class="dn-btn dn-btn--sm dn-btn--auto" id="pl-corregir-si">Sí, anular y corregir</button>
+              <button type="button" class="dn-btn dn-btn--ghost dn-btn--sm dn-btn--auto" id="pl-corregir-no">No, dejarla así</button>
+            </div>
+          </div>
+          <p class="pl-err" id="pl-err-corregir" role="alert" hidden="hidden"></p>
+        </div>
+        <p class="pl-ok" id="pl-corregida" role="status" hidden="hidden"></p>
       </section>
     </div>
 
@@ -196,7 +229,7 @@
           </div>
           <div class="pl-extra" data-pl-para="mostrador" hidden="hidden">
             <p class="nv-meta">Se confirma, se arma completo y sale la factura. Después, en esta misma pantalla, la
-              entrega y el cobro.</p>
+              entrega y el cobro. Revisá los productos con el cliente antes de cargarla.</p>
           </div>
           <div class="pl-resumen-total"><span>Total</span><b class="dn-num" id="pl-total-lado">$ 0</b></div>
           <p class="pl-err" id="pl-err-cargar" role="alert" hidden="hidden"></p>
@@ -220,10 +253,12 @@
             <dt>Devolución</dt><dd class="dn-num" id="pl-e-devolucion">$ 0</dd>
             <dt class="pl-kv__total">Saldo</dt><dd class="dn-num pl-kv__total" id="pl-e-saldo"></dd>
           </dl>
-          <span class="pl-fl" id="pl-dev-l">¿Devolvió algo?</span>
-          <div class="pl-seg pl-seg--2" role="radiogroup" aria-labelledby="pl-dev-l">
-            <label class="pl-seg__op"><input type="radio" name="devolvio" value="none" checked="checked"/><span>No</span></label>
-            <label class="pl-seg__op"><input type="radio" name="devolvio" value="yes"/><span>Sí</span></label>
+          <div class="pl-linea">
+            <span class="pl-fl" id="pl-dev-l">¿Devolvió algo?</span>
+            <div class="pl-seg pl-seg--2 pl-seg--chico" role="radiogroup" aria-labelledby="pl-dev-l">
+              <label class="pl-seg__op"><input type="radio" name="devolvio" value="none" checked="checked"/><span>No</span></label>
+              <label class="pl-seg__op"><input type="radio" name="devolvio" value="yes"/><span>Sí</span></label>
+            </div>
           </div>
           <div class="pl-dev" id="pl-dev" hidden="hidden">
             <p class="nv-meta">Cuánto devolvió de cada producto y por qué.</p>
@@ -231,16 +266,18 @@
             <label class="nv-check"><input type="checkbox" name="recibido" value="1"/> Recibido en el depósito</label>
             <p class="pl-err" data-pl-err="devolucion" role="alert" hidden="hidden"></p>
           </div>
-          <div class="dn-field pl-bultos"><label for="pl-bultos">Bultos</label>
-            <input id="pl-bultos" name="bultos" class="dn-input dn-num" inputmode="numeric" autocomplete="off"/></div>
+          <div class="pl-linea"><label class="pl-fl" for="pl-bultos">Bultos</label>
+            <input id="pl-bultos" name="bultos" class="dn-input dn-num pl-bultos" inputmode="numeric" autocomplete="off"/></div>
 
           <span class="pl-fl" id="pl-pago-l">¿Cómo paga?</span>
           <div class="pl-seg pl-seg--4" role="radiogroup" aria-labelledby="pl-pago-l" id="pl-pago">
             <button type="button" role="radio" aria-checked="true" class="pl-seg__op" data-pago="efectivo">Efectivo</button>
             <button type="button" role="radio" aria-checked="false" class="pl-seg__op" data-pago="transferencia">Transferencia</button>
             <button type="button" role="radio" aria-checked="false" class="pl-seg__op" data-pago="mixto">Mixto</button>
-            <button type="button" role="radio" aria-checked="false" class="pl-seg__op" data-pago="nada">No pagó</button>
+            <button type="button" role="radio" aria-checked="false" class="pl-seg__op" data-pago="nada">Cuenta corriente</button>
           </div>
+          <p class="nv-meta" id="pl-cc-aviso" hidden="hidden">No paga ahora: la factura queda en su cuenta corriente y se
+            cobra después con «Cobrar».</p>
           <div class="pl-grid" id="pl-efectivo-box">
             <div class="dn-field"><label for="pl-efectivo">Efectivo que queda</label>
               <input id="pl-efectivo" name="efectivo" class="dn-input dn-num" inputmode="decimal" autocomplete="off" placeholder="$ 0"/></div>
@@ -265,13 +302,18 @@
               lo ves en «Mis comprobantes a reclamar».</p>
             <p class="pl-err" data-pl-err="comprobante" role="alert" hidden="hidden"></p>
           </div>
-          <div class="dn-field"><label for="pl-e-comentario">Comentario <small class="nv-meta">(opcional)</small></label>
-            <input id="pl-e-comentario" name="comentario" class="dn-input" type="text" maxlength="250" autocomplete="off"/></div>
-          <div class="pl-debe" id="pl-debe"><span>Queda debiendo</span><b class="dn-num" id="pl-debe-monto">$ 0</b></div>
-          <p class="nv-meta">El efectivo entra en «Caja depósito» y se aplica a sus facturas, la más vieja primero. Una
+          <details class="nv-mas">
+            <summary>Comentario <small class="nv-meta">(opcional)</small></summary>
+            <div class="dn-field"><label for="pl-e-comentario" class="dn-sr">Comentario</label>
+              <input id="pl-e-comentario" name="comentario" class="dn-input" type="text" maxlength="250" autocomplete="off"/></div>
+          </details>
+          <p class="nv-meta pl-chico">El efectivo entra en «Caja depósito» y se aplica a sus facturas, la más vieja primero. Una
             transferencia queda como comprobante pendiente: nunca crea un pago.</p>
-          <p class="pl-err" id="pl-err-entrega" role="alert" hidden="hidden"></p>
-          <button type="submit" class="dn-btn dn-btn--lg" id="pl-entregar">Entregar y cobrar <small class="pl-key pl-key--btn">Ctrl+Enter</small></button>
+          <div class="pl-pie">
+            <div class="pl-debe" id="pl-debe"><span id="pl-debe-l">Queda debiendo</span><b class="dn-num" id="pl-debe-monto">$ 0</b></div>
+            <p class="pl-err" id="pl-err-entrega" role="alert" hidden="hidden"></p>
+            <button type="submit" class="dn-btn dn-btn--lg" id="pl-entregar"><span id="pl-entregar-t">Entregar y cobrar</span> <small class="pl-key pl-key--btn">Ctrl+Enter</small></button>
+          </div>
         </form>
       </section>
 
@@ -282,7 +324,13 @@
         <p class="pl-h-venta"><b id="pl-h-nombre"></b> · <span id="pl-h-cliente"></span> · <b class="dn-num" id="pl-h-total"></b></p>
         <ul class="pl-docs" id="pl-h-docs"></ul>
         <ul class="pl-pagos" id="pl-h-pagos"></ul>
+        <p class="pl-h-saldo" id="pl-h-saldo" hidden="hidden"></p>
         <p class="pl-ok" id="pl-h-ok" role="status" hidden="hidden"></p>
+        <div class="pl-acts pl-acts--2" id="pl-h-remito" hidden="hidden">
+          <button type="button" class="dn-btn dn-btn--outline dn-btn--sm" id="pl-imprimir">Imprimir remito <small class="pl-key">Alt+R</small></button>
+          <button type="button" class="dn-btn dn-btn--outline dn-btn--sm" id="pl-compartir">Compartir remito</button>
+        </div>
+        <p class="nv-meta" id="pl-h-remito-aviso" role="status" hidden="hidden"></p>
         <a class="dn-btn dn-btn--outline dn-btn--sm" id="pl-h-enviar" href="#" target="_blank" rel="noopener" hidden="hidden">Enviar al cliente por WhatsApp</a>
         <div class="pl-acts pl-acts--fin">
           <button type="button" class="dn-btn dn-btn--lg" id="pl-nueva">Nueva venta <small class="pl-key pl-key--btn">Alt+N</small></button>

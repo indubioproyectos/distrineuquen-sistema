@@ -53,8 +53,9 @@ def _png():
     return buffer.getvalue()
 
 
-@tagged("post_install", "-at_install", "distri_v129_53")
-class TestV12953Planilla(RepartoMixin, AccountTestInvoicingHttpCommon):
+class PlanillaCase(RepartoMixin, AccountTestInvoicingHttpCommon):
+    """The data and the requests of the PC layout (planilla.js), shared with
+    tests/test_v129_56_mostrador.py. No test of its own."""
 
     @classmethod
     def setUpClass(cls):
@@ -200,6 +201,10 @@ class TestV12953Planilla(RepartoMixin, AccountTestInvoicingHttpCommon):
                          "no older entry changed its receivable")
         self.assertEqual(self._partner_balance(self.otro), snap["otro"])
         return round(self._partner_balance(self.cliente) - snap["cliente"], 2)
+
+
+@tagged("post_install", "-at_install", "distri_v129_53")
+class TestV12953Planilla(PlanillaCase):
 
     # ------------------------------------------------------------ screen and flags
 

@@ -277,13 +277,18 @@ class NuevaVenta(http.Controller):
                     area, numero = split_ar_national(national)
                     break
         lista = lista if lista is not None else self._lista(cliente)
+        cuenta = self._cuenta_url(cliente)
+        # 19.0.1.129.56: his balance next to his name on the PC layout, only
+        # when the accounts app shows this customer to the user (`cuenta`)
+        saldo = round(socio.commercial_partner_id._distri_account_balance(), 2) if cuenta else None
         return {"id": cliente.id, "nombre": cliente.name,
+                "saldo": saldo, "saldo_texto": _money(abs(saldo)) if saldo is not None else "",
                 "whatsapp": cliente._distri_whatsapp_shown() or "",
                 "domicilio": ", ".join(x for x in (socio.street, socio.city) if x),
                 "lista": lista.name or "",
                 # 19.0.1.129.35
                 "sin_whatsapp": sin_wa, "wa_area": area, "wa_numero": numero,
-                "cuenta": self._cuenta_url(cliente),
+                "cuenta": cuenta,
                 # 19.0.1.129.40: «Datos del cliente»
                 "calle": socio.street or "", "ciudad": socio.city or "",
                 "ficha": self._ficha_url(cliente)}
