@@ -145,7 +145,7 @@
     <t t-set="volver" t-value="'/listas'"/>
     <t t-set="kicker" t-value="'Listas y accesos'"/>
     <t t-set="titulo" t-value="'Precios de cigarrillos'"/>
-    <t t-set="sub" t-value="'Lista 2, Lista 3 y Lista 4. Vacío: a presupuestar si el precio por lista es obligatorio; si no, precio General.'"/>
+    <t t-set="sub" t-value="'Precio de cada cigarrillo en la Lista 2, la Lista 3 y la Lista 4. Lo que no figura acá va a precio General.'"/>
   </t>
   <main class="dn-main">
     <t t-call="distri_pedido.listas_tabs"/>
@@ -153,10 +153,15 @@
       <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
       <div class="ls-acciones">
         <button type="submit" class="dn-btn">Guardar cambios</button>
-        <button type="submit" name="usar_todos" value="lista3" class="dn-btn dn-btn--outline">Lista 3: usar precio May en todos</button>
-        <button type="submit" name="usar_todos" value="lista4" class="dn-btn dn-btn--outline">Lista 4: usar precio May en todos</button>
+        <button type="submit" name="usar_todos" value="lista3" class="dn-btn dn-btn--outline">Lista 3: copiar precios de los productos viejos «… - lista 3»</button>
+        <button type="submit" name="usar_todos" value="lista4" class="dn-btn dn-btn--outline">Lista 4: copiar precios de los productos viejos «… - lista 4»</button>
         <a class="dn-link" href="/listas/cigarrillos/vincular">Vincular productos May</a>
       </div>
+      <p class="ls-ayuda">Cada casillero es el precio del cigarrillo en esa lista. «Copiar precios» trae, a la lista elegida, el precio que tenía en Odoo Online el producto «May … - lista 3» (o «- lista 4») vinculado a cada cigarrillo; los que no tienen producto vinculado no cambian. Nada se guarda hasta tocar un botón.</p>
+      <p class="ls-ayuda">
+        <t t-if="todos">Se muestran todos los productos de la categoría. <a class="dn-link" href="/listas/cigarrillos">Ver solo los que tienen precio por lista</a></t>
+        <t t-elif="ocultos"><t t-esc="ocultos"/> producto(s) más van a precio General y no se muestran. <a class="dn-link" href="/listas/cigarrillos?todos=1">Ver todos</a></t>
+      </p>
       <div class="ls-tabla-wrap">
         <table class="ls-tabla">
           <thead><tr>

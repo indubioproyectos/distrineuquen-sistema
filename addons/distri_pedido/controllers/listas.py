@@ -147,18 +147,32 @@ class ListasAccesos(http.Controller):
 
     # -------------------------------------------------- cigarette prices
 
-    def _grilla_page(self, ok="", error=""):
+    @staticmethod
+    def _fila_por_lista(fila):
+        """19.0.1.129.55 (owner): the grid lists only what is priced per list:
+        «precio por lista obligatorio», a price in Lista 2/3/4 or a linked
+        «May X - lista N» product. The rest takes the General price and is
+        shown only on request («Ver todos»)."""
+        return bool(fila["obligatorio"]
+                    or any(fila.get(clave) for clave in LISTAS_CIGARRILLOS)
+                    or any(fila.get("may_" + clave) for clave in PERSONAL_POR_CLAVE))
+
+    def _grilla_page(self, ok="", error="", todos=False):
         Listas = request.env["distri.listas"]
         grilla = Listas._grilla()
+        filas = grilla["filas"]
+        visibles = filas if todos else [f for f in filas if self._fila_por_lista(f)]
         return self._page("distri_pedido.listas_cigarrillos_page", "cigarrillos", {
-            "filas": grilla["filas"], "listas": grilla["listas"], "claves": LISTAS_CIGARRILLOS,
+            "filas": visibles, "listas": grilla["listas"], "claves": LISTAS_CIGARRILLOS,
             "nombre_lista": NOMBRE_LISTA_GRILLA, "con_may": PERSONAL_POR_CLAVE,
+            "todos": bool(todos), "ocultos": len(filas) - len(visibles),
             "ok": ok, "error": error})
 
     @http.route("/listas/cigarrillos", type="http", auth="user", methods=["GET"], sitemap=False)
-    def cigarrillos(self, hecho="", **kw):
+    def cigarrillos(self, hecho="", todos="", **kw):
         self._check()
-        return self._grilla_page(ok=("Listo: %s precio(s) cambiado(s)." % hecho) if hecho else "")
+        return self._grilla_page(ok=("Listo: %s precio(s) cambiado(s)." % hecho) if hecho else "",
+                                 todos=todos == "1")
 
     @http.route("/listas/cigarrillos", type="http", auth="user", methods=["POST"], sitemap=False)
     def cigarrillos_guardar(self, usar="", usar_todos="", **kw):
