@@ -1,0 +1,131 @@
+/* 19.0.1.129.54: «Novedades» (controllers/novedades.py, views/novedades.xml).
+   On top of dn.css and deposito.css (the dp-* top bar). Phone first (one
+   column at ~380 px); from 640 px the card pairs sit side by side and the
+   «Nueva venta» mockup goes next to its text. Every rule hangs from nv-*. */
+
+/* index: one card per entry */
+.nv-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.nv-entry{display:flex;align-items:center;gap:12px;min-height:88px;padding:14px;background:var(--dn-card);
+  border:1px solid var(--dn-line);border-radius:var(--dn-r);color:var(--dn-ink);text-decoration:none}
+.nv-entry:active{background:var(--dn-tint)}
+.nv-entry__txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.nv-entry__txt b{font-size:18px;line-height:1.25;overflow-wrap:anywhere}
+.nv-entry__txt span{font-size:15px;line-height:1.4;color:var(--dn-muted)}
+.nv-entry__date{font-size:13px;font-weight:700;color:var(--dn-green-text);font-variant-numeric:tabular-nums}
+.nv-entry>.dn-i{flex:none;color:var(--dn-muted)}
+.nv-empty{margin:0;font-size:16px;color:var(--dn-muted)}
+
+/* share block (index and every entry) */
+.nv-share{display:flex;flex-direction:column;gap:8px;padding:14px;background:var(--dn-card);
+  border:1px solid var(--dn-line);border-radius:var(--dn-r)}
+.nv-share__btns{display:flex;flex-direction:column;gap:8px}
+.nv-share__ok{margin:0;font-size:14px;font-weight:700;color:var(--dn-green-text);min-height:20px}
+
+/* guide: anchor index */
+.nv-toc{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.nv-toc a{display:flex;align-items:center;min-height:48px;padding:8px 14px;background:var(--dn-card);
+  border:1px solid var(--dn-line);border-radius:var(--dn-r);color:var(--dn-navy);font-size:16px;font-weight:700;
+  text-decoration:none}
+.nv-toc a:active{background:var(--dn-tint)}
+
+/* guide: sections */
+.nv-sec{display:flex;flex-direction:column;gap:12px;padding-top:20px;scroll-margin-top:8px}
+.nv-sec>.dn-label{color:var(--dn-muted)}
+.nv-sec--no>.dn-label{color:var(--dn-red-text)}
+.nv-h2{margin:0;font-size:22px;line-height:1.25;font-weight:800;color:var(--dn-navy)}
+.nv-h3{margin:0;font-size:19px;line-height:1.3;font-weight:800;color:var(--dn-navy)}
+.nv-p{margin:0;font-size:17px;line-height:1.5}
+.nv-muted{margin:0;font-size:16px;line-height:1.5;color:var(--dn-muted)}
+.nv-up{align-self:flex-end;display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-size:14px;
+  font-weight:700;color:var(--dn-primary);text-decoration:none}
+
+.nv-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.nv-card{display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--dn-card);
+  border:1px solid var(--dn-line);border-radius:var(--dn-r)}
+.nv-card__k{font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--dn-muted)}
+.nv-card__k--ok{color:var(--dn-green-text)}
+.nv-card__t{font-size:22px;font-weight:800;color:var(--dn-navy)}
+.nv-card ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:17px;line-height:1.45}
+.nv-chips{display:flex;flex-wrap:wrap;gap:6px}
+.nv-chips .dn-chip{font-size:14px;font-weight:700;min-height:30px}
+.nv-chip-info{background:var(--dn-info-bg);color:var(--dn-navy-2)}
+
+.nv-warn{display:flex;flex-direction:column;gap:8px;padding:16px;background:var(--dn-amber-bg);
+  border:1px solid var(--dn-amber-line);border-radius:var(--dn-r)}
+.nv-warn b{font-size:18px;line-height:1.35;color:var(--dn-amber-text)}
+
+/* «Lo que vimos en la primera semana» and «El botón para cada caso» */
+.nv-rows{margin:0;padding:0;list-style:none;background:var(--dn-card);border:1px solid var(--dn-line);
+  border-radius:var(--dn-r);overflow:hidden}
+.nv-rows>li{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-bottom:1px solid var(--dn-line)}
+.nv-rows>li:last-child{border-bottom:0}
+.nv-num{font-size:24px;font-weight:800;color:var(--dn-navy);font-variant-numeric:tabular-nums}
+.nv-rows span{font-size:17px;line-height:1.45}
+.nv-rows .nv-do{font-weight:700;color:var(--dn-primary)}
+
+/* navy blocks: callout, «¿Cambió algo…?» and the closing «¿Por qué?» */
+.nv-navy{display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--dn-navy);color:#fff;
+  border-radius:var(--dn-r);font-size:17px;line-height:1.5}
+.nv-navy p{margin:0}
+.nv-navy b.nv-mint,.nv-navy .nv-mint{color:var(--dn-mint)}
+.nv-navy hr{width:100%;height:1px;margin:0;border:0;background:var(--dn-navy-2)}
+.nv-case{display:flex;flex-direction:column;gap:4px}
+.nv-case b{font-size:18px}
+
+.nv-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;padding:0;list-style:none}
+.nv-flow li{padding:8px 12px;background:var(--dn-tint);border-radius:10px;font-size:16px;font-weight:700;color:var(--dn-navy)}
+.nv-flow li.nv-arrow{padding:0;background:none;color:var(--dn-muted)}
+
+.nv-no{display:flex;flex-direction:column;gap:12px;margin:0;padding:16px;list-style:none;background:var(--dn-red-bg);
+  border:1px solid var(--dn-red-line);border-radius:var(--dn-r);font-size:17px;line-height:1.45}
+.nv-no li{display:flex;gap:10px}
+.nv-no li>b{flex:none;color:var(--dn-red-text)}
+
+/* the «Nueva venta» phone mockup (HTML only, no image) */
+.nv-demo{display:flex;flex-direction:column;gap:16px}
+.nv-demo__txt{display:flex;flex-direction:column;gap:12px}
+.nv-phone{width:100%;max-width:340px;align-self:center;padding:10px;background:var(--dn-navy);border-radius:36px}
+.nv-phone__in{display:flex;flex-direction:column;background:var(--dn-bg);border-radius:26px;overflow:hidden}
+.nv-phone__top{display:flex;flex-direction:column;gap:10px;padding:14px 16px 12px;background:var(--dn-navy);color:#fff}
+.nv-phone__k{font-size:11px;font-weight:700;letter-spacing:1.2px;color:var(--dn-mint)}
+.nv-phone__t{font-size:17px;font-weight:800}
+.nv-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.nv-steps i{height:6px;border-radius:999px;background:var(--dn-turq)}
+.nv-phone__body{display:flex;flex-direction:column;gap:8px;padding:12px}
+.nv-ph-card{display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:#fff;border:1px solid var(--dn-line);
+  border-radius:10px;font-size:14px}
+.nv-ph-card--on{border:2px solid var(--dn-primary)}
+.nv-ph-k{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--dn-muted)}
+.nv-ph-card--on .nv-ph-k{color:var(--dn-green-text)}
+.nv-ph-row{display:flex;justify-content:space-between;gap:8px}
+.nv-ph-link{font-size:13px;font-weight:700;color:var(--dn-primary)}
+.nv-ph-opt{display:flex;gap:8px;align-items:flex-start;padding:6px}
+.nv-ph-opt--on{background:var(--dn-green-bg);border-radius:8px}
+.nv-ph-opt i{flex:none;width:16px;height:16px;margin-top:2px;border:2px solid var(--dn-off);border-radius:999px;box-sizing:border-box}
+.nv-ph-opt--on i{border-color:var(--dn-primary);box-shadow:inset 0 0 0 3px #fff;background:var(--dn-primary)}
+.nv-ph-opt span{display:flex;flex-direction:column;gap:1px}
+.nv-ph-opt small{font-size:12px;color:var(--dn-muted)}
+.nv-ph-btn{display:flex;align-items:center;justify-content:center;height:46px;background:var(--dn-primary);color:#fff;
+  border-radius:10px;font-size:16px;font-weight:800}
+.nv-paths{display:flex;flex-direction:column;gap:8px}
+.nv-path{display:flex;flex-direction:column;gap:4px;padding:12px 14px;background:var(--dn-card);border:1px solid var(--dn-line);
+  border-radius:var(--dn-r)}
+.nv-path b{font-size:17px;color:var(--dn-navy)}
+.nv-path span{font-size:15px;line-height:1.45;color:var(--dn-muted)}
+
+@media (min-width:640px){
+  .nv-grid--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nv-grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .nv-toc{flex-direction:row;flex-wrap:wrap}
+  .nv-share__btns{flex-direction:row}
+  .nv-share__btns>*{flex:1}
+  .nv-rows>li{flex-direction:row;align-items:baseline;gap:16px}
+  .nv-rows .nv-num,.nv-rows .nv-when{flex:0 0 34%}
+  .nv-case{flex-direction:row;align-items:baseline;gap:16px}
+  .nv-case b{flex:0 0 34%}
+}
+@media (min-width:720px){
+  .nv-demo{flex-direction:row;align-items:flex-start}
+  .nv-phone{flex:0 0 300px}
+  .nv-demo__txt{flex:1;min-width:0}
+}

@@ -36,3 +36,4 @@ from . import rendiciones_v2
 from . import correo
 from . import listas
 from . import nueva_venta_pc
+from . import novedades

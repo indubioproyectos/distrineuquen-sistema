@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- 19.0.1.129.54: «Novedades» (controllers/novedades.py), staff only.
+       On the kit with /deposito's top bar (deposito_top, static/src/
+       deposito/deposito.css) plus static/src/kit/novedades.css.
+       A new entry: copy novedades_venta (keep data-parent="/novedades", the
+       top bar and the share block) and add its line to novedades.ENTRIES. -->
+
+  <!-- «Compartir por WhatsApp» and «Copiar link»: share = {url, whatsapp}
+       (novedades.share_values). Without JavaScript the copy button stays
+       hidden and the link is shown to copy by hand. -->
+  <template id="novedades_compartir" name="Novedades: compartir">
+    <section class="nv-share" aria-label="Compartir">
+      <div class="nv-share__btns">
+        <a class="dn-btn" t-att-href="share['whatsapp']" target="_blank" rel="noopener noreferrer" data-nv-whatsapp="">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'chat'"/></t>
+          Compartir por WhatsApp
+        </a>
+        <button type="button" class="dn-btn dn-btn--secondary" t-att-data-nv-copiar="share['url']" hidden="hidden">
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'copy'"/></t>
+          Copiar link
+        </button>
+      </div>
+      <p class="nv-share__ok" role="status" aria-live="polite"></p>
+      <noscript><p class="nv-muted">Link: <t t-esc="share['url']"/></p></noscript>
+    </section>
+    <script>
+      (function () {
+        var btn = document.querySelector('[data-nv-copiar]');
+        if (!btn) { return; }
+        var out = btn.parentNode.parentNode.querySelector('.nv-share__ok');
+        btn.hidden = false;
+        function done(ok) { out.textContent = ok ? 'Link copiado.' : 'No se pudo copiar: mantené apretado el link para copiarlo.'; }
+        function fallback(text) {
+          var area = document.createElement('textarea');
+          area.value = text;
+          area.setAttribute('readonly', '');
+          area.style.position = 'fixed';
+          area.style.opacity = '0';
+          document.body.appendChild(area);
+          area.select();
+          var ok = false;
+          try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+          document.body.removeChild(area);
+          done(ok);
+        }
+        btn.addEventListener('click', function () {
+          var text = btn.getAttribute('data-nv-copiar');
+          if (navigator.clipboard) {
+            if (window.isSecureContext) {
+              navigator.clipboard.writeText(text).then(function () { done(true); }, function () { fallback(text); });
+              return;
+            }
+          }
+          fallback(text);
+        });
+      })();
+    </script>
+  </template>
+
+  <!-- ================================================================ index -->
+  <template id="novedades_index" name="Novedades">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Novedades · Distri Neuquén</title>
+  <meta name="robots" content="noindex, nofollow"/>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp nv" data-parent="/tablero" data-page="novedades">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="inicio"/>
+    <t t-set="kicker" t-value="'Distri Neuquén · %s' % user.name"/>
+    <t t-set="titulo" t-value="'Novedades'"/>
+    <t t-set="sub" t-value="'Lo nuevo de la app y cómo se trabaja ahora. Lo más reciente, arriba.'"/>
+  </t>
+  <main class="dn-main">
+    <ul t-if="entries" class="nv-list">
+      <li t-foreach="entries" t-as="e">
+        <a class="nv-entry" t-att-href="e['url']" data-dn="down" t-att-data-entry="e['slug']">
+          <span class="dp-ico"><t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'news'"/></t></span>
+          <span class="nv-entry__txt">
+            <span class="nv-entry__date" t-esc="e['date_text']"/>
+            <b t-esc="e['title']"/>
+            <span t-esc="e['summary']"/>
+          </span>
+          <t t-call="distri_pedido.dn_icon"><t t-set="i" t-value="'next'"/></t>
+        </a>
+      </li>
+    </ul>
+    <p t-else="" class="nv-empty">Todavía no hay novedades.</p>
+    <t t-call="distri_pedido.novedades_compartir"/>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+
+  <!-- ====================================== «Cómo vender con Nueva venta» -->
+  <!-- The training poster of 26/11/2026 (1080 x 5700 px) laid out for the
+       phone, same wording. -->
+  <template id="novedades_venta" name="Novedades: Cómo vender con Nueva venta">&lt;!DOCTYPE html&gt;
+<html lang="es">
+<head>
+  <title>Cómo vender con Nueva venta · Distri Neuquén</title>
+  <meta name="robots" content="noindex, nofollow"/>
+  <t t-set="manifest" t-value="'/tablero/manifest.webmanifest'"/>
+  <t t-call="distri_pedido.dn_head"/>
+</head>
+<body class="dp nv" data-parent="/novedades" data-page="novedades-venta">
+  <t t-call="distri_pedido.deposito_top">
+    <t t-set="volver" t-value="'/novedades'"/>
+    <t t-set="kicker" t-value="'Cómo vendemos desde hoy · %s' % entry['date_text']"/>
+    <t t-set="titulo" t-value="'Toda venta empieza en «Nueva venta»'"/>
+    <t t-set="sub" t-value="'Así el stock, las facturas y las cuentas quedan iguales a lo que pasó de verdad, y nadie ve errores en pantalla.'"/>
+  </t>
+  <main class="dn-main" id="arriba">
+    <nav aria-label="En esta guía">
+      <h2 class="dn-label">En esta guía</h2>
+      <ul class="nv-toc">
+        <li><a href="#por-que">Por qué ahora importa</a></li>
+        <li><a href="#pantalla">Así se ve «Nueva venta»</a></li>
+        <li><a href="#caminos">1 · Elegí cómo sigue la venta</a></li>
+        <li><a href="#documentos">2 · Qué mueve cada documento</a></li>
+        <li><a href="#solos">3 · Pedidos que entran solos</a></li>
+        <li><a href="#cambios">4 · ¿Cambió algo a último momento?</a></li>
+        <li><a href="#botones">5 · El botón para cada caso</a></li>
+        <li><a href="#ya-no">6 · Lo que ya no se hace</a></li>
+      </ul>
+    </nav>
+
+    <!-- Por qué ahora importa -->
+    <section class="nv-sec" id="por-que">
+      <h2 class="dn-label">Por qué ahora importa</h2>
+      <p class="nv-h2">Antes una venta movía una sola cosa. Ahora mueve tres, y tienen que coincidir.</p>
+      <div class="nv-grid nv-grid--2">
+        <div class="nv-card">
+          <span class="nv-card__k">Antes, en Online</span>
+          <ul>
+            <li><b>La factura</b> solo sumaba deuda al cliente.</li>
+            <li><b>El stock no se contaba.</b> Nadie comparaba lo facturado con lo que salía del depósito.</li>
+            <li>Reabrir o editar una factura cambiaba un número, y nada más se enteraba.</li>
+          </ul>
+          <div class="nv-chips"><span class="dn-chip nv-chip-info">Editar no rompía nada visible</span></div>
+        </div>
+        <div class="nv-card">
+          <span class="nv-card__k nv-card__k--ok">Ahora, con el stock en marcha</span>
+          <ul>
+            <li><b>El remito</b> descuenta lo que sale del depósito.</li>
+            <li><b>La factura</b> suma la deuda del cliente.</li>
+            <li><b>La ruta</b> le dice al repartidor cuánto cobrar.</li>
+          </ul>
+          <div class="nv-chips"><span class="dn-chip dn-chip--ok">Los tres salen del mismo pedido</span></div>
+        </div>
+      </div>
+      <div class="nv-warn">
+        <b>Si se edita solo la factura, las otras dos quedan con el dato viejo</b>
+        <p class="nv-p">El stock sigue descontando lo que decía el pedido, el repartidor cobra un importe que ya no es el real y el pedido queda distinto de lo facturado. Por eso estos días aparecieron errores que antes no se veían.</p>
+      </div>
+      <h3 class="dn-label">Lo que vimos en la primera semana</h3>
+      <ul class="nv-rows">
+        <li><b class="nv-num">13</b><span>facturas reabiertas y editadas después de armar: lo facturado ya no coincide con lo que salió.</span></li>
+        <li><b class="nv-num">8</b><span>facturas de mercadería hechas a mano, sin remito: la deuda subió y el stock no bajó.</span></li>
+        <li><b class="nv-num">6</b><span>pedidos trabados en «Sin ruta»: se entregaron por fuera o se canceló la factura y el pedido quedó abierto.</span></li>
+        <li><b class="nv-num">6 veces</b><span>el error «No puedes eliminar ninguna de sus líneas», por querer corregir un pedido confirmado a mano.</span></li>
+      </ul>
+      <p class="nv-muted">Ninguno es culpa de nadie: son costumbres de Online que ahora chocan con el stock. Con los botones de abajo no vuelven a pasar.</p>
+      <a class="nv-up" href="#arriba">↑ Volver al índice</a>
+    </section>
+
+    <!-- Así se ve «Nueva venta» -->
+    <section class="nv-sec" id="pantalla">
+      <h2 class="dn-label">Así se ve «Nueva venta»</h2>
+      <p class="nv-h2">Cliente, productos y, al final, el camino de la venta</p>
+      <div class="nv-demo">
+        <div class="nv-phone" role="img" aria-label="Pantalla de Nueva venta, paso 3 de 3: cliente, productos y cómo sigue la venta, con A armar / reparto elegido">
+          <div class="nv-phone__in" aria-hidden="true">
+            <div class="nv-phone__top">
+              <span class="nv-phone__k">PASO 3 DE 3</span>
+              <span class="nv-phone__t">‹ Nueva venta</span>
+              <span class="nv-steps"><i></i><i></i><i></i></span>
+            </div>
+            <div class="nv-phone__body">
+              <div class="nv-ph-card">
+                <span class="nv-ph-k">1 · CLIENTE</span>
+                <span class="nv-ph-row"><b>Almacén de ejemplo</b><span class="nv-ph-link">Cambiar</span></span>
+              </div>
+              <div class="nv-ph-card">
+                <span class="nv-ph-k">2 · PRODUCTOS</span>
+                <span class="nv-ph-row"><span>Gaseosa 2,25 L</span><b>× 6</b></span>
+                <span class="nv-ph-row"><span>Galletitas 400 g</span><b>× 4</b></span>
+                <span class="nv-ph-row"><span>Yerba 1 kg</span><b>× 10</b></span>
+              </div>
+              <div class="nv-ph-card nv-ph-card--on">
+                <span class="nv-ph-k">3 · ¿CÓMO SIGUE?</span>
+                <span class="nv-ph-opt nv-ph-opt--on"><i></i><span><b>A armar / reparto</b><small>Va a Armado, como un pedido confirmado.</small></span></span>
+                <span class="nv-ph-opt"><i></i><span><b>Mostrador</b><small>Está presente y se lo lleva ya.</small></span></span>
+                <span class="nv-ph-opt"><i></i><span><b>Ya entregado</b><small>La mercadería ya salió.</small></span></span>
+                <span class="nv-ph-opt"><i></i><span><b>Presupuesto</b><small>Queda sin confirmar todavía.</small></span></span>
+              </div>
+              <span class="nv-ph-btn">Cargar la venta</span>
+            </div>
+          </div>
+        </div>
+        <div class="nv-demo__txt">
+          <h3 class="nv-h3">El paso 3 es el que conecta todo</h3>
+          <p class="nv-p">Según el camino que elijas, el sistema le avisa a cada sector qué hacer. Así funcionan juntos Armado, Depósito, Reparto, Caja y las cuentas.</p>
+          <div class="nv-paths">
+            <div class="nv-path"><b>A armar / reparto</b><span>Armado → factura y remito → Rutas → repartidor → rendición</span></div>
+            <div class="nv-path"><b>Mostrador</b><span>Factura y remito al instante → entrega en Depósito → Caja</span></div>
+            <div class="nv-path"><b>Ya entregado</b><span>Factura y remito con la fecha en que salió → stock y cuenta al día</span></div>
+            <div class="nv-path"><b>Presupuesto</b><span>Queda en espera → «Aprobar» → pasa a Armado</span></div>
+          </div>
+          <div class="nv-navy"><p><b class="nv-mint">Si la venta no entra por acá,</b> ningún sector se entera: el depósito no la arma, el stock no baja y el repartidor no sabe cuánto cobrar.</p></div>
+        </div>
+      </div>
+      <a class="nv-up" href="#arriba">↑ Volver al índice</a>
+    </section>
+
+    <!-- 1 · Elegí cómo sigue la venta -->
+    <section class="nv-sec" id="caminos">
+      <h2 class="dn-label">1 · Elegí cómo sigue la venta</h2>
+      <div class="nv-grid nv-grid--2">
+        <div class="nv-card">
+          <span class="nv-card__t">Presupuesto</span>
+          <p class="nv-p">El cliente pide precio o hay que aprobarlo.</p>
+          <p class="nv-muted">Guarda los precios de su lista. Cuando confirma, «Aprobar» en la pantalla del pedido y pasa a armado.</p>
+          <div class="nv-chips"><span class="dn-chip nv-chip-info">No mueve stock</span><span class="dn-chip nv-chip-info">No mueve deuda</span></div>
+        </div>
+        <div class="nv-card">
+          <span class="nv-card__t">A armar</span>
+          <p class="nv-p">Confirmó y va en el reparto.</p>
+          <p class="nv-muted">Armado → ruta → el repartidor entrega y cobra. Al terminar de armar salen solos la factura y el remito.</p>
+          <div class="nv-chips"><span class="dn-chip dn-chip--ok">Remito: baja el stock</span><span class="dn-chip dn-chip--ok">Factura: sube la deuda</span></div>
+        </div>
+        <div class="nv-card">
+          <span class="nv-card__t">Mostrador</span>
+          <p class="nv-p">Está en el depósito y se lo lleva ahora.</p>
+          <p class="nv-muted">Pedido, factura, remito y cobro, todo en el momento. Si paga por transferencia, «Subir comprobante».</p>
+          <div class="nv-chips"><span class="dn-chip dn-chip--ok">Todo en el momento</span></div>
+        </div>
+        <div class="nv-card">
+          <span class="nv-card__t">Ya entregado</span>
+          <p class="nv-p">La mercadería ya salió y falta registrarla.</p>
+          <p class="nv-muted">Crea pedido, factura y remito con la fecha en que salió. Pide el motivo y no entra a ninguna ruta.</p>
+          <div class="nv-chips"><span class="dn-chip dn-chip--ok">Stock y deuda quedan bien</span></div>
+        </div>
+      </div>
+      <a class="nv-up" href="#arriba">↑ Volver al índice</a>
+    </section>
+
+    <!-- 2 · Qué mueve cada documento -->
+    <section class="nv-sec" id="documentos">
+      <h2 class="dn-label">2 · Qué mueve cada documento</h2>
+      <div class="nv-grid nv-grid--3">
+        <div class="nv-card"><span class="nv-card__t">Remito</span><p class="nv-p">Baja el stock. Sin remito, el sistema cree que la mercadería sigue en el depósito.</p></div>
+        <div class="nv-card"><span class="nv-card__t">Factura</span><p class="nv-p">Sube la deuda del cliente y aparece en su estado de cuenta.</p></div>
+        <div class="nv-card"><span class="nv-card__t">Nota de crédito</span><p class="nv-p">Baja la deuda. Si vuelve mercadería, sube el stock.</p></div>
+      </div>
+      <p class="nv-muted">Si se saltea un documento, se rompe lo que ese documento mueve. Nueva venta los hace siempre juntos.</p>
+      <a class="nv-up" href="#arriba">↑ Volver al índice</a>
+    </section>
+
+    <!-- 3 · Pedidos que entran solos -->
+    <section class="nv-sec" id="solos">
+      <h2 class="dn-label">3 · Pedidos que entran solos</h2>
+      <div class="nv-card">
+        <p class="nv-p">Los pedidos de la <b>página web</b> y de <b>AgilPedido</b> no se vuelven a cargar a mano.</p>
+        <ol class="nv-flow">
+          <li>Pedidos para revisar</li><li class="nv-arrow" aria-hidden="true">→</li>
+          <li>Aprobar</li><li class="nv-arrow" aria-hidden="true">→</li>
+          <li>Armado</li><li class="nv-arrow" aria-hidden="true">→</li>
+          <li>Reparto</li>
+        </ol>
+      </div>
+      <a class="nv-up" href="#arriba">↑ Volver al índice</a>
+    </section>
+
+    <!-- 4 · ¿Cambió algo a último momento? -->
+    <section class="nv-sec" id="cambios">
+      <h2 class="dn-label">4 · ¿Cambió algo a último momento?</h2>
+      <div class="nv-navy">
+        <div class="nv-case"><b class="nv-mint">Todavía no la cargaste</b><span>Cambiala en la misma Nueva venta.</span></div>
+        <hr/>
+        <div class="nv-case"><b class="nv-mint">Algo no se lo lleva</b><span>En la entrega: «¿Devolvió algo?» → <b>Sí</b>, y marcá qué. La mercadería vuelve al stock sola.</span></div>
+        <hr/>
+        <div class="nv-case"><b class="nv-mint">Se suma algo</b><span>Tocá <b>«Agregar a este cliente»</b>: es otra venta con su propia factura.</span></div>
+        <hr/>
+        <div class="nv-case"><b class="nv-mint">Se cae toda la venta</b><span><b>«Anular venta»</b> en la pantalla del pedido.</span></div>
+      </div>
+      <a class="nv-up" href="#arriba">↑ Volver al índice</a>
+    </section>
+
+    <!-- 5 · El botón para cada caso -->
+    <section class="nv-sec" id="botones">
+      <h2 class="dn-label">5 · El botón para cada caso</h2>
+      <ul class="nv-rows">
+        <li><span class="nv-when">El cliente devolvió algo</span><span class="nv-do">«¿Devolvió algo?» → Sí, en la visita o en la entrega en depósito</span></li>
+        <li><span class="nv-when">Cancelar una venta entera</span><span class="nv-do">«Anular venta»: devuelve la mercadería y hace la nota de crédito</span></li>
+        <li><span class="nv-when">Corregir cantidades antes de entregar</span><span class="nv-do">«Rearmar» en Armado</span></li>
+        <li><span class="nv-when">Se lo llevó y quedó en «Sin ruta»</span><span class="nv-do">«Entrega en depósito», o «Ya lo armé y ya se entregó»</span></li>
+        <li><span class="nv-when">Fletes y servicios</span><span class="nv-do">«Facturación directa» (solo Denis y Gonzalo)</span></li>
+      </ul>
+      <a class="nv-up" href="#arriba">↑ Volver al índice</a>
+    </section>
+
+    <!-- 6 · Lo que ya no se hace -->
+    <section class="nv-sec nv-sec--no" id="ya-no">
+      <h2 class="dn-label">6 · Lo que ya no se hace</h2>
+      <ul class="nv-no">
+        <li><b>No</b><span>vender desde Ventas › Cotizaciones ni Facturación › Facturas.</span></li>
+        <li><b>No</b><span>reabrir ni cancelar una factura. El sistema ya no lo permite.</span></li>
+        <li><b>No</b><span>agregar ni sacar renglones de un pedido confirmado.</span></li>
+        <li><b>No</b><span>cargar devoluciones como nota de crédito ni como renglón negativo.</span></li>
+      </ul>
+    </section>
+
+    <!-- footer «¿Por qué?» -->
+    <section class="nv-sec" id="por-que-final">
+      <div class="nv-navy"><p><b class="nv-mint">¿Por qué?</b> Estamos ordenando las operaciones para proyectar el stock: cada factura tiene que coincidir con lo que salió del depósito.</p></div>
+    </section>
+
+    <t t-call="distri_pedido.novedades_compartir"/>
+    <a class="dn-btn dn-btn--ghost" href="/novedades" data-dn="up">Ver todas las novedades</a>
+  </main>
+  <t t-call="distri_pedido.dn_page_nav"/>
+</body>
+</html>
+  </template>
+</odoo>

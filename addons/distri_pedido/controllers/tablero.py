@@ -120,6 +120,10 @@ TILES = [
     # 19.0.1.119.0: the staff training page (controllers/proyecto.py), for
     # every internal user, last so it never pushes the daily work down
     # (19.0.1.122.0: the order is DEFAULT_TILE_ORDER)
+    # 19.0.1.129.54: «Novedades» (controllers/novedades.py), what's new and
+    # the selling guide, for every internal user, right before «Capacitación»
+    ("novedades", None, "Novedades", "Lo nuevo y cómo se trabaja ahora",
+     IMG + "app.png", "news", "/novedades"),
     ("capacitacion", None, "Capacitación", "Cómo se usa cada pantalla y dónde practicar",
      IMG + "app.png", "doc", "/proyecto"),
 ]
@@ -135,7 +139,7 @@ TILES = [
 DEFAULT_TILE_ORDER = (
     "pedido", "misventas", "agilpedido", "revisar", "armado", "deposito", "rutas", "despacho",
     "mireparto", "reparto", "cobro", "caja", "comprobantes", "cuentas", "historial",
-    "cobros", "capacitacion",
+    "cobros", "novedades", "capacitacion",
 )
 
 
@@ -513,6 +517,13 @@ def _badge_cobros(env):
     return {"text": _plural(n, "nuevo", "nuevos"), "kind": "warn", "n": n} if n else None
 
 
+def _badge_novedades(env):
+    """19.0.1.129.54: «Nuevo» while the newest entry is recent (no query)."""
+    from ..models.reparto_cliente import today_ar
+    from .novedades import has_new
+    return {"text": "Nuevo", "kind": "", "n": 1} if has_new(today_ar()) else None
+
+
 TILE_BADGES = {
     "revisar": _badge_revisar,
     "armado": _badge_armado,
@@ -528,6 +539,8 @@ TILE_BADGES = {
     "verificacion": _badge_verificacion,
     # 19.0.1.129.41 (ui_v2 only)
     "contactos": _badge_contactos,
+    # 19.0.1.129.54
+    "novedades": _badge_novedades,
 }
 
 
@@ -685,7 +698,7 @@ TILE_GROUPS = (
     ("Cobros y caja", ("cobro", "caja", "comprobantes", "historial", "cobros", "verificacion",
                        "tablerocobros", "reportemp")),
     ("Clientes", ("contactos", "cuentas", "listas")),
-    ("Sistema", ("equipo", "capacitacion")),
+    ("Sistema", ("equipo", "novedades", "capacitacion")),
 )
 GROUPED_ROLES = ("distri_pedido.grupo_administracion", "base.group_system")
 

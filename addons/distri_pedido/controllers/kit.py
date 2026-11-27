@@ -131,6 +131,8 @@ FILES = {
     "rendiciones_v2.js": ("kit/rendiciones_v2.js", "text/javascript; charset=utf-8"),
     # 19.0.1.129.52: «Listas y accesos» (controllers/listas.py)
     "listas.css": ("kit/listas.css", "text/css; charset=utf-8"),
+    # 19.0.1.129.54: «Novedades» (controllers/novedades.py)
+    "novedades.css": ("kit/novedades.css", "text/css; charset=utf-8"),
     # 19.0.1.129.53: «Nueva venta» on the PC, «estilo planilla»
     # (controllers/nueva_venta_pc.py, nueva_venta and ui_v2 only)
     "planilla.css": ("nueva_venta/planilla.css", "text/css; charset=utf-8"),
@@ -300,6 +302,9 @@ SCREEN_PARENTS = {
     "/listas/cigarrillos/vincular": ("/listas/cigarrillos",),
     "/listas/accesos": ("/listas",),
     "/listas/carga": ("/listas",),
+    # 19.0.1.129.54: «Novedades» (controllers/novedades.py adds one screen
+    # per entry, under the index)
+    "/novedades": (HOME,),
 }
 # 19.0.1.129.31: one screen per queue of «Tablero de verificación»
 SCREEN_PARENTS.update({"/verificacion/%s" % key: ("/verificacion",) for key in (
